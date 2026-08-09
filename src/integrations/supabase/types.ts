@@ -1464,6 +1464,7 @@ export type Database = {
       }
       venda_itens: {
         Row: {
+          created_at: string
           descricao: string
           id: string
           preco_unitario: number
@@ -1473,6 +1474,7 @@ export type Database = {
           venda_id: string
         }
         Insert: {
+          created_at?: string
           descricao: string
           id?: string
           preco_unitario?: number
@@ -1482,6 +1484,7 @@ export type Database = {
           venda_id: string
         }
         Update: {
+          created_at?: string
           descricao?: string
           id?: string
           preco_unitario?: number
