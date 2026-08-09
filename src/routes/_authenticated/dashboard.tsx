@@ -116,7 +116,7 @@ function Dashboard() {
         title={`Olá, ${profile?.nome?.split(" ")[0] || "Administrador"}`}
         subtitle={profile?.loja ? `Painel da ${profile.loja}` : "Visão geral da sua operação"}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/ferramentas"
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg hover:bg-primary/90"

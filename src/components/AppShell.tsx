@@ -179,7 +179,7 @@ export function PageHeader({
         <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {action}
         <div className="hidden lg:block">
           <ThemeToggle />
