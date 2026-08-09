@@ -98,7 +98,7 @@ export function OsFotos({ osId, numero }: { osId: string; numero: number }) {
           <Camera className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-primary" />
@@ -111,12 +111,12 @@ export function OsFotos({ osId, numero }: { osId: string; numero: number }) {
           onValueChange={(v) => setTabAtiva(v as Categoria)} 
           className="mt-4"
         >
-          <TabsList className="grid w-full grid-cols-3 bg-secondary/50">
+          <TabsList className="grid h-auto w-full grid-cols-3 bg-secondary/50">
             {CATEGORIAS.map((c) => (
-              <TabsTrigger 
-                key={c.value} 
+              <TabsTrigger
+                key={c.value}
                 value={c.value}
-                className="data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                className="px-1.5 py-1.5 text-[11px] data-[state=active]:bg-background data-[state=active]:shadow-sm sm:px-3 sm:text-sm"
               >
                 {c.label}
                 <span className="ml-1.5 rounded-full bg-muted-foreground/20 px-1.5 py-0.5 text-[10px]">

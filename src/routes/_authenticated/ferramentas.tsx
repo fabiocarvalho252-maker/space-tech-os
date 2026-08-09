@@ -170,52 +170,56 @@ function Ferramentas() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Modelo</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Marca</th>
-              <th className="px-4 py-3">Película compatível</th>
-              <th className="hidden px-4 py-3 md:table-cell">Código</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtrados.map((p) => (
-              <tr key={p.id}>
-                <td className="px-4 py-3 font-medium">{p.modelo}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">{p.marca}</td>
-                <td className="px-4 py-3">{p.pelicula_compativel}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                  {p.codigo || "—"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {gerenciar && (
-                    <button
-                      onClick={() => remover.mutate(p.id)}
-                      className="text-muted-foreground transition hover:text-destructive"
-                      aria-label="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!filtrados.length && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center gap-3">
-                    <Layers className="h-6 w-6 opacity-40" />
-                    {busca
-                      ? "Nada encontrado no catálogo para essa busca."
-                      : "Nenhum item cadastrado no catálogo ainda."}
-                  </div>
-                </td>
+                <th className="px-4 py-3">Modelo</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Marca</th>
+                <th className="px-4 py-3">Película compatível</th>
+                <th className="hidden px-4 py-3 md:table-cell">Código</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtrados.map((p) => (
+                <tr key={p.id}>
+                  <td className="px-4 py-3 font-medium">{p.modelo}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {p.marca}
+                  </td>
+                  <td className="px-4 py-3">{p.pelicula_compativel}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                    {p.codigo || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {gerenciar && (
+                      <button
+                        onClick={() => remover.mutate(p.id)}
+                        className="text-muted-foreground transition hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!filtrados.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center gap-3">
+                      <Layers className="h-6 w-6 opacity-40" />
+                      {busca
+                        ? "Nada encontrado no catálogo para essa busca."
+                        : "Nenhum item cadastrado no catálogo ainda."}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {busca && !filtrados.length && (

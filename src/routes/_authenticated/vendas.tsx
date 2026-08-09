@@ -485,80 +485,82 @@ function Vendas() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Nº</th>
-              <th className="px-4 py-3">Data</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Pagamento</th>
-              <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtrados.map((v) => (
-              <tr key={v.id}>
-                <td className="px-4 py-3 font-medium">
-                  #{String(v.numero ?? "—").padStart(4, "0")}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{dataBR(v.created_at)}</td>
-                <td className="px-4 py-3">{v.cliente?.nome ?? "Consumidor final"}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                  {v.forma_pagamento}
-                </td>
-                <td className="px-4 py-3 font-semibold">{brl(v.total)}</td>
-                <td className="p-3">
-                  <select
-                    value={v.status ?? "aberto"}
-                    onChange={(e) =>
-                      mudarStatus.mutate({ id: v.id, status: e.target.value, origem: v.status })
-                    }
-                    className={`h-8 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
-                      v.status === "faturado" || v.status === "finalizado"
-                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                        : v.status === "cancelado"
-                          ? "bg-destructive/10 text-destructive border-destructive/20"
-                          : "bg-primary/10 text-primary border-primary/20"
-                    }`}
-                  >
-                    {STATUS_VENDAS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setDetalheId(v.id)}
-                      className="text-muted-foreground transition hover:text-primary"
-                      aria-label="Ver itens"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => remover.mutate(v.id)}
-                      className="text-muted-foreground transition hover:text-destructive"
-                      aria-label="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!filtrados.length && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  Nenhuma venda encontrada.
-                </td>
+                <th className="px-4 py-3">Nº</th>
+                <th className="px-4 py-3">Data</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Pagamento</th>
+                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtrados.map((v) => (
+                <tr key={v.id}>
+                  <td className="px-4 py-3 font-medium">
+                    #{String(v.numero ?? "—").padStart(4, "0")}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{dataBR(v.created_at)}</td>
+                  <td className="px-4 py-3">{v.cliente?.nome ?? "Consumidor final"}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {v.forma_pagamento}
+                  </td>
+                  <td className="px-4 py-3 font-semibold">{brl(v.total)}</td>
+                  <td className="p-3">
+                    <select
+                      value={v.status ?? "aberto"}
+                      onChange={(e) =>
+                        mudarStatus.mutate({ id: v.id, status: e.target.value, origem: v.status })
+                      }
+                      className={`h-8 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
+                        v.status === "faturado" || v.status === "finalizado"
+                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                          : v.status === "cancelado"
+                            ? "bg-destructive/10 text-destructive border-destructive/20"
+                            : "bg-primary/10 text-primary border-primary/20"
+                      }`}
+                    >
+                      {STATUS_VENDAS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setDetalheId(v.id)}
+                        className="text-muted-foreground transition hover:text-primary"
+                        aria-label="Ver itens"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => remover.mutate(v.id)}
+                        className="text-muted-foreground transition hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!filtrados.length && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                    Nenhuma venda encontrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Dialog open={!!detalheId} onOpenChange={(v) => !v && setDetalheId(null)}>

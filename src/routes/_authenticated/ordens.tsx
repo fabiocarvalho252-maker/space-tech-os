@@ -1,7 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Plus, Printer, Trash2, FileCheck, Package, ShoppingCart, Minus, QrCode, Edit, Filter, X, MessageCircle, DollarSign, Receipt, Eye, EyeOff, Sparkles, Wand2 } from "lucide-react";
+import {
+  Plus,
+  Printer,
+  Trash2,
+  FileCheck,
+  Package,
+  ShoppingCart,
+  Minus,
+  QrCode,
+  Edit,
+  Filter,
+  X,
+  MessageCircle,
+  DollarSign,
+  Receipt,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ajustarLaudo } from "@/lib/laudo.functions";
 import { toast } from "sonner";
@@ -11,7 +30,6 @@ import { OsFotos } from "@/components/OsFotos";
 import { PatternLock } from "@/components/PatternLock";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
-
 
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, statusLabel } from "@/lib/format";
@@ -56,7 +74,6 @@ const vazio = {
   itens: [] as any[],
 };
 
-
 function Ordens() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
@@ -97,11 +114,17 @@ function Ordens() {
   const [novoServico, setNovoServico] = useState(itemVazio);
 
   const totalProdutos = useMemo(
-    () => itensEdicao.filter((i) => i.tipo === "produto").reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
+    () =>
+      itensEdicao
+        .filter((i) => i.tipo === "produto")
+        .reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
     [itensEdicao],
   );
   const totalServicos = useMemo(
-    () => itensEdicao.filter((i) => i.tipo === "servico").reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
+    () =>
+      itensEdicao
+        .filter((i) => i.tipo === "servico")
+        .reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
     [itensEdicao],
   );
   const totalOs = Math.max(totalProdutos + totalServicos - (Number(desconto) || 0), 0);
@@ -112,7 +135,8 @@ function Ordens() {
       toast.error(tipo === "produto" ? "Informe o produto" : "Informe o serviço");
       return;
     }
-    const produto = tipo === "produto" ? produtos.find((p: any) => p.nome === base.descricao) : null;
+    const produto =
+      tipo === "produto" ? produtos.find((p: any) => p.nome === base.descricao) : null;
     setItensEdicao([
       ...itensEdicao,
       {
@@ -156,7 +180,10 @@ function Ordens() {
       itens: [],
     });
     setEditOpen(true);
-    const { data } = await supabase.from("os_itens" as any).select("*").eq("os_id", os.id);
+    const { data } = await supabase
+      .from("os_itens" as any)
+      .select("*")
+      .eq("os_id", os.id);
     setItensEdicao(
       ((data as any[]) ?? []).map((i) => ({
         id: i.id,
@@ -195,7 +222,6 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const { data: ordens = [] } = useQuery({
     queryKey: ["ordens"],
     queryFn: async () => {
@@ -210,7 +236,8 @@ function Ordens() {
 
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes"],
-    queryFn: async () => (await supabase.from("clientes").select("id, nome").order("nome")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("clientes").select("id, nome").order("nome")).data ?? [],
   });
 
   const { data: produtos = [] } = useQuery({
@@ -221,35 +248,39 @@ function Ordens() {
   const criar = useMutation({
     mutationFn: async () => {
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
-      
-      const { data: os, error } = await supabase.from("ordens_servico").insert({
-        user_id: user!.id,
-        cliente_id: form.cliente_id || null,
-        aparelho: form.aparelho,
-        marca: form.marca,
-        modelo: form.modelo,
-        imei: form.imei,
-        cor: form.cor,
-        senha_dispositivo: form.senha_dispositivo,
-        padrao_desbloqueio: form.padrao_desbloqueio,
-        defeito: form.defeito,
-        diagnostico: form.diagnostico,
-        valor: Number(form.valor) || 0,
-        status: form.status,
-      } as any).select().single();
+
+      const { data: os, error } = await supabase
+        .from("ordens_servico")
+        .insert({
+          user_id: user!.id,
+          cliente_id: form.cliente_id || null,
+          aparelho: form.aparelho,
+          marca: form.marca,
+          modelo: form.modelo,
+          imei: form.imei,
+          cor: form.cor,
+          senha_dispositivo: form.senha_dispositivo,
+          padrao_desbloqueio: form.padrao_desbloqueio,
+          defeito: form.defeito,
+          diagnostico: form.diagnostico,
+          valor: Number(form.valor) || 0,
+          status: form.status,
+        } as any)
+        .select()
+        .single();
 
       if (error) throw error;
 
       if (form.itens.length > 0) {
         const { error: itensError } = await supabase.from("os_itens" as any).insert(
-          form.itens.map(i => ({
+          form.itens.map((i) => ({
             user_id: user!.id,
             os_id: os.id,
             produto_id: i.produto_id,
             descricao: i.descricao,
             quantidade: i.quantidade,
             preco_unitario: i.preco_unitario,
-          }))
+          })),
         );
         if (itensError) throw itensError;
       }
@@ -269,30 +300,36 @@ function Ordens() {
       if (!selectedOsId) return;
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
-      const { error } = await supabase.from("ordens_servico").update({
-        cliente_id: form.cliente_id || null,
-        aparelho: form.aparelho,
-        marca: form.marca,
-        modelo: form.modelo,
-        imei: form.imei,
-        serial_number: form.serial_number,
-        cor: form.cor,
-        senha_dispositivo: form.senha_dispositivo,
-        padrao_desbloqueio: form.padrao_desbloqueio,
-        defeito: form.defeito,
-        diagnostico: form.diagnostico,
-        laudo_tecnico: laudo,
-        anotacoes,
-        desconto: Number(desconto) || 0,
-        valor_pago: Number(valorPago) || 0,
-        status_pagamento: statusPagamento,
-        valor: totalOs,
-        status: form.status,
-      } as any).eq("id", selectedOsId);
+      const { error } = await supabase
+        .from("ordens_servico")
+        .update({
+          cliente_id: form.cliente_id || null,
+          aparelho: form.aparelho,
+          marca: form.marca,
+          modelo: form.modelo,
+          imei: form.imei,
+          serial_number: form.serial_number,
+          cor: form.cor,
+          senha_dispositivo: form.senha_dispositivo,
+          padrao_desbloqueio: form.padrao_desbloqueio,
+          defeito: form.defeito,
+          diagnostico: form.diagnostico,
+          laudo_tecnico: laudo,
+          anotacoes,
+          desconto: Number(desconto) || 0,
+          valor_pago: Number(valorPago) || 0,
+          status_pagamento: statusPagamento,
+          valor: totalOs,
+          status: form.status,
+        } as any)
+        .eq("id", selectedOsId);
 
       if (error) throw error;
 
-      const { error: delError } = await supabase.from("os_itens" as any).delete().eq("os_id", selectedOsId);
+      const { error: delError } = await supabase
+        .from("os_itens" as any)
+        .delete()
+        .eq("os_id", selectedOsId);
       if (delError) throw delError;
 
       if (itensEdicao.length > 0) {
@@ -328,7 +365,12 @@ function Ordens() {
       if (!selectedOsId) throw new Error("Nenhuma OS selecionada");
       const { error } = await supabase
         .from("ordens_servico")
-        .update({ status: "faturado", status_pagamento: "pago", valor_pago: totalOs, valor: totalOs } as any)
+        .update({
+          status: "faturado",
+          status_pagamento: "pago",
+          valor_pago: totalOs,
+          valor: totalOs,
+        } as any)
         .eq("id", selectedOsId);
       if (error) throw error;
     },
@@ -343,11 +385,13 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const { data: statusFlows = [] } = useQuery({
     queryKey: ["os-status-flows"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("os_status_flows" as any).select("*").eq("ativo", true);
+      const { data, error } = await supabase
+        .from("os_status_flows" as any)
+        .select("*")
+        .eq("ativo", true);
       if (error) throw error;
       return data as any[];
     },
@@ -358,9 +402,11 @@ function Ordens() {
     mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
       // Validar fluxo se houver fluxos configurados
       if (origem && statusFlows.length > 0) {
-        const permitido = statusFlows.some(f => f.origem === origem && f.destino === status);
+        const permitido = statusFlows.some((f) => f.origem === origem && f.destino === status);
         if (!permitido) {
-          throw new Error(`Transição de ${statusLabel(origem)} para ${statusLabel(status)} não permitida no seu fluxo.`);
+          throw new Error(
+            `Transição de ${statusLabel(origem)} para ${statusLabel(status)} não permitida no seu fluxo.`,
+          );
         }
       }
 
@@ -374,7 +420,7 @@ function Ordens() {
     },
     onError: (error: Error) => {
       toast.error(error.message);
-    }
+    },
   });
 
   const remover = useMutation({
@@ -405,20 +451,20 @@ function Ordens() {
       supabase
         .from("service_order_photos" as any)
         .select("*")
-        .eq("os_id", os.id)
+        .eq("os_id", os.id),
     ]);
 
     const osConfig = osConfigData as any;
-    
+
     // Gerar QR Code se configurado
     let qrCodeHtml = "";
     if (osConfig?.imprimir_qrcode_cliente) {
       const clienteUrl = `${window.location.origin}/consulta/${os.id}`;
       qrCodeHtml = renderToString(
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
           <QRCodeSVG value={clienteUrl} size={100} />
-          <p style={{ fontSize: '10px', marginTop: '5px' }}>Acompanhe sua OS online</p>
-        </div>
+          <p style={{ fontSize: "10px", marginTop: "5px" }}>Acompanhe sua OS online</p>
+        </div>,
       );
     }
 
@@ -429,13 +475,17 @@ function Ordens() {
         <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
           <h3 style="font-size: 14px; margin-bottom: 10px;">Fotos do Equipamento</h3>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            ${fotos.map((f: any) => `
+            ${fotos
+              .map(
+                (f: any) => `
               <div style="text-align: center;">
-                <img src="${supabase.storage.from('os-fotos').getPublicUrl(f.file_path).data.publicUrl}" 
+                <img src="${supabase.storage.from("os-fotos").getPublicUrl(f.file_path).data.publicUrl}" 
                      style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" />
-                <p style="font-size: 8px; color: #999; margin-top: 2px;">${f.phase === 'entrada' ? 'Entrada' : f.phase === 'reparo' ? 'Durante' : 'Saída'}</p>
+                <p style="font-size: 8px; color: #999; margin-top: 2px;">${f.phase === "entrada" ? "Entrada" : f.phase === "reparo" ? "Durante" : "Saída"}</p>
               </div>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </div>
         </div>
       `;
@@ -443,14 +493,14 @@ function Ordens() {
 
     const conteudoVias = [];
     const numVias = osConfig?.imprimir_duas_vias ? 2 : 1;
-    
+
     for (let i = 0; i < numVias; i++) {
       conteudoVias.push(`
-        <div class="via" style="${i > 0 ? 'margin-top: 50px; border-top: 2px dashed #ccc; padding-top: 50px; page-break-before: always;' : ''}">
+        <div class="via" style="${i > 0 ? "margin-top: 50px; border-top: 2px dashed #ccc; padding-top: 50px; page-break-before: always;" : ""}">
           <header>
             <div>
               <h1>${profile?.loja ?? "Assistência Técnica"}</h1>
-              <small>Ordem de Serviço nº ${os.numero} - ${i === 0 ? 'Via do Cliente' : 'Via da Empresa'}</small>
+              <small>Ordem de Serviço nº ${os.numero} - ${i === 0 ? "Via do Cliente" : "Via da Empresa"}</small>
             </div>
             <div style="text-align:right">
               <strong>${dataBR(os.created_at)}</strong><br>
@@ -488,7 +538,7 @@ function Ordens() {
 
     const janela = window.open("", "_blank", "width=800,height=900");
     if (!janela) return;
-    
+
     janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
       <title>OS ${os.numero}</title>
       <style>
@@ -504,34 +554,38 @@ function Ordens() {
         @media print { .via { page-break-after: always; } .via:last-child { page-break-after: avoid; } }
       </style>
       </head><body>
-      ${conteudoVias.join('')}
+      ${conteudoVias.join("")}
       <script>window.onload=()=>window.print()<\/script>
       </body></html>`);
 
     janela.document.close();
   }
 
-
   const lista = useMemo(() => {
-    let base = (filtro === "todas" ? ordens : ordens.filter((o) => (o as any).status === filtro)) as any[];
+    let base = (
+      filtro === "todas" ? ordens : ordens.filter((o) => (o as any).status === filtro)
+    ) as any[];
 
     if (filtrosAvancados.dataInicio) {
-      base = base.filter(o => new Date(o.created_at) >= new Date(filtrosAvancados.dataInicio));
+      base = base.filter((o) => new Date(o.created_at) >= new Date(filtrosAvancados.dataInicio));
     }
     if (filtrosAvancados.dataFim) {
       const dataFim = new Date(filtrosAvancados.dataFim);
       dataFim.setHours(23, 59, 59, 999);
-      base = base.filter(o => new Date(o.created_at) <= dataFim);
+      base = base.filter((o) => new Date(o.created_at) <= dataFim);
     }
     if (filtrosAvancados.responsavel) {
-      base = base.filter(o => o.responsavel?.toLowerCase().includes(filtrosAvancados.responsavel.toLowerCase()));
+      base = base.filter((o) =>
+        o.responsavel?.toLowerCase().includes(filtrosAvancados.responsavel.toLowerCase()),
+      );
     }
     if (filtrosAvancados.busca) {
       const b = filtrosAvancados.busca.toLowerCase();
-      base = base.filter(o => 
-        o.aparelho?.toLowerCase().includes(b) || 
-        o.clientes?.nome?.toLowerCase().includes(b) ||
-        o.numero?.toString().includes(b)
+      base = base.filter(
+        (o) =>
+          o.aparelho?.toLowerCase().includes(b) ||
+          o.clientes?.nome?.toLowerCase().includes(b) ||
+          o.numero?.toString().includes(b),
       );
     }
 
@@ -584,7 +638,11 @@ function Ordens() {
                   value={form.aparelho}
                   onChange={(v) => setForm({ ...form, aparelho: v })}
                 />
-                <Campo label="Marca" value={form.marca} onChange={(v) => setForm({ ...form, marca: v })} />
+                <Campo
+                  label="Marca"
+                  value={form.marca}
+                  onChange={(v) => setForm({ ...form, marca: v })}
+                />
                 <Campo
                   label="Modelo"
                   value={form.modelo}
@@ -617,56 +675,67 @@ function Ordens() {
                   />
                 </div>
 
-
                 <div className="space-y-3 sm:col-span-2 border-t border-border pt-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-bold flex items-center gap-2">
                       <Package className="h-4 w-4 text-primary" /> Peças e Serviços
                     </Label>
                     <div className="flex gap-2">
-                      <select 
+                      <select
                         className="h-8 rounded-md border border-input bg-card px-2 text-xs"
                         onChange={(e) => {
-                          const p = (produtos as any[]).find(x => x.id === e.target.value);
+                          const p = (produtos as any[]).find((x) => x.id === e.target.value);
                           if (!p) return;
                           if (p.quantidade <= 0) {
                             toast.error("Produto sem estoque");
                             return;
                           }
-                          const itens = [...form.itens, {
-                            produto_id: p.id,
-                            descricao: p.nome,
-                            quantidade: 1,
-                            preco_unitario: Number(p.preco_venda)
-                          }];
-                          const novoTotal = itens.reduce((s, i) => s + (i.quantidade * i.preco_unitario), 0);
+                          const itens = [
+                            ...form.itens,
+                            {
+                              produto_id: p.id,
+                              descricao: p.nome,
+                              quantidade: 1,
+                              preco_unitario: Number(p.preco_venda),
+                            },
+                          ];
+                          const novoTotal = itens.reduce(
+                            (s, i) => s + i.quantidade * i.preco_unitario,
+                            0,
+                          );
                           setForm({ ...form, itens, valor: String(novoTotal) });
                         }}
                         value=""
                       >
                         <option value="">+ Adicionar Peça</option>
-                        {(produtos as any[]).map(p => (
+                        {(produtos as any[]).map((p) => (
                           <option key={p.id} value={p.id} disabled={p.quantidade <= 0}>
                             {p.nome} ({p.quantidade} un) - {brl(p.preco_venda)}
                           </option>
                         ))}
                       </select>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="h-8 text-xs"
                         onClick={() => {
                           const desc = prompt("Descrição do serviço:");
                           if (!desc) return;
                           const preco = prompt("Preço (R$):", "0");
                           if (!preco) return;
-                          const itens = [...form.itens, {
-                            produto_id: null,
-                            descricao: desc,
-                            quantidade: 1,
-                            preco_unitario: Number(preco)
-                          }];
-                          const novoTotal = itens.reduce((s, i) => s + (i.quantidade * i.preco_unitario), 0);
+                          const itens = [
+                            ...form.itens,
+                            {
+                              produto_id: null,
+                              descricao: desc,
+                              quantidade: 1,
+                              preco_unitario: Number(preco),
+                            },
+                          ];
+                          const novoTotal = itens.reduce(
+                            (s, i) => s + i.quantidade * i.preco_unitario,
+                            0,
+                          );
                           setForm({ ...form, itens, valor: String(novoTotal) });
                         }}
                       >
@@ -674,47 +743,67 @@ function Ordens() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     {form.itens.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 rounded-lg border border-border p-2 bg-muted/30 text-sm">
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 rounded-lg border border-border p-2 bg-muted/30 text-sm"
+                      >
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{item.descricao}</p>
-                          <p className="text-xs text-muted-foreground">{brl(item.preco_unitario)} cada</p>
+                          <p className="text-xs text-muted-foreground">
+                            {brl(item.preco_unitario)} cada
+                          </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button
                             className="p-1 rounded hover:bg-muted"
                             onClick={() => {
-                              const itens = form.itens.map((it, i) => i === idx ? { ...it, quantidade: Math.max(1, it.quantidade - 1) } : it);
-                              const novoTotal = itens.reduce((s, i) => s + (i.quantidade * i.preco_unitario), 0);
+                              const itens = form.itens.map((it, i) =>
+                                i === idx
+                                  ? { ...it, quantidade: Math.max(1, it.quantidade - 1) }
+                                  : it,
+                              );
+                              const novoTotal = itens.reduce(
+                                (s, i) => s + i.quantidade * i.preco_unitario,
+                                0,
+                              );
                               setForm({ ...form, itens, valor: String(novoTotal) });
                             }}
                           >
                             <Minus className="h-3 w-3" />
                           </button>
                           <span className="font-bold w-4 text-center">{item.quantidade}</span>
-                          <button 
+                          <button
                             className="p-1 rounded hover:bg-muted"
                             onClick={() => {
-                              const p = (produtos as any[]).find(x => x.id === item.produto_id);
+                              const p = (produtos as any[]).find((x) => x.id === item.produto_id);
                               if (p && item.quantidade >= p.quantidade) {
                                 toast.error("Estoque insuficiente");
                                 return;
                               }
-                              const itens = form.itens.map((it, i) => i === idx ? { ...it, quantidade: it.quantidade + 1 } : it);
-                              const novoTotal = itens.reduce((s, i) => s + (i.quantidade * i.preco_unitario), 0);
+                              const itens = form.itens.map((it, i) =>
+                                i === idx ? { ...it, quantidade: it.quantidade + 1 } : it,
+                              );
+                              const novoTotal = itens.reduce(
+                                (s, i) => s + i.quantidade * i.preco_unitario,
+                                0,
+                              );
                               setForm({ ...form, itens, valor: String(novoTotal) });
                             }}
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                        <button 
+                        <button
                           className="text-muted-foreground hover:text-destructive"
                           onClick={() => {
                             const itens = form.itens.filter((_, i) => i !== idx);
-                            const novoTotal = itens.reduce((s, i) => s + (i.quantidade * i.preco_unitario), 0);
+                            const novoTotal = itens.reduce(
+                              (s, i) => s + i.quantidade * i.preco_unitario,
+                              0,
+                            );
                             setForm({ ...form, itens, valor: String(novoTotal) });
                           }}
                         >
@@ -776,10 +865,10 @@ function Ordens() {
             {s.label}
           </button>
         ))}
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className={`ml-auto gap-2 rounded-full ${showFilters ? 'bg-primary/10 border-primary text-primary' : ''}`}
+        <Button
+          variant="outline"
+          size="sm"
+          className={`ml-auto gap-2 rounded-full ${showFilters ? "bg-primary/10 border-primary text-primary" : ""}`}
           onClick={() => setShowFilters(!showFilters)}
         >
           {showFilters ? <X className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
@@ -791,51 +880,61 @@ function Ordens() {
         <div className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-4 animate-in fade-in slide-in-from-top-2">
           <div className="space-y-1.5">
             <Label className="text-xs">Data Início</Label>
-            <Input 
-              type="date" 
+            <Input
+              type="date"
               className="h-9 text-xs"
               value={filtrosAvancados.dataInicio}
-              onChange={e => setFiltrosAvancados(prev => ({ ...prev, dataInicio: e.target.value }))}
+              onChange={(e) =>
+                setFiltrosAvancados((prev) => ({ ...prev, dataInicio: e.target.value }))
+              }
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Data Fim</Label>
-            <Input 
-              type="date" 
+            <Input
+              type="date"
               className="h-9 text-xs"
               value={filtrosAvancados.dataFim}
-              onChange={e => setFiltrosAvancados(prev => ({ ...prev, dataFim: e.target.value }))}
+              onChange={(e) =>
+                setFiltrosAvancados((prev) => ({ ...prev, dataFim: e.target.value }))
+              }
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Responsável</Label>
-            <Input 
-              placeholder="Nome do técnico" 
+            <Input
+              placeholder="Nome do técnico"
               className="h-9 text-xs"
               value={filtrosAvancados.responsavel}
-              onChange={e => setFiltrosAvancados(prev => ({ ...prev, responsavel: e.target.value }))}
+              onChange={(e) =>
+                setFiltrosAvancados((prev) => ({ ...prev, responsavel: e.target.value }))
+              }
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Busca Geral</Label>
-            <Input 
-              placeholder="Aparelho, Cliente, nº" 
+            <Input
+              placeholder="Aparelho, Cliente, nº"
               className="h-9 text-xs"
               value={filtrosAvancados.busca}
-              onChange={e => setFiltrosAvancados(prev => ({ ...prev, busca: e.target.value }))}
+              onChange={(e) => setFiltrosAvancados((prev) => ({ ...prev, busca: e.target.value }))}
             />
           </div>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
+      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-soft md:block">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-bottom border-border bg-muted/30">
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Ordem de Serviço</th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
+                Ordem de Serviço
+              </th>
               <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Responsável</th>
               <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Data Final</th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Venc. Garantia</th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
+                Venc. Garantia
+              </th>
               <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Valor</th>
               <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Status</th>
               <th className="p-4 font-bold text-muted-foreground text-center">Ações</th>
@@ -846,8 +945,12 @@ function Ordens() {
               <tr key={os.id} className="hover:bg-muted/10 transition-colors">
                 <td className="p-4">
                   <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
-                    <span className="font-bold text-base">{os.clientes?.nome ?? "Sem cliente"}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      #{os.numero}
+                    </span>
+                    <span className="font-bold text-base">
+                      {os.clientes?.nome ?? "Sem cliente"}
+                    </span>
                   </div>
                 </td>
                 <td className="p-4 text-muted-foreground font-medium">
@@ -859,14 +962,10 @@ function Ordens() {
                     <span className="text-xs text-primary">{dataBR(os.previsao)}</span>
                   </div>
                 </td>
-                <td className="p-4 text-muted-foreground">
-                  {getVencimentoGarantia(os.previsao)}
-                </td>
+                <td className="p-4 text-muted-foreground">{getVencimentoGarantia(os.previsao)}</td>
                 <td className="p-4">
                   <div className="flex flex-col">
-                    <span className="font-extrabold text-primary text-base">
-                      {brl(os.valor)}
-                    </span>
+                    <span className="font-extrabold text-primary text-base">{brl(os.valor)}</span>
                     {os.numero === 32 && (
                       <span className="text-[10px] text-muted-foreground opacity-70">
                         {brl(180)} − {brl(10)} desc.
@@ -952,11 +1051,13 @@ function Ordens() {
                 <td className="p-4">
                   <select
                     value={os.status}
-                    onChange={(e) => mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })}
+                    onChange={(e) =>
+                      mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
+                    }
                     className={`h-8 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
-                      os.status === 'faturado' || os.status === 'entregue' || os.status === 'pronto'
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                        : 'bg-primary/10 text-primary border-primary/20'
+                      os.status === "faturado" || os.status === "entregue" || os.status === "pronto"
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        : "bg-primary/10 text-primary border-primary/20"
                     }`}
                   >
                     {STATUS_OS.map((s) => (
@@ -995,12 +1096,20 @@ function Ordens() {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => toast.info("Funcionalidade de Nota Fiscal em desenvolvimento.")}
+                      onClick={() =>
+                        toast.info("Funcionalidade de Nota Fiscal em desenvolvimento.")
+                      }
                       title="Emitir Nota Fiscal"
                     >
                       <FileCheck className="h-4 w-4 text-primary" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => imprimir(os)} title="Imprimir">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => imprimir(os)}
+                      title="Imprimir"
+                    >
                       <Printer className="h-4 w-4" />
                     </Button>
                     <Button
@@ -1027,6 +1136,105 @@ function Ordens() {
         </table>
       </div>
 
+      <div className="grid gap-3 md:hidden">
+        {lista.map((os: any) => (
+          <div key={os.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
+                <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {os.responsavel || "Técnico não atribuído"}
+                </p>
+              </div>
+              <span className="font-extrabold text-primary">{brl(os.valor)}</span>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Aberta: {dataBR(os.created_at)}</span>
+              <span className="text-primary">Previsão: {dataBR(os.previsao)}</span>
+              <span>Garantia: {getVencimentoGarantia(os.previsao)}</span>
+            </div>
+
+            <select
+              value={os.status}
+              onChange={(e) =>
+                mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
+              }
+              className={`mt-3 h-9 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
+                os.status === "faturado" || os.status === "entregue" || os.status === "pronto"
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "bg-primary/10 text-primary border-primary/20"
+              }`}
+            >
+              {STATUS_OS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+              <OsFotos osId={os.id} numero={os.numero} />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => abrirEdicao(os)}
+                title="Editar OS"
+              >
+                <Edit className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => {
+                  const url = `${window.location.origin}/consulta/${os.id}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Link da Área do Cliente copiado!");
+                }}
+                title="Copiar Link Área do Cliente"
+              >
+                <QrCode className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => toast.info("Funcionalidade de Nota Fiscal em desenvolvimento.")}
+                title="Emitir Nota Fiscal"
+              >
+                <FileCheck className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => imprimir(os)}
+                title="Imprimir"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => remover.mutate(os.id)}
+                title="Remover"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {!lista.length && (
+          <p className="py-12 text-center text-muted-foreground">
+            Nenhuma ordem de serviço neste filtro.
+          </p>
+        )}
+      </div>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
@@ -1050,7 +1258,12 @@ function Ordens() {
             <Button variant="outline" size="sm" onClick={() => setTabEdicao("pagamentos")}>
               <DollarSign className="mr-2 h-4 w-4" /> Pagamento Parcial
             </Button>
-            <Button variant="outline" size="sm" onClick={() => faturar.mutate()} disabled={faturar.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => faturar.mutate()}
+              disabled={faturar.isPending}
+            >
               <Receipt className="mr-2 h-4 w-4" /> Faturar
             </Button>
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -1089,11 +1302,31 @@ function Ordens() {
                     ))}
                   </select>
                 </div>
-                <Campo label="Aparelho" value={form.aparelho} onChange={(v) => setForm({ ...form, aparelho: v })} />
-                <Campo label="Marca" value={form.marca} onChange={(v) => setForm({ ...form, marca: v })} />
-                <Campo label="Modelo" value={form.modelo} onChange={(v) => setForm({ ...form, modelo: v })} />
-                <Campo label="Cor" value={form.cor} onChange={(v) => setForm({ ...form, cor: v })} />
-                <Campo label="IMEI" value={form.imei} onChange={(v) => setForm({ ...form, imei: v })} />
+                <Campo
+                  label="Aparelho"
+                  value={form.aparelho}
+                  onChange={(v) => setForm({ ...form, aparelho: v })}
+                />
+                <Campo
+                  label="Marca"
+                  value={form.marca}
+                  onChange={(v) => setForm({ ...form, marca: v })}
+                />
+                <Campo
+                  label="Modelo"
+                  value={form.modelo}
+                  onChange={(v) => setForm({ ...form, modelo: v })}
+                />
+                <Campo
+                  label="Cor"
+                  value={form.cor}
+                  onChange={(v) => setForm({ ...form, cor: v })}
+                />
+                <Campo
+                  label="IMEI"
+                  value={form.imei}
+                  onChange={(v) => setForm({ ...form, imei: v })}
+                />
                 <Campo
                   label="Número de série"
                   value={form.serial_number}
@@ -1115,7 +1348,10 @@ function Ordens() {
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Defeito relatado</Label>
-                  <Textarea value={form.defeito} onChange={(e) => setForm({ ...form, defeito: e.target.value })} />
+                  <Textarea
+                    value={form.defeito}
+                    onChange={(e) => setForm({ ...form, defeito: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Diagnóstico técnico</Label>
@@ -1137,7 +1373,9 @@ function Ordens() {
                     <Input
                       list="lista-produtos-edicao"
                       value={novoProduto.descricao}
-                      onChange={(e) => setNovoProduto({ ...novoProduto, descricao: e.target.value })}
+                      onChange={(e) =>
+                        setNovoProduto({ ...novoProduto, descricao: e.target.value })
+                      }
                       placeholder="Digite o nome do produto"
                     />
                     <datalist id="lista-produtos-edicao">
@@ -1153,7 +1391,9 @@ function Ordens() {
                       step="0.01"
                       placeholder="Preço"
                       value={novoProduto.preco_unitario}
-                      onChange={(e) => setNovoProduto({ ...novoProduto, preco_unitario: e.target.value })}
+                      onChange={(e) =>
+                        setNovoProduto({ ...novoProduto, preco_unitario: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1163,7 +1403,9 @@ function Ordens() {
                       min="1"
                       placeholder="Quantidade"
                       value={novoProduto.quantidade}
-                      onChange={(e) => setNovoProduto({ ...novoProduto, quantidade: e.target.value })}
+                      onChange={(e) =>
+                        setNovoProduto({ ...novoProduto, quantidade: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -1179,7 +1421,9 @@ function Ordens() {
                     <Label>Serviço</Label>
                     <Input
                       value={novoServico.descricao}
-                      onChange={(e) => setNovoServico({ ...novoServico, descricao: e.target.value })}
+                      onChange={(e) =>
+                        setNovoServico({ ...novoServico, descricao: e.target.value })
+                      }
                       placeholder="Digite o nome do serviço"
                     />
                   </div>
@@ -1187,7 +1431,9 @@ function Ordens() {
                     <Label>Breve descrição (opcional)</Label>
                     <Input
                       value={novoServico.observacao}
-                      onChange={(e) => setNovoServico({ ...novoServico, observacao: e.target.value })}
+                      onChange={(e) =>
+                        setNovoServico({ ...novoServico, observacao: e.target.value })
+                      }
                       placeholder="Detalhe deste serviço — ex.: com troca do filtro"
                     />
                   </div>
@@ -1198,7 +1444,9 @@ function Ordens() {
                       step="0.01"
                       placeholder="Preço"
                       value={novoServico.preco_unitario}
-                      onChange={(e) => setNovoServico({ ...novoServico, preco_unitario: e.target.value })}
+                      onChange={(e) =>
+                        setNovoServico({ ...novoServico, preco_unitario: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1208,7 +1456,9 @@ function Ordens() {
                       min="1"
                       placeholder="Quantidade"
                       value={novoServico.quantidade}
-                      onChange={(e) => setNovoServico({ ...novoServico, quantidade: e.target.value })}
+                      onChange={(e) =>
+                        setNovoServico({ ...novoServico, quantidade: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -1219,44 +1469,52 @@ function Ordens() {
 
               {itensEdicao.length > 0 && (
                 <div className="overflow-hidden rounded-xl border border-border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                      <tr>
-                        <th className="p-3 text-left">Item</th>
-                        <th className="p-3 text-left">Tipo</th>
-                        <th className="p-3 text-right">Qtd</th>
-                        <th className="p-3 text-right">Unit.</th>
-                        <th className="p-3 text-right">Total</th>
-                        <th className="p-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {itensEdicao.map((it, idx) => (
-                        <tr key={idx} className="border-t border-border">
-                          <td className="p-3">
-                            {it.descricao}
-                            {it.observacao && (
-                              <span className="block text-xs text-muted-foreground">{it.observacao}</span>
-                            )}
-                          </td>
-                          <td className="p-3 capitalize">{it.tipo}</td>
-                          <td className="p-3 text-right">{it.quantidade}</td>
-                          <td className="p-3 text-right">{brl(it.preco_unitario)}</td>
-                          <td className="p-3 text-right">{brl(it.quantidade * it.preco_unitario)}</td>
-                          <td className="p-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => setItensEdicao(itensEdicao.filter((_, i) => i !== idx))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
+                      <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="p-3 text-left">Item</th>
+                          <th className="p-3 text-left">Tipo</th>
+                          <th className="p-3 text-right">Qtd</th>
+                          <th className="p-3 text-right">Unit.</th>
+                          <th className="p-3 text-right">Total</th>
+                          <th className="p-3" />
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {itensEdicao.map((it, idx) => (
+                          <tr key={idx} className="border-t border-border">
+                            <td className="p-3">
+                              {it.descricao}
+                              {it.observacao && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {it.observacao}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 capitalize">{it.tipo}</td>
+                            <td className="p-3 text-right">{it.quantidade}</td>
+                            <td className="p-3 text-right">{brl(it.preco_unitario)}</td>
+                            <td className="p-3 text-right">
+                              {brl(it.quantidade * it.preco_unitario)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() =>
+                                  setItensEdicao(itensEdicao.filter((_, i) => i !== idx))
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
@@ -1322,7 +1580,12 @@ function Ordens() {
                     onChange={(e) => setForm({ ...form, senha_dispositivo: e.target.value })}
                     placeholder="Ex: 1234"
                   />
-                  <Button variant="outline" size="icon" onClick={() => setVerSenha(!verSenha)} title="Ver Senha">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setVerSenha(!verSenha)}
+                    title="Ver Senha"
+                  >
                     {verSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
@@ -1373,7 +1636,9 @@ function Ordens() {
                 </div>
                 <div className="flex justify-between border-t border-border pt-2">
                   <span className="text-muted-foreground">Saldo restante</span>
-                  <strong className="text-primary">{brl(Math.max(totalOs - (Number(valorPago) || 0), 0))}</strong>
+                  <strong className="text-primary">
+                    {brl(Math.max(totalOs - (Number(valorPago) || 0), 0))}
+                  </strong>
                 </div>
               </div>
             </TabsContent>
@@ -1418,7 +1683,6 @@ function Ordens() {
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

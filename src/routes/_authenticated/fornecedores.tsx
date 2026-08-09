@@ -173,47 +173,49 @@ function Fornecedores() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Razão social</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Nome fantasia</th>
-              <th className="px-4 py-3">Telefone</th>
-              <th className="hidden px-4 py-3 md:table-cell">Email</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtrados.map((f) => (
-              <tr key={f.id}>
-                <td className="px-4 py-3 font-medium">{f.razao_social}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                  {f.nome_fantasia || "—"}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{f.telefone || "—"}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                  {f.email || "—"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => remover.mutate(f.id)}
-                    className="text-muted-foreground transition hover:text-destructive"
-                    aria-label="Remover"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!filtrados.length && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  Nenhum fornecedor encontrado.
-                </td>
+                <th className="px-4 py-3">Razão social</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Nome fantasia</th>
+                <th className="px-4 py-3">Telefone</th>
+                <th className="hidden px-4 py-3 md:table-cell">Email</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtrados.map((f) => (
+                <tr key={f.id}>
+                  <td className="px-4 py-3 font-medium">{f.razao_social}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {f.nome_fantasia || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{f.telefone || "—"}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                    {f.email || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => remover.mutate(f.id)}
+                      className="text-muted-foreground transition hover:text-destructive"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!filtrados.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                    Nenhum fornecedor encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

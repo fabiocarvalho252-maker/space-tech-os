@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Plus, Trash2, Download, FileText, Filter, X } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Plus,
+  Trash2,
+  Download,
+  FileText,
+  Filter,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -32,15 +41,15 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
   component: Financeiro,
 });
 
-const vazio = { 
-  tipo: "entrada", 
-  categoria: "", 
-  descricao: "", 
+const vazio = {
+  tipo: "entrada",
+  categoria: "",
+  descricao: "",
   valor: "0",
   bank_account_id: "",
   payment_method_id: "",
   status: "pago",
-  vencimento: new Date().toISOString().split('T')[0]
+  vencimento: new Date().toISOString().split("T")[0],
 };
 
 function Financeiro() {
@@ -63,11 +72,13 @@ function Financeiro() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select(`
+        .select(
+          `
           *,
           bank_accounts (banco),
           payment_methods (nome)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -141,7 +152,7 @@ function Financeiro() {
       const matchStatus = filtros.status === "todos" || l.status === filtros.status;
       const matchCategoria = filtros.categoria === "todas" || l.categoria === filtros.categoria;
       const matchConta = filtros.conta === "todas" || l.bank_account_id === filtros.conta;
-      
+
       let matchPeriodo = true;
       if (filtros.periodo !== "todos") {
         const data = new Date(l.created_at);
@@ -149,7 +160,8 @@ function Financeiro() {
         if (filtros.periodo === "hoje") {
           matchPeriodo = data.toDateString() === hoje.toDateString();
         } else if (filtros.periodo === "mes") {
-          matchPeriodo = data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
+          matchPeriodo =
+            data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
         }
       }
 
@@ -157,8 +169,12 @@ function Financeiro() {
     });
   }, [lancamentos, filtros]);
 
-  const entradas = listaFiltrada.filter((l) => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
-  const saidas = listaFiltrada.filter((l) => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+  const entradas = listaFiltrada
+    .filter((l) => l.tipo === "entrada")
+    .reduce((s, l) => s + Number(l.valor), 0);
+  const saidas = listaFiltrada
+    .filter((l) => l.tipo === "saida")
+    .reduce((s, l) => s + Number(l.valor), 0);
 
   return (
     <div>
@@ -170,7 +186,7 @@ function Financeiro() {
             <Button
               variant="outline"
               size="sm"
-              className={`gap-2 rounded-full ${showFilters ? 'bg-primary/10 border-primary text-primary' : ''}`}
+              className={`gap-2 rounded-full ${showFilters ? "bg-primary/10 border-primary text-primary" : ""}`}
               onClick={() => setShowFilters(!showFilters)}
             >
               {showFilters ? <X className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
@@ -188,7 +204,7 @@ function Financeiro() {
                     Tipo: l.tipo,
                     Valor: l.valor,
                   })),
-                  "financeiro-spacetech"
+                  "financeiro-spacetech",
                 )
               }
             >
@@ -217,7 +233,7 @@ function Financeiro() {
                   <DialogTitle>Novo lançamento</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {["entrada", "saida"].map((t) => (
                       <button
                         key={t}
@@ -232,45 +248,53 @@ function Financeiro() {
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>Categoria</Label>
-                      <select 
+                      <select
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={form.categoria || ""}
                         onChange={(e) => setForm({ ...form, categoria: e.target.value })}
                       >
                         <option value="">Selecione...</option>
-                        {categories.filter(c => c.tipo === form.tipo).map(c => (
-                          <option key={c.id} value={c.nome}>{c.nome}</option>
-                        ))}
+                        {categories
+                          .filter((c) => c.tipo === form.tipo)
+                          .map((c) => (
+                            <option key={c.id} value={c.nome}>
+                              {c.nome}
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <div className="space-y-1.5">
                       <Label>Conta</Label>
-                      <select 
+                      <select
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={form.bank_account_id || ""}
                         onChange={(e) => setForm({ ...form, bank_account_id: e.target.value })}
                       >
                         <option value="">Selecione...</option>
-                        {accounts.map(a => (
-                          <option key={a.id} value={a.id}>{a.banco}</option>
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.banco}
+                          </option>
                         ))}
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>Forma de Pagto</Label>
-                      <select 
+                      <select
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={form.payment_method_id || ""}
                         onChange={(e) => setForm({ ...form, payment_method_id: e.target.value })}
                       >
                         <option value="">Selecione...</option>
-                        {methods.map(m => (
-                          <option key={m.id} value={m.id}>{m.nome}</option>
+                        {methods.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.nome}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -290,10 +314,10 @@ function Financeiro() {
                       onChange={(e) => setForm({ ...form, descricao: e.target.value })}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>Status</Label>
-                      <select 
+                      <select
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
@@ -326,10 +350,10 @@ function Financeiro() {
         <div className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-5 animate-in fade-in slide-in-from-top-2">
           <div className="space-y-1.5">
             <Label className="text-xs">Período</Label>
-            <select 
+            <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
               value={filtros.periodo}
-              onChange={e => setFiltros(prev => ({ ...prev, periodo: e.target.value }))}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, periodo: e.target.value }))}
             >
               <option value="todos">Todos</option>
               <option value="hoje">Hoje</option>
@@ -338,10 +362,10 @@ function Financeiro() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Tipo</Label>
-            <select 
+            <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
               value={filtros.tipo}
-              onChange={e => setFiltros(prev => ({ ...prev, tipo: e.target.value }))}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, tipo: e.target.value }))}
             >
               <option value="todos">Todos</option>
               <option value="entrada">Entradas</option>
@@ -350,10 +374,10 @@ function Financeiro() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Status</Label>
-            <select 
+            <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
               value={filtros.status}
-              onChange={e => setFiltros(prev => ({ ...prev, status: e.target.value }))}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, status: e.target.value }))}
             >
               <option value="todos">Todos</option>
               <option value="pago">Pago / Recebido</option>
@@ -362,27 +386,31 @@ function Financeiro() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Categoria</Label>
-            <select 
+            <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
               value={filtros.categoria}
-              onChange={e => setFiltros(prev => ({ ...prev, categoria: e.target.value }))}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, categoria: e.target.value }))}
             >
               <option value="todas">Todas</option>
-              {[...new Set(lancamentos.map(l => l.categoria))].filter(Boolean).map(c => (
-                <option key={String(c)} value={String(c)}>{String(c)}</option>
+              {[...new Set(lancamentos.map((l) => l.categoria))].filter(Boolean).map((c) => (
+                <option key={String(c)} value={String(c)}>
+                  {String(c)}
+                </option>
               ))}
             </select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Conta</Label>
-            <select 
+            <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
               value={filtros.conta}
-              onChange={e => setFiltros(prev => ({ ...prev, conta: e.target.value }))}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, conta: e.target.value }))}
             >
               <option value="todas">Todas</option>
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>{a.banco}</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.banco}
+                </option>
               ))}
             </select>
           </div>
@@ -396,71 +424,73 @@ function Financeiro() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Descrição</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Categoria</th>
-              <th className="hidden px-4 py-3 md:table-cell">Conta</th>
-              <th className="px-4 py-3">Vencimento</th>
-              <th className="px-4 py-3 text-right">Valor</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {listaFiltrada.map((l) => (
-              <tr key={l.id}>
-                <td className="px-4 py-3">
-                  <span className="flex items-center gap-2 font-medium">
-                    {l.tipo === "entrada" ? (
-                      <ArrowUpRight className="h-4 w-4 text-success" />
-                    ) : (
-                      <ArrowDownRight className="h-4 w-4 text-destructive" />
-                    )}
-                    {l.descricao || "Lançamento"}
-                  </span>
-                </td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                  {l.categoria || "—"}
-                </td>
-                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                  {(l as any).bank_accounts?.banco || "—"}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {dataBR((l as any).vencimento || l.created_at)}
-                  {(l as any).status === 'pendente' && (
-                    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                      Pendente
-                    </span>
-                  )}
-                </td>
-                <td
-                  className={`px-4 py-3 text-right font-bold ${
-                    l.tipo === "entrada" ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => remover.mutate(l.id)}
-                    className="text-muted-foreground transition hover:text-destructive"
-                    aria-label="Remover"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!listaFiltrada.length && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  Nenhum lançamento registrado.
-                </td>
+                <th className="px-4 py-3">Descrição</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Categoria</th>
+                <th className="hidden px-4 py-3 md:table-cell">Conta</th>
+                <th className="px-4 py-3">Vencimento</th>
+                <th className="px-4 py-3 text-right">Valor</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {listaFiltrada.map((l) => (
+                <tr key={l.id}>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-2 font-medium">
+                      {l.tipo === "entrada" ? (
+                        <ArrowUpRight className="h-4 w-4 text-success" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4 text-destructive" />
+                      )}
+                      {l.descricao || "Lançamento"}
+                    </span>
+                  </td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {l.categoria || "—"}
+                  </td>
+                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                    {(l as any).bank_accounts?.banco || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {dataBR((l as any).vencimento || l.created_at)}
+                    {(l as any).status === "pendente" && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        Pendente
+                      </span>
+                    )}
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-bold ${
+                      l.tipo === "entrada" ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => remover.mutate(l.id)}
+                      className="text-muted-foreground transition hover:text-destructive"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!listaFiltrada.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                    Nenhum lançamento registrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

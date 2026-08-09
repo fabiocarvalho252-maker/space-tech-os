@@ -81,7 +81,7 @@ export function SeminovosFotos({ seminovoId, fotos }: { seminovoId: string; foto
           <Camera className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-primary" /> Fotos do aparelho

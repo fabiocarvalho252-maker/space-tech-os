@@ -175,7 +175,7 @@ function PDV() {
   const userName = user?.email?.split('@')?.[0]?.replace(/\./g, ' ') || 'Usuário';
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-col gap-6 overflow-hidden">
+    <div className="flex flex-col gap-6 lg:h-[calc(100vh-120px)] lg:overflow-hidden">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -198,8 +198,8 @@ function PDV() {
         </div>
       </div>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[1fr_400px] overflow-hidden">
-        <div className="flex flex-col gap-4 overflow-hidden">
+      <div className="grid flex-1 gap-6 lg:grid-cols-[1fr_400px] lg:overflow-hidden">
+        <div className="flex flex-col gap-4 lg:overflow-hidden">
           <div className="flex items-center gap-2">
             <Button variant="ghost" className="h-10 gap-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10">
               <Plus className="h-4 w-4" /> Nova venda

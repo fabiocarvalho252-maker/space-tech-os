@@ -663,7 +663,7 @@ function Configuracoes() {
                         <Label>Banco</Label>
                         <Input name="banco" placeholder="Ex: Nubank, Itaú..." required />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Agência</Label>
                           <Input name="agencia" placeholder="0001" />
@@ -1161,7 +1161,7 @@ function Configuracoes() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Status Padrão Venda</Label>
                     <select 
@@ -1213,7 +1213,7 @@ function Configuracoes() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 items-end">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end">
                   <div className="space-y-2">
                     <Label>Teto de desconto (%)</Label>
                     <Input 

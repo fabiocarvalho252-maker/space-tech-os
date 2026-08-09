@@ -148,43 +148,45 @@ function Clientes() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">Telefone</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Email</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtrados.map((c) => (
-              <tr key={c.id}>
-                <td className="px-4 py-3 font-medium">{c.nome}</td>
-                <td className="px-4 py-3 text-muted-foreground">{c.telefone || "—"}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                  {c.email || "—"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => remover.mutate(c.id)}
-                    className="text-muted-foreground transition hover:text-destructive"
-                    aria-label="Remover"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!filtrados.length && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  Nenhum cliente encontrado.
-                </td>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Telefone</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Email</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtrados.map((c) => (
+                <tr key={c.id}>
+                  <td className="px-4 py-3 font-medium">{c.nome}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{c.telefone || "—"}</td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {c.email || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => remover.mutate(c.id)}
+                      className="text-muted-foreground transition hover:text-destructive"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!filtrados.length && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
+                    Nenhum cliente encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

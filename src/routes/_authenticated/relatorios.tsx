@@ -495,23 +495,25 @@ function TabelaTop({
   if (!itens.length)
     return <p className="text-sm text-muted-foreground">Nenhum item vendido no período.</p>;
   return (
-    <table className="w-full text-sm">
-      <thead className="text-left text-xs uppercase text-muted-foreground">
-        <tr>
-          <th className="pb-2">Item</th>
-          <th className="pb-2 text-right">Qtd.</th>
-          <th className="pb-2 text-right">Faturamento</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-border">
-        {itens.map((i) => (
-          <tr key={i.descricao}>
-            <td className="py-2">{i.descricao}</td>
-            <td className="py-2 text-right">{i.qtd}</td>
-            <td className="py-2 text-right font-semibold">{brl(i.faturamento)}</td>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[360px] text-sm">
+        <thead className="text-left text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="pb-2">Item</th>
+            <th className="pb-2 text-right">Qtd.</th>
+            <th className="pb-2 text-right">Faturamento</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {itens.map((i) => (
+            <tr key={i.descricao}>
+              <td className="py-2">{i.descricao}</td>
+              <td className="py-2 text-right">{i.qtd}</td>
+              <td className="py-2 text-right font-semibold">{brl(i.faturamento)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
