@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -62,6 +62,19 @@ export function AppShell() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [open]);
+
   async function sair() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -72,7 +85,7 @@ export function AppShell() {
   const itensVisiveis = NAV.filter((item) => !item.modulo || podeVer(permissoes, item.modulo));
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 p-3">
+    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3">
       {itensVisiveis.map((item) => {
         const active = pathname.startsWith(item.to);
         return (
@@ -81,13 +94,13 @@ export function AppShell() {
             to={item.to}
             onClick={() => setOpen(false)}
             className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors active:scale-[0.98] lg:py-2.5",
               active
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
             )}
           >
-            <item.icon className="h-4 w-4" />
+            <item.icon className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
             {item.label}
           </Link>
         );
@@ -121,24 +134,37 @@ export function AppShell() {
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-sidebar">
-            <div className="flex items-center justify-between px-5 py-6">
+          <div
+            className="absolute inset-0 bg-foreground/40 animate-in fade-in duration-200"
+            onClick={() => setOpen(false)}
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-[80vw] max-w-72 flex-col overflow-hidden bg-sidebar shadow-xl animate-in slide-in-from-left duration-200">
+            <div className="flex shrink-0 items-center justify-between px-5 py-6">
               <div className="flex items-center gap-3">
                 <LogoMark className="h-9 w-9" />
                 <LogoWord className="text-base text-sidebar-accent-foreground" />
               </div>
-              <button onClick={() => setOpen(false)} className="text-sidebar-foreground/70">
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Fechar menu"
+                className="-mr-2 rounded-lg p-2 text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
             {nav}
-            <div className="border-t border-sidebar-border p-3">
+            <div className="shrink-0 border-t border-sidebar-border p-3">
+              <div className="px-2 pb-2">
+                <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
+                  {profile?.loja || profile?.nome || "Minha assistência"}
+                </p>
+                <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
+              </div>
               <button
                 onClick={sair}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
               >
-                <LogOut className="h-4 w-4" /> Sair
+                <LogOut className="h-5 w-5" /> Sair
               </button>
             </div>
           </aside>
@@ -148,7 +174,11 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border bg-card/70 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} aria-label="Abrir menu">
+            <button
+              onClick={() => setOpen(true)}
+              aria-label="Abrir menu"
+              className="-ml-2 rounded-lg p-2 active:bg-accent/60"
+            >
               <Menu className="h-5 w-5" />
             </button>
             <LogoWord className="text-base" />
