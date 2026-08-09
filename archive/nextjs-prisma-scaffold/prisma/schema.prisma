@@ -1,0 +1,283 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  name                 String?
+  email                String?              @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String?
+  role                 UserRole             @default(MEMBER)
+  accounts             Account[]
+  sessions             Session[]
+  createdServiceOrders ServiceOrder[]       @relation("ServiceOrderCreatedBy")
+  historyEntries       ServiceOrderHistory[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// SPACE TECH — Ordem de Serviço
+// ---------------------------------------------------------------------------
+
+enum ServiceOrderStatus {
+  ABERTA
+  AGUARDANDO_DIAGNOSTICO
+  EM_ANALISE
+  AGUARDANDO_APROVACAO
+  APROVADA
+  AGUARDANDO_PECA
+  EM_REPARO
+  EM_TESTES
+  PRONTA
+  ENTREGUE
+  CANCELADA
+}
+
+enum BudgetStatus {
+  AGUARDANDO
+  APROVADO
+  RECUSADO
+}
+
+enum DeviceCondition {
+  EXCELENTE
+  BOM
+  REGULAR
+  DANIFICADO
+}
+
+enum ServiceOrderItemType {
+  SERVICO
+  MAO_DE_OBRA
+}
+
+enum ServiceOrderPhotoCategory {
+  FRENTE
+  TRASEIRA
+  LATERAL_DIREITA
+  LATERAL_ESQUERDA
+  PARTE_SUPERIOR
+  PARTE_INFERIOR
+  CAMERA
+  IMEI
+  OUTRA
+}
+
+enum ChecklistCategory {
+  CONDICAO_APARELHO
+  FUNCIONAMENTO
+  ACESSORIOS
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  name          String
+  documentId    String?
+  phone         String
+  whatsapp      String?
+  email         String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  notes         String?        @db.Text
+  serviceOrders ServiceOrder[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([name])
+  @@index([phone])
+}
+
+model Device {
+  id                String           @id @default(cuid())
+  type              String?
+  brand             String
+  model             String
+  color             String?
+  imei1             String?
+  imei2             String?
+  serialNumber      String?
+  storageCapacity   String?
+  devicePassword    String?
+  unlockPattern     String?
+  condition         DeviceCondition  @default(BOM)
+  physicalNotes     String?          @db.Text
+  serviceOrder      ServiceOrder?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([imei1])
+  @@index([model])
+}
+
+model Part {
+  id                String              @id @default(cuid())
+  name              String
+  sku               String?             @unique
+  brand             String?
+  costPriceCents    Int                 @default(0)
+  salePriceCents    Int                 @default(0)
+  stockQuantity     Int                 @default(0)
+  minStockQuantity  Int                 @default(0)
+  serviceOrderParts ServiceOrderPart[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([name])
+}
+
+model ServiceOrder {
+  id                    String                      @id @default(cuid())
+  number                Int                         @unique @default(autoincrement())
+  status                ServiceOrderStatus          @default(ABERTA)
+  customerId            String
+  customer              Customer                    @relation(fields: [customerId], references: [id])
+  deviceId              String                      @unique
+  device                Device                      @relation(fields: [deviceId], references: [id])
+  reportedIssue         String                      @db.Text
+  diagnosis             String?                     @db.Text
+  serviceToPerform      String?                     @db.Text
+  internalNotes         String?                     @db.Text
+  entryDate             DateTime                    @default(now())
+  estimatedDeliveryDate DateTime?
+  deliveredAt           DateTime?
+  partsTotalCents       Int                         @default(0)
+  servicesTotalCents    Int                         @default(0)
+  laborTotalCents       Int                         @default(0)
+  discountValueCents    Int                         @default(0)
+  discountPercent       Float                       @default(0)
+  surchargeValueCents   Int                         @default(0)
+  totalValueCents       Int                         @default(0)
+  budgetStatus          BudgetStatus                @default(AGUARDANDO)
+  budgetApprovedAt      DateTime?
+  budgetApprovalNote    String?                     @db.Text
+  budgetApprovedBy      String?
+  termsAccepted         Boolean                     @default(false)
+  customerSignature     String?                     @db.Text
+  technicianSignature   String?                     @db.Text
+  createdById           String?
+  createdBy             User?                       @relation("ServiceOrderCreatedBy", fields: [createdById], references: [id])
+  items                 ServiceOrderItem[]
+  parts                 ServiceOrderPart[]
+  photos                ServiceOrderPhoto[]
+  checklist             ServiceOrderChecklistItem[]
+  history               ServiceOrderHistory[]
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  @@index([status])
+  @@index([entryDate])
+}
+
+model ServiceOrderItem {
+  id             String               @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  type           ServiceOrderItemType @default(SERVICO)
+  description    String
+  quantity       Int                  @default(1)
+  unitPriceCents Int                  @default(0)
+  discountCents  Int                  @default(0)
+  subtotalCents  Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model ServiceOrderPart {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  partId         String
+  part           Part         @relation(fields: [partId], references: [id])
+  quantity       Int          @default(1)
+  unitCostCents  Int          @default(0)
+  unitPriceCents Int          @default(0)
+  subtotalCents  Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model ServiceOrderPhoto {
+  id             String                    @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder              @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  category       ServiceOrderPhotoCategory @default(OUTRA)
+  dataUrl        String                    @db.Text
+  label          String?
+  createdAt      DateTime                  @default(now())
+}
+
+model ServiceOrderChecklistItem {
+  id             String            @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder      @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  category       ChecklistCategory
+  label          String
+  checked        Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([serviceOrderId, category, label])
+}
+
+model ServiceOrderHistory {
+  id             String              @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder        @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?               @relation(fields: [userId], references: [id])
+  action         String
+  previousStatus ServiceOrderStatus?
+  newStatus      ServiceOrderStatus?
+  note           String?             @db.Text
+  createdAt      DateTime            @default(now())
+
+  @@index([serviceOrderId])
+}

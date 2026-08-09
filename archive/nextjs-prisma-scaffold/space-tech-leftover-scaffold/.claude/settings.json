@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm *)", "Bash(node *)", "Bash(grep *)", "Bash(sed *)", "Bash(find *)", "Bash(cat *)", "Bash(ls *)", "Bash(pwd)"]
+  }
+}
