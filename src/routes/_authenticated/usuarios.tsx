@@ -63,6 +63,7 @@ const MODULOS = [
   { value: "financeiro", label: "Financeiro" },
   { value: "cobrancas", label: "Cobranças" },
   { value: "garantia", label: "Garantias" },
+  { value: "notas", label: "Notas Fiscais" },
   { value: "relatorios", label: "Relatórios" },
   { value: "configuracoes", label: "Configurações" },
 ];

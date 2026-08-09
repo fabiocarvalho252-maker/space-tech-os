@@ -501,6 +501,114 @@ export type Database = {
           },
         ]
       }
+      nota_fiscal_itens: {
+        Row: {
+          descricao: string
+          id: string
+          nota_id: string
+          quantidade: number
+          user_id: string
+          valor_unitario: number
+        }
+        Insert: {
+          descricao: string
+          id?: string
+          nota_id: string
+          quantidade?: number
+          user_id: string
+          valor_unitario?: number
+        }
+        Update: {
+          descricao?: string
+          id?: string
+          nota_id?: string
+          quantidade?: number
+          user_id?: string
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nota_fiscal_itens_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "notas_fiscais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notas_fiscais: {
+        Row: {
+          chave_acesso: string | null
+          cliente_id: string | null
+          created_at: string
+          emitida_em: string | null
+          id: string
+          numero: number
+          observacoes: string | null
+          os_id: string | null
+          serie: string
+          status: string
+          updated_at: string
+          user_id: string
+          valor_total: number
+          venda_id: string | null
+        }
+        Insert: {
+          chave_acesso?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          emitida_em?: string | null
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          os_id?: string | null
+          serie?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor_total?: number
+          venda_id?: string | null
+        }
+        Update: {
+          chave_acesso?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          emitida_em?: string | null
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          os_id?: string | null
+          serie?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor_total?: number
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_fiscais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordens_servico: {
         Row: {
           anotacoes: string | null

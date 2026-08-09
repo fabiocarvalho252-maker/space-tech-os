@@ -44,7 +44,7 @@ const NAV = [
   { to: "/compras", label: "Compras", icon: ShoppingCart, modulo: "compras" },
   { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
-  { to: "/notas", label: "Notas Fiscais", icon: FileCheck, modulo: null },
+  { to: "/notas", label: "Notas Fiscais", icon: FileCheck, modulo: "notas" },
   { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, modulo: "relatorios" },
   { to: "/ia-spacetech", label: "IA SPACE TECH", icon: Bot, modulo: null },
