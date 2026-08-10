@@ -37,6 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TrialBanner } from "@/components/TrialBanner";
+import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
 import { ATALHOS, estaDigitando } from "@/lib/atalhos";
 import { cn } from "@/lib/utils";
@@ -270,6 +271,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <SpaceTechAI />
     </div>
   );
 }

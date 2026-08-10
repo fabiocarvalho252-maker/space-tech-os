@@ -114,31 +114,48 @@ function Relatorios() {
 
     const acumulador = new Map<
       string,
-      { descricao: string; tipo: string; qtd: number; faturamento: number }
+      { descricao: string; tipo: string; qtd: number; faturamento: number; custo: number }
     >();
-    function acumular(descricao: string, tipo: string, qtd: number, valor: number) {
+    function acumular(
+      descricao: string,
+      tipo: string,
+      qtd: number,
+      valor: number,
+      custoUnitario: number,
+    ) {
       const chave = `${tipo}:${descricao}`;
-      const atual = acumulador.get(chave) ?? { descricao, tipo, qtd: 0, faturamento: 0 };
+      const atual = acumulador.get(chave) ?? { descricao, tipo, qtd: 0, faturamento: 0, custo: 0 };
       atual.qtd += qtd;
       atual.faturamento += valor;
+      atual.custo += qtd * custoUnitario;
       acumulador.set(chave, atual);
     }
     for (const i of d.osItens) {
+      const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
       acumular(
         i.descricao,
         i.tipo === "servico" ? "Serviço" : "Produto",
         i.quantidade,
         i.quantidade * i.preco_unitario,
+        Number(produto?.preco_custo ?? 0),
       );
     }
     for (const i of itensVendaPeriodo) {
       const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
       const tipo = produto?.categoria === "Serviço" ? "Serviço" : "Produto";
-      acumular(i.descricao, tipo, i.quantidade, i.quantidade * i.preco_unitario);
+      acumular(
+        i.descricao,
+        tipo,
+        i.quantidade,
+        i.quantidade * i.preco_unitario,
+        Number(produto?.preco_custo ?? 0),
+      );
     }
-    const todosItens = Array.from(acumulador.values()).sort(
-      (a, b) => b.faturamento - a.faturamento,
-    );
+    const comMargem = (i: { faturamento: number; custo: number }) =>
+      i.faturamento > 0 ? ((i.faturamento - i.custo) / i.faturamento) * 100 : 0;
+    const todosItens = Array.from(acumulador.values())
+      .map((i) => ({ ...i, margem: comMargem(i) }))
+      .sort((a, b) => b.faturamento - a.faturamento);
     const topProdutos = todosItens.filter((i) => i.tipo === "Produto").slice(0, 10);
     const topServicos = todosItens.filter((i) => i.tipo === "Serviço").slice(0, 10);
 
@@ -499,18 +516,19 @@ function Secao({
 function TabelaTop({
   itens,
 }: {
-  itens: { descricao: string; qtd: number; faturamento: number }[];
+  itens: { descricao: string; qtd: number; faturamento: number; margem: number }[];
 }) {
   if (!itens.length)
     return <p className="text-sm text-muted-foreground">Nenhum item vendido no período.</p>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[360px] text-sm">
+      <table className="w-full min-w-[420px] text-sm">
         <thead className="text-left text-xs uppercase text-muted-foreground">
           <tr>
             <th className="pb-2">Item</th>
             <th className="pb-2 text-right">Qtd.</th>
             <th className="pb-2 text-right">Faturamento</th>
+            <th className="pb-2 text-right">Margem</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -519,6 +537,11 @@ function TabelaTop({
               <td className="py-2">{i.descricao}</td>
               <td className="py-2 text-right">{i.qtd}</td>
               <td className="py-2 text-right font-semibold">{brl(i.faturamento)}</td>
+              <td
+                className={`py-2 text-right ${i.margem < 0 ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                {i.margem.toFixed(1)}%
+              </td>
             </tr>
           ))}
         </tbody>
