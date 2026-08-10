@@ -1,0 +1,193 @@
+// Thin, low-level HTTP client for a self-hosted Evolution API server
+// (https://github.com/EvolutionAPI/evolution-api). Server-only — this file
+// reads EVOLUTION_API_KEY from process.env and must never be imported from a
+// route component or anything bundled to the client. Only whatsapp-service.ts
+// (also server-only) talks to this module.
+//
+// Every function here maps 1:1 to one Evolution API REST call. Endpoint
+// paths/payload shapes below match the documented v2 contract as of this
+// writing; self-hosted Evolution API versions do drift on field names
+// (e.g. some deployments nest the webhook config directly, others under a
+// "webhook" key) — if a call starts failing after pointing this at a real
+// server, the fix is almost always adjusting the body shape in the one
+// function below that builds it, not the calling code.
+
+export class EvolutionApiError extends Error {
+  constructor(motivo: string) {
+    super(motivo);
+    this.name = "EvolutionApiError";
+  }
+}
+
+type EvolutionConfig = { baseUrl: string; apiKey: string; instancePrefix: string };
+
+function configuracao(): EvolutionConfig | null {
+  const baseUrl = process.env["EVOLUTION_API_URL"];
+  const apiKey = process.env["EVOLUTION_API_KEY"];
+  const instancePrefix = process.env["EVOLUTION_INSTANCE"] || "spacetech";
+  if (!baseUrl || !apiKey) return null;
+  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey, instancePrefix };
+}
+
+/** Whether EVOLUTION_API_URL/EVOLUTION_API_KEY are set — safe to call to gate UI/logic without attempting a request. */
+export function evolutionConfigurado(): boolean {
+  return configuracao() !== null;
+}
+
+/** Deterministic per-empresa instance name: `<prefix>_<userId sem hifens>`. */
+export function nomeInstancia(userId: string): string {
+  const { instancePrefix } = configuracao() ?? { instancePrefix: "spacetech" };
+  return `${instancePrefix}_${userId.replace(/-/g, "")}`;
+}
+
+async function chamar<T>(
+  config: EvolutionConfig,
+  method: "GET" | "POST" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${config.baseUrl}${path}`, {
+      method,
+      headers: {
+        apikey: config.apiKey,
+        "content-type": "application/json",
+      },
+      body: body !== undefined ? JSON.stringify(body) : null,
+    });
+  } catch {
+    throw new EvolutionApiError("Não foi possível conectar ao servidor Evolution API.");
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw new EvolutionApiError(
+      "Evolution API recusou a chave configurada (EVOLUTION_API_KEY inválida).",
+    );
+  }
+  if (!res.ok) {
+    const corpo = await res.text().catch(() => "");
+    throw new EvolutionApiError(
+      `Evolution API retornou um erro (${res.status}): ${corpo.slice(0, 300) || "sem detalhes"}`,
+    );
+  }
+
+  return (await res.json()) as T;
+}
+
+export type EvolutionCreateInstanceResult = {
+  qrcodeBase64: string | null;
+};
+
+/**
+ * Creates (or, if it already exists on the Evolution server, no-ops on) the
+ * instance for this empresa and points its webhook at our server. Safe to
+ * call every time a connect is requested — Evolution treats a duplicate
+ * instanceName as a normal "already exists" error, which is swallowed here.
+ */
+export async function criarInstancia(
+  instanceName: string,
+  webhookUrl: string,
+): Promise<EvolutionCreateInstanceResult> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await chamar<any>(config, "POST", "/instance/create", {
+      instanceName,
+      integration: "WHATSAPP-BAILEYS",
+      qrcode: true,
+      webhook: {
+        url: webhookUrl,
+        byEvents: false,
+        base64: true,
+        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+      },
+    });
+    const base64 = data?.qrcode?.base64 ?? data?.qrcode ?? null;
+    return { qrcodeBase64: typeof base64 === "string" ? base64 : null };
+  } catch (e) {
+    // Instance already exists on the Evolution server — not an error for
+    // our purposes, just means we should fall through to /instance/connect.
+    if (e instanceof EvolutionApiError && /already|exist|duplicat/i.test(e.message)) {
+      return { qrcodeBase64: null };
+    }
+    throw e;
+  }
+}
+
+export type EvolutionConnectResult = { qrcodeBase64: string | null };
+
+/** Requests a fresh QR code / pairing code for an already-created instance. */
+export async function conectarInstancia(instanceName: string): Promise<EvolutionConnectResult> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await chamar<any>(
+    config,
+    "GET",
+    `/instance/connect/${encodeURIComponent(instanceName)}`,
+  );
+  const base64 = data?.base64 ?? data?.qrcode?.base64 ?? data?.qrcode ?? null;
+  return { qrcodeBase64: typeof base64 === "string" ? base64 : null };
+}
+
+export type EvolutionConnectionState = "open" | "connecting" | "close";
+
+export type EvolutionStatusResult = {
+  state: EvolutionConnectionState;
+  phoneNumber: string | null;
+};
+
+/** Live connection state straight from Evolution/Baileys for this instance. */
+export async function statusInstancia(instanceName: string): Promise<EvolutionStatusResult> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await chamar<any>(
+    config,
+    "GET",
+    `/instance/connectionState/${encodeURIComponent(instanceName)}`,
+  );
+  const state: string = data?.instance?.state ?? data?.state ?? "close";
+  const phoneNumber =
+    data?.instance?.owner ?? data?.instance?.number ?? data?.ownerJid?.split("@")[0] ?? null;
+  const normalizado: EvolutionConnectionState =
+    state === "open" ? "open" : state === "connecting" ? "connecting" : "close";
+  return { state: normalizado, phoneNumber: typeof phoneNumber === "string" ? phoneNumber : null };
+}
+
+/** Logs the instance out of WhatsApp (keeps the instance registered on Evolution, just disconnects the session). */
+export async function desconectarInstancia(instanceName: string): Promise<void> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  await chamar(config, "DELETE", `/instance/logout/${encodeURIComponent(instanceName)}`);
+}
+
+export type EvolutionSendResult = { messageId: string | null };
+
+/** Sends a plain text message through the instance. */
+export async function enviarMensagemTexto(
+  instanceName: string,
+  numero: string,
+  texto: string,
+): Promise<EvolutionSendResult> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await chamar<any>(
+    config,
+    "POST",
+    `/message/sendText/${encodeURIComponent(instanceName)}`,
+    {
+      number: numero,
+      text: texto,
+    },
+  );
+  const messageId = data?.key?.id ?? null;
+  return { messageId: typeof messageId === "string" ? messageId : null };
+}

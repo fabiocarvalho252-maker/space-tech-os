@@ -35,6 +35,7 @@ import { Route as AuthenticatedSeminovosRouteImport } from './routes/_authentica
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
+import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
 import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
 import { Route as AuthenticatedOrdensFaturarOsIdRouteImport } from './routes/_authenticated/ordens_.faturar.$osId'
@@ -173,6 +174,11 @@ const AuthenticatedVendasRoute = AuthenticatedVendasRouteImport.update({
   path: '/vendas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   id: '/consulta/$osId',
   path: '/consulta/$osId',
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
@@ -279,6 +287,7 @@ export interface FileRoutesById {
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
+  '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/_authenticated/ordens_/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/servicos'
     | '/usuarios'
     | '/vendas'
+    | '/whatsapp'
     | '/consulta/$osId'
     | '/servicos/adicionar'
     | '/ordens/faturar/$osId'
@@ -341,6 +351,7 @@ export interface FileRouteTypes {
     | '/servicos'
     | '/usuarios'
     | '/vendas'
+    | '/whatsapp'
     | '/consulta/$osId'
     | '/servicos/adicionar'
     | '/ordens/faturar/$osId'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
     | '/_authenticated/vendas'
+    | '/_authenticated/whatsapp'
     | '/consulta/$osId'
     | '/_authenticated/servicos_/adicionar'
     | '/_authenticated/ordens_/faturar/$osId'
@@ -569,6 +581,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVendasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/whatsapp': {
+      id: '/_authenticated/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/consulta/$osId': {
       id: '/consulta/$osId'
       path: '/consulta/$osId'
@@ -616,6 +635,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
+  AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedServicosAdicionarRoute: typeof AuthenticatedServicosAdicionarRoute
   AuthenticatedOrdensFaturarOsIdRoute: typeof AuthenticatedOrdensFaturarOsIdRoute
 }
@@ -643,6 +663,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
+  AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedServicosAdicionarRoute: AuthenticatedServicosAdicionarRoute,
   AuthenticatedOrdensFaturarOsIdRoute: AuthenticatedOrdensFaturarOsIdRoute,
 }

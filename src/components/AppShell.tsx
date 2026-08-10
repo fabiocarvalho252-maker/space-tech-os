@@ -90,6 +90,7 @@ const NAV = [
   { to: "/financeiro", label: "Financeiro", icon: Wallet, modulo: "financeiro" },
   { to: "/compras", label: "Compras", icon: ShoppingCart, modulo: "compras" },
   { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
+  { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "configuracoes" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
   { to: "/notas", label: "Notas Fiscais", icon: FileCheck, modulo: "notas" },
   { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },

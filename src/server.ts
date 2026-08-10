@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleWhatsappWebhook } from "./lib/whatsapp/webhook-handler.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -44,9 +45,23 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// The Evolution API webhook (external server, no browser/Supabase session)
+// is handled here, before the TanStack Start router/server-function
+// dispatcher, because that dispatcher enforces same-origin CSRF checks on
+// every request (see src/start.ts) that a legitimate server-to-server
+// webhook call can never satisfy. See webhook-handler.server.ts for the
+// endpoint's own (token-based) authentication.
+function isWhatsappWebhookRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/whatsapp/webhook";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      if (isWhatsappWebhookRequest(request)) {
+        return await handleWhatsappWebhook(request);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
