@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileCheck,
   Filter,
@@ -47,6 +47,13 @@ export const Route = createFileRoute("/_authenticated/notas")({
       { name: "description", content: "Controle interno de notas de vendas e ordens de serviço." },
     ],
   }),
+  // ?osId=<id> lets the OS screen's "Emitir Nota Fiscal" action deep-link
+  // straight into a pre-filled "Nova Nota" dialog instead of needing its own
+  // separate creation flow.
+  validateSearch: (search: Record<string, unknown>): { osId?: string } => {
+    const osId = search["osId"];
+    return typeof osId === "string" ? { osId } : {};
+  },
   component: NotasFiscais,
 });
 
@@ -70,6 +77,8 @@ const statusMap = {
 
 function NotasFiscais() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const searchParams = Route.useSearch();
   const { data: user } = useCurrentUser();
   const { data: profile } = useProfile();
   const { data: permissoes } = usePermissoes();
@@ -137,6 +146,24 @@ function NotasFiscais() {
     },
     enabled: !!user && open && form.origem === "os",
   });
+
+  useEffect(() => {
+    if (!searchParams.osId) return;
+    setForm({ ...vazio, origem: "os", os_id: searchParams.osId });
+    setOpen(true);
+    navigate({ to: "/notas", search: {}, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.osId]);
+
+  // Once the deep-linked OS loads, carry over its cliente automatically —
+  // the dialog still asks for "Cliente" as a separate field for the manual
+  // flow, but there's no reason to make a one-click action from the OS
+  // screen re-ask for a client the OS already has.
+  useEffect(() => {
+    if (form.origem !== "os" || !form.os_id || form.cliente_id) return;
+    const os = osDisponiveis.find((o) => o.id === form.os_id);
+    if (os?.cliente_id) setForm((f) => ({ ...f, cliente_id: os.cliente_id as string }));
+  }, [osDisponiveis, form.origem, form.os_id, form.cliente_id]);
 
   function atualizarItem(i: number, campo: keyof ItemForm, valor: string) {
     setItens((prev) => prev.map((it, idx) => (idx === i ? { ...it, [campo]: valor } : it)));

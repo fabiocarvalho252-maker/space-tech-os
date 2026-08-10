@@ -1107,9 +1107,7 @@ function Ordens() {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() =>
-                        toast.info("Funcionalidade de Nota Fiscal em desenvolvimento.")
-                      }
+                      onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
                       title="Emitir Nota Fiscal"
                     >
                       <FileCheck className="h-4 w-4 text-primary" />
@@ -1220,7 +1218,7 @@ function Ordens() {
                 variant="outline"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => toast.info("Funcionalidade de Nota Fiscal em desenvolvimento.")}
+                onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
                 title="Emitir Nota Fiscal"
               >
                 <FileCheck className="h-4 w-4 text-primary" />
