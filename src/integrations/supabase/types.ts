@@ -947,7 +947,9 @@ export type Database = {
       produtos: {
         Row: {
           categoria: string | null
+          comissao_percentual: number
           created_at: string
+          descricao: string | null
           estoque_minimo: number
           id: string
           nome: string
@@ -960,7 +962,9 @@ export type Database = {
         }
         Insert: {
           categoria?: string | null
+          comissao_percentual?: number
           created_at?: string
+          descricao?: string | null
           estoque_minimo?: number
           id?: string
           nome: string
@@ -973,7 +977,9 @@ export type Database = {
         }
         Update: {
           categoria?: string | null
+          comissao_percentual?: number
           created_at?: string
+          descricao?: string | null
           estoque_minimo?: number
           id?: string
           nome?: string
@@ -1384,6 +1390,7 @@ export type Database = {
       }
       termos_garantia: {
         Row: {
+          ativo: boolean
           conteudo: string
           created_at: string | null
           id: string
@@ -1393,6 +1400,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ativo?: boolean
           conteudo: string
           created_at?: string | null
           id?: string
@@ -1402,6 +1410,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ativo?: boolean
           conteudo?: string
           created_at?: string | null
           id?: string

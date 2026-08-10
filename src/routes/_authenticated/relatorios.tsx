@@ -247,7 +247,7 @@ function Relatorios() {
 
       {resumo && data && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div id="visao-geral" className="scroll-mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Ordens de serviço" value={String(data.ordens.length)} />
             <Stat
               label="Vendas"
@@ -267,6 +267,7 @@ function Relatorios() {
           </div>
 
           <Secao
+            id="ordens"
             titulo="Ordens de serviço por status"
             onExportar={() =>
               exportToCSV(
@@ -296,12 +297,14 @@ function Relatorios() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Secao
+              id="produtos"
               titulo="Top 10 produtos vendidos"
               onExportar={() => exportToCSV(resumo.topProdutos, "relatorio-top-produtos")}
             >
               <TabelaTop itens={resumo.topProdutos} />
             </Secao>
             <Secao
+              id="servicos"
               titulo="Top 10 serviços vendidos"
               onExportar={() => exportToCSV(resumo.topServicos, "relatorio-top-servicos")}
             >
@@ -339,6 +342,7 @@ function Relatorios() {
           </Secao>
 
           <Secao
+            id="financeiro"
             titulo="Financeiro por categoria"
             action={
               <Button
@@ -463,14 +467,19 @@ function Secao({
   children,
   onExportar,
   action,
+  id,
 }: {
   titulo: string;
   children: React.ReactNode;
   onExportar?: () => void;
   action?: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+    <section
+      id={id}
+      className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 shadow-soft"
+    >
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-bold">{titulo}</h2>
         <div className="flex items-center gap-2">

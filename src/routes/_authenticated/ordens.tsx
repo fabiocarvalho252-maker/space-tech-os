@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Plus,
   Printer,
@@ -20,7 +20,18 @@ import {
   EyeOff,
   Sparkles,
   Wand2,
+  MoreVertical,
+  Undo2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ajustarLaudo } from "@/lib/laudo.functions";
 import { toast } from "sonner";
@@ -28,6 +39,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
 import { PatternLock } from "@/components/PatternLock";
+import { FaturarOsModal } from "@/components/FaturarOsModal";
+import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -54,6 +67,13 @@ export const Route = createFileRoute("/_authenticated/ordens")({
       { property: "og:description", content: "Controle completo das OS da sua assistência." },
     ],
   }),
+  // ?os=<id> lets other screens (the Home "Ordens em Aberto" table) deep-link
+  // straight into this existing edit dialog instead of needing a separate
+  // OS detail page/route.
+  validateSearch: (search: Record<string, unknown>): { os?: string } => {
+    const os = search["os"];
+    return typeof os === "string" ? { os } : {};
+  },
   component: Ordens,
 });
 
@@ -76,11 +96,16 @@ const vazio = {
 
 function Ordens() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const searchParams = Route.useSearch();
   const { data: user } = useCurrentUser();
   const { data: profile } = useProfile();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
+  const [faturarOpen, setFaturarOpen] = useState(false);
+  const [whatsappOs, setWhatsappOs] = useState<any>(null);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [form, setForm] = useState(vazio);
   const [filtro, setFiltro] = useState("todas");
   const [showFilters, setShowFilters] = useState(false);
@@ -135,8 +160,8 @@ function Ordens() {
       toast.error(tipo === "produto" ? "Informe o produto" : "Informe o serviço");
       return;
     }
-    const produto =
-      tipo === "produto" ? produtos.find((p: any) => p.nome === base.descricao) : null;
+    const catalogo = tipo === "produto" ? pecas : servicosCadastrados;
+    const item = catalogo.find((p: any) => p.nome === base.descricao);
     setItensEdicao([
       ...itensEdicao,
       {
@@ -144,8 +169,8 @@ function Ordens() {
         descricao: base.descricao,
         observacao: base.observacao || undefined,
         quantidade: Number(base.quantidade) || 1,
-        preco_unitario: Number(base.preco_unitario) || Number((produto as any)?.preco_venda) || 0,
-        produto_id: (produto as any)?.id ?? null,
+        preco_unitario: Number(base.preco_unitario) || Number((item as any)?.preco_venda) || 0,
+        produto_id: tipo === "produto" ? ((item as any)?.id ?? null) : null,
       },
     ]);
     if (tipo === "produto") setNovoProduto(itemVazio);
@@ -200,13 +225,8 @@ function Ordens() {
   function enviarWhatsApp() {
     const os: any = ordens.find((o) => o.id === selectedOsId);
     if (!os) return;
-    const fone = (os.clientes?.telefone ?? "").replace(/\D/g, "");
-    if (!fone) {
-      toast.error("Cliente sem telefone cadastrado.");
-      return;
-    }
-    const msg = `Olá ${os.clientes?.nome ?? ""}! Sua OS ${os.numero} (${os.aparelho}) está com status: ${statusLabel(form.status)}. Total: ${brl(totalOs)}. Acompanhe: ${window.location.origin}/consulta/${os.numero}`;
-    window.open(`https://wa.me/55${fone}?text=${encodeURIComponent(msg)}`, "_blank");
+    setWhatsappOs({ ...os, status: form.status, valor: totalOs });
+    setWhatsappOpen(true);
   }
 
   const iaLaudo = useMutation({
@@ -234,6 +254,14 @@ function Ordens() {
     },
   });
 
+  useEffect(() => {
+    if (!searchParams.os || !ordens.length) return;
+    const alvo = ordens.find((o: any) => o.id === searchParams.os);
+    if (alvo) abrirEdicao(alvo);
+    navigate({ to: "/ordens", search: {}, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.os, ordens]);
+
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes"],
     queryFn: async () =>
@@ -244,6 +272,16 @@ function Ordens() {
     queryKey: ["produtos"],
     queryFn: async () => (await supabase.from("produtos").select("*").order("nome")).data ?? [],
   });
+  // "produtos" mistura estoque real com o cadastro de serviços (categoria "Serviço",
+  // sem controle de estoque) — separar aqui evita que serviços apareçam nos seletores de peça.
+  const pecas = useMemo(
+    () => (produtos as any[]).filter((p) => p.categoria !== "Serviço"),
+    [produtos],
+  );
+  const servicosCadastrados = useMemo(
+    () => (produtos as any[]).filter((p) => p.categoria === "Serviço"),
+    [produtos],
+  );
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -276,6 +314,7 @@ function Ordens() {
           form.itens.map((i) => ({
             user_id: user!.id,
             os_id: os.id,
+            tipo: i.tipo,
             produto_id: i.produto_id,
             descricao: i.descricao,
             quantidade: i.quantidade,
@@ -360,31 +399,6 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const faturar = useMutation({
-    mutationFn: async () => {
-      if (!selectedOsId) throw new Error("Nenhuma OS selecionada");
-      const { error } = await supabase
-        .from("ordens_servico")
-        .update({
-          status: "faturado",
-          status_pagamento: "pago",
-          valor_pago: totalOs,
-          valor: totalOs,
-        } as any)
-        .eq("id", selectedOsId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setForm((f) => ({ ...f, status: "faturado" }));
-      setStatusPagamento("pago");
-      setValorPago(String(totalOs));
-      toast.success("OS faturada");
-      qc.invalidateQueries({ queryKey: ["ordens"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const { data: statusFlows = [] } = useQuery({
     queryKey: ["os-status-flows"],
     queryFn: async () => {
@@ -430,11 +444,79 @@ function Ordens() {
     },
     onSuccess: () => {
       toast.success("OS removida");
+      setConfirmExcluirOs(null);
       qc.invalidateQueries({ queryKey: ["ordens"] });
+    },
+    onError: (e: any) => {
+      if (e?.code === "23503") {
+        toast.error("Não é possível excluir: esta OS possui faturamento registrado.", {
+          description: "Cancele o faturamento antes de excluir a OS.",
+        });
+        return;
+      }
+      toast.error(e?.message ?? "Erro ao remover OS");
     },
   });
 
-  async function imprimir(os: (typeof ordens)[number]) {
+  const [confirmExcluirOs, setConfirmExcluirOs] = useState<{ id: string; numero: number } | null>(
+    null,
+  );
+  const [confirmEstornar, setConfirmEstornar] = useState<{ id: string; numero: number } | null>(
+    null,
+  );
+
+  function enviarWhatsAppOs(os: any) {
+    setWhatsappOs(os);
+    setWhatsappOpen(true);
+  }
+
+  const estornar = useMutation({
+    mutationFn: async (osId: string) => {
+      const { data: faturamento, error: erroBusca } = await supabase
+        .from("os_faturamentos" as any)
+        .select("id")
+        .eq("os_id", osId)
+        .neq("status", "cancelado")
+        .maybeSingle();
+      if (erroBusca) throw erroBusca;
+      if (!faturamento) throw new Error("Esta OS não possui lançamento financeiro para estornar.");
+      const { error } = await supabase.rpc("cancelar_faturamento_os" as any, {
+        p_faturamento_id: (faturamento as any).id,
+        p_motivo: "Estorno solicitado na listagem de Ordens de Serviço",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Lançamento estornado. Um estorno foi registrado no financeiro.");
+      setConfirmEstornar(null);
+      qc.invalidateQueries({ queryKey: ["ordens"] });
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-home"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmEstornar(null);
+    },
+  });
+
+  async function imprimir(
+    os: (typeof ordens)[number],
+    modo: "os" | "orcamento" | "nao_fiscal" = "os",
+  ) {
+    // Open the window synchronously, still inside the click's user-gesture —
+    // opening it *after* the awaited queries below would make most browsers
+    // treat it as an unrequested popup and block it silently.
+    const janela = window.open("", "_blank", "width=800,height=900");
+    if (!janela) {
+      toast.error("Não foi possível abrir a janela de impressão.", {
+        description: "Verifique se o navegador está bloqueando pop-ups para este site.",
+      });
+      return;
+    }
+    janela.document.write(
+      "<!doctype html><html><body style='font-family:system-ui,sans-serif;padding:40px;color:#666'>Preparando impressão...</body></html>",
+    );
+
     // Buscar o termo padrão e a configuração de OS
     const [{ data: termo }, { data: osConfigData }, { data: fotos }] = await Promise.all([
       supabase
@@ -491,6 +573,7 @@ function Ordens() {
       `;
     }
 
+    const tituloDoc = modo === "orcamento" ? "Orçamento" : "Ordem de Serviço";
     const conteudoVias = [];
     const numVias = osConfig?.imprimir_duas_vias ? 2 : 1;
 
@@ -500,7 +583,7 @@ function Ordens() {
           <header>
             <div>
               <h1>${profile?.loja ?? "Assistência Técnica"}</h1>
-              <small>Ordem de Serviço nº ${os.numero} - ${i === 0 ? "Via do Cliente" : "Via da Empresa"}</small>
+              <small>${tituloDoc} nº ${os.numero} - ${i === 0 ? "Via do Cliente" : "Via da Empresa"}</small>
             </div>
             <div style="text-align:right">
               <strong>${dataBR(os.created_at)}</strong><br>
@@ -519,7 +602,8 @@ function Ordens() {
           </table>
 
           <p class="total">Total: ${brl(os.valor)}</p>
-          
+          ${modo === "nao_fiscal" ? '<p style="font-size:10px;color:#999;margin-top:4px;">Documento sem valor fiscal.</p>' : ""}
+
           ${termo?.conteudo ? `<div class="garantia"><strong>Termos de Garantia:</strong><br>${termo.conteudo}</div>` : ""}
           ${osConfig?.termos_condicoes ? `<div class="condicoes"><strong>Condições do Orçamento:</strong><br>${osConfig.termos_condicoes}</div>` : ""}
           
@@ -536,11 +620,9 @@ function Ordens() {
       `);
     }
 
-    const janela = window.open("", "_blank", "width=800,height=900");
-    if (!janela) return;
-
+    janela.document.open();
     janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-      <title>OS ${os.numero}</title>
+      <title>${tituloDoc} ${os.numero}</title>
       <style>
         body{font-family:system-ui,sans-serif;padding:40px;color:#1b1b2b;line-height:1.4}
         h1{margin:0;font-size:20px}
@@ -684,7 +766,7 @@ function Ordens() {
                       <select
                         className="h-8 rounded-md border border-input bg-card px-2 text-xs"
                         onChange={(e) => {
-                          const p = (produtos as any[]).find((x) => x.id === e.target.value);
+                          const p = pecas.find((x) => x.id === e.target.value);
                           if (!p) return;
                           if (p.quantidade <= 0) {
                             toast.error("Produto sem estoque");
@@ -693,6 +775,7 @@ function Ordens() {
                           const itens = [
                             ...form.itens,
                             {
+                              tipo: "produto",
                               produto_id: p.id,
                               descricao: p.nome,
                               quantidade: 1,
@@ -708,7 +791,7 @@ function Ordens() {
                         value=""
                       >
                         <option value="">+ Adicionar Peça</option>
-                        {(produtos as any[]).map((p) => (
+                        {pecas.map((p) => (
                           <option key={p.id} value={p.id} disabled={p.quantidade <= 0}>
                             {p.nome} ({p.quantidade} un) - {brl(p.preco_venda)}
                           </option>
@@ -726,6 +809,7 @@ function Ordens() {
                           const itens = [
                             ...form.itens,
                             {
+                              tipo: "servico",
                               produto_id: null,
                               descricao: desc,
                               quantidade: 1,
@@ -966,84 +1050,9 @@ function Ordens() {
                 <td className="p-4">
                   <div className="flex flex-col">
                     <span className="font-extrabold text-primary text-base">{brl(os.valor)}</span>
-                    {os.numero === 32 && (
+                    {Number(os.desconto) > 0 && (
                       <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(180)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 30 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(600)} − {brl(60)} desc.
-                      </span>
-                    )}
-                    {os.numero === 28 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(30)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 22 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(150)} − {brl(50)} desc.
-                      </span>
-                    )}
-                    {os.numero === 21 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(90)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 20 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(40)} − {brl(5)} desc.
-                      </span>
-                    )}
-                    {os.numero === 19 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(30)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 14 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(30)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 13 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(180)} − {brl(20)} desc.
-                      </span>
-                    )}
-                    {os.numero === 11 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(280)} − {brl(30)} desc.
-                      </span>
-                    )}
-                    {os.numero === 10 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(50)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 8 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(30)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 5 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(180)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 4 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(150)} − {brl(10)} desc.
-                      </span>
-                    )}
-                    {os.numero === 2 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(350)} − {brl(35)} desc.
-                      </span>
-                    )}
-                    {os.numero === 1 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {brl(250)} − {brl(15)} desc.
+                        Desconto: {brl(os.desconto)}
                       </span>
                     )}
                   </div>
@@ -1054,10 +1063,12 @@ function Ordens() {
                     onChange={(e) =>
                       mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
                     }
-                    className={`h-8 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
-                      os.status === "faturado" || os.status === "entregue" || os.status === "pronto"
-                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                        : "bg-primary/10 text-primary border-primary/20"
+                    className={`h-8 w-full rounded-lg border px-2 text-xs font-medium transition ${
+                      os.status === "faturado"
+                        ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                        : os.status === "entregue" || os.status === "pronto"
+                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                          : "bg-primary/10 text-primary border-primary/20"
                     }`}
                   >
                     {STATUS_OS.map((s) => (
@@ -1103,20 +1114,18 @@ function Ordens() {
                     >
                       <FileCheck className="h-4 w-4 text-primary" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => imprimir(os)}
-                      title="Imprimir"
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
+                    <AcoesOsMenu
+                      os={os}
+                      onImprimir={imprimir}
+                      onWhatsApp={enviarWhatsAppOs}
+                      onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
+                      navigate={navigate}
+                    />
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => remover.mutate(os.id)}
+                      onClick={() => setConfirmExcluirOs({ id: os.id, numero: os.numero })}
                       title="Remover"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1147,7 +1156,14 @@ function Ordens() {
                   {os.responsavel || "Técnico não atribuído"}
                 </p>
               </div>
-              <span className="font-extrabold text-primary">{brl(os.valor)}</span>
+              <div className="flex flex-col items-end">
+                <span className="font-extrabold text-primary">{brl(os.valor)}</span>
+                {Number(os.desconto) > 0 && (
+                  <span className="text-[10px] text-muted-foreground opacity-70">
+                    Desconto: {brl(os.desconto)}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -1161,10 +1177,12 @@ function Ordens() {
               onChange={(e) =>
                 mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
               }
-              className={`mt-3 h-9 w-full rounded-lg border border-input px-2 text-xs font-medium transition ${
-                os.status === "faturado" || os.status === "entregue" || os.status === "pronto"
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                  : "bg-primary/10 text-primary border-primary/20"
+              className={`mt-3 h-9 w-full rounded-lg border px-2 text-xs font-medium transition ${
+                os.status === "faturado"
+                  ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                  : os.status === "entregue" || os.status === "pronto"
+                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                    : "bg-primary/10 text-primary border-primary/20"
               }`}
             >
               {STATUS_OS.map((s) => (
@@ -1207,20 +1225,18 @@ function Ordens() {
               >
                 <FileCheck className="h-4 w-4 text-primary" />
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => imprimir(os)}
-                title="Imprimir"
-              >
-                <Printer className="h-4 w-4" />
-              </Button>
+              <AcoesOsMenu
+                os={os}
+                onImprimir={imprimir}
+                onWhatsApp={enviarWhatsAppOs}
+                onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
+                navigate={navigate}
+              />
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => remover.mutate(os.id)}
+                onClick={() => setConfirmExcluirOs({ id: os.id, numero: os.numero })}
                 title="Remover"
               >
                 <Trash2 className="h-4 w-4" />
@@ -1258,12 +1274,7 @@ function Ordens() {
             <Button variant="outline" size="sm" onClick={() => setTabEdicao("pagamentos")}>
               <DollarSign className="mr-2 h-4 w-4" /> Pagamento Parcial
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => faturar.mutate()}
-              disabled={faturar.isPending}
-            >
+            <Button variant="outline" size="sm" onClick={() => setFaturarOpen(true)}>
               <Receipt className="mr-2 h-4 w-4" /> Faturar
             </Button>
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -1379,7 +1390,7 @@ function Ordens() {
                       placeholder="Digite o nome do produto"
                     />
                     <datalist id="lista-produtos-edicao">
-                      {produtos.map((p: any) => (
+                      {pecas.map((p) => (
                         <option key={p.id} value={p.nome} />
                       ))}
                     </datalist>
@@ -1420,12 +1431,18 @@ function Ordens() {
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>Serviço</Label>
                     <Input
+                      list="lista-servicos-edicao"
                       value={novoServico.descricao}
                       onChange={(e) =>
                         setNovoServico({ ...novoServico, descricao: e.target.value })
                       }
                       placeholder="Digite o nome do serviço"
                     />
+                    <datalist id="lista-servicos-edicao">
+                      {servicosCadastrados.map((s) => (
+                        <option key={s.id} value={s.nome} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>Breve descrição (opcional)</Label>
@@ -1683,7 +1700,90 @@ function Ordens() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <FaturarOsModal osId={selectedOsId} open={faturarOpen} onOpenChange={setFaturarOpen} />
+
+      <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+
+      <ConfirmDialog
+        open={!!confirmExcluirOs}
+        onOpenChange={(v) => !v && setConfirmExcluirOs(null)}
+        title="Deseja realmente excluir esta Ordem de Serviço?"
+        description={
+          confirmExcluirOs
+            ? `A OS Nº ${confirmExcluirOs.numero} será removida permanentemente.`
+            : ""
+        }
+        confirmLabel="Excluir"
+        destructive
+        loading={remover.isPending}
+        onConfirm={() => confirmExcluirOs && remover.mutate(confirmExcluirOs.id)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmEstornar}
+        onOpenChange={(v) => !v && setConfirmEstornar(null)}
+        title="Deseja realmente estornar o lançamento desta OS?"
+        description={
+          confirmEstornar
+            ? `Isso pode alterar os dados financeiros já registrados para a OS Nº ${confirmEstornar.numero} — parcelas pendentes serão canceladas e parcelas já recebidas geram um estorno no financeiro.`
+            : ""
+        }
+        confirmLabel="Estornar"
+        destructive
+        loading={estornar.isPending}
+        onConfirm={() => confirmEstornar && estornar.mutate(confirmEstornar.id)}
+      />
     </div>
+  );
+}
+
+function AcoesOsMenu({
+  os,
+  onImprimir,
+  onWhatsApp,
+  onEstornar,
+  navigate,
+}: {
+  os: any;
+  onImprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
+  onWhatsApp: (os: any) => void;
+  onEstornar: (os: any) => void;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="h-8 w-8" title="Mais ações">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Impressão</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onImprimir(os, "orcamento")}>
+          Orçamento A4
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onImprimir(os, "os")}>Imprimir A4</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onImprimir(os, "nao_fiscal")}>
+          Imprimir não fiscal
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast.info("Assinatura digital — em desenvolvimento.")}>
+          Assinatura digital
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onWhatsApp(os)}>Enviar por WhatsApp</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate({ to: "/cobrancas" })}>
+          Emitir cobrança
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={() => onEstornar(os)}
+        >
+          <Undo2 className="mr-2 h-4 w-4" /> Estornar lançamento
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

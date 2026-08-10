@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2, Search, Sparkles, Layers, Target } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,12 @@ export const Route = createFileRoute("/_authenticated/ferramentas")({
       { name: "description", content: "Buscador de películas compatíveis para a bancada." },
     ],
   }),
+  // ?busca=<termo> lets the Home película-search card hand its typed term
+  // over to this page's real search instead of duplicating the filter logic.
+  validateSearch: (search: Record<string, unknown>): { busca?: string } => {
+    const busca = search["busca"];
+    return typeof busca === "string" ? { busca } : {};
+  },
   component: Ferramentas,
 });
 
@@ -37,8 +43,13 @@ function Ferramentas() {
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "produtos");
 
-  const [busca, setBusca] = useState("");
+  const searchParams = Route.useSearch();
+  const [busca, setBusca] = useState(searchParams.busca ?? "");
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.busca) setBusca(searchParams.busca);
+  }, [searchParams.busca]);
   const [form, setForm] = useState(vazio);
   const [resultadoIA, setResultadoIA] = useState<{
     modelos: string | undefined;

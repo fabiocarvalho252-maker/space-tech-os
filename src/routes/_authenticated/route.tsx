@@ -7,8 +7,9 @@ import { DIAS_TESTE } from "@/hooks/useCurrentUser";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/" });
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) throw redirect({ to: "/" });
+    const user = data.session.user;
 
     // Trial gate: the company's own profile.created_at is the trial's start,
     // whether the caller is the owner or an invited team member — the whole
@@ -16,11 +17,11 @@ export const Route = createFileRoute("/_authenticated")({
     const { data: membership } = await supabase
       .from("user_empresas")
       .select("empresa_id")
-      .eq("user_id", data.user.id);
+      .eq("user_id", user.id);
     const empresaId =
-      membership?.find((m) => m.empresa_id !== data.user.id)?.empresa_id ??
+      membership?.find((m) => m.empresa_id !== user.id)?.empresa_id ??
       membership?.[0]?.empresa_id ??
-      data.user.id;
+      user.id;
 
     const { data: empresaProfile } = await supabase
       .from("profiles")
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/_authenticated")({
       if (diasDecorridos > DIAS_TESTE) throw redirect({ to: "/assinatura" });
     }
 
-    return { user: data.user };
+    return { user };
   },
   component: AppShell,
 });

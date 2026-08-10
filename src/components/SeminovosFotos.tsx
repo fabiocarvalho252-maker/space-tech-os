@@ -4,6 +4,7 @@ import { ImagePlus, Loader2, Trash2, Camera, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,11 +37,11 @@ export function SeminovosFotos({ seminovoId, fotos }: { seminovoId: string; foto
   });
 
   const enviar = useMutation({
-    mutationFn: async (files: FileList) => {
+    mutationFn: async (files: File[]) => {
       const novosPaths: string[] = [];
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${user!.id}/${seminovoId}/${crypto.randomUUID()}.${ext}`;
+        const path = `${user!.id}/${seminovoId}/${randomId()}.${ext}`;
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file);
         if (upErr) throw upErr;
         novosPaths.push(path);
@@ -102,7 +103,12 @@ export function SeminovosFotos({ seminovoId, fotos }: { seminovoId: string; foto
             multiple
             className="hidden"
             onChange={(e) => {
-              if (e.target.files?.length) enviar.mutate(e.target.files);
+              // FileList is live and tied to the input — grab a real array
+              // of the files *before* resetting the input, or the mutation
+              // (which only starts on a later tick) would see an
+              // already-emptied list and silently upload nothing.
+              const selecionados = Array.from(e.target.files ?? []);
+              if (selecionados.length) enviar.mutate(selecionados);
               e.target.value = "";
             }}
           />

@@ -1,31 +1,27 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfMonth } from "date-fns";
+import { useMemo, useState } from "react";
 import {
-  Wrench,
-  Package,
-  Wallet,
-  Users,
-  TrendingUp,
-  AlertTriangle,
-  Search,
-  ExternalLink,
-  Calendar,
-  Clock,
-  ArrowUpRight,
-  ArrowDownRight,
-  Target,
-  FileText,
-  ShieldCheck,
-  ShoppingBag,
-  Layers,
-  GraduationCap,
-  Truck,
-} from "lucide-react";
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { brl, dataBR, statusLabel } from "@/lib/format";
 import { useProfile } from "@/hooks/useCurrentUser";
+import { QuickAccessCards } from "@/components/dashboard/QuickAccessCards";
+import { FilmSearchCard } from "@/components/dashboard/FilmSearchCard";
+import { PartnerProgramCard } from "@/components/dashboard/PartnerProgramCard";
+import { MonthlyResultCard, type Periodo } from "@/components/dashboard/MonthlyResultCard";
+import { TopProductsChart, type ItemRanking } from "@/components/dashboard/TopProductsChart";
+import { TopServicesChart } from "@/components/dashboard/TopServicesChart";
+import { OpenOrdersTable, type OsAberta } from "@/components/dashboard/OpenOrdersTable";
+import { SystemStatistics } from "@/components/dashboard/SystemStatistics";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -39,268 +35,247 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
+const STATUS_FECHADOS = ["entregue", "cancelado"];
+
+function intervaloDoPeriodo(
+  periodo: Periodo,
+  dataInicio: string,
+  dataFim: string,
+): { inicio: Date; fim: Date } {
+  const agora = new Date();
+  switch (periodo) {
+    case "hoje":
+      return { inicio: agora, fim: agora };
+    case "semana":
+      return {
+        inicio: startOfWeek(agora, { weekStartsOn: 1 }),
+        fim: endOfWeek(agora, { weekStartsOn: 1 }),
+      };
+    case "mes_anterior": {
+      const mesPassado = subMonths(agora, 1);
+      return { inicio: startOfMonth(mesPassado), fim: endOfMonth(mesPassado) };
+    }
+    case "personalizado":
+      return {
+        inicio: dataInicio ? new Date(`${dataInicio}T00:00:00`) : startOfMonth(agora),
+        fim: dataFim ? new Date(`${dataFim}T00:00:00`) : agora,
+      };
+    case "mes":
+    default:
+      return { inicio: startOfMonth(agora), fim: agora };
+  }
+}
+
 function Dashboard() {
   const { data: profile } = useProfile();
+  const [periodo, setPeriodo] = useState<Periodo>("mes");
+  const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [dataFim, setDataFim] = useState(format(new Date(), "yyyy-MM-dd"));
 
-  const hojeStr = format(new Date(), "yyyy-MM-dd");
-  const inicioMesStr = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const inicioMesISO = `${inicioMesStr}T00:00:00`;
+  const { inicio, fim } = useMemo(
+    () => intervaloDoPeriodo(periodo, dataInicio, dataFim),
+    [periodo, dataInicio, dataFim],
+  );
+  const inicioStr = format(inicio, "yyyy-MM-dd");
+  const fimStr = format(fim, "yyyy-MM-dd");
 
-  const { data } = useQuery({
-    queryKey: ["dashboard", hojeStr],
+  const {
+    data,
+    isLoading: carregando,
+    isError: erroOrdens,
+    refetch,
+  } = useQuery({
+    queryKey: ["dashboard-home", inicioStr, fimStr],
     queryFn: async () => {
-      const [os, produtos, clientes, lancamentosMes, vendas, vendaItensMes, osItensMes] =
-        await Promise.all([
-          supabase.from("ordens_servico").select("*").order("created_at", { ascending: false }),
-          supabase.from("produtos").select("*"),
-          supabase.from("clientes").select("id"),
-          supabase.from("lancamentos").select("*").gte("data", inicioMesStr),
-          supabase.from("vendas").select("total, created_at"),
-          supabase.from("venda_itens").select("*").gte("created_at", inicioMesISO),
-          supabase.from("os_itens").select("*").gte("created_at", inicioMesISO),
-        ]);
+      const [
+        produtosRes,
+        clientesRes,
+        osRes,
+        vendasRes,
+        lancamentosRes,
+        osItensRes,
+        vendaItensRes,
+        garantiasRes,
+      ] = await Promise.all([
+        supabase.from("produtos").select("id, categoria, preco_custo"),
+        supabase.from("clientes").select("id", { count: "exact", head: true }),
+        supabase
+          .from("ordens_servico")
+          .select("id, numero, previsao, status, clientes(nome)")
+          .order("created_at", { ascending: false }),
+        supabase.from("vendas").select("id", { count: "exact", head: true }),
+        supabase
+          .from("lancamentos")
+          .select("tipo, valor, data")
+          .gte("data", inicioStr)
+          .lte("data", fimStr),
+        supabase
+          .from("os_itens")
+          .select("produto_id, descricao, quantidade, tipo, created_at")
+          .gte("created_at", `${inicioStr}T00:00:00`)
+          .lte("created_at", `${fimStr}T23:59:59`),
+        supabase
+          .from("venda_itens")
+          .select("produto_id, descricao, quantidade, created_at")
+          .gte("created_at", `${inicioStr}T00:00:00`)
+          .lte("created_at", `${fimStr}T23:59:59`),
+        supabase.from("termos_garantia").select("id", { count: "exact", head: true }),
+      ]);
+
+      if (osRes.error) throw osRes.error;
+
       return {
-        os: os.data ?? [],
-        produtos: produtos.data ?? [],
-        clientes: clientes.data ?? [],
-        lancamentosMes: lancamentosMes.data ?? [],
-        vendas: vendas.data ?? [],
-        vendaItensMes: vendaItensMes.data ?? [],
-        osItensMes: osItensMes.data ?? [],
+        produtos: produtosRes.data ?? [],
+        clientesCount: clientesRes.count ?? 0,
+        os: osRes.data ?? [],
+        vendasCount: vendasRes.count ?? 0,
+        lancamentos: lancamentosRes.data ?? [],
+        osItens: osItensRes.data ?? [],
+        vendaItens: vendaItensRes.data ?? [],
+        garantiasCount: garantiasRes.count ?? 0,
       };
     },
   });
 
-  const abertas = (data?.os ?? []).filter(
-    (o) => !["entregue", "cancelada"].includes(o.status),
-  ).length;
+  const produtosById = useMemo(
+    () => new Map((data?.produtos ?? []).map((p) => [p.id, p])),
+    [data?.produtos],
+  );
 
-  const lancamentosHoje = (data?.lancamentosMes ?? []).filter((l) => l.data === hojeStr);
-  const entradas = lancamentosHoje
+  const receita = (data?.lancamentos ?? [])
     .filter((l) => l.tipo === "entrada")
     .reduce((s, l) => s + Number(l.valor), 0);
-  const saidas = lancamentosHoje
+  const despesas = (data?.lancamentos ?? [])
     .filter((l) => l.tipo === "saida")
     .reduce((s, l) => s + Number(l.valor), 0);
 
-  const entradasMes = (data?.lancamentosMes ?? [])
-    .filter((l) => l.tipo === "entrada")
-    .reduce((s, l) => s + Number(l.valor), 0);
-  const saidasMes = (data?.lancamentosMes ?? [])
-    .filter((l) => l.tipo === "saida")
-    .reduce((s, l) => s + Number(l.valor), 0);
-
-  const produtosById = new Map((data?.produtos ?? []).map((p) => [p.id, p]));
-  let cmvMes = 0;
-  for (const i of data?.osItensMes ?? []) {
+  let cmv = 0;
+  for (const i of data?.osItens ?? []) {
     if (i.tipo === "produto" && i.produto_id) {
-      cmvMes += i.quantidade * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0);
+      cmv += Number(i.quantidade) * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0);
     }
   }
-  for (const i of data?.vendaItensMes ?? []) {
+  for (const i of data?.vendaItens ?? []) {
     const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
     if (produto && produto.categoria !== "Serviço") {
-      cmvMes += i.quantidade * Number(produto.preco_custo ?? 0);
+      cmv += Number(i.quantidade) * Number(produto.preco_custo ?? 0);
     }
   }
+  const lucroLiquido = receita - cmv - despesas;
+  const margem = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
 
-  const faturamentoMes = entradasMes;
-  const lucroLiquidoMes = faturamentoMes - cmvMes - saidasMes;
-  const margemMes = faturamentoMes > 0 ? (lucroLiquidoMes / faturamentoMes) * 100 : 0;
+  const pontos = useMemo(() => {
+    const dias = eachDayOfInterval({ start: inicio, end: fim });
+    return dias.map((dia) => {
+      const diaStr = format(dia, "yyyy-MM-dd");
+      const doDia = (data?.lancamentos ?? []).filter((l) => l.data === diaStr);
+      const valor =
+        doDia.filter((l) => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0) -
+        doDia.filter((l) => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+      return { data: diaStr, label: format(dia, "dd/MM", { locale: ptBR }), valor };
+    });
+  }, [data?.lancamentos, inicio, fim]);
 
-  const baixoEstoque = (data?.produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
+  const { topProdutos, topServicos } = useMemo(() => {
+    const produtosMap = new Map<string, number>();
+    const servicosMap = new Map<string, number>();
+
+    for (const i of data?.osItens ?? []) {
+      const alvo = i.tipo === "servico" ? servicosMap : produtosMap;
+      alvo.set(i.descricao, (alvo.get(i.descricao) ?? 0) + Number(i.quantidade));
+    }
+    for (const i of data?.vendaItens ?? []) {
+      const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
+      const alvo = produto?.categoria === "Serviço" ? servicosMap : produtosMap;
+      alvo.set(i.descricao, (alvo.get(i.descricao) ?? 0) + Number(i.quantidade));
+    }
+
+    const paraLista = (m: Map<string, number>): ItemRanking[] =>
+      Array.from(m.entries())
+        .map(([nome, quantidade]) => ({ nome, quantidade }))
+        .sort((a, b) => b.quantidade - a.quantidade);
+
+    return { topProdutos: paraLista(produtosMap), topServicos: paraLista(servicosMap) };
+  }, [data?.osItens, data?.vendaItens, produtosById]);
+
+  const ordensAbertas: OsAberta[] = (data?.os ?? [])
+    .filter((o) => !STATUS_FECHADOS.includes(o.status))
+    .map((o) => ({
+      id: o.id,
+      numero: o.numero,
+      cliente: (o.clientes as any)?.nome ?? "Sem cliente",
+      previsao: o.previsao,
+      status: o.status,
+    }));
+
+  const produtosCount = (data?.produtos ?? []).filter((p) => p.categoria !== "Serviço").length;
+  const servicosCount = (data?.produtos ?? []).filter((p) => p.categoria === "Serviço").length;
 
   return (
-    <div className="space-y-6">
+    <div className="-m-4 space-y-6 bg-[#F3F4F9] p-4 dark:m-0 dark:bg-transparent dark:p-0 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
       <PageHeader
         title={`Olá, ${profile?.nome?.split(" ")[0] || "Administrador"}`}
         subtitle={profile?.loja ? `Painel da ${profile.loja}` : "Visão geral da sua operação"}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/ferramentas"
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg hover:bg-primary/90"
-            >
-              <Search className="h-4 w-4" /> Buscar de Películas
-            </Link>
-            <button className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm hover:bg-accent/90">
-              <Target className="h-4 w-4" /> Programa de Parceiros
-            </button>
-          </div>
-        }
       />
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        <Card icon={Wrench} label="OS Abertas" value={String(abertas)} tone="primary" />
-        <Card
-          icon={ShoppingBag}
-          label="Vendas"
-          value={String(data?.vendas.length ?? 0)}
-          tone="success"
-        />
-        <Card
-          icon={Package}
-          label="Estoque Baixo"
-          value={String(baixoEstoque.length)}
-          tone="warning"
-        />
-        <Card
-          icon={Users}
-          label="Clientes"
-          value={String(data?.clientes.length ?? 0)}
-          tone="accent"
-        />
-        <Card icon={ShieldCheck} label="Garantias" value="0" tone="ink" />
-        <Card icon={FileText} label="Notas Fiscais" value="0" tone="ink" />
+      <QuickAccessCards />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FilmSearchCard />
+        <PartnerProgramCard />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <section className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <p className="text-sm text-muted-foreground">Receita Hoje</p>
-              <p className="mt-1 text-2xl font-extrabold">{brl(entradas)}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <p className="text-sm text-muted-foreground">Despesas Hoje</p>
-              <p className="mt-1 text-2xl font-extrabold text-destructive">{brl(saidas)}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <p className="text-sm text-muted-foreground">Resultado</p>
-              <p className="mt-1 text-2xl font-extrabold">{brl(entradas - saidas)}</p>
-            </div>
-          </section>
+        <div className="space-y-6 lg:col-span-2">
+          <MonthlyResultCard
+            periodo={periodo}
+            onPeriodoChange={setPeriodo}
+            dataInicio={dataInicio}
+            dataFim={dataFim}
+            onDataInicioChange={setDataInicio}
+            onDataFimChange={setDataFim}
+            metrics={{ lucroLiquido, margem, receita, cmv, despesas }}
+            pontos={pontos}
+            carregando={carregando}
+          />
 
           <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold">Agenda Semanal</h2>
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div className="h-48 flex items-center justify-center border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground">
-              Agenda vazia para esta semana.
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold">Resultado Mensal (DRE)</h2>
-              <Layers className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="p-3 bg-secondary/20 rounded-xl">
-                <p className="text-xs text-muted-foreground">Lucro Líquido</p>
-                <p className={`text-lg font-bold ${lucroLiquidoMes < 0 ? "text-destructive" : ""}`}>
-                  {brl(lucroLiquidoMes)}
-                </p>
-              </div>
-              <div className="p-3 bg-secondary/20 rounded-xl">
-                <p className="text-xs text-muted-foreground">Margem</p>
-                <p className="text-lg font-bold">{margemMes.toFixed(1)}%</p>
-              </div>
-              <div className="p-3 bg-secondary/20 rounded-xl">
-                <p className="text-xs text-muted-foreground">CMV</p>
-                <p className="text-lg font-bold">{brl(cmvMes)}</p>
-              </div>
-              <div className="p-3 bg-secondary/20 rounded-xl">
-                <p className="text-xs text-muted-foreground">Faturamento</p>
-                <p className="text-lg font-bold">{brl(faturamentoMes)}</p>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold">Últimas OS</h2>
-              <Link to="/ordens" className="text-sm font-semibold text-primary">
-                Ver tudo
-              </Link>
-            </div>
-            {data?.os.length ? (
-              <div className="space-y-4">
-                {data.os.slice(0, 5).map((o) => (
-                  <div
-                    key={o.id}
-                    className="flex items-center gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
-                  >
-                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                      <Clock className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">
-                        #{o.numero} - {o.aparelho}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{statusLabel(o.status)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <h2 className="mb-4 text-base font-bold">Top 10 Produtos Vendidos</h2>
+            {carregando ? (
+              <div className="h-56 animate-pulse rounded-xl bg-secondary/40" />
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma OS aberta.</p>
+              <TopProductsChart itens={topProdutos} />
             )}
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <h2 className="text-base font-bold mb-4">Top 10 Produtos</h2>
-            <p className="text-sm text-muted-foreground">Nenhum dado disponível.</p>
+            <h2 className="mb-4 text-base font-bold">Top 10 Serviços Vendidos</h2>
+            {carregando ? (
+              <div className="h-56 animate-pulse rounded-xl bg-secondary/40" />
+            ) : (
+              <TopServicesChart itens={topServicos} />
+            )}
           </section>
+
+          <OpenOrdersTable
+            ordens={ordensAbertas}
+            carregando={carregando}
+            erro={erroOrdens}
+            onTentarNovamente={() => refetch()}
+          />
+        </div>
+
+        <div className="lg:col-span-1">
+          <SystemStatistics
+            clientes={data?.clientesCount ?? 0}
+            produtos={produtosCount}
+            servicos={servicosCount}
+            ordens={data?.os.length ?? 0}
+            garantias={data?.garantiasCount ?? 0}
+            vendas={data?.vendasCount ?? 0}
+          />
         </div>
       </div>
-
-      {/* Partners Footer */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-soft flex items-center gap-4">
-          <Truck className="h-10 w-10 text-primary" />
-          <div>
-            <h3 className="font-bold">Distribuidores</h3>
-            <p className="text-sm text-muted-foreground">Compre peças com parceiros homologados.</p>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Vazio({ texto, link, acao }: { texto: string; link: string; acao: string }) {
-  return (
-    <div className="py-8 text-center text-sm text-muted-foreground">
-      <p>{texto}</p>
-      <Link to={link} className="mt-2 inline-block font-semibold text-primary">
-        {acao}
-      </Link>
-    </div>
-  );
-}
-
-function Card({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  tone: "primary" | "success" | "ink" | "accent" | "warning";
-}) {
-  const tones = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    ink: "bg-ink/10 text-ink",
-    accent: "bg-accent text-accent-foreground",
-    warning: "bg-warning/10 text-warning",
-  } as const;
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-      <span
-        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${tones[tone]}`}
-      >
-        <Icon className="h-5 w-5" />
-      </span>
-      <p className="mt-4 text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold tracking-tight">{value}</p>
     </div>
   );
 }

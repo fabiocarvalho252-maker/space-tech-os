@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -22,13 +22,59 @@ import {
   Calendar,
   Smartphone,
   BarChart3,
+  ChevronDown,
+  CreditCard,
+  Lock,
+  Mail,
+  ArrowLeftRight,
+  MessageSquare,
+  Percent,
+  Bell,
+  Clock,
+  Calculator,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TrialBanner } from "@/components/TrialBanner";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
+import { ATALHOS, estaDigitando } from "@/lib/atalhos";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type ItemMenu =
+  | { label: string; to: string; hash?: string; icon: React.ElementType }
+  | { label: string; emBreve: true; icon: React.ElementType };
+
+const RELATORIOS_ITENS: ItemMenu[] = [
+  { label: "Clientes", to: "/relatorios", hash: "visao-geral", icon: Users },
+  { label: "Produtos", to: "/relatorios", hash: "produtos", icon: Package },
+  { label: "Serviços", to: "/relatorios", hash: "servicos", icon: Wrench },
+  { label: "Vendas", to: "/relatorios", hash: "visao-geral", icon: ShoppingCart },
+  { label: "Receitas Brutas - MEI", emBreve: true, icon: Receipt },
+  { label: "Ordem de Serviço", to: "/relatorios", hash: "ordens", icon: FileCheck },
+  { label: "Financeiro - DRE", to: "/relatorios", hash: "financeiro", icon: Wallet },
+  { label: "Contas Bancárias", emBreve: true, icon: CreditCard },
+  { label: "Meu Contador", to: "/meu-contador", icon: Calculator },
+  { label: "Comissões", emBreve: true, icon: Percent },
+];
+
+const SISTEMA_ITENS: ItemMenu[] = [
+  { label: "Sistema", to: "/configuracoes", icon: Settings },
+  { label: "Usuários", to: "/usuarios", icon: UserCog },
+  { label: "Permissões", to: "/usuarios", icon: Lock },
+  { label: "Emails", to: "/configuracoes", icon: Mail },
+  { label: "Migrar de Outro Sistema", emBreve: true, icon: ArrowLeftRight },
+  { label: "Fila WhatsApp", emBreve: true, icon: MessageSquare },
+];
 
 const NAV = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard, modulo: null },
@@ -75,12 +121,26 @@ export function AppShell() {
     };
   }, [open]);
 
+  useEffect(() => {
+    function aoTeclar(e: KeyboardEvent) {
+      if (estaDigitando(e.target)) return;
+      const atalho = ATALHOS.find((a) => a.tecla === e.key);
+      if (!atalho) return;
+      e.preventDefault();
+      navigate({ to: atalho.to });
+    }
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [navigate]);
+
   async function sair() {
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: "/", replace: true });
   }
+
+  const nomeExibicao = profile?.nome || user?.email?.split("@")[0] || "Usuário";
 
   const itensVisiveis = NAV.filter((item) => !item.modulo || podeVer(permissoes, item.modulo));
 
@@ -185,6 +245,26 @@ export function AppShell() {
           </div>
           <ThemeToggle />
         </header>
+        <header className="hidden items-center justify-between gap-3 border-b border-border bg-card/70 px-6 py-2.5 backdrop-blur lg:flex">
+          <p className="text-sm font-semibold text-foreground/80">
+            {saudacao()}, <span className="text-foreground">{nomeExibicao}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <HeaderMenu label="Relatórios" icon={BarChart3} itens={RELATORIOS_ITENS} />
+            <HeaderMenu
+              label="Sistema"
+              icon={Settings}
+              itens={SISTEMA_ITENS}
+              topo={{ label: "Meu Plano", to: "/assinatura", icon: CreditCard }}
+            />
+            <NotificacoesMenu />
+            <PerfilMenu
+              nome={nomeExibicao}
+              {...(user?.email ? { email: user.email } : {})}
+              onSair={sair}
+            />
+          </div>
+        </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <TrialBanner />
           <Outlet />
@@ -216,5 +296,206 @@ export function PageHeader({
         </div>
       </div>
     </div>
+  );
+}
+
+function HeaderMenu({
+  label,
+  icon: Icon,
+  itens,
+  topo,
+}: {
+  label: string;
+  icon: React.ElementType;
+  itens: ItemMenu[];
+  topo?: { label: string; to: string; icon: React.ElementType };
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+          <Icon className="h-4 w-4" /> {label} <ChevronDown className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {topo && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link to={topo.to} className="flex items-center gap-2">
+                <topo.icon className="h-4 w-4" /> {topo.label}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] tracking-widest text-muted-foreground">
+              SISTEMA
+            </DropdownMenuLabel>
+          </>
+        )}
+        {itens.map((item) =>
+          "emBreve" in item ? (
+            <DropdownMenuItem
+              key={item.label}
+              disabled
+              className="flex items-center gap-2 opacity-50"
+            >
+              <item.icon className="h-4 w-4" />
+              <span className="flex-1">{item.label}</span>
+              <span className="text-[10px] text-muted-foreground">Em breve</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={`${item.label}-${item.hash ?? ""}`} asChild>
+              <Link
+                to={item.to}
+                {...(item.hash ? { hash: item.hash } : {})}
+                className="flex items-center gap-2"
+              >
+                <item.icon className="h-4 w-4" /> {item.label}
+              </Link>
+            </DropdownMenuItem>
+          ),
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function saudacao(): string {
+  const hora = new Date().getHours();
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0]!.slice(0, 2).toUpperCase();
+  return `${partes[0]![0]}${partes[partes.length - 1]![0]}`.toUpperCase();
+}
+
+type Notificacao = {
+  id: string;
+  titulo: string;
+  descricao: string;
+  to: string;
+  icon: React.ElementType;
+};
+
+function useNotificacoes() {
+  return useQuery({
+    queryKey: ["notificacoes-header"],
+    queryFn: async () => {
+      const [{ data: produtos }, { count: osAguardando }] = await Promise.all([
+        supabase.from("produtos").select("id, nome, quantidade, estoque_minimo"),
+        supabase
+          .from("ordens_servico")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "aguardando_aprovacao"),
+      ]);
+
+      const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
+
+      const itens: Notificacao[] = [];
+      if (baixoEstoque.length > 0) {
+        itens.push({
+          id: "estoque-baixo",
+          titulo: `${baixoEstoque.length} produto${baixoEstoque.length > 1 ? "s" : ""} com estoque baixo`,
+          descricao: baixoEstoque
+            .slice(0, 3)
+            .map((p) => p.nome)
+            .join(", "),
+          to: "/estoque",
+          icon: Package,
+        });
+      }
+      if ((osAguardando ?? 0) > 0) {
+        itens.push({
+          id: "os-aguardando",
+          titulo: `${osAguardando} ordem${osAguardando! > 1 ? "s" : ""} aguardando aprovação`,
+          descricao: "Clientes precisam aprovar o orçamento",
+          to: "/ordens",
+          icon: Clock,
+        });
+      }
+      return itens;
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+}
+
+function NotificacoesMenu() {
+  const { data: notificacoes } = useNotificacoes();
+  const total = notificacoes?.length ?? 0;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
+          <Bell className="h-4 w-4" />
+          {total > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+              {total}
+            </span>
+          )}
+          <span className="sr-only">Notificações</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel className="text-[10px] tracking-widest text-muted-foreground">
+          NOTIFICAÇÕES
+        </DropdownMenuLabel>
+        {total === 0 ? (
+          <div className="flex flex-col items-center gap-1.5 px-3 py-6 text-center">
+            <Bell className="h-5 w-5 text-muted-foreground/50" />
+            <p className="text-xs text-muted-foreground">Nenhuma notificação no momento</p>
+          </div>
+        ) : (
+          notificacoes!.map((n) => (
+            <DropdownMenuItem key={n.id} asChild>
+              <Link to={n.to} className="flex items-start gap-2.5 py-2.5">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                  <n.icon className="h-3.5 w-3.5" />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-xs font-semibold leading-tight">{n.titulo}</span>
+                  <span className="line-clamp-1 text-[11px] text-muted-foreground">
+                    {n.descricao}
+                  </span>
+                </span>
+              </Link>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function PerfilMenu({ nome, email, onSair }: { nome: string; email?: string; onSair: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90">
+          {iniciais(nome)}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <p className="truncate text-sm font-semibold">{nome}</p>
+          {email && <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/configuracoes" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" /> Configurações
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSair} className="flex items-center gap-2 text-destructive">
+          <LogOut className="h-4 w-4" /> Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

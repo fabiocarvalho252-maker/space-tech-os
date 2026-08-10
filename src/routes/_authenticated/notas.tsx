@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   FileCheck,
+  Filter,
   Plus,
   Search,
   Printer,
@@ -18,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useProfile, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SectionCard } from "@/components/SectionCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-
 export const Route = createFileRoute("/_authenticated/notas")({
   head: () => ({
     meta: [
@@ -62,12 +63,9 @@ const vazio = {
 const itemVazio: ItemForm = { descricao: "", quantidade: "1", valor_unitario: "" };
 
 const statusMap = {
-  rascunho: { label: "Rascunho", class: "bg-muted text-muted-foreground border-border" },
-  emitida: { label: "Emitida", class: "bg-green-500/10 text-green-500 border-green-500/20" },
-  cancelada: {
-    label: "Cancelada",
-    class: "bg-destructive/10 text-destructive border-destructive/20",
-  },
+  rascunho: { label: "Pendente", tone: "warning" as const },
+  emitida: { label: "Autorizada", tone: "success" as const },
+  cancelada: { label: "Cancelada", tone: "danger" as const },
 };
 
 function NotasFiscais() {
@@ -78,6 +76,10 @@ function NotasFiscais() {
   const gerenciar = podeGerenciar(permissoes, "notas");
 
   const [busca, setBusca] = useState("");
+  const [mostrarFiltro, setMostrarFiltro] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "rascunho" | "emitida" | "cancelada">(
+    "todos",
+  );
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
   const [itens, setItens] = useState<ItemForm[]>([{ ...itemVazio }]);
@@ -262,14 +264,27 @@ function NotasFiscais() {
   async function imprimir(notaId: string) {
     const nota = notas.find((n) => n.id === notaId);
     if (!nota) return;
+
+    // Open synchronously — inside the click's user-gesture — before the
+    // await below, or most browsers silently block it as an unrequested
+    // popup once a network request has happened first.
+    const janela = window.open("", "_blank", "width=800,height=900");
+    if (!janela) {
+      toast.error("Não foi possível abrir a janela de impressão.", {
+        description: "Verifique se o navegador está bloqueando pop-ups para este site.",
+      });
+      return;
+    }
+    janela.document.write(
+      "<!doctype html><html><body style='font-family:system-ui,sans-serif;padding:40px;color:#666'>Preparando impressão...</body></html>",
+    );
+
     const { data: itensNota } = await supabase
       .from("nota_fiscal_itens")
       .select("descricao, quantidade, valor_unitario")
       .eq("nota_id", notaId);
 
-    const janela = window.open("", "_blank", "width=800,height=900");
-    if (!janela) return;
-
+    janela.document.open();
     janela.document.write(`
       <!doctype html>
       <html>
@@ -323,11 +338,33 @@ function NotasFiscais() {
     janela.document.close();
   }
 
-  const filtradas = notas.filter((n) =>
-    `${n.cliente?.nome ?? ""} ${n.numero} ${n.cliente?.documento ?? ""}`
-      .toLowerCase()
-      .includes(busca.toLowerCase()),
-  );
+  const filtradas = notas
+    .filter((n) => filtroStatus === "todos" || n.status === filtroStatus)
+    .filter((n) =>
+      `${n.cliente?.nome ?? ""} ${n.numero} ${n.cliente?.documento ?? ""}`
+        .toLowerCase()
+        .includes(busca.toLowerCase()),
+    );
+
+  // "Notas de produtos" (NF-e/NFC-e) vs "Notas de serviços" (NFS-e) — não há
+  // coluna de tipo fiscal na tabela, então a origem já registrada (venda vs
+  // OS) é usada como aproximação real: venda = produto, OS = serviço.
+  const hoje = new Date();
+  const notasDoMes = notas.filter((n) => {
+    const d = new Date(n.created_at);
+    return (
+      n.status === "emitida" &&
+      d.getMonth() === hoje.getMonth() &&
+      d.getFullYear() === hoje.getFullYear()
+    );
+  });
+  const totalEmitidas = notasDoMes.reduce((s, n) => s + Number(n.valor_total), 0);
+  const totalProdutos = notasDoMes
+    .filter((n) => !!n.venda_id)
+    .reduce((s, n) => s + Number(n.valor_total), 0);
+  const totalServicos = notasDoMes
+    .filter((n) => !!n.os_id)
+    .reduce((s, n) => s + Number(n.valor_total), 0);
 
   return (
     <div className="space-y-6">
@@ -502,15 +539,58 @@ function NotasFiscais() {
         }
       />
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por número, cliente ou CPF/CNPJ..."
-          className="pl-9"
-        />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <SectionCard className="p-4">
+          <p className="text-xs text-muted-foreground">Total emitidas</p>
+          <p className="mt-1 text-xl font-extrabold">{brl(totalEmitidas)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Notas autorizadas no mês</p>
+        </SectionCard>
+        <SectionCard className="p-4">
+          <p className="text-xs text-muted-foreground">Notas de produtos</p>
+          <p className="mt-1 text-xl font-extrabold">{brl(totalProdutos)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">NF-e e NFC-e</p>
+        </SectionCard>
+        <SectionCard className="p-4">
+          <p className="text-xs text-muted-foreground">Notas de serviços</p>
+          <p className="mt-1 text-xl font-extrabold">{brl(totalServicos)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">NFS-e</p>
+        </SectionCard>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-sm flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por número, cliente ou CPF/CNPJ..."
+            className="pl-9"
+          />
+        </div>
+        <Button variant="outline" onClick={() => setMostrarFiltro((v) => !v)}>
+          <Filter className="h-4 w-4" /> Filtrar
+        </Button>
+      </div>
+
+      {mostrarFiltro && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+          <Label className="text-xs text-muted-foreground">Status</Label>
+          <Select
+            value={filtroStatus}
+            onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="rascunho">Pendente</SelectItem>
+              <SelectItem value="emitida">Autorizada</SelectItem>
+              <SelectItem value="cancelada">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
         {isLoading ? (
@@ -551,14 +631,7 @@ function NotasFiscais() {
                       </td>
                       <td className="px-4 py-3">{dataBR(n.created_at)}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                            status.class,
-                          )}
-                        >
-                          {status.label}
-                        </span>
+                        <StatusBadge label={status.label} tone={status.tone} />
                       </td>
                       <td className="px-4 py-3 text-right font-medium">{brl(n.valor_total)}</td>
                       <td className="px-4 py-3">

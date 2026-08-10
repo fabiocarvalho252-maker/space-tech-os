@@ -1,22 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { Plus, Trash2, Search, Wrench } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Pencil, Percent, Plus, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { brl } from "@/lib/format";
+import { SearchInput } from "@/components/SearchInput";
+import { EmptyState, TableSkeleton } from "@/components/EmptyState";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({
@@ -28,21 +21,25 @@ export const Route = createFileRoute("/_authenticated/servicos")({
   component: Servicos,
 });
 
-const vazio = {
-  nome: "",
-  preco_custo: "0",
-  preco_venda: "0",
-  categoria: "Serviço",
+type Servico = {
+  id: string;
+  nome: string;
+  preco_custo: number;
+  preco_venda: number;
+  comissao_percentual: number | null;
 };
 
 function Servicos() {
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
-  const [open, setOpen] = useState(false);
   const [busca, setBusca] = useState("");
-  const [form, setForm] = useState(vazio);
+  const [confirmExcluir, setConfirmExcluir] = useState<Servico | null>(null);
 
-  const { data: servicos = [] } = useQuery({
+  const {
+    data: servicos = [],
+    isLoading: carregando,
+    isError: erro,
+    refetch,
+  } = useQuery({
     queryKey: ["servicos"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -51,33 +48,8 @@ function Servicos() {
         .eq("categoria", "Serviço")
         .order("nome");
       if (error) throw error;
-      return data;
+      return data as Servico[];
     },
-  });
-
-  const criar = useMutation({
-    mutationFn: async () => {
-      if (!form.nome.trim()) throw new Error("Informe o nome do serviço");
-      if (Number(form.preco_venda) <= 0) throw new Error("O preço de venda deve ser maior que zero");
-
-      const { error } = await supabase.from("produtos").insert({
-        user_id: user!.id,
-        nome: form.nome,
-        categoria: "Serviço",
-        preco_custo: Number(form.preco_custo) || 0,
-        preco_venda: Number(form.preco_venda) || 0,
-        quantidade: 999, // Serviços não têm estoque real
-        estoque_minimo: 0,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Serviço cadastrado");
-      setForm(vazio);
-      setOpen(false);
-      qc.invalidateQueries({ queryKey: ["servicos"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const remover = useMutation({
@@ -87,15 +59,16 @@ function Servicos() {
     },
     onSuccess: () => {
       toast.success("Serviço removido");
+      setConfirmExcluir(null);
       qc.invalidateQueries({ queryKey: ["servicos"] });
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
-  const filtrados = useMemo(() => {
-    return servicos.filter(s => 
-      s.nome.toLowerCase().includes(busca.toLowerCase())
-    );
-  }, [servicos, busca]);
+  const filtrados = useMemo(
+    () => servicos.filter((s) => s.nome.toLowerCase().includes(busca.toLowerCase())),
+    [servicos, busca],
+  );
 
   return (
     <div>
@@ -103,100 +76,129 @@ function Servicos() {
         title="Serviços"
         subtitle="Mão de obra e reparos técnicos"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4" /> Novo serviço
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Novo serviço</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4">
-                <div className="space-y-1.5">
-                  <Label>Nome do Serviço</Label>
-                  <Input 
-                    value={form.nome} 
-                    onChange={(e) => setForm({ ...form, nome: e.target.value })} 
-                    placeholder="Ex: Troca de Conector"
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Custo Estimado</Label>
-                    <Input 
-                      type="number" 
-                      step="0.01" 
-                      value={form.preco_custo} 
-                      onChange={(e) => setForm({ ...form, preco_custo: e.target.value })} 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Preço de Venda</Label>
-                    <Input 
-                      type="number" 
-                      step="0.01" 
-                      value={form.preco_venda} 
-                      onChange={(e) => setForm({ ...form, preco_venda: e.target.value })} 
-                    />
-                  </div>
-                </div>
-              </div>
-              <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
-                Salvar serviço
-              </Button>
-            </DialogContent>
-          </Dialog>
+          <Button asChild>
+            <Link to="/servicos/adicionar">
+              <Plus className="h-4 w-4" /> Novo serviço
+            </Link>
+          </Button>
         }
       />
 
-      <div className="mb-4 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Buscar serviço..." 
-          className="pl-9 max-w-md"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
-      </div>
+      <SearchInput
+        value={busca}
+        onChange={setBusca}
+        placeholder="Buscar serviço..."
+        className="mb-4 max-w-md"
+      />
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Serviço</th>
-              <th className="px-4 py-3 text-right">Custo</th>
-              <th className="px-4 py-3 text-right">Preço de Venda</th>
-              <th className="px-4 py-3" />
+              <th className="px-4 py-3 text-right">Custo adicional</th>
+              <th className="px-4 py-3 text-right">Preço de venda</th>
+              <th className="px-4 py-3 text-right">Comissão</th>
+              <th className="px-4 py-3 text-right">Lucro estimado</th>
+              <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtrados.map((s) => (
-              <tr key={s.id}>
-                <td className="px-4 py-3 font-medium">{s.nome}</td>
-                <td className="px-4 py-3 text-right text-muted-foreground">{brl(s.preco_custo)}</td>
-                <td className="px-4 py-3 text-right font-bold text-primary">{brl(s.preco_venda)}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => remover.mutate(s.id)}
-                    className="text-muted-foreground transition hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!filtrados.length && (
+            {carregando ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  Nenhum serviço encontrado.
+                <td colSpan={6} className="p-4">
+                  <TableSkeleton />
                 </td>
               </tr>
+            ) : erro ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center">
+                  <p className="mb-2 text-sm text-destructive">
+                    Não foi possível carregar os serviços.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => refetch()}>
+                    Tentar novamente
+                  </Button>
+                </td>
+              </tr>
+            ) : !filtrados.length ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-4">
+                  <EmptyState
+                    icon={Wrench}
+                    title="Nenhum serviço encontrado"
+                    description={
+                      busca
+                        ? "Ajuste a busca ou cadastre um novo serviço."
+                        : "Cadastre seu primeiro serviço."
+                    }
+                  />
+                </td>
+              </tr>
+            ) : (
+              filtrados.map((s) => {
+                const comissao = s.comissao_percentual ?? 0;
+                const comissaoValor = (s.preco_venda * comissao) / 100;
+                const lucro = s.preco_venda - s.preco_custo - comissaoValor;
+                return (
+                  <tr key={s.id} className="hover:bg-secondary/30">
+                    <td className="px-4 py-3 font-medium">{s.nome}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      {brl(s.preco_custo)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-primary">
+                      {brl(s.preco_venda)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      {comissao > 0 ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          <Percent className="h-3 w-3" /> {comissao}%
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-semibold ${lucro < 0 ? "text-destructive" : ""}`}
+                    >
+                      {brl(lucro)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                          <Link to="/servicos/adicionar" search={{ id: s.id }} aria-label="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <button
+                          onClick={() => setConfirmExcluir(s)}
+                          aria-label="Excluir"
+                          className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmExcluir}
+        onOpenChange={(v) => !v && setConfirmExcluir(null)}
+        title="Deseja realmente excluir este serviço?"
+        description={
+          confirmExcluir ? `"${confirmExcluir.nome}" será removido permanentemente.` : ""
+        }
+        confirmLabel="Excluir"
+        destructive
+        loading={remover.isPending}
+        onConfirm={() => confirmExcluir && remover.mutate(confirmExcluir.id)}
+      />
     </div>
   );
 }

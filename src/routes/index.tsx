@@ -59,7 +59,10 @@ function Login() {
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: senha,
+    });
     setLoading(false);
     if (error) {
       toast.error("Não foi possível entrar", { description: error.message });

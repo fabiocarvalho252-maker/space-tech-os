@@ -25,6 +25,7 @@ import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authentic
 import { Route as AuthenticatedFornecedoresRouteImport } from './routes/_authenticated/fornecedores'
 import { Route as AuthenticatedGarantiaRouteImport } from './routes/_authenticated/garantia'
 import { Route as AuthenticatedIaSpacetechRouteImport } from './routes/_authenticated/ia-spacetech'
+import { Route as AuthenticatedMeuContadorRouteImport } from './routes/_authenticated/meu-contador'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedOrdensRouteImport } from './routes/_authenticated/ordens'
 import { Route as AuthenticatedPdvRouteImport } from './routes/_authenticated/pdv'
@@ -34,6 +35,8 @@ import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
+import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
+import { Route as AuthenticatedOrdensFaturarOsIdRouteImport } from './routes/_authenticated/ordens_.faturar.$osId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +121,12 @@ const AuthenticatedIaSpacetechRoute =
     path: '/ia-spacetech',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMeuContadorRoute =
+  AuthenticatedMeuContadorRouteImport.update({
+    id: '/meu-contador',
+    path: '/meu-contador',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNotasRoute = AuthenticatedNotasRouteImport.update({
   id: '/notas',
   path: '/notas',
@@ -163,6 +172,18 @@ const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   path: '/consulta/$osId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedServicosAdicionarRoute =
+  AuthenticatedServicosAdicionarRouteImport.update({
+    id: '/servicos_/adicionar',
+    path: '/servicos/adicionar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOrdensFaturarOsIdRoute =
+  AuthenticatedOrdensFaturarOsIdRouteImport.update({
+    id: '/ordens_/faturar/$osId',
+    path: '/ordens/faturar/$osId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -180,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/garantia': typeof AuthenticatedGarantiaRoute
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
@@ -189,6 +211,8 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +230,7 @@ export interface FileRoutesByTo {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/garantia': typeof AuthenticatedGarantiaRoute
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
@@ -215,6 +240,8 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -234,6 +261,7 @@ export interface FileRoutesById {
   '/_authenticated/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/_authenticated/garantia': typeof AuthenticatedGarantiaRoute
   '/_authenticated/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/_authenticated/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/ordens': typeof AuthenticatedOrdensRoute
   '/_authenticated/pdv': typeof AuthenticatedPdvRoute
@@ -243,6 +271,8 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/_authenticated/ordens_/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -262,6 +292,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/garantia'
     | '/ia-spacetech'
+    | '/meu-contador'
     | '/notas'
     | '/ordens'
     | '/pdv'
@@ -271,6 +302,8 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/vendas'
     | '/consulta/$osId'
+    | '/servicos/adicionar'
+    | '/ordens/faturar/$osId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -288,6 +321,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/garantia'
     | '/ia-spacetech'
+    | '/meu-contador'
     | '/notas'
     | '/ordens'
     | '/pdv'
@@ -297,6 +331,8 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/vendas'
     | '/consulta/$osId'
+    | '/servicos/adicionar'
+    | '/ordens/faturar/$osId'
   id:
     | '__root__'
     | '/'
@@ -315,6 +351,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fornecedores'
     | '/_authenticated/garantia'
     | '/_authenticated/ia-spacetech'
+    | '/_authenticated/meu-contador'
     | '/_authenticated/notas'
     | '/_authenticated/ordens'
     | '/_authenticated/pdv'
@@ -324,6 +361,8 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/_authenticated/vendas'
     | '/consulta/$osId'
+    | '/_authenticated/servicos_/adicionar'
+    | '/_authenticated/ordens_/faturar/$osId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -448,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIaSpacetechRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/meu-contador': {
+      id: '/_authenticated/meu-contador'
+      path: '/meu-contador'
+      fullPath: '/meu-contador'
+      preLoaderRoute: typeof AuthenticatedMeuContadorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/notas': {
       id: '/_authenticated/notas'
       path: '/notas'
@@ -511,6 +557,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsultaOsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/servicos_/adicionar': {
+      id: '/_authenticated/servicos_/adicionar'
+      path: '/servicos/adicionar'
+      fullPath: '/servicos/adicionar'
+      preLoaderRoute: typeof AuthenticatedServicosAdicionarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ordens_/faturar/$osId': {
+      id: '/_authenticated/ordens_/faturar/$osId'
+      path: '/ordens/faturar/$osId'
+      fullPath: '/ordens/faturar/$osId'
+      preLoaderRoute: typeof AuthenticatedOrdensFaturarOsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -527,6 +587,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFornecedoresRoute: typeof AuthenticatedFornecedoresRoute
   AuthenticatedGarantiaRoute: typeof AuthenticatedGarantiaRoute
   AuthenticatedIaSpacetechRoute: typeof AuthenticatedIaSpacetechRoute
+  AuthenticatedMeuContadorRoute: typeof AuthenticatedMeuContadorRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedOrdensRoute: typeof AuthenticatedOrdensRoute
   AuthenticatedPdvRoute: typeof AuthenticatedPdvRoute
@@ -535,6 +596,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
+  AuthenticatedServicosAdicionarRoute: typeof AuthenticatedServicosAdicionarRoute
+  AuthenticatedOrdensFaturarOsIdRoute: typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -550,6 +613,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFornecedoresRoute: AuthenticatedFornecedoresRoute,
   AuthenticatedGarantiaRoute: AuthenticatedGarantiaRoute,
   AuthenticatedIaSpacetechRoute: AuthenticatedIaSpacetechRoute,
+  AuthenticatedMeuContadorRoute: AuthenticatedMeuContadorRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedOrdensRoute: AuthenticatedOrdensRoute,
   AuthenticatedPdvRoute: AuthenticatedPdvRoute,
@@ -558,6 +622,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
+  AuthenticatedServicosAdicionarRoute: AuthenticatedServicosAdicionarRoute,
+  AuthenticatedOrdensFaturarOsIdRoute: AuthenticatedOrdensFaturarOsIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

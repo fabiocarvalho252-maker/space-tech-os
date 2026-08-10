@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useMinhaEmpresa, type Role } from "@/hooks/useCurrentUser";
 import { dataBR } from "@/lib/format";
+import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +70,7 @@ const MODULOS = [
 ];
 
 function gerarCodigo() {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  return randomId().replace(/-/g, "").slice(0, 8).toUpperCase();
 }
 
 function Usuarios() {
