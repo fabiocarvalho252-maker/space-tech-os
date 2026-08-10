@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { 
@@ -40,27 +40,41 @@ export const Route = createFileRoute("/_authenticated/pdv")({
   component: PDV,
 });
 
-type Item = { 
-  id: string; 
-  nome: string; 
-  preco: number; 
-  qtd: number; 
+type Item = {
+  id: string;
+  nome: string;
+  preco: number;
+  qtd: number;
   estoque: number;
   tipo: 'Produto' | 'Serviço';
 };
 
+// "10*iphone" -> busca por "iphone" com 10 unidades por clique/leitura, igual
+// ao placeholder do campo de busca sempre prometeu mas nunca implementou.
+function parseBusca(busca: string): { termo: string; qtd: number } {
+  const m = busca.match(/^(\d+)\*(.*)$/);
+  if (!m) return { termo: busca, qtd: 1 };
+  return { termo: m[2] ?? "", qtd: Math.max(1, parseInt(m[1]!, 10) || 1) };
+}
+
+function tipoDoItem(categoria: string | null): 'Produto' | 'Serviço' {
+  return categoria === 'Serviço' ? 'Serviço' : 'Produto';
+}
+
 function PDV() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const [carrinho, setCarrinho] = useState<Item[]>([]);
   const [busca, setBusca] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<'Tudo' | 'Produto' | 'Serviço'>('Tudo');
   const [observacoes, setObservacoes] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
-  
+
   const { data: produtos = [] } = useQuery({
     queryKey: ["pdv-itens"],
     queryFn: async () => {
-      const { data } = await supabase.from("produtos").select("*").neq("categoria", "Serviço").order("nome");
+      const { data } = await supabase.from("produtos").select("*").order("nome");
       return data ?? [];
     },
   });
@@ -84,25 +98,27 @@ function PDV() {
   const dataFormatada = agora.toLocaleDateString('pt-BR');
   const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  function adicionar(p: any) {
+  function adicionar(p: any, qtdAdicional = 1) {
+    const tipo = tipoDoItem(p.categoria);
     setCarrinho((c) => {
       const existe = c.find((i) => i.id === p.id);
+      const qtdFinal = (existe?.qtd ?? 0) + qtdAdicional;
+      if (qtdFinal > (p.quantidade || 0)) {
+        toast.error("Limite de estoque atingido");
+        return c;
+      }
       if (existe) {
-        if (existe.qtd >= (p.quantidade || 0)) {
-          toast.error("Limite de estoque atingido");
-          return c;
-        }
-        return c.map((i) => (i.id === p.id ? { ...i, qtd: i.qtd + 1 } : i));
+        return c.map((i) => (i.id === p.id ? { ...i, qtd: qtdFinal } : i));
       }
       return [
         ...c,
-        { 
-          id: p.id, 
-          nome: p.nome, 
-          preco: Number(p.preco_venda), 
-          qtd: 1, 
+        {
+          id: p.id,
+          nome: p.nome,
+          preco: Number(p.preco_venda),
+          qtd: qtdAdicional,
           estoque: p.quantidade || 0,
-          tipo: 'Produto'
+          tipo,
         },
       ];
     });
@@ -167,10 +183,15 @@ function PDV() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const filtrados = produtos.filter(p => 
-    p.nome.toLowerCase().includes(busca.toLowerCase()) || 
-    (p.sku && p.sku.toLowerCase().includes(busca.toLowerCase()))
-  );
+  const { termo: termoBusca, qtd: qtdBusca } = parseBusca(busca);
+
+  const filtrados = produtos.filter(p => {
+    if (filtroTipo !== 'Tudo' && tipoDoItem(p.categoria) !== filtroTipo) return false;
+    return (
+      p.nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase().includes(termoBusca.toLowerCase()))
+    );
+  });
 
   const userName = user?.email?.split('@')?.[0]?.replace(/\./g, ' ') || 'Usuário';
 
@@ -201,10 +222,25 @@ function PDV() {
       <div className="grid flex-1 gap-6 lg:grid-cols-[1fr_400px] lg:overflow-hidden">
         <div className="flex flex-col gap-4 lg:overflow-hidden">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="h-10 gap-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10">
+            <Button
+              variant="ghost"
+              className="h-10 gap-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10"
+              onClick={() => {
+                if (!carrinho.length && !observacoes && !clienteId) return;
+                setCarrinho([]);
+                setObservacoes("");
+                setClienteId(null);
+                setBusca("");
+                toast.success("Nova venda iniciada");
+              }}
+            >
               <Plus className="h-4 w-4" /> Nova venda
             </Button>
-            <Button variant="ghost" className="h-10 gap-2 rounded-xl hover:bg-muted">
+            <Button
+              variant="ghost"
+              className="h-10 gap-2 rounded-xl hover:bg-muted"
+              onClick={() => navigate({ to: "/ordens" })}
+            >
               <ClipboardList className="h-4 w-4" /> Entregar OS
             </Button>
           </div>
@@ -212,43 +248,69 @@ function PDV() {
           <div className="flex items-center gap-3">
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <input 
+              <input
                 value={busca}
                 onChange={e => setBusca(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter') return;
+                  const exato = produtos.find(
+                    p => p.sku && p.sku.toLowerCase() === termoBusca.trim().toLowerCase(),
+                  );
+                  if (!exato) return;
+                  adicionar(exato, qtdBusca);
+                  setBusca("");
+                }}
                 placeholder="Qtde*nome — ex: 10*iphone ou código de barras"
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               />
             </div>
             <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-               <Button size="sm" variant="ghost" className="h-8 rounded-lg bg-background shadow-sm">Tudo</Button>
-               <Button size="sm" variant="ghost" className="h-8 rounded-lg text-muted-foreground">OS</Button>
-               <Button size="sm" variant="ghost" className="h-8 rounded-lg text-muted-foreground">·</Button>
+              {(['Tudo', 'Produto', 'Serviço'] as const).map(t => (
+                <Button
+                  key={t}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFiltroTipo(t)}
+                  className={`h-8 rounded-lg ${
+                    filtroTipo === t ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  {t === 'Tudo' ? 'Tudo' : t === 'Produto' ? 'Produtos' : 'Serviços'}
+                </Button>
+              ))}
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {filtrados.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => adicionar(p)}
-                  className="group relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
-                >
-                  <div className="aspect-square w-full overflow-hidden rounded-xl bg-muted/50 flex items-center justify-center">
-                    <Package className="h-8 w-8 text-muted-foreground/40" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="truncate text-xs font-semibold leading-tight">{p.nome}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">{p.categoria}</p>
-                    <p className="text-sm font-bold text-primary">{brl(p.preco_venda)}</p>
-                  </div>
-                  {p.quantidade <= 5 && (
-                    <span className="absolute right-2 top-2 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
-                      {p.quantidade}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {filtrados.map(p => {
+                const tipo = tipoDoItem(p.categoria);
+                const Icone = tipo === 'Serviço' ? Wrench : Package;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      adicionar(p, qtdBusca);
+                      setBusca("");
+                    }}
+                    className="group relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+                  >
+                    <div className="aspect-square w-full overflow-hidden rounded-xl bg-muted/50 flex items-center justify-center">
+                      <Icone className="h-8 w-8 text-muted-foreground/40" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="truncate text-xs font-semibold leading-tight">{p.nome}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">{p.categoria || tipo}</p>
+                      <p className="text-sm font-bold text-primary">{brl(p.preco_venda)}</p>
+                    </div>
+                    {tipo === 'Produto' && p.quantidade <= 5 && (
+                      <span className="absolute right-2 top-2 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
+                        {p.quantidade}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -268,7 +330,7 @@ function PDV() {
             {carrinho.map(item => (
               <div key={item.id} className="group flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                  <Package className="h-4 w-4" />
+                  {item.tipo === 'Serviço' ? <Wrench className="h-4 w-4" /> : <Package className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{item.nome}</p>
