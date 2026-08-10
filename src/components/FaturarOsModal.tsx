@@ -467,17 +467,21 @@ export function FaturarOsModal({ osId, open, onOpenChange }: FaturarOsModalProps
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [confirmCancelarOpen, setConfirmCancelarOpen] = useState(false);
+  const [motivoCancelamento, setMotivoCancelamento] = useState("");
+
   const cancelarFaturamento = useMutation({
-    mutationFn: async () => {
-      const motivo = window.prompt("Motivo do cancelamento (opcional):") ?? undefined;
+    mutationFn: async (motivo: string) => {
       const { error } = await supabase.rpc("cancelar_faturamento_os" as any, {
         p_faturamento_id: faturamento!.id,
-        p_motivo: motivo || null,
+        p_motivo: motivo.trim() || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Faturamento cancelado. Um estorno foi registrado quando aplicável.");
+      setConfirmCancelarOpen(false);
+      setMotivoCancelamento("");
       qc.invalidateQueries({ queryKey: ["os-faturamento-ativo", osId] });
       qc.invalidateQueries({ queryKey: ["ordens"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
@@ -595,6 +599,10 @@ export function FaturarOsModal({ osId, open, onOpenChange }: FaturarOsModalProps
                 receberParcela={receberParcela}
                 cancelarFaturamento={cancelarFaturamento}
                 imprimirRecibo={imprimirRecibo}
+                confirmCancelarOpen={confirmCancelarOpen}
+                setConfirmCancelarOpen={setConfirmCancelarOpen}
+                motivoCancelamento={motivoCancelamento}
+                setMotivoCancelamento={setMotivoCancelamento}
               />
             )}
 
@@ -1207,12 +1215,20 @@ function FaturamentoDetalhe({
   receberParcela,
   cancelarFaturamento,
   imprimirRecibo,
+  confirmCancelarOpen,
+  setConfirmCancelarOpen,
+  motivoCancelamento,
+  setMotivoCancelamento,
 }: {
   os: any;
   faturamento: any;
   receberParcela: ReturnType<typeof useMutation<void, Error, string>>;
-  cancelarFaturamento: ReturnType<typeof useMutation<void, Error, void>>;
+  cancelarFaturamento: ReturnType<typeof useMutation<void, Error, string>>;
   imprimirRecibo: () => void;
+  confirmCancelarOpen: boolean;
+  setConfirmCancelarOpen: (open: boolean) => void;
+  motivoCancelamento: string;
+  setMotivoCancelamento: (motivo: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -1346,20 +1362,41 @@ function FaturamentoDetalhe({
         <Button
           variant="destructive"
           disabled={cancelarFaturamento.isPending}
-          onClick={() => {
-            if (
-              window.confirm(
-                "Cancelar este faturamento? Um estorno será registrado quando houver parcelas já recebidas.",
-              )
-            ) {
-              cancelarFaturamento.mutate();
-            }
-          }}
+          onClick={() => setConfirmCancelarOpen(true)}
         >
           <Ban className="mr-2 h-4 w-4" />
           {cancelarFaturamento.isPending ? "Cancelando..." : "Cancelar faturamento"}
         </Button>
       </div>
+
+      <Dialog open={confirmCancelarOpen} onOpenChange={setConfirmCancelarOpen}>
+        <DialogContent>
+          <DialogTitle>Cancelar este faturamento?</DialogTitle>
+          <DialogDescription>
+            Um estorno será registrado quando houver parcelas já recebidas.
+          </DialogDescription>
+          <div className="space-y-1.5">
+            <Label>Motivo do cancelamento (opcional)</Label>
+            <Textarea
+              value={motivoCancelamento}
+              onChange={(e) => setMotivoCancelamento(e.target.value)}
+              placeholder="Ex.: cliente desistiu, valor lançado errado..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmCancelarOpen(false)}>
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelarFaturamento.isPending}
+              onClick={() => cancelarFaturamento.mutate(motivoCancelamento)}
+            >
+              {cancelarFaturamento.isPending ? "Cancelando..." : "Cancelar faturamento"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
