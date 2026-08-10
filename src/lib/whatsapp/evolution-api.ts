@@ -141,23 +141,31 @@ export type EvolutionStatusResult = {
   phoneNumber: string | null;
 };
 
-/** Live connection state straight from Evolution/Baileys for this instance. */
+/**
+ * Live connection state straight from Evolution/Baileys for this instance.
+ * Uses /instance/fetchInstances (filtered by name) rather than
+ * /instance/connectionState — confirmed against a real running server that
+ * connectionState returns only `{ instance: { state } }` with no owner
+ * info, while fetchInstances returns both `connectionStatus` and
+ * `ownerJid` (the connected phone number) in a single call.
+ */
 export async function statusInstancia(instanceName: string): Promise<EvolutionStatusResult> {
   const config = configuracao();
   if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await chamar<any>(
+  const data = await chamar<any[]>(
     config,
     "GET",
-    `/instance/connectionState/${encodeURIComponent(instanceName)}`,
+    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
   );
-  const state: string = data?.instance?.state ?? data?.state ?? "close";
-  const phoneNumber =
-    data?.instance?.owner ?? data?.instance?.number ?? data?.ownerJid?.split("@")[0] ?? null;
+  const registro = Array.isArray(data) ? data[0] : null;
+  const state: string = registro?.connectionStatus ?? "close";
+  const ownerJid = registro?.ownerJid;
+  const phoneNumber = typeof ownerJid === "string" ? (ownerJid.split("@")[0] ?? null) : null;
   const normalizado: EvolutionConnectionState =
     state === "open" ? "open" : state === "connecting" ? "connecting" : "close";
-  return { state: normalizado, phoneNumber: typeof phoneNumber === "string" ? phoneNumber : null };
+  return { state: normalizado, phoneNumber };
 }
 
 /** Logs the instance out of WhatsApp (keeps the instance registered on Evolution, just disconnects the session). */

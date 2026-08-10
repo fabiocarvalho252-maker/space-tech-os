@@ -1,0 +1,53 @@
+version: "3.8"
+
+# Standalone Evolution API stack for local testing of the WhatsApp
+# integration (see src/lib/whatsapp/). Fully isolated from infra/supabase —
+# own network, own Postgres, own volumes — so it never touches the
+# project's existing Supabase database or containers.
+services:
+  evolution-postgres:
+    container_name: evolution-postgres
+    image: postgres:15
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - evolution-net
+    expose:
+      - "5432"
+
+  api:
+    container_name: evolution-api
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    depends_on:
+      - evolution-postgres
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8085:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-net
+    # Lets the Evolution API container reach the SPACE TECH OS app running
+    # directly on the host (vite dev, port 8080) to deliver webhook calls —
+    # the app is not containerized, so plain container-to-container
+    # networking doesn't reach it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  evolution_postgres_data:
+  evolution_instances:
+
+networks:
+  evolution-net:
+    name: evolution-net
+    driver: bridge

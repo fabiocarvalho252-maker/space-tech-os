@@ -14,6 +14,11 @@ export default defineConfig({
       allowedHosts: [
         "srmpretech.online",
         "www.srmpretech.online",
+        // Lets a local Evolution API Docker container (infra/evolution-api/)
+        // reach this dev server to deliver WhatsApp webhook calls — from
+        // inside that container, "localhost" means the container itself,
+        // so it calls back via this special Docker DNS name instead.
+        "host.docker.internal",
       ],
     },
   },

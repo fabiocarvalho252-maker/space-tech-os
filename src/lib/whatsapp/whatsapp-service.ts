@@ -30,7 +30,15 @@ export class WhatsappNaoConfiguradoError extends Error {
 
 function webhookUrlPara(instanceName: string, origin: string): string {
   const token = process.env["EVOLUTION_WEBHOOK_TOKEN"] ?? "";
-  const url = new URL("/api/whatsapp/webhook", origin);
+  // The Evolution API server calls this URL from wherever it itself runs —
+  // for a self-hosted/containerized Evolution instance that isn't the same
+  // origin the browser used to reach this app (e.g. a Docker container
+  // calling back to the host, where "localhost" means the container
+  // itself), EVOLUTION_WEBHOOK_BASE_URL overrides the derived request
+  // origin. Unset in normal production deployments, where the app's public
+  // origin is reachable by Evolution API directly.
+  const base = process.env["EVOLUTION_WEBHOOK_BASE_URL"] || origin;
+  const url = new URL("/api/whatsapp/webhook", base);
   url.searchParams.set("instance", instanceName);
   if (token) url.searchParams.set("token", token);
   return url.toString();
@@ -144,6 +152,15 @@ export async function desconectar(userId: string): Promise<WhatsappConexao | nul
   });
 }
 
+// Evolution/Baileys validates numbers as full E.164 (with country code) —
+// confirmed against a real server: sending the bare 11-digit BR national
+// number gets a 400 "exists: false", prefixing "55" makes the exact same
+// number go through. Same convention src/lib/whatsapp.ts's buildWaMeLink
+// already uses for wa.me links.
+function paraE164BR(numero: string): string {
+  return numero.startsWith("55") && numero.length > 11 ? numero : `55${numero}`;
+}
+
 export async function enviarMensagem(
   userId: string,
   numero: string,
@@ -156,14 +173,16 @@ export async function enviarMensagem(
     throw new Error("WhatsApp não está conectado — conecte antes de enviar mensagens.");
   }
 
+  const numeroCompleto = paraE164BR(numero);
   let status: "enviado" | "falhou" = "enviado";
   let evolutionMessageId: string | null = null;
   try {
-    const resultado = await enviarMensagemTexto(conexao.instance_name, numero, texto);
+    const resultado = await enviarMensagemTexto(conexao.instance_name, numeroCompleto, texto);
     evolutionMessageId = resultado.messageId;
   } catch (e) {
     status = "falhou";
     if (!(e instanceof EvolutionApiError)) throw e;
+    console.error("Falha ao enviar mensagem WhatsApp via Evolution API:", e.message);
   }
 
   const { data, error } = await supabaseAdmin
@@ -173,7 +192,7 @@ export async function enviarMensagem(
       user_id: userId,
       connection_id: conexao.id,
       direction: "outbound",
-      phone_number: numero,
+      phone_number: numeroCompleto,
       content: texto,
       status,
       evolution_message_id: evolutionMessageId,
