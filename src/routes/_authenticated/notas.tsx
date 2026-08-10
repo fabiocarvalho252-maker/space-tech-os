@@ -21,6 +21,7 @@ import { useCurrentUser, useProfile, usePermissoes, podeGerenciar } from "@/hook
 import { brl, dataBR } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SectionCard } from "@/components/SectionCard";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,11 @@ function NotasFiscais() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
   const [itens, setItens] = useState<ItemForm[]>([{ ...itemVazio }]);
+  const [confirmAcao, setConfirmAcao] = useState<{
+    id: string;
+    numero: number;
+    acao: "cancelar" | "excluir";
+  } | null>(null);
 
   const { data: notas = [], isLoading } = useQuery({
     queryKey: ["notas_fiscais"],
@@ -284,6 +290,7 @@ function NotasFiscais() {
     },
     onSuccess: () => {
       toast.success("Nota cancelada.");
+      setConfirmAcao(null);
       qc.invalidateQueries({ queryKey: ["notas_fiscais"] });
     },
   });
@@ -295,6 +302,7 @@ function NotasFiscais() {
     },
     onSuccess: () => {
       toast.success("Nota removida.");
+      setConfirmAcao(null);
       qc.invalidateQueries({ queryKey: ["notas_fiscais"] });
     },
   });
@@ -692,9 +700,9 @@ function NotasFiscais() {
                           )}
                           {gerenciar && n.status !== "cancelada" && (
                             <button
-                              onClick={() => {
-                                if (confirm("Cancelar esta nota?")) cancelar.mutate(n.id);
-                              }}
+                              onClick={() =>
+                                setConfirmAcao({ id: n.id, numero: n.numero, acao: "cancelar" })
+                              }
                               className="text-muted-foreground hover:text-destructive"
                               title="Cancelar"
                             >
@@ -703,9 +711,9 @@ function NotasFiscais() {
                           )}
                           {gerenciar && n.status === "rascunho" && (
                             <button
-                              onClick={() => {
-                                if (confirm("Excluir este rascunho?")) remover.mutate(n.id);
-                              }}
+                              onClick={() =>
+                                setConfirmAcao({ id: n.id, numero: n.numero, acao: "excluir" })
+                              }
                               className="text-muted-foreground hover:text-destructive"
                               title="Excluir"
                             >
@@ -743,6 +751,29 @@ function NotasFiscais() {
           de emissão fiscal eletrônica (certificado digital, SEFAZ) é uma etapa futura.
         </p>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmAcao}
+        onOpenChange={(v) => !v && setConfirmAcao(null)}
+        title={
+          confirmAcao?.acao === "cancelar"
+            ? `Cancelar a nota nº ${confirmAcao.numero}?`
+            : `Excluir o rascunho nº ${confirmAcao?.numero}?`
+        }
+        description={
+          confirmAcao?.acao === "cancelar"
+            ? "A nota ficará marcada como cancelada e sai do total emitido."
+            : "Este rascunho será removido permanentemente."
+        }
+        confirmLabel={confirmAcao?.acao === "cancelar" ? "Cancelar nota" : "Excluir"}
+        destructive
+        loading={cancelar.isPending || remover.isPending}
+        onConfirm={() => {
+          if (!confirmAcao) return;
+          if (confirmAcao.acao === "cancelar") cancelar.mutate(confirmAcao.id);
+          else remover.mutate(confirmAcao.id);
+        }}
+      />
     </div>
   );
 }

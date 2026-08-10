@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ function Cobrancas() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
+  const [confirmExcluir, setConfirmExcluir] = useState<{ id: string; cliente: string } | null>(null);
 
   const { data: cobrancas = [], isLoading } = useQuery({
     queryKey: ["cobrancas"],
@@ -129,6 +131,7 @@ function Cobrancas() {
     },
     onSuccess: () => {
       toast.success("Cobrança removida");
+      setConfirmExcluir(null);
       qc.invalidateQueries({ queryKey: ["cobrancas"] });
     },
   });
@@ -247,10 +250,10 @@ function Cobrancas() {
                   >
                     <Copy className="h-4 w-4" />
                   </button>
-                  <button 
-                    onClick={() => {
-                      if(confirm("Deseja excluir esta cobrança?")) remover.mutate(c.id);
-                    }}
+                  <button
+                    onClick={() =>
+                      setConfirmExcluir({ id: c.id, cliente: c.cliente?.nome || "esta cobrança" })
+                    }
                     className="text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -334,6 +337,19 @@ function Cobrancas() {
           As cobranças pagas serão liquidadas automaticamente e registradas no seu financeiro assim que o Mercado Pago confirmar o pagamento.
         </p>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmExcluir}
+        onOpenChange={(v) => !v && setConfirmExcluir(null)}
+        title="Deseja realmente excluir esta cobrança?"
+        description={
+          confirmExcluir ? `A cobrança de "${confirmExcluir.cliente}" será removida permanentemente.` : ""
+        }
+        confirmLabel="Excluir"
+        destructive
+        loading={remover.isPending}
+        onConfirm={() => confirmExcluir && remover.mutate(confirmExcluir.id)}
+      />
     </div>
   );
 }
