@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
+import { WhatsAppConnectModal } from "@/components/WhatsAppConnectModal";
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -76,7 +77,8 @@ function Configuracoes() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showToken, setShowToken] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
+  const [whatsappConnectOpen, setWhatsappConnectOpen] = useState(false);
+
   // States for forms
   const [mpForm, setMpForm] = useState({ access_token: "", public_key: "" });
   const [empresaForm, setEmpresaForm] = useState({ 
@@ -350,11 +352,14 @@ function Configuracoes() {
       if (!user) return;
       const { error } = await supabase
         .from("whatsapp_config" as any)
-        .upsert({
-          user_id: user.id,
-          ...formData,
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            ...formData,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1607,7 +1612,21 @@ function Configuracoes() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-2">
+                        {whatsappConfig?.status === 'Conectado' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={salvarWhatsapp.isPending}
+                            onClick={() => salvarWhatsapp.mutate({ status: 'Desconectado', instancia_id: null })}
+                          >
+                            Desconectar
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 gap-2"
+                          onClick={() => setWhatsappConnectOpen(true)}
+                        >
                           <QrCode className="h-4 w-4" />
                           Conectar / nova instância
                         </Button>
@@ -1969,6 +1988,8 @@ function Configuracoes() {
         ))}
 
       </Tabs>
+
+      <WhatsAppConnectModal open={whatsappConnectOpen} onOpenChange={setWhatsappConnectOpen} />
     </div>
   );
 }
