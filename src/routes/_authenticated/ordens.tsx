@@ -41,6 +41,7 @@ import { OsFotos } from "@/components/OsFotos";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
+import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -106,6 +107,8 @@ function Ordens() {
   const [faturarOpen, setFaturarOpen] = useState(false);
   const [whatsappOs, setWhatsappOs] = useState<any>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [assinaturaOs, setAssinaturaOs] = useState<any>(null);
+  const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const [form, setForm] = useState(vazio);
   const [filtro, setFiltro] = useState("todas");
   const [showFilters, setShowFilters] = useState(false);
@@ -1116,6 +1119,10 @@ function Ordens() {
                       os={os}
                       onImprimir={imprimir}
                       onWhatsApp={enviarWhatsAppOs}
+                      onAssinatura={(o) => {
+                        setAssinaturaOs(o);
+                        setAssinaturaOpen(true);
+                      }}
                       onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
                       navigate={navigate}
                     />
@@ -1227,6 +1234,10 @@ function Ordens() {
                 os={os}
                 onImprimir={imprimir}
                 onWhatsApp={enviarWhatsAppOs}
+                onAssinatura={(o) => {
+                  setAssinaturaOs(o);
+                  setAssinaturaOpen(true);
+                }}
                 onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
                 navigate={navigate}
               />
@@ -1703,6 +1714,8 @@ function Ordens() {
 
       <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
 
+      <AssinaturaDigitalModal os={assinaturaOs} open={assinaturaOpen} onOpenChange={setAssinaturaOpen} />
+
       <ConfirmDialog
         open={!!confirmExcluirOs}
         onOpenChange={(v) => !v && setConfirmExcluirOs(null)}
@@ -1740,12 +1753,14 @@ function AcoesOsMenu({
   os,
   onImprimir,
   onWhatsApp,
+  onAssinatura,
   onEstornar,
   navigate,
 }: {
   os: any;
   onImprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
   onWhatsApp: (os: any) => void;
+  onAssinatura: (os: any) => void;
   onEstornar: (os: any) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
@@ -1765,7 +1780,7 @@ function AcoesOsMenu({
         <DropdownMenuItem onClick={() => onImprimir(os, "nao_fiscal")}>
           Imprimir não fiscal
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Assinatura digital — em desenvolvimento.")}>
+        <DropdownMenuItem onClick={() => onAssinatura(os)}>
           Assinatura digital
         </DropdownMenuItem>
         <DropdownMenuSeparator />
