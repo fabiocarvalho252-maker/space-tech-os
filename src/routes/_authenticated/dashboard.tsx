@@ -149,15 +149,20 @@ function Dashboard() {
     .filter((l) => l.tipo === "saida")
     .reduce((s, l) => s + Number(l.valor), 0);
 
+  // Custo (CMV): a peça/serviço consumido tem seu custo no próprio cadastro
+  // (produtos.preco_custo — "Custo Adicional" na tela de Serviços), esteja
+  // ele categorizado como produto físico ou como serviço. Excluir os itens
+  // tipo "servico" aqui zerava o CMV inteiro para uma assistência que só
+  // cadastra peças dentro de Serviços (nunca em Produtos).
   let cmv = 0;
   for (const i of data?.osItens ?? []) {
-    if (i.tipo === "produto" && i.produto_id) {
+    if (i.produto_id) {
       cmv += Number(i.quantidade) * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0);
     }
   }
   for (const i of data?.vendaItens ?? []) {
     const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
-    if (produto && produto.categoria !== "Serviço") {
+    if (produto) {
       cmv += Number(i.quantidade) * Number(produto.preco_custo ?? 0);
     }
   }

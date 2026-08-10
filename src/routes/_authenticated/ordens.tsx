@@ -173,7 +173,11 @@ function Ordens() {
         observacao: base.observacao || undefined,
         quantidade: Number(base.quantidade) || 1,
         preco_unitario: Number(base.preco_unitario) || Number((item as any)?.preco_venda) || 0,
-        produto_id: tipo === "produto" ? ((item as any)?.id ?? null) : null,
+        // Linking serviço items to their produtos row too (not just tipo
+        // "produto") keeps their preco_custo ("Custo Adicional" em Serviços)
+        // available for o cálculo de CMV no Painel — sem isso, todo custo de
+        // peça lançado como serviço ficava invisível no lucro do dia.
+        produto_id: (item as any)?.id ?? null,
       },
     ]);
     if (tipo === "produto") setNovoProduto(itemVazio);
