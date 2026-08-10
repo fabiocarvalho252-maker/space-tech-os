@@ -106,6 +106,16 @@ function NotasFiscais() {
     enabled: !!user,
   });
 
+  const { data: fiscalConfig } = useQuery({
+    queryKey: ["fiscal-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fiscal_config" as any).select("*").maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!user,
+  });
+
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes"],
     queryFn: async () => {
@@ -228,6 +238,7 @@ function NotasFiscais() {
           cliente_id: form.cliente_id,
           venda_id: vendaId,
           os_id: osId,
+          serie: fiscalConfig?.serie_padrao || "1",
           observacoes: form.observacoes || null,
           valor_total: valorTotal,
         })

@@ -375,6 +375,33 @@ function Configuracoes() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const { data: fiscalConfig, refetch: refetchFiscalConfig } = useQuery({
+    queryKey: ["fiscal-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fiscal_config" as any).select("*").maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!user,
+  });
+
+  const salvarFiscalConfig = useMutation({
+    mutationFn: async (serie_padrao: string) => {
+      if (!user) return;
+      if (!serie_padrao.trim()) throw new Error("Informe a série.");
+      const { error } = await supabase.from("fiscal_config" as any).upsert(
+        { user_id: user.id, serie_padrao: serie_padrao.trim(), updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Série padrão atualizada!");
+      refetchFiscalConfig();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: smtpConfig, refetch: refetchSmtp } = useQuery({
     queryKey: ["smtp-config"],
     queryFn: async () => {
@@ -1641,6 +1668,50 @@ function Configuracoes() {
           </div>
         </TabsContent>
 
+        <TabsContent value="fiscal" className="space-y-6 outline-none">
+          <section className="max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <FileCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Fiscal</h2>
+                <p className="text-sm text-muted-foreground">
+                  Numeração das Notas Fiscais (controle interno).
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="flex items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                salvarFiscalConfig.mutate(String(fd.get("serie_padrao") ?? ""));
+              }}
+            >
+              <div className="space-y-2">
+                <Label>Série padrão</Label>
+                <Input
+                  name="serie_padrao"
+                  className="w-32"
+                  defaultValue={fiscalConfig?.serie_padrao ?? "1"}
+                  key={fiscalConfig?.serie_padrao ?? "novo"}
+                />
+              </div>
+              <Button type="submit" disabled={salvarFiscalConfig.isPending}>
+                {salvarFiscalConfig.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </form>
+
+            <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
+              Estas notas são um controle interno (número, série, cliente, itens e valores) — ainda
+              não são NF-e/NFS-e emitidas junto ao Fisco. A integração com um provedor de emissão
+              fiscal eletrônica (certificado digital, SEFAZ) é uma etapa futura.
+            </div>
+          </section>
+        </TabsContent>
+
         <TabsContent value="email" className="space-y-6 outline-none">
           <section className="max-w-4xl rounded-2xl border border-border bg-card p-6 shadow-soft">
             <div className="flex items-center gap-3 mb-6">
@@ -2132,7 +2203,7 @@ function Configuracoes() {
         </TabsContent>
 
         {/* Placeholders for remaining tabs */}
-        {tabs.filter(t => !['empresa', 'mp', 'financeiro', 'estoque', 'os', 'vendas', 'compras', 'email', 'whatsapp', 'catalogo', 'funcionarios'].includes(t.id)).map(tab => (
+        {tabs.filter(t => !['empresa', 'mp', 'financeiro', 'estoque', 'os', 'vendas', 'compras', 'email', 'whatsapp', 'fiscal', 'catalogo', 'funcionarios'].includes(t.id)).map(tab => (
           <TabsContent key={tab.id} value={tab.id} className="outline-none">
             <section className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
