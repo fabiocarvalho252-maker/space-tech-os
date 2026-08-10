@@ -1,0 +1,12 @@
+-- ordens_servico.numero defaults from ordens_servico_numero_seq but was never
+-- actually constrained to be unique. The sequence had drifted out of sync
+-- with the real data (stuck at 20 while rows already existed up to 32), so
+-- every OS created since then had a real chance of colliding with an
+-- existing numero — which is exactly what happened (5 collisions found and
+-- resolved by hand: one leftover test row deleted, four real OS renumbered,
+-- nothing else touched). Resyncing the sequence alone would only have fixed
+-- it until the next drift; the constraint is what actually prevents this
+-- from recurring — a second collision will now fail loudly at insert time
+-- instead of silently shipping two different customers' OS under the same
+-- printed number.
+ALTER TABLE public.ordens_servico ADD CONSTRAINT ordens_servico_numero_key UNIQUE (numero);
