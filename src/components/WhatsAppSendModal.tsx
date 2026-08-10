@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, MessageCircle, Send } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Loader2, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, statusLabel } from "@/lib/format";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { enviarMensagemWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 import {
   buildMensagensRapidas,
   buildWaMeLink,
@@ -42,7 +50,11 @@ export function WhatsAppSendModal({
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("whatsapp_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see src/lib/whatsapp/types.ts header
+        .from("whatsapp_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as Record<string, unknown> | null;
     },
@@ -88,6 +100,21 @@ export function WhatsAppSendModal({
 
   const telefoneValido = isValidPhoneBR(telefone);
   const faltamVariaveis = possuiVariaveisNaoPreenchidas(texto);
+  const isMobile = useIsMobile();
+
+  const enviarPelaConexao = useMutation({
+    mutationFn: () =>
+      enviarMensagemWhatsapp({ data: { numero: digitsOnlyBR(telefone), mensagem: texto } }),
+    onSuccess: (res) => {
+      if (res.status === "falhou") {
+        toast.error("Evolution API não confirmou o envio — verifique a conexão em WhatsApp.");
+        return;
+      }
+      toast.success("Mensagem enviada pelo WhatsApp da empresa!");
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   function enviar() {
     if (!telefoneValido) {
@@ -98,8 +125,15 @@ export function WhatsAppSendModal({
       toast.error("A mensagem não pode ficar vazia.");
       return;
     }
-    window.open(buildWaMeLink(telefone, texto), "_blank");
-    onOpenChange(false);
+    // No celular, deixa a pessoa mandar pelo próprio app do WhatsApp — mais
+    // natural do que depender da conexão da empresa. No desktop, onde não
+    // tem WhatsApp instalado, usa a conexão real (Evolution API).
+    if (isMobile) {
+      window.open(buildWaMeLink(telefone, texto), "_blank");
+      onOpenChange(false);
+      return;
+    }
+    enviarPelaConexao.mutate();
   }
 
   return (
@@ -162,8 +196,8 @@ export function WhatsAppSendModal({
             />
             {faltamVariaveis && (
               <p className="flex items-center gap-1.5 text-xs text-amber-600">
-                <AlertTriangle className="h-3.5 w-3.5" /> A mensagem ainda tem variáveis sem preencher (
-                {"{cliente}"}, {"{os}"} etc.).
+                <AlertTriangle className="h-3.5 w-3.5" /> A mensagem ainda tem variáveis sem
+                preencher ({"{cliente}"}, {"{os}"} etc.).
               </p>
             )}
           </div>
@@ -175,10 +209,15 @@ export function WhatsAppSendModal({
           </Button>
           <Button
             className="gap-2 bg-green-600 hover:bg-green-700"
-            disabled={!telefoneValido || !texto.trim()}
+            disabled={!telefoneValido || !texto.trim() || enviarPelaConexao.isPending}
             onClick={enviar}
           >
-            <Send className="h-4 w-4" /> Enviar
+            {enviarPelaConexao.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}{" "}
+            Enviar
           </Button>
         </div>
       </DialogContent>
