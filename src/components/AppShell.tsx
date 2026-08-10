@@ -491,6 +491,13 @@ function PerfilMenu({ nome, email, onSair }: { nome: string; email?: string; onS
             <Settings className="h-4 w-4" /> Configurações
           </Link>
         </DropdownMenuItem>
+        {email === "admin@spacetech.app" && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Administração do site
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSair} className="flex items-center gap-2 text-destructive">
           <LogOut className="h-4 w-4" /> Sair

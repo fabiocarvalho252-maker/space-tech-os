@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
 import { Route as AuthenticatedCobrancasRouteImport } from './routes/_authenticated/cobrancas'
@@ -56,6 +57,11 @@ const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   id: '/agenda',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/clientes': typeof AuthenticatedClientesRoute
   '/cobrancas': typeof AuthenticatedCobrancasRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/clientes': typeof AuthenticatedClientesRoute
   '/cobrancas': typeof AuthenticatedCobrancasRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/clientes': typeof AuthenticatedClientesRoute
   '/_authenticated/cobrancas': typeof AuthenticatedCobrancasRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/'
     | '/assinatura'
     | '/cadastro'
+    | '/admin'
     | '/agenda'
     | '/clientes'
     | '/cobrancas'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/'
     | '/assinatura'
     | '/cadastro'
+    | '/admin'
     | '/agenda'
     | '/clientes'
     | '/cobrancas'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/assinatura'
     | '/cadastro'
+    | '/_authenticated/admin'
     | '/_authenticated/agenda'
     | '/_authenticated/clientes'
     | '/_authenticated/cobrancas'
@@ -402,6 +414,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/agenda': {
       id: '/_authenticated/agenda'
@@ -575,6 +594,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
   AuthenticatedCobrancasRoute: typeof AuthenticatedCobrancasRoute
@@ -601,6 +621,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedClientesRoute: AuthenticatedClientesRoute,
   AuthenticatedCobrancasRoute: AuthenticatedCobrancasRoute,
