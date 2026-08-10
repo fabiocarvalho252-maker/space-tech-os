@@ -103,10 +103,21 @@ export function useTrialStatus() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("created_at")
+        .select("created_at, plano, acesso_ate")
         .eq("id", minhaEmpresa!.empresa_id)
         .maybeSingle();
       if (error) throw error;
+      const plano = data?.plano ?? "trial";
+      const acessoAte = data?.acesso_ate;
+
+      if (plano === "vitalicio") return { diasRestantes: Infinity, expirado: false };
+      if (plano === "suspenso") return { diasRestantes: -1, expirado: true };
+      if (["mensal", "trimestral", "semestral", "anual"].includes(plano)) {
+        if (!acessoAte) return { diasRestantes: Infinity, expirado: false };
+        const diasRestantes = differenceInCalendarDays(new Date(acessoAte), new Date());
+        return { diasRestantes, expirado: diasRestantes < 0 };
+      }
+
       if (!data?.created_at) return { diasRestantes: DIAS_TESTE, expirado: false };
       const diasDecorridos = differenceInCalendarDays(new Date(), new Date(data.created_at));
       const diasRestantes = DIAS_TESTE - diasDecorridos;

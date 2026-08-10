@@ -25,11 +25,26 @@ export const Route = createFileRoute("/_authenticated")({
 
     const { data: empresaProfile } = await supabase
       .from("profiles")
-      .select("created_at")
+      .select("created_at, plano, acesso_ate")
       .eq("id", empresaId)
       .maybeSingle();
 
-    if (empresaProfile?.created_at) {
+    // plano is set by the site admin (/admin) — defaults to "trial" for
+    // every signup, so nothing changes here unless explicitly granted.
+    const plano = empresaProfile?.plano ?? "trial";
+    const acessoAte = empresaProfile?.acesso_ate;
+
+    const PLANOS_COM_VALIDADE = ["mensal", "trimestral", "semestral", "anual"];
+
+    if (plano === "suspenso") {
+      throw redirect({ to: "/assinatura" });
+    } else if (plano === "vitalicio") {
+      // never expires
+    } else if (PLANOS_COM_VALIDADE.includes(plano)) {
+      if (acessoAte && new Date(acessoAte) < new Date(new Date().toDateString())) {
+        throw redirect({ to: "/assinatura" });
+      }
+    } else if (empresaProfile?.created_at) {
       const diasDecorridos = Math.floor(
         (Date.now() - new Date(empresaProfile.created_at).getTime()) / 86_400_000,
       );

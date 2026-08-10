@@ -994,6 +994,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          acesso_ate: string | null
           billing_day: number | null
           cidade: string | null
           cnpj_cpf: string | null
@@ -1003,11 +1004,13 @@ export type Database = {
           logo_url: string | null
           loja: string | null
           nome: string | null
+          plano: string
           trial_aviso_enviado_em: string | null
           updated_at: string
           whatsapp: string | null
         }
         Insert: {
+          acesso_ate?: string | null
           billing_day?: number | null
           cidade?: string | null
           cnpj_cpf?: string | null
@@ -1017,11 +1020,13 @@ export type Database = {
           logo_url?: string | null
           loja?: string | null
           nome?: string | null
+          plano?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
         Update: {
+          acesso_ate?: string | null
           billing_day?: number | null
           cidade?: string | null
           cnpj_cpf?: string | null
@@ -1031,6 +1036,7 @@ export type Database = {
           logo_url?: string | null
           loja?: string | null
           nome?: string | null
+          plano?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string
           whatsapp?: string | null
