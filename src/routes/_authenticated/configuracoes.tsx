@@ -48,7 +48,8 @@ import {
   Monitor,
   HelpCircle,
   ExternalLink,
-  Copy
+  Copy,
+  Tag
 } from "lucide-react";
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
@@ -306,6 +307,72 @@ function Configuracoes() {
       return data as any[];
     },
     enabled: !!user,
+  });
+
+  const { data: estoqueConfig, refetch: refetchEstoqueConfig } = useQuery({
+    queryKey: ["estoque-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("estoque_config" as any).select("*").maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!user,
+  });
+
+  const salvarEstoqueConfig = useMutation({
+    mutationFn: async (estoque_minimo_padrao: number) => {
+      if (!user) return;
+      const { error } = await supabase.from("estoque_config" as any).upsert(
+        { user_id: user.id, estoque_minimo_padrao, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Estoque mínimo padrão atualizado!");
+      refetchEstoqueConfig();
+    },
+    onError: (e: Error) => toast.error("Erro ao salvar: " + e.message),
+  });
+
+  const { data: categoriasProduto = [], refetch: refetchCategoriasProduto } = useQuery({
+    queryKey: ["produto-categorias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produto_categorias" as any)
+        .select("*")
+        .order("nome");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!user,
+  });
+
+  const [novaCategoria, setNovaCategoria] = useState("");
+
+  const adicionarCategoria = useMutation({
+    mutationFn: async (nome: string) => {
+      if (!user) return;
+      if (!nome.trim()) throw new Error("Informe o nome da categoria.");
+      const { error } = await supabase
+        .from("produto_categorias" as any)
+        .insert({ user_id: user.id, nome: nome.trim() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNovaCategoria("");
+      refetchCategoriasProduto();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removerCategoria = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("produto_categorias" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => refetchCategoriasProduto(),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const { data: smtpConfig, refetch: refetchSmtp } = useQuery({
@@ -1479,6 +1546,101 @@ function Configuracoes() {
           </div>
         </TabsContent>
 
+        <TabsContent value="estoque" className="space-y-6 outline-none">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Package className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Estoque mínimo padrão</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Usado ao cadastrar um novo produto em Produtos — pode ser ajustado por produto depois.
+                  </p>
+                </div>
+              </div>
+              <form
+                className="flex items-end gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  salvarEstoqueConfig.mutate(Number(fd.get("estoque_minimo_padrao")) || 0);
+                }}
+              >
+                <div className="space-y-2">
+                  <Label>Quantidade mínima</Label>
+                  <Input
+                    name="estoque_minimo_padrao"
+                    type="number"
+                    min={0}
+                    className="w-40"
+                    defaultValue={estoqueConfig?.estoque_minimo_padrao ?? 1}
+                    key={estoqueConfig?.estoque_minimo_padrao ?? "novo"}
+                  />
+                </div>
+                <Button type="submit" disabled={salvarEstoqueConfig.isPending}>
+                  {salvarEstoqueConfig.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </form>
+            </section>
+
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Tag className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Categorias de produtos</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Sugeridas automaticamente ao digitar a categoria em Produtos.
+                  </p>
+                </div>
+              </div>
+
+              <form
+                className="mb-4 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  adicionarCategoria.mutate(novaCategoria);
+                }}
+              >
+                <Input
+                  value={novaCategoria}
+                  onChange={(e) => setNovaCategoria(e.target.value)}
+                  placeholder="Nova categoria (ex: Telas, Baterias)"
+                />
+                <Button type="submit" disabled={adicionarCategoria.isPending} className="gap-2 shrink-0">
+                  <Plus className="h-4 w-4" /> Adicionar
+                </Button>
+              </form>
+
+              {categoriasProduto.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma categoria cadastrada ainda.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {categoriasProduto.map((c) => (
+                    <span
+                      key={c.id}
+                      className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-1 pl-3 pr-1.5 text-sm"
+                    >
+                      {c.nome}
+                      <button
+                        type="button"
+                        onClick={() => removerCategoria.mutate(c.id)}
+                        aria-label={`Remover categoria ${c.nome}`}
+                        className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </TabsContent>
+
         <TabsContent value="email" className="space-y-6 outline-none">
           <section className="max-w-4xl rounded-2xl border border-border bg-card p-6 shadow-soft">
             <div className="flex items-center gap-3 mb-6">
@@ -1970,7 +2132,7 @@ function Configuracoes() {
         </TabsContent>
 
         {/* Placeholders for remaining tabs */}
-        {tabs.filter(t => !['empresa', 'mp', 'financeiro', 'os', 'vendas', 'compras', 'email', 'whatsapp', 'catalogo', 'funcionarios'].includes(t.id)).map(tab => (
+        {tabs.filter(t => !['empresa', 'mp', 'financeiro', 'estoque', 'os', 'vendas', 'compras', 'email', 'whatsapp', 'catalogo', 'funcionarios'].includes(t.id)).map(tab => (
           <TabsContent key={tab.id} value={tab.id} className="outline-none">
             <section className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">

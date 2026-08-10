@@ -143,8 +143,29 @@ function Estoque() {
     },
   });
 
+  const { data: estoqueConfig } = useQuery({
+    queryKey: ["estoque-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("estoque_config" as any).select("*").maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const { data: categoriasProduto = [] } = useQuery({
+    queryKey: ["produto-categorias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produto_categorias" as any)
+        .select("*")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as unknown as { id: string; nome: string }[];
+    },
+  });
+
   function abrirCriar() {
-    setForm(vazio);
+    setForm({ ...vazio, estoque_minimo: String(estoqueConfig?.estoque_minimo_padrao ?? 1) });
     setProdutoAtual(null);
     setModo("criar");
   }
@@ -491,6 +512,7 @@ function Estoque() {
               label="Categoria"
               value={form.categoria}
               onChange={(v) => setForm({ ...form, categoria: v })}
+              list="categorias-produto"
             />
             <Campo
               label="Quantidade"
@@ -522,6 +544,12 @@ function Estoque() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <datalist id="categorias-produto">
+        {categoriasProduto.map((c) => (
+          <option key={c.id} value={c.nome} />
+        ))}
+      </datalist>
 
       <Dialog open={modo === "ver"} onOpenChange={(v) => !v && setModo("fechado")}>
         <DialogContent>
@@ -623,16 +651,24 @@ function Campo({
   value,
   onChange,
   type = "text",
+  list,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  list?: string;
 }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input type={type} step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        type={type}
+        step="0.01"
+        list={list}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
