@@ -1318,6 +1318,66 @@ export type Database = {
         }
         Relationships: []
       }
+      os_templates: {
+        Row: {
+          ativo: boolean
+          builtin: boolean
+          categoria: string
+          config: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          favorito: boolean
+          id: string
+          nome: string
+          orientacao: string
+          padrao: boolean
+          paginas: number
+          tema: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          builtin?: boolean
+          categoria: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          favorito?: boolean
+          id?: string
+          nome: string
+          orientacao?: string
+          padrao?: boolean
+          paginas?: number
+          tema?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          builtin?: boolean
+          categoria?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          favorito?: boolean
+          id?: string
+          nome?: string
+          orientacao?: string
+          padrao?: boolean
+          paginas?: number
+          tema?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pagamento_config: {
         Row: {
           created_at: string
@@ -2307,6 +2367,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      definir_template_padrao: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
       empresa_role: { Args: { p_empresa_id: string }; Returns: string }
       faturar_os: {
         Args: {
@@ -2340,6 +2404,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      garantir_templates_padrao: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       get_empresa_membros: {
         Args: { p_empresa_id: string }

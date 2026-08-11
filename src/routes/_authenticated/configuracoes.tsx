@@ -50,7 +50,9 @@ import {
   ExternalLink,
   Copy,
   Tag,
+  FileStack,
 } from "lucide-react";
+import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -522,6 +524,7 @@ function Configuracoes() {
     { id: "financeiro", label: "Financeiro", icon: Wallet },
     { id: "estoque", label: "Estoque", icon: Package },
     { id: "os", label: "OS", icon: Wrench },
+    { id: "modelos", label: "Modelos de OS", icon: FileStack },
     { id: "vendas", label: "Vendas", icon: ShoppingCart },
     { id: "compras", label: "Compras", icon: ShoppingCart },
     { id: "mp", label: "Mercado Pago", icon: CreditCard },
@@ -1412,6 +1415,10 @@ function Configuracoes() {
               </div>
             </section>
           </div>
+        </TabsContent>
+
+        <TabsContent value="modelos" className="space-y-6 outline-none">
+          <OsTemplatesLibrary />
         </TabsContent>
 
         <TabsContent value="vendas" className="space-y-6 outline-none">

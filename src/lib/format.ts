@@ -53,3 +53,23 @@ export const statusLabel = (value: string) =>
   STATUS_VENDAS.find((s) => s.value === value)?.label ??
   STATUS_COMPRAS.find((s) => s.value === value)?.label ??
   value;
+
+// One distinct color per status of Ordem de Serviço, so a técnico scanning
+// the list can tell "aguardando peça" from "em reparo" from "pronto" at a
+// glance instead of reading every label. Written out as full literal
+// classNames (not built with template interpolation) because Tailwind's JIT
+// scanner only picks up class names it can find as-is in source.
+export const STATUS_OS_COR: Record<(typeof STATUS_OS)[number]["value"], string> = {
+  recebido: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  em_analise: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  orcamento: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  aguardando_aprovacao: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  aprovado: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  em_reparo: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+  aguardando_peca: "bg-yellow-500/10 text-yellow-700 border-yellow-500/20",
+  pronto: "bg-teal-500/10 text-teal-600 border-teal-500/20",
+  entregue: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  faturado: "bg-violet-500/10 text-violet-600 border-violet-500/20",
+  reprovado: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+  cancelado: "bg-red-500/10 text-red-600 border-red-500/20",
+};

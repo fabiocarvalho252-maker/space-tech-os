@@ -46,11 +46,15 @@ import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAces
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
 import { processarNotificacoesAgendadasWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
-import { renderToString } from "react-dom/server";
-import { QRCodeSVG } from "qrcode.react";
+import {
+  renderOsTemplateHtml,
+  FALLBACK_TEMPLATE,
+  type OsTemplateRow,
+  type RenderOsData,
+} from "@/lib/os-template-render";
 
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
-import { brl, dataBR, STATUS_OS, statusLabel } from "@/lib/format";
+import { brl, dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -655,8 +659,16 @@ function Ordens() {
       "<!doctype html><html><body style='font-family:system-ui,sans-serif;padding:40px;color:#666'>Preparando impressão...</body></html>",
     );
 
-    // Buscar o termo padrão e a configuração de OS
-    const [{ data: termo }, { data: osConfigData }, { data: fotosData }] = await Promise.all([
+    // Termo padrão, config de impressão, fotos, itens e o modelo (template)
+    // configurado em Configurações → Modelos de OS — o padrão da empresa, ou
+    // (se ela nunca visitou essa tela) o primeiro modelo ativo qualquer.
+    const [
+      { data: termo },
+      { data: osConfigData },
+      { data: fotosData },
+      { data: itensData },
+      { data: templatesData },
+    ] = await Promise.all([
       supabase
         .from("termos_garantia")
         .select("conteudo")
@@ -672,6 +684,19 @@ function Ordens() {
         .from("service_order_photos" as any)
         .select("*")
         .eq("service_order_id", os.id),
+      supabase
+        .from("os_itens" as any)
+        .select("*")
+        .eq("os_id", os.id),
+      supabase
+        .from("os_templates" as any)
+        .select("*")
+        .eq("user_id", user?.id || "")
+        .eq("ativo", true)
+        .order("padrao", { ascending: false })
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(1),
     ]);
 
     const osConfig = osConfigData as any;
@@ -679,59 +704,28 @@ function Ordens() {
     // SelectQueryError element type it can't statically resolve — cast once
     // here instead of at every access site below.
     const fotos = (fotosData ?? []) as any[];
+    const itensOs = (itensData ?? []) as any[];
+    const template =
+      (((templatesData as any[]) ?? [])[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
 
-    // Gerar QR Code se configurado
-    let qrCodeHtml = "";
-    if (osConfig?.imprimir_qrcode_cliente) {
-      const clienteUrl = `${window.location.origin}/consulta/${os.id}`;
-      qrCodeHtml = renderToString(
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <QRCodeSVG value={clienteUrl} size={100} />
-          <p style={{ fontSize: "10px", marginTop: "5px" }}>Acompanhe sua OS online</p>
-        </div>,
-      );
-    }
-
-    // Gerar HTML de fotos se configurado (bucket "os-fotos" é privado — precisa
-    // de signed URL, a public URL retornaria 400/403 em silêncio na <img>)
-    let fotosHtml = "";
+    // Fotos e assinaturas: bucket "os-fotos" é privado — precisa de signed
+    // URL, uma public URL retornaria 400/403 em silêncio na <img>.
     const fotosGaleria = fotos.filter(
       (f: any) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
     );
-    if (osConfig?.exibir_fotos_impressao && fotosGaleria.length > 0) {
-      const fotosComUrl = await Promise.all(
-        fotosGaleria.map(async (f: any) => {
-          const { data: signed } = await supabase.storage
-            .from("os-fotos")
-            .createSignedUrl(f.url, 3600);
-          return { ...f, src: signed?.signedUrl ?? "" };
-        }),
-      );
-      const legenda = (cat: string) =>
-        cat === "entrada" ? "Entrada" : cat === "durante" ? "Durante" : "Saída";
-      fotosHtml = `
-        <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
-          <h3 style="font-size: 14px; margin-bottom: 10px;">Fotos do Equipamento</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            ${fotosComUrl
-              .filter((f) => f.src)
-              .map(
-                (f: any) => `
-              <div style="text-align: center;">
-                <img src="${f.src}"
-                     style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" />
-                <p style="font-size: 8px; color: #999; margin-top: 2px;">${legenda(f.category)}</p>
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-        </div>
-      `;
-    }
+    const fotosComUrl = osConfig?.exibir_fotos_impressao
+      ? (
+          await Promise.all(
+            fotosGaleria.map(async (f: any) => {
+              const { data: signed } = await supabase.storage
+                .from("os-fotos")
+                .createSignedUrl(f.url, 3600);
+              return { src: signed?.signedUrl ?? "", category: f.category as string };
+            }),
+          )
+        ).filter((f) => f.src)
+      : [];
 
-    // Assinaturas reais, quando já coletadas — senão, linha em branco para
-    // assinar na hora (mantido no rodapé abaixo).
     const assinaturaCliente = fotos.find((f: any) => f.category === "assinatura_cliente");
     const assinaturaTecnico = fotos.find((f: any) => f.category === "assinatura_tecnico");
     const [assinaturaClienteSrc, assinaturaTecnicoSrc] = await Promise.all([
@@ -739,126 +733,69 @@ function Ordens() {
         ? supabase.storage
             .from("os-fotos")
             .createSignedUrl(assinaturaCliente.url, 3600)
-            .then((r) => r.data?.signedUrl ?? "")
-        : Promise.resolve(""),
+            .then((r) => r.data?.signedUrl ?? null)
+        : Promise.resolve(null),
       assinaturaTecnico
         ? supabase.storage
             .from("os-fotos")
             .createSignedUrl(assinaturaTecnico.url, 3600)
-            .then((r) => r.data?.signedUrl ?? "")
-        : Promise.resolve(""),
+            .then((r) => r.data?.signedUrl ?? null)
+        : Promise.resolve(null),
     ]);
 
-    // Checklist técnico e estado físico — só imprime o que foi de fato
-    // preenchido (evita poluir o A4 de OS simples que não usaram a aba).
-    const checklistEntrada = ((os as any).checklist_entrada || {}) as Record<string, string>;
-    const checklistPreenchido = CHECKLIST_ITENS.filter((i) => checklistEntrada[i.key]);
-    const checklistHtml = checklistPreenchido.length
-      ? `
-        <div style="margin-top: 20px;">
-          <h3 style="font-size: 14px; margin-bottom: 8px;">Checklist de Entrada</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 10px;">
-            ${checklistPreenchido
-              .map(
-                (i) =>
-                  `<div>${i.label}: <strong>${CHECKLIST_STATUS.find((s) => s.value === checklistEntrada[i.key])?.label ?? "—"}</strong></div>`,
-              )
-              .join("")}
-          </div>
-        </div>
-      `
-      : "";
+    const data: RenderOsData = {
+      numero: os.numero,
+      statusLabel: statusLabel(os.status),
+      createdAt: os.created_at,
+      cliente: os.clientes ? { nome: os.clientes.nome, telefone: os.clientes.telefone } : null,
+      aparelho: os.aparelho,
+      marca: (os as any).marca ?? null,
+      modelo: (os as any).modelo ?? null,
+      imei: (os as any).imei ?? null,
+      serialNumber: (os as any).serial_number ?? null,
+      cor: (os as any).cor ?? null,
+      senhaDispositivo: (os as any).senha_dispositivo ?? null,
+      padraoDesbloqueio: (os as any).padrao_desbloqueio ?? null,
+      defeito: os.defeito ?? null,
+      diagnostico: os.diagnostico ?? null,
+      itens: itensOs.map((i) => ({
+        descricao: i.descricao,
+        tipo: i.tipo,
+        quantidade: Number(i.quantidade),
+        precoUnitario: Number(i.preco_unitario),
+      })),
+      valor: Number(os.valor),
+      desconto: Number((os as any).desconto ?? 0),
+      garantiaDias: (os as any).garantia_dias ?? null,
+      garantiaVencimento: (os as any).garantia_vencimento ?? null,
+      checklist: ((os as any).checklist_entrada ?? {}) as Record<string, string>,
+      estadoFisico: ((os as any).estado_fisico ?? {}) as Record<string, boolean>,
+      estadoFisicoObs: (os as any).estado_fisico_obs ?? null,
+      fotos: fotosComUrl,
+      assinaturaClienteSrc,
+      assinaturaTecnicoSrc,
+      termoGarantiaTexto: termo?.conteudo ?? null,
+      condicoesTexto: osConfig?.termos_condicoes ?? null,
+      empresa: {
+        nome: profile?.loja || (profile as any)?.nome || "Assistência Técnica",
+        logoUrl: (profile as any)?.logo_url ?? null,
+        cnpj: (profile as any)?.cnpj_cpf ?? null,
+        endereco: (profile as any)?.endereco ?? null,
+        telefone: (profile as any)?.whatsapp ?? null,
+        responsavel: null,
+      },
+      qrCodeUrl: osConfig?.imprimir_qrcode_cliente
+        ? `${window.location.origin}/consulta/${os.id}`
+        : null,
+      modo,
+      duasVias: !!osConfig?.imprimir_duas_vias,
+    };
 
-    const estadoFisicoOs = ((os as any).estado_fisico || {}) as Record<string, boolean>;
-    const estadoFisicoMarcado = ESTADO_FISICO_ITENS.filter((i) => estadoFisicoOs[i.key]);
-    const estadoFisicoHtml =
-      estadoFisicoMarcado.length || (os as any).estado_fisico_obs
-        ? `
-        <div style="margin-top: 20px;">
-          <h3 style="font-size: 14px; margin-bottom: 8px;">Estado Físico do Aparelho</h3>
-          <p style="font-size: 10px;">${estadoFisicoMarcado.map((i) => i.label).join(", ") || "Sem avarias marcadas."}</p>
-          ${(os as any).estado_fisico_obs ? `<p style="font-size: 10px; color: #666;">${(os as any).estado_fisico_obs}</p>` : ""}
-        </div>
-      `
-        : "";
-
-    const tituloDoc = modo === "orcamento" ? "Orçamento" : "Ordem de Serviço";
-    const conteudoVias = [];
-    const numVias = osConfig?.imprimir_duas_vias ? 2 : 1;
-
-    for (let i = 0; i < numVias; i++) {
-      conteudoVias.push(`
-        <div class="via" style="${i > 0 ? "margin-top: 50px; border-top: 2px dashed #ccc; padding-top: 50px; page-break-before: always;" : ""}">
-          <header>
-            <div>
-              <h1>${profile?.loja ?? "Assistência Técnica"}</h1>
-              <small>${tituloDoc} nº ${os.numero} - ${i === 0 ? "Via do Cliente" : "Via da Empresa"}</small>
-            </div>
-            <div style="text-align:right">
-              <strong>${dataBR(os.created_at)}</strong><br>
-              <small>${statusLabel(os.status)}</small>
-            </div>
-          </header>
-          
-          <table>
-            <tr><td>Cliente</td><td>${os.clientes?.nome ?? "—"}</td></tr>
-            <tr><td>Telefone</td><td>${os.clientes?.telefone ?? "—"}</td></tr>
-            <tr><td>Aparelho</td><td>${os.aparelho} ${os.marca ?? ""} ${os.modelo ?? ""}</td></tr>
-            <tr><td>Senha (PIN)</td><td>${(os as any).senha_dispositivo || "—"}</td></tr>
-            <tr><td>Padrão</td><td>${(os as any).padrao_desbloqueio ? `Sequência: ${(os as any).padrao_desbloqueio}` : "—"}</td></tr>
-            <tr><td>Defeito relatado</td><td>${os.defeito ?? "—"}</td></tr>
-            <tr><td>Diagnóstico</td><td>${os.diagnostico ?? "—"}</td></tr>
-            <tr><td>Garantia</td><td>${(os as any).garantia_dias ? `${(os as any).garantia_dias} dias` : "—"}${(os as any).garantia_vencimento ? ` — válida até ${dataBR((os as any).garantia_vencimento)}` : ""}</td></tr>
-          </table>
-
-          <p class="total">Total: ${brl(os.valor)}</p>
-          ${modo === "nao_fiscal" ? '<p style="font-size:10px;color:#999;margin-top:4px;">Documento sem valor fiscal.</p>' : ""}
-
-          ${checklistHtml}
-          ${estadoFisicoHtml}
-
-          ${termo?.conteudo ? `<div class="garantia"><strong>Termos de Garantia:</strong><br>${termo.conteudo}</div>` : ""}
-          ${osConfig?.termos_condicoes ? `<div class="condicoes"><strong>Condições do Orçamento:</strong><br>${osConfig.termos_condicoes}</div>` : ""}
-
-          ${qrCodeHtml}
-          ${fotosHtml}
-          
-          <footer style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px;">
-            <div style="display: flex; justify-content: space-between;">
-              <div style="width: 45%; text-align: center; font-size: 10px;">
-                ${assinaturaClienteSrc ? `<img src="${assinaturaClienteSrc}" style="max-height: 60px; margin-bottom: 4px;" />` : ""}
-                <div style="border-top: 1px solid #000; margin-top: 6px; padding-top: 4px;">Assinatura do Cliente</div>
-              </div>
-              <div style="width: 45%; text-align: center; font-size: 10px;">
-                ${assinaturaTecnicoSrc ? `<img src="${assinaturaTecnicoSrc}" style="max-height: 60px; margin-bottom: 4px;" />` : ""}
-                <div style="border-top: 1px solid #000; margin-top: 6px; padding-top: 4px;">Assinatura do Técnico</div>
-              </div>
-            </div>
-          </footer>
-        </div>
-      `);
-    }
-
+    const html = renderOsTemplateHtml(template, data);
     janela.document.open();
-    janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-      <title>${tituloDoc} ${os.numero}</title>
-      <style>
-        body{font-family:system-ui,sans-serif;padding:40px;color:#1b1b2b;line-height:1.4}
-        h1{margin:0;font-size:20px}
-        header{display:flex;justify-content:space-between;border-bottom:2px solid #4f46e5;padding-bottom:12px}
-        table{width:100%;margin-top:20px;border-collapse:collapse}
-        td{padding:6px 0;vertical-align:top;border-bottom: 1px solid #f3f4f6}
-        td:first-child{width:150px;color:#666;font-size:12px;font-weight:600}
-        .total{margin-top:20px;font-size:18px;font-weight:800;color:#4f46e5}
-        .garantia{margin-top:20px;padding:12px;background:#f9fafb;border-radius:8px;font-size:10px;color:#444;white-space:pre-line;border: 1px solid #f3f4f6}
-        .condicoes{margin-top:15px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-size:9px;color:#666;white-space:pre-line}
-        @media print { .via { page-break-after: always; } .via:last-child { page-break-after: avoid; } }
-      </style>
-      </head><body>
-      ${conteudoVias.join("")}
-      <script>window.onload=()=>window.print()<\/script>
-      </body></html>`);
-
+    janela.document.write(
+      html.replace("</body>", "<script>window.onload=()=>window.print()<\\/script></body>"),
+    );
     janela.document.close();
   }
 
@@ -1288,11 +1225,8 @@ function Ordens() {
                       mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
                     }
                     className={`h-8 w-full rounded-lg border px-2 text-xs font-medium transition ${
-                      os.status === "faturado"
-                        ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
-                        : os.status === "entregue" || os.status === "pronto"
-                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                          : "bg-primary/10 text-primary border-primary/20"
+                      STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
+                      "bg-primary/10 text-primary border-primary/20"
                     }`}
                   >
                     {STATUS_OS.map((s) => (
@@ -1405,11 +1339,8 @@ function Ordens() {
                 mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
               }
               className={`mt-3 h-9 w-full rounded-lg border px-2 text-xs font-medium transition ${
-                os.status === "faturado"
-                  ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
-                  : os.status === "entregue" || os.status === "pronto"
-                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    : "bg-primary/10 text-primary border-primary/20"
+                STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
+                "bg-primary/10 text-primary border-primary/20"
               }`}
             >
               {STATUS_OS.map((s) => (
