@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -113,8 +133,57 @@ export type Database = {
         }
         Relationships: []
       }
+      catalogo_config: {
+        Row: {
+          created_at: string | null
+          dominio_proprio: string | null
+          exibir_apenas_com_estoque: boolean | null
+          id: string
+          ignorar_estoque: boolean | null
+          loja_ativa: boolean | null
+          permitir_vender_sem_estoque: boolean | null
+          subdominio: string | null
+          updated_at: string | null
+          user_id: string
+          whatsapp_atendimento: string | null
+          whatsapp_flutuante_ativo: boolean | null
+          whatsapp_mensagem_inicial: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dominio_proprio?: string | null
+          exibir_apenas_com_estoque?: boolean | null
+          id?: string
+          ignorar_estoque?: boolean | null
+          loja_ativa?: boolean | null
+          permitir_vender_sem_estoque?: boolean | null
+          subdominio?: string | null
+          updated_at?: string | null
+          user_id: string
+          whatsapp_atendimento?: string | null
+          whatsapp_flutuante_ativo?: boolean | null
+          whatsapp_mensagem_inicial?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dominio_proprio?: string | null
+          exibir_apenas_com_estoque?: boolean | null
+          id?: string
+          ignorar_estoque?: boolean | null
+          loja_ativa?: boolean | null
+          permitir_vender_sem_estoque?: boolean | null
+          subdominio?: string | null
+          updated_at?: string | null
+          user_id?: string
+          whatsapp_atendimento?: string | null
+          whatsapp_flutuante_ativo?: boolean | null
+          whatsapp_mensagem_inicial?: string | null
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
+          auth_user_id: string | null
           created_at: string
           documento: string | null
           email: string | null
@@ -127,6 +196,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auth_user_id?: string | null
           created_at?: string
           documento?: string | null
           email?: string | null
@@ -139,6 +209,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auth_user_id?: string | null
           created_at?: string
           documento?: string | null
           email?: string | null
@@ -158,6 +229,7 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          lancamento_id: string | null
           mp_id: string | null
           os_id: string | null
           qr_code: string | null
@@ -173,6 +245,7 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          lancamento_id?: string | null
           mp_id?: string | null
           os_id?: string | null
           qr_code?: string | null
@@ -188,6 +261,7 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          lancamento_id?: string | null
           mp_id?: string | null
           os_id?: string | null
           qr_code?: string | null
@@ -207,6 +281,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cobrancas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cobrancas_os_id_fkey"
             columns: ["os_id"]
             isOneToOne: false
@@ -218,6 +299,104 @@ export type Database = {
             columns: ["venda_id"]
             isOneToOne: false
             referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compra_itens: {
+        Row: {
+          compra_id: string
+          created_at: string
+          custo_unitario: number
+          descricao: string
+          id: string
+          produto_id: string | null
+          quantidade: number
+          user_id: string
+        }
+        Insert: {
+          compra_id: string
+          created_at?: string
+          custo_unitario?: number
+          descricao: string
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          user_id: string
+        }
+        Update: {
+          compra_id?: string
+          created_at?: string
+          custo_unitario?: number
+          descricao?: string
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compra_itens_compra_id_fkey"
+            columns: ["compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compra_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compras: {
+        Row: {
+          created_at: string
+          faturado_em: string | null
+          forma_pagamento: string | null
+          fornecedor_id: string | null
+          id: string
+          observacoes: string | null
+          recebido_em: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          faturado_em?: string | null
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          recebido_em?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          faturado_em?: string | null
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          recebido_em?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]
@@ -372,6 +551,30 @@ export type Database = {
           },
         ]
       }
+      estoque_config: {
+        Row: {
+          created_at: string | null
+          estoque_minimo_padrao: number
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          estoque_minimo_padrao?: number
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          estoque_minimo_padrao?: number
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       finance_categories: {
         Row: {
           created_at: string
@@ -392,6 +595,30 @@ export type Database = {
           id?: string
           nome?: string
           tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fiscal_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          serie_padrao: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          serie_padrao?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          serie_padrao?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -613,12 +840,18 @@ export type Database = {
         Row: {
           anotacoes: string | null
           aparelho: string
+          checklist_entrada: Json
           cliente_id: string | null
           cor: string | null
           created_at: string
+          data_entrega: string | null
           defeito: string | null
           desconto: number
           diagnostico: string | null
+          estado_fisico: Json
+          estado_fisico_obs: string | null
+          garantia_dias: number | null
+          garantia_vencimento: string | null
           id: string
           imei: string | null
           laudo_tecnico: string | null
@@ -640,12 +873,18 @@ export type Database = {
         Insert: {
           anotacoes?: string | null
           aparelho: string
+          checklist_entrada?: Json
           cliente_id?: string | null
           cor?: string | null
           created_at?: string
+          data_entrega?: string | null
           defeito?: string | null
           desconto?: number
           diagnostico?: string | null
+          estado_fisico?: Json
+          estado_fisico_obs?: string | null
+          garantia_dias?: number | null
+          garantia_vencimento?: string | null
           id?: string
           imei?: string | null
           laudo_tecnico?: string | null
@@ -667,12 +906,18 @@ export type Database = {
         Update: {
           anotacoes?: string | null
           aparelho?: string
+          checklist_entrada?: Json
           cliente_id?: string | null
           cor?: string | null
           created_at?: string
+          data_entrega?: string | null
           defeito?: string | null
           desconto?: number
           diagnostico?: string | null
+          estado_fisico?: Json
+          estado_fisico_obs?: string | null
+          garantia_dias?: number | null
+          garantia_vencimento?: string | null
           id?: string
           imei?: string | null
           laudo_tecnico?: string | null
@@ -770,6 +1015,225 @@ export type Database = {
         }
         Relationships: []
       }
+      os_faturamento_parcelas: {
+        Row: {
+          created_at: string
+          data_recebimento: string | null
+          faturamento_id: string
+          forma_pagamento_id: string | null
+          id: string
+          lancamento_estorno_id: string | null
+          lancamento_id: string | null
+          numero_parcela: number
+          status: string
+          total_parcelas: number
+          user_id: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          created_at?: string
+          data_recebimento?: string | null
+          faturamento_id: string
+          forma_pagamento_id?: string | null
+          id?: string
+          lancamento_estorno_id?: string | null
+          lancamento_id?: string | null
+          numero_parcela: number
+          status?: string
+          total_parcelas: number
+          user_id: string
+          valor: number
+          vencimento: string
+        }
+        Update: {
+          created_at?: string
+          data_recebimento?: string | null
+          faturamento_id?: string
+          forma_pagamento_id?: string | null
+          id?: string
+          lancamento_estorno_id?: string | null
+          lancamento_id?: string | null
+          numero_parcela?: number
+          status?: string
+          total_parcelas?: number
+          user_id?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_faturamento_parcelas_faturamento_id_fkey"
+            columns: ["faturamento_id"]
+            isOneToOne: false
+            referencedRelation: "os_faturamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_faturamento_parcelas_forma_pagamento_id_fkey"
+            columns: ["forma_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_faturamento_parcelas_lancamento_estorno_id_fkey"
+            columns: ["lancamento_estorno_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_faturamento_parcelas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_faturamento_tecnicos: {
+        Row: {
+          created_at: string
+          faturamento_id: string
+          id: string
+          membro_user_id: string | null
+          nome_livre: string | null
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          faturamento_id: string
+          id?: string
+          membro_user_id?: string | null
+          nome_livre?: string | null
+          user_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          faturamento_id?: string
+          id?: string
+          membro_user_id?: string | null
+          nome_livre?: string | null
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_faturamento_tecnicos_faturamento_id_fkey"
+            columns: ["faturamento_id"]
+            isOneToOne: false
+            referencedRelation: "os_faturamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_faturamentos: {
+        Row: {
+          cancelado_em: string | null
+          cancelado_por: string | null
+          categoria_id: string | null
+          created_at: string
+          created_by: string
+          descricao: string | null
+          id: string
+          motivo_cancelamento: string | null
+          numero: number
+          observacoes: string | null
+          os_id: string
+          status: string
+          user_id: string
+          valor_total: number
+        }
+        Insert: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          categoria_id?: string | null
+          created_at?: string
+          created_by: string
+          descricao?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          numero?: number
+          observacoes?: string | null
+          os_id: string
+          status?: string
+          user_id: string
+          valor_total: number
+        }
+        Update: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string
+          descricao?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          numero?: number
+          observacoes?: string | null
+          os_id?: string
+          status?: string
+          user_id?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_faturamentos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "finance_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_faturamentos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_historico: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string
+          evento: string
+          id: string
+          os_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          evento: string
+          id?: string
+          os_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          evento?: string
+          id?: string
+          os_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_historico_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       os_itens: {
         Row: {
           created_at: string
@@ -860,6 +1324,7 @@ export type Database = {
           id: string
           mercado_pago_access_token: string | null
           mercado_pago_public_key: string | null
+          mercado_pago_webhook_secret: string | null
           updated_at: string
           user_id: string
         }
@@ -868,6 +1333,7 @@ export type Database = {
           id?: string
           mercado_pago_access_token?: string | null
           mercado_pago_public_key?: string | null
+          mercado_pago_webhook_secret?: string | null
           updated_at?: string
           user_id: string
         }
@@ -876,7 +1342,35 @@ export type Database = {
           id?: string
           mercado_pago_access_token?: string | null
           mercado_pago_public_key?: string | null
+          mercado_pago_webhook_secret?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payment_methods: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          prazo_recebimento: number | null
+          taxa: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          prazo_recebimento?: number | null
+          taxa?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          prazo_recebimento?: number | null
+          taxa?: number | null
           user_id?: string
         }
         Relationships: []
@@ -917,29 +1411,23 @@ export type Database = {
         }
         Relationships: []
       }
-      payment_methods: {
+      produto_categorias: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           nome: string
-          prazo_recebimento: number | null
-          taxa: number | null
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           nome: string
-          prazo_recebimento?: number | null
-          taxa?: number | null
           user_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           nome?: string
-          prazo_recebimento?: number | null
-          taxa?: number | null
           user_id?: string
         }
         Relationships: []
@@ -951,6 +1439,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           estoque_minimo: number
+          exibir_no_catalogo: boolean | null
           id: string
           nome: string
           preco_custo: number
@@ -966,6 +1455,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           estoque_minimo?: number
+          exibir_no_catalogo?: boolean | null
           id?: string
           nome: string
           preco_custo?: number
@@ -981,6 +1471,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           estoque_minimo?: number
+          exibir_no_catalogo?: boolean | null
           id?: string
           nome?: string
           preco_custo?: number
@@ -1534,6 +2025,7 @@ export type Database = {
           id: string
           numero: number
           observacoes: string | null
+          origem: string
           status: string
           total: number
           user_id: string
@@ -1546,6 +2038,7 @@ export type Database = {
           id?: string
           numero?: number
           observacoes?: string | null
+          origem?: string
           status?: string
           total?: number
           user_id: string
@@ -1558,6 +2051,7 @@ export type Database = {
           id?: string
           numero?: number
           observacoes?: string | null
+          origem?: string
           status?: string
           total?: number
           user_id?: string
@@ -1572,6 +2066,201 @@ export type Database = {
           },
         ]
       }
+      whatsapp_config: {
+        Row: {
+          boas_vindas: boolean | null
+          boas_vindas_texto: string | null
+          created_at: string | null
+          feliz_aniversario: boolean | null
+          feliz_aniversario_texto: string | null
+          id: string
+          instancia_id: string | null
+          lembrete_tecnico: boolean | null
+          lembrete_tecnico_texto: string | null
+          notif_nfe_emitida: boolean | null
+          notif_nfe_emitida_texto: string | null
+          notif_os_criada: boolean | null
+          notif_os_criada_texto: string | null
+          notif_os_editada: boolean | null
+          notif_os_editada_texto: string | null
+          pesquisa_pos_os: boolean | null
+          pesquisa_pos_os_texto: string | null
+          pesquisa_pos_venda: boolean | null
+          pesquisa_pos_venda_texto: string | null
+          relatorio_semanal_ia: boolean | null
+          relatorio_semanal_ia_texto: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          boas_vindas?: boolean | null
+          boas_vindas_texto?: string | null
+          created_at?: string | null
+          feliz_aniversario?: boolean | null
+          feliz_aniversario_texto?: string | null
+          id?: string
+          instancia_id?: string | null
+          lembrete_tecnico?: boolean | null
+          lembrete_tecnico_texto?: string | null
+          notif_nfe_emitida?: boolean | null
+          notif_nfe_emitida_texto?: string | null
+          notif_os_criada?: boolean | null
+          notif_os_criada_texto?: string | null
+          notif_os_editada?: boolean | null
+          notif_os_editada_texto?: string | null
+          pesquisa_pos_os?: boolean | null
+          pesquisa_pos_os_texto?: string | null
+          pesquisa_pos_venda?: boolean | null
+          pesquisa_pos_venda_texto?: string | null
+          relatorio_semanal_ia?: boolean | null
+          relatorio_semanal_ia_texto?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          boas_vindas?: boolean | null
+          boas_vindas_texto?: string | null
+          created_at?: string | null
+          feliz_aniversario?: boolean | null
+          feliz_aniversario_texto?: string | null
+          id?: string
+          instancia_id?: string | null
+          lembrete_tecnico?: boolean | null
+          lembrete_tecnico_texto?: string | null
+          notif_nfe_emitida?: boolean | null
+          notif_nfe_emitida_texto?: string | null
+          notif_os_criada?: boolean | null
+          notif_os_criada_texto?: string | null
+          notif_os_editada?: boolean | null
+          notif_os_editada_texto?: string | null
+          pesquisa_pos_os?: boolean | null
+          pesquisa_pos_os_texto?: string | null
+          pesquisa_pos_venda?: boolean | null
+          pesquisa_pos_venda_texto?: string | null
+          relatorio_semanal_ia?: boolean | null
+          relatorio_semanal_ia_texto?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_connections: {
+        Row: {
+          created_at: string
+          id: string
+          instance_name: string
+          last_connected_at: string | null
+          last_error: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_name: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_name?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          attachments: Json
+          connection_id: string | null
+          contact_name: string | null
+          content: string | null
+          created_at: string
+          direction: string
+          error: string | null
+          evolution_message_id: string | null
+          id: string
+          metadata: Json | null
+          os_id: string | null
+          phone_number: string
+          scheduled_at: string | null
+          sent_by: string | null
+          status: string
+          template_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json
+          connection_id?: string | null
+          contact_name?: string | null
+          content?: string | null
+          created_at?: string
+          direction: string
+          error?: string | null
+          evolution_message_id?: string | null
+          id?: string
+          metadata?: Json | null
+          os_id?: string | null
+          phone_number: string
+          scheduled_at?: string | null
+          sent_by?: string | null
+          status?: string
+          template_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attachments?: Json
+          connection_id?: string | null
+          contact_name?: string | null
+          content?: string | null
+          created_at?: string
+          direction?: string
+          error?: string | null
+          evolution_message_id?: string | null
+          id?: string
+          metadata?: Json | null
+          os_id?: string | null
+          phone_number?: string
+          scheduled_at?: string | null
+          sent_by?: string | null
+          status?: string
+          template_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1580,11 +2269,76 @@ export type Database = {
       aceitar_convite: {
         Args: { p_codigo: string }
         Returns: {
-          created_at: string
+          created_at: string | null
           empresa_id: string
           id: string
           role: string
           user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_empresas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancelar_faturamento_os: {
+        Args: { p_faturamento_id: string; p_motivo?: string }
+        Returns: {
+          cancelado_em: string | null
+          cancelado_por: string | null
+          categoria_id: string | null
+          created_at: string
+          created_by: string
+          descricao: string | null
+          id: string
+          motivo_cancelamento: string | null
+          numero: number
+          observacoes: string | null
+          os_id: string
+          status: string
+          user_id: string
+          valor_total: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "os_faturamentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      empresa_role: { Args: { p_empresa_id: string }; Returns: string }
+      faturar_os: {
+        Args: {
+          p_categoria_id: string
+          p_descricao?: string
+          p_observacoes?: string
+          p_os_id: string
+          p_parcelas: Json
+          p_tecnicos?: Json
+          p_valor_total: number
+        }
+        Returns: {
+          cancelado_em: string | null
+          cancelado_por: string | null
+          categoria_id: string | null
+          created_at: string
+          created_by: string
+          descricao: string | null
+          id: string
+          motivo_cancelamento: string | null
+          numero: number
+          observacoes: string | null
+          os_id: string
+          status: string
+          user_id: string
+          valor_total: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "os_faturamentos"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       get_empresa_membros: {
@@ -1595,6 +2349,43 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      has_permission: {
+        Args: { p_acao: string; p_empresa_id: string; p_modulo: string }
+        Returns: boolean
+      }
+      meu_cliente_id: { Args: never; Returns: string }
+      recalcular_status_pagamento_os: {
+        Args: { p_os_id: string }
+        Returns: undefined
+      }
+      receber_parcela_faturamento: {
+        Args: {
+          p_data_recebimento?: string
+          p_forma_pagamento_id?: string
+          p_parcela_id: string
+        }
+        Returns: {
+          created_at: string
+          data_recebimento: string | null
+          faturamento_id: string
+          forma_pagamento_id: string | null
+          id: string
+          lancamento_estorno_id: string | null
+          lancamento_id: string | null
+          numero_parcela: number
+          status: string
+          total_parcelas: number
+          user_id: string
+          valor: number
+          vencimento: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "os_faturamento_parcelas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
@@ -1726,6 +2517,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
@@ -1734,3 +2528,4 @@ export const Constants = {
     },
   },
 } as const
+

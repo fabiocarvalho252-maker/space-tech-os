@@ -10,21 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Shield, 
-  Key, 
-  Eye, 
-  EyeOff, 
-  Building2, 
-  Wallet, 
-  Package, 
-  Wrench, 
-  ShoppingCart, 
-  CreditCard, 
-  Mail, 
-  MessageSquare, 
-  FileCheck, 
-  Layout, 
+import {
+  Shield,
+  Key,
+  Eye,
+  EyeOff,
+  Building2,
+  Wallet,
+  Package,
+  Wrench,
+  ShoppingCart,
+  CreditCard,
+  Mail,
+  MessageSquare,
+  FileCheck,
+  Layout,
   Users2,
   Lock,
   Upload,
@@ -49,17 +49,17 @@ import {
   HelpCircle,
   ExternalLink,
   Copy,
-  Tag
+  Tag,
 } from "lucide-react";
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useRef } from "react";
@@ -81,30 +81,29 @@ function Configuracoes() {
   const [whatsappConnectOpen, setWhatsappConnectOpen] = useState(false);
 
   // States for forms
-  const [mpForm, setMpForm] = useState({ access_token: "", public_key: "" });
-  const [empresaForm, setEmpresaForm] = useState({ 
-    loja: "", 
-    nome: "", 
-    whatsapp: "", 
-    endereco: "", 
-    cidade: "", 
+  const [mpForm, setMpForm] = useState({ access_token: "", public_key: "", webhook_secret: "" });
+  const [empresaForm, setEmpresaForm] = useState({
+    loja: "",
+    nome: "",
+    whatsapp: "",
+    endereco: "",
+    cidade: "",
     cnpj_cpf: "",
-    logo_url: "" 
+    logo_url: "",
   });
 
   // Load Mercado Pago config
   const { data: mpConfig } = useQuery({
     queryKey: ["pagamento_config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pagamento_config")
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("pagamento_config").select("*").maybeSingle();
       if (error) throw error;
-      if (data) setMpForm({ 
-        access_token: data.mercado_pago_access_token || "", 
-        public_key: data.mercado_pago_public_key || "" 
-      });
+      if (data)
+        setMpForm({
+          access_token: data.mercado_pago_access_token || "",
+          public_key: data.mercado_pago_public_key || "",
+          webhook_secret: (data as any).mercado_pago_webhook_secret || "",
+        });
       return data;
     },
     enabled: !!user,
@@ -128,14 +127,13 @@ function Configuracoes() {
   const salvarMp = useMutation({
     mutationFn: async () => {
       if (!user) return;
-      const { error } = await supabase
-        .from("pagamento_config")
-        .upsert({
-          user_id: user.id,
-          mercado_pago_access_token: mpForm.access_token,
-          mercado_pago_public_key: mpForm.public_key,
-          updated_at: new Date().toISOString(),
-        });
+      const { error } = await supabase.from("pagamento_config").upsert({
+        user_id: user.id,
+        mercado_pago_access_token: mpForm.access_token,
+        mercado_pago_public_key: mpForm.public_key,
+        mercado_pago_webhook_secret: mpForm.webhook_secret || null,
+        updated_at: new Date().toISOString(),
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -176,22 +174,20 @@ function Configuracoes() {
 
     try {
       setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}-${Math.random()}.${fileExt}`;
       const filePath = `logos/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("logos").upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('logos')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("logos").getPublicUrl(filePath);
 
-      setEmpresaForm(prev => ({ ...prev, logo_url: publicUrl }));
-      
+      setEmpresaForm((prev) => ({ ...prev, logo_url: publicUrl }));
+
       // Update profile immediately
       const { error: updateError } = await supabase
         .from("profiles")
@@ -199,7 +195,7 @@ function Configuracoes() {
         .eq("id", user.id);
 
       if (updateError) throw updateError;
-      
+
       toast.success("Logotipo enviado com sucesso!");
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (error: any) {
@@ -242,7 +238,10 @@ function Configuracoes() {
   const { data: osConfig, refetch: refetchOsConfig } = useQuery({
     queryKey: ["os-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("os_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("os_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -258,7 +257,7 @@ function Configuracoes() {
     },
     enabled: !!user,
   });
-  
+
   const { data: statusFlows = [], refetch: refetchFlows } = useQuery({
     queryKey: ["os-status-flows"],
     queryFn: async () => {
@@ -272,7 +271,10 @@ function Configuracoes() {
   const { data: saleConfig, refetch: refetchSaleConfig } = useQuery({
     queryKey: ["sale-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sale_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("sale_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -292,7 +294,10 @@ function Configuracoes() {
   const { data: purchaseConfig, refetch: refetchPurchaseConfig } = useQuery({
     queryKey: ["purchase-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("purchase_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("purchase_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -312,7 +317,10 @@ function Configuracoes() {
   const { data: estoqueConfig, refetch: refetchEstoqueConfig } = useQuery({
     queryKey: ["estoque-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("estoque_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("estoque_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -322,10 +330,12 @@ function Configuracoes() {
   const salvarEstoqueConfig = useMutation({
     mutationFn: async (estoque_minimo_padrao: number) => {
       if (!user) return;
-      const { error } = await supabase.from("estoque_config" as any).upsert(
-        { user_id: user.id, estoque_minimo_padrao, updated_at: new Date().toISOString() },
-        { onConflict: "user_id" },
-      );
+      const { error } = await supabase
+        .from("estoque_config" as any)
+        .upsert(
+          { user_id: user.id, estoque_minimo_padrao, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -368,7 +378,10 @@ function Configuracoes() {
 
   const removerCategoria = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("produto_categorias" as any).delete().eq("id", id);
+      const { error } = await supabase
+        .from("produto_categorias" as any)
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => refetchCategoriasProduto(),
@@ -378,7 +391,10 @@ function Configuracoes() {
   const { data: fiscalConfig, refetch: refetchFiscalConfig } = useQuery({
     queryKey: ["fiscal-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fiscal_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("fiscal_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -389,10 +405,16 @@ function Configuracoes() {
     mutationFn: async (serie_padrao: string) => {
       if (!user) return;
       if (!serie_padrao.trim()) throw new Error("Informe a série.");
-      const { error } = await supabase.from("fiscal_config" as any).upsert(
-        { user_id: user.id, serie_padrao: serie_padrao.trim(), updated_at: new Date().toISOString() },
-        { onConflict: "user_id" },
-      );
+      const { error } = await supabase
+        .from("fiscal_config" as any)
+        .upsert(
+          {
+            user_id: user.id,
+            serie_padrao: serie_padrao.trim(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -405,7 +427,10 @@ function Configuracoes() {
   const { data: smtpConfig, refetch: refetchSmtp } = useQuery({
     queryKey: ["smtp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("smtp_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("smtp_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -415,13 +440,11 @@ function Configuracoes() {
   const salvarSmtp = useMutation({
     mutationFn: async (formData: any) => {
       if (!user) return;
-      const { error } = await supabase
-        .from("smtp_config" as any)
-        .upsert({
-          user_id: user.id,
-          ...formData,
-          updated_at: new Date().toISOString(),
-        });
+      const { error } = await supabase.from("smtp_config" as any).upsert({
+        user_id: user.id,
+        ...formData,
+        updated_at: new Date().toISOString(),
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -434,7 +457,10 @@ function Configuracoes() {
   const { data: whatsappConfig, refetch: refetchWhatsapp } = useQuery({
     queryKey: ["whatsapp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("whatsapp_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("whatsapp_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -444,16 +470,14 @@ function Configuracoes() {
   const salvarWhatsapp = useMutation({
     mutationFn: async (formData: any) => {
       if (!user) return;
-      const { error } = await supabase
-        .from("whatsapp_config" as any)
-        .upsert(
-          {
-            user_id: user.id,
-            ...formData,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" },
-        );
+      const { error } = await supabase.from("whatsapp_config" as any).upsert(
+        {
+          user_id: user.id,
+          ...formData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -466,7 +490,10 @@ function Configuracoes() {
   const { data: catalogoConfig, refetch: refetchCatalogo } = useQuery({
     queryKey: ["catalogo-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("catalogo_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("catalogo_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -476,13 +503,11 @@ function Configuracoes() {
   const salvarCatalogo = useMutation({
     mutationFn: async (formData: any) => {
       if (!user) return;
-      const { error } = await supabase
-        .from("catalogo_config" as any)
-        .upsert({
-          user_id: user.id,
-          ...formData,
-          updated_at: new Date().toISOString(),
-        });
+      const { error } = await supabase.from("catalogo_config" as any).upsert({
+        user_id: user.id,
+        ...formData,
+        updated_at: new Date().toISOString(),
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -509,14 +534,17 @@ function Configuracoes() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações" subtitle="Gerencie as preferências e integrações do seu sistema" />
-      
+      <PageHeader
+        title="Configurações"
+        subtitle="Gerencie as preferências e integrações do seu sistema"
+      />
+
       <Tabs defaultValue="empresa" className="space-y-6">
         <div className="w-full overflow-x-auto pb-2">
           <TabsList className="flex h-auto w-max bg-transparent p-0 gap-2">
             {tabs.map((tab) => (
-              <TabsTrigger 
-                key={tab.id} 
+              <TabsTrigger
+                key={tab.id}
                 value={tab.id}
                 className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary"
               >
@@ -536,14 +564,14 @@ function Configuracoes() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Nome da Loja</Label>
-                    <Input 
+                    <Input
                       value={empresaForm.loja}
                       onChange={(e) => setEmpresaForm({ ...empresaForm, loja: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Nome do Responsável</Label>
-                    <Input 
+                    <Input
                       value={empresaForm.nome}
                       onChange={(e) => setEmpresaForm({ ...empresaForm, nome: e.target.value })}
                     />
@@ -552,7 +580,7 @@ function Configuracoes() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>WhatsApp</Label>
-                    <Input 
+                    <Input
                       placeholder="(00) 00000-0000"
                       value={empresaForm.whatsapp}
                       onChange={(e) => setEmpresaForm({ ...empresaForm, whatsapp: e.target.value })}
@@ -560,7 +588,7 @@ function Configuracoes() {
                   </div>
                   <div className="space-y-2">
                     <Label>CNPJ / CPF</Label>
-                    <Input 
+                    <Input
                       value={empresaForm.cnpj_cpf}
                       onChange={(e) => setEmpresaForm({ ...empresaForm, cnpj_cpf: e.target.value })}
                     />
@@ -568,7 +596,7 @@ function Configuracoes() {
                 </div>
                 <div className="space-y-2">
                   <Label>Endereço Completo</Label>
-                  <Input 
+                  <Input
                     value={empresaForm.endereco}
                     onChange={(e) => setEmpresaForm({ ...empresaForm, endereco: e.target.value })}
                   />
@@ -578,9 +606,9 @@ function Configuracoes() {
                   <div className="flex items-center gap-4">
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted/30">
                       {empresaForm.logo_url ? (
-                        <img 
-                          src={empresaForm.logo_url} 
-                          alt="Preview Logo" 
+                        <img
+                          src={empresaForm.logo_url}
+                          alt="Preview Logo"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -596,19 +624,23 @@ function Configuracoes() {
                           accept="image/*"
                           onChange={handleLogoUpload}
                         />
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="gap-2"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
                         >
-                          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {isUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
                           {empresaForm.logo_url ? "Alterar Logo" : "Upload Logo"}
                         </Button>
                         {empresaForm.logo_url && (
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setEmpresaForm({ ...empresaForm, logo_url: "" })}
@@ -625,14 +657,14 @@ function Configuracoes() {
                 </div>
                 <div className="space-y-2">
                   <Label>URL do Logotipo (opcional)</Label>
-                  <Input 
+                  <Input
                     placeholder="https://..."
                     value={empresaForm.logo_url}
                     onChange={(e) => setEmpresaForm({ ...empresaForm, logo_url: e.target.value })}
                   />
                 </div>
-                <Button 
-                  className="w-full mt-4" 
+                <Button
+                  className="w-full mt-4"
                   onClick={() => salvarEmpresa.mutate()}
                   disabled={salvarEmpresa.isPending}
                 >
@@ -645,18 +677,23 @@ function Configuracoes() {
               <h2 className="text-lg font-bold mb-4">Informações do Sistema</h2>
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-muted/50 border border-border">
-                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Status do Sistema</p>
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    Status do Sistema
+                  </p>
                   <p className="text-xl font-bold text-success flex items-center gap-2">
                     <Shield className="h-5 w-5" /> Online e Seguro
                   </p>
                 </div>
                 <div className="p-4 rounded-xl bg-muted/50 border border-border">
-                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Último Login</p>
-                  <p className="text-lg font-semibold">{dataBR(user?.last_sign_in_at || new Date().toISOString())}</p>
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    Último Login
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {dataBR(user?.last_sign_in_at || new Date().toISOString())}
+                  </p>
                 </div>
               </div>
             </section>
-
           </div>
         </TabsContent>
 
@@ -669,15 +706,17 @@ function Configuracoes() {
               </div>
               <div>
                 <h2 className="text-lg font-bold">Mercado Pago</h2>
-                <p className="text-sm text-muted-foreground">Integração oficial para receber via Pix.</p>
+                <p className="text-sm text-muted-foreground">
+                  Integração oficial para receber via Pix.
+                </p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Public Key</Label>
-                <Input 
-                  placeholder="APP_USR-..." 
+                <Input
+                  placeholder="APP_USR-..."
                   value={mpForm.public_key}
                   onChange={(e) => setMpForm({ ...mpForm, public_key: e.target.value })}
                 />
@@ -686,14 +725,14 @@ function Configuracoes() {
               <div className="space-y-2">
                 <Label>Access Token</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     type={showToken ? "text" : "password"}
-                    placeholder="APP_USR-..." 
+                    placeholder="APP_USR-..."
                     value={mpForm.access_token}
                     onChange={(e) => setMpForm({ ...mpForm, access_token: e.target.value })}
                     className="pr-10"
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowToken(!showToken)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -703,15 +742,30 @@ function Configuracoes() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Webhook Secret (opcional)</Label>
+                <Input
+                  placeholder="Chave secreta das Notificações"
+                  value={mpForm.webhook_secret}
+                  onChange={(e) => setMpForm({ ...mpForm, webhook_secret: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usada para confirmar que as notificações de pagamento realmente vêm do Mercado
+                  Pago. Encontre em Suas integrações → sua aplicação → Notificações → Assinatura
+                  secreta.
+                </p>
+              </div>
+
               <div className="rounded-xl bg-muted p-4 text-xs text-muted-foreground leading-relaxed">
                 <p className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
                   <Key className="h-3 w-3" /> Onde encontro isso?
                 </p>
-                Acesse o painel do Mercado Pago Developers, vá em suas aplicações e procure por "Credenciais de Produção".
+                Acesse o painel do Mercado Pago Developers, vá em suas aplicações e procure por
+                "Credenciais de Produção".
               </div>
 
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 onClick={() => salvarMp.mutate()}
                 disabled={salvarMp.isPending}
               >
@@ -741,23 +795,26 @@ function Configuracoes() {
                     <DialogHeader>
                       <DialogTitle>Nova Conta Bancária</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const { error } = await supabase.from("bank_accounts" as any).insert({
-                        user_id: user!.id,
-                        banco: formData.get("banco"),
-                        agencia: formData.get("agencia"),
-                        conta: formData.get("conta"),
-                        tipo: formData.get("tipo"),
-                        saldo_inicial: Number(formData.get("saldo")),
-                      });
-                      if (error) toast.error(error.message);
-                      else {
-                        toast.success("Conta criada!");
-                        refetchAccounts();
-                      }
-                    }} className="grid gap-4 py-4">
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const { error } = await supabase.from("bank_accounts" as any).insert({
+                          user_id: user!.id,
+                          banco: formData.get("banco"),
+                          agencia: formData.get("agencia"),
+                          conta: formData.get("conta"),
+                          tipo: formData.get("tipo"),
+                          saldo_inicial: Number(formData.get("saldo")),
+                        });
+                        if (error) toast.error(error.message);
+                        else {
+                          toast.success("Conta criada!");
+                          refetchAccounts();
+                        }
+                      }}
+                      className="grid gap-4 py-4"
+                    >
                       <div className="space-y-2">
                         <Label>Banco</Label>
                         <Input name="banco" placeholder="Ex: Nubank, Itaú..." required />
@@ -783,21 +840,37 @@ function Configuracoes() {
               </div>
               <div className="space-y-3">
                 {accounts.map((acc: any) => (
-                  <div key={acc.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-background">
+                  <div
+                    key={acc.id}
+                    className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
+                  >
                     <div>
                       <p className="font-semibold">{acc.banco}</p>
-                      <p className="text-xs text-muted-foreground">{acc.agencia} / {acc.conta}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {acc.agencia} / {acc.conta}
+                      </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={async () => {
-                      const { error } = await supabase.from("bank_accounts" as any).delete().eq("id", acc.id);
-                      if (error) toast.error(error.message);
-                      else refetchAccounts();
-                    }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("bank_accounts" as any)
+                          .delete()
+                          .eq("id", acc.id);
+                        if (error) toast.error(error.message);
+                        else refetchAccounts();
+                      }}
+                    >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 ))}
-                {!accounts.length && <p className="text-center text-sm text-muted-foreground py-4">Nenhuma conta cadastrada.</p>}
+                {!accounts.length && (
+                  <p className="text-center text-sm text-muted-foreground py-4">
+                    Nenhuma conta cadastrada.
+                  </p>
+                )}
               </div>
             </section>
 
@@ -811,15 +884,18 @@ function Configuracoes() {
                 <div className="space-y-2">
                   <Label>Dia de Faturamento</Label>
                   <div className="flex gap-2">
-                    <Input 
-                      type="number" 
-                      min="1" 
-                      max="31" 
-                      value={(profile as any)?.billing_day || 5} 
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={(profile as any)?.billing_day || 5}
                       onChange={async (e) => {
                         const val = parseInt(e.target.value);
                         if (isNaN(val)) return;
-                        const { error } = await supabase.from("profiles").update({ billing_day: val } as any).eq("id", user!.id);
+                        const { error } = await supabase
+                          .from("profiles")
+                          .update({ billing_day: val } as any)
+                          .eq("id", user!.id);
                         if (!error) qc.invalidateQueries({ queryKey: ["profile"] });
                       }}
                     />
@@ -827,11 +903,15 @@ function Configuracoes() {
                       Dia do mês
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Define o dia base para geração automática de relatórios mensais.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Define o dia base para geração automática de relatórios mensais.
+                  </p>
                 </div>
                 <div className="pt-4 border-t border-border">
                   <p className="text-sm font-medium">Data de Criação da Conta</p>
-                  <p className="text-2xl font-bold text-primary mt-1">{dataBR(profile?.created_at || "")}</p>
+                  <p className="text-2xl font-bold text-primary mt-1">
+                    {dataBR(profile?.created_at || "")}
+                  </p>
                 </div>
               </div>
             </section>
@@ -850,27 +930,33 @@ function Configuracoes() {
                     <DialogHeader>
                       <DialogTitle>Nova Categoria</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const { error } = await supabase.from("finance_categories" as any).insert({
-                        user_id: user!.id,
-                        nome: formData.get("nome"),
-                        tipo: formData.get("tipo"),
-                      });
-                      if (error) toast.error(error.message);
-                      else {
-                        toast.success("Categoria criada!");
-                        refetchCats();
-                      }
-                    }} className="grid gap-4 py-4">
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const { error } = await supabase.from("finance_categories" as any).insert({
+                          user_id: user!.id,
+                          nome: formData.get("nome"),
+                          tipo: formData.get("tipo"),
+                        });
+                        if (error) toast.error(error.message);
+                        else {
+                          toast.success("Categoria criada!");
+                          refetchCats();
+                        }
+                      }}
+                      className="grid gap-4 py-4"
+                    >
                       <div className="space-y-2">
                         <Label>Nome da Categoria</Label>
                         <Input name="nome" placeholder="Ex: Aluguel, Vendas..." required />
                       </div>
                       <div className="space-y-2">
                         <Label>Tipo</Label>
-                        <select name="tipo" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                        <select
+                          name="tipo"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
                           <option value="entrada">Entrada</option>
                           <option value="saida">Saída</option>
                         </select>
@@ -882,16 +968,29 @@ function Configuracoes() {
               </div>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
                 {categories.map((cat: any) => (
-                  <div key={cat.id} className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border">
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border"
+                  >
                     <span className="text-sm">{cat.nome}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${cat.tipo === 'entrada' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                      <span
+                        className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${cat.tipo === "entrada" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}
+                      >
                         {cat.tipo}
                       </span>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                        await supabase.from("finance_categories" as any).delete().eq("id", cat.id);
-                        refetchCats();
-                      }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          await supabase
+                            .from("finance_categories" as any)
+                            .delete()
+                            .eq("id", cat.id);
+                          refetchCats();
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -914,20 +1013,23 @@ function Configuracoes() {
                     <DialogHeader>
                       <DialogTitle>Nova Forma de Pagamento</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const { error } = await supabase.from("payment_methods" as any).insert({
-                        user_id: user!.id,
-                        nome: formData.get("nome"),
-                        taxa: Number(formData.get("taxa")),
-                      });
-                      if (error) toast.error(error.message);
-                      else {
-                        toast.success("Forma adicionada!");
-                        refetchMethods();
-                      }
-                    }} className="grid gap-4 py-4">
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const { error } = await supabase.from("payment_methods" as any).insert({
+                          user_id: user!.id,
+                          nome: formData.get("nome"),
+                          taxa: Number(formData.get("taxa")),
+                        });
+                        if (error) toast.error(error.message);
+                        else {
+                          toast.success("Forma adicionada!");
+                          refetchMethods();
+                        }
+                      }}
+                      className="grid gap-4 py-4"
+                    >
                       <div className="space-y-2">
                         <Label>Nome</Label>
                         <Input name="nome" placeholder="Ex: Cartão de Crédito..." required />
@@ -943,14 +1045,25 @@ function Configuracoes() {
               </div>
               <div className="space-y-2">
                 {methods.map((method: any) => (
-                  <div key={method.id} className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border">
+                  <div
+                    key={method.id}
+                    className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border"
+                  >
                     <span className="text-sm font-medium">{method.nome}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">Taxa: {method.taxa}%</span>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                        await supabase.from("payment_methods" as any).delete().eq("id", method.id);
-                        refetchMethods();
-                      }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          await supabase
+                            .from("payment_methods" as any)
+                            .delete()
+                            .eq("id", method.id);
+                          refetchMethods();
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -972,7 +1085,7 @@ function Configuracoes() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Texto de Condições (Impressão)</Label>
-                  <Textarea 
+                  <Textarea
                     className="min-h-[300px] font-mono text-sm"
                     placeholder="Digite os termos que aparecerão no final da OS..."
                     defaultValue={osConfig?.termos_condicoes || ""}
@@ -980,20 +1093,28 @@ function Configuracoes() {
                       const val = e.target.value;
                       const { error } = await supabase
                         .from("os_config" as any)
-                        .upsert({ user_id: user!.id, termos_condicoes: val, updated_at: new Date().toISOString() });
+                        .upsert({
+                          user_id: user!.id,
+                          termos_condicoes: val,
+                          updated_at: new Date().toISOString(),
+                        });
                       if (error) toast.error("Erro ao salvar termos: " + error.message);
                       else toast.success("Termos atualizados!");
                     }}
                   />
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <p>{(osConfig?.termos_condicoes?.length || 0)}/2000 caracteres</p>
-                    <button 
+                    <p>{osConfig?.termos_condicoes?.length || 0}/2000 caracteres</p>
+                    <button
                       className="text-primary hover:underline"
                       onClick={async () => {
                         const defaultText = `Parcelamento: em até 3x no cartão.\nPrazo de execução: até 5 dias úteis após a aprovação.\nValidade deste orçamento: 7 dias.\nGarantia: 90 dias sobre o serviço executado.\n\nEste orçamento é uma previsão de valores, não uma cobrança. Se durante a execução aparecer outro problema, você é avisado antes e nada é feito sem a sua aprovação. A aprovação autoriza a execução dos serviços e a aplicação das peças listadas.`;
                         const { error } = await supabase
                           .from("os_config" as any)
-                          .upsert({ user_id: user!.id, termos_condicoes: defaultText, updated_at: new Date().toISOString() });
+                          .upsert({
+                            user_id: user!.id,
+                            termos_condicoes: defaultText,
+                            updated_at: new Date().toISOString(),
+                          });
                         if (!error) {
                           toast.success("Texto padrão restaurado!");
                           refetchOsConfig();
@@ -1003,7 +1124,9 @@ function Configuracoes() {
                       Restaurar texto padrão
                     </button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">Deixe em branco para não imprimir nenhum texto de condições neste documento.</p>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Deixe em branco para não imprimir nenhum texto de condições neste documento.
+                  </p>
                 </div>
               </div>
             </section>
@@ -1012,7 +1135,9 @@ function Configuracoes() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-bold">Modelos de Checklists</h2>
-                  <p className="text-sm text-muted-foreground">Checklists para preenchimento técnico na OS.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Checklists para preenchimento técnico na OS.
+                  </p>
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
@@ -1024,23 +1149,30 @@ function Configuracoes() {
                     <DialogHeader>
                       <DialogTitle>Novo Modelo de Checklist</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const { error } = await supabase.from("os_checklists" as any).insert({
-                        user_id: user!.id,
-                        nome: formData.get("nome"),
-                        itens: [],
-                      });
-                      if (error) toast.error(error.message);
-                      else {
-                        toast.success("Modelo criado!");
-                        refetchChecklists();
-                      }
-                    }} className="grid gap-4 py-4">
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const { error } = await supabase.from("os_checklists" as any).insert({
+                          user_id: user!.id,
+                          nome: formData.get("nome"),
+                          itens: [],
+                        });
+                        if (error) toast.error(error.message);
+                        else {
+                          toast.success("Modelo criado!");
+                          refetchChecklists();
+                        }
+                      }}
+                      className="grid gap-4 py-4"
+                    >
                       <div className="space-y-2">
                         <Label>Nome do Modelo</Label>
-                        <Input name="nome" placeholder="Ex: Triagem Entrada, Troca de Tela..." required />
+                        <Input
+                          name="nome"
+                          placeholder="Ex: Triagem Entrada, Troca de Tela..."
+                          required
+                        />
                       </div>
                       <Button type="submit">Criar Modelo</Button>
                     </form>
@@ -1050,7 +1182,10 @@ function Configuracoes() {
 
               <div className="space-y-3">
                 {checklists.map((check: any) => (
-                  <div key={check.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-background">
+                  <div
+                    key={check.id}
+                    className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                         <FileCheck className="h-4 w-4" />
@@ -1063,10 +1198,18 @@ function Configuracoes() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                        const { error } = await supabase.from("os_checklists" as any).delete().eq("id", check.id);
-                        if (!error) refetchChecklists();
-                      }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("os_checklists" as any)
+                            .delete()
+                            .eq("id", check.id);
+                          if (!error) refetchChecklists();
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -1091,30 +1234,30 @@ function Configuracoes() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Texto de Condições (Impressão)</Label>
-                  <Textarea 
+                  <Textarea
                     className="min-h-[300px] font-mono text-sm"
                     placeholder="Digite os termos que aparecerão no final da OS..."
                     value={osConfig?.termos_condicoes || ""}
                     onChange={async (e) => {
                       const val = e.target.value;
-                      await supabase.from("os_config" as any).upsert({ 
-                        user_id: user!.id, 
+                      await supabase.from("os_config" as any).upsert({
+                        user_id: user!.id,
                         termos_condicoes: val,
-                        updated_at: new Date().toISOString() 
+                        updated_at: new Date().toISOString(),
                       });
                       refetchOsConfig();
                     }}
                   />
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <p>{(osConfig?.termos_condicoes?.length || 0)}/2000 caracteres</p>
-                    <button 
+                    <p>{osConfig?.termos_condicoes?.length || 0}/2000 caracteres</p>
+                    <button
                       className="text-primary hover:underline"
                       onClick={async () => {
                         const defaultText = `Parcelamento: em até 3x no cartão.\nPrazo de execução: até 5 dias úteis após a aprovação.\nValidade deste orçamento: 7 dias.\nGarantia: 90 dias sobre o serviço executado.\n\nEste orçamento é uma previsão de valores, não uma cobrança. Se durante a execução aparecer outro problema, você é avisado antes e nada é feito sem a sua aprovação. A aprovação autoriza a execução dos serviços e a aplicação das peças listadas.`;
-                        await supabase.from("os_config" as any).upsert({ 
-                          user_id: user!.id, 
+                        await supabase.from("os_config" as any).upsert({
+                          user_id: user!.id,
                           termos_condicoes: defaultText,
-                          updated_at: new Date().toISOString() 
+                          updated_at: new Date().toISOString(),
                         });
                         refetchOsConfig();
                         toast.success("Texto padrão restaurado!");
@@ -1136,12 +1279,16 @@ function Configuracoes() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Exibir fotos na impressão</Label>
-                    <p className="text-xs text-muted-foreground">Inclui fotos de entrada e saída no PDF.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Inclui fotos de entrada e saída no PDF.
+                    </p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={osConfig?.exibir_fotos_impressao || false}
                     onCheckedChange={async (val) => {
-                      await supabase.from("os_config" as any).upsert({ user_id: user!.id, exibir_fotos_impressao: val });
+                      await supabase
+                        .from("os_config" as any)
+                        .upsert({ user_id: user!.id, exibir_fotos_impressao: val });
                       refetchOsConfig();
                     }}
                   />
@@ -1149,12 +1296,16 @@ function Configuracoes() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Imprimir em 2 vias</Label>
-                    <p className="text-xs text-muted-foreground">Gera via do cliente e via da empresa.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Gera via do cliente e via da empresa.
+                    </p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={osConfig?.imprimir_duas_vias || false}
                     onCheckedChange={async (val) => {
-                      await supabase.from("os_config" as any).upsert({ user_id: user!.id, imprimir_duas_vias: val });
+                      await supabase
+                        .from("os_config" as any)
+                        .upsert({ user_id: user!.id, imprimir_duas_vias: val });
                       refetchOsConfig();
                     }}
                   />
@@ -1162,23 +1313,32 @@ function Configuracoes() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>QR Code Área do Cliente</Label>
-                    <p className="text-xs text-muted-foreground">Link direto para consulta online.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Link direto para consulta online.
+                    </p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={osConfig?.imprimir_qrcode_cliente || false}
                     onCheckedChange={async (val) => {
-                      await supabase.from("os_config" as any).upsert({ user_id: user!.id, imprimir_qrcode_cliente: val });
+                      await supabase
+                        .from("os_config" as any)
+                        .upsert({ user_id: user!.id, imprimir_qrcode_cliente: val });
                       refetchOsConfig();
                     }}
                   />
                 </div>
                 <div className="space-y-2 pt-4 border-t border-border">
                   <Label>Garantia Padrão (Dias)</Label>
-                  <Input 
+                  <Input
                     type="number"
                     value={osConfig?.dias_garantia_padrao || 90}
                     onChange={async (e) => {
-                      await supabase.from("os_config" as any).upsert({ user_id: user!.id, dias_garantia_padrao: Number(e.target.value) });
+                      await supabase
+                        .from("os_config" as any)
+                        .upsert({
+                          user_id: user!.id,
+                          dias_garantia_padrao: Number(e.target.value),
+                        });
                       refetchOsConfig();
                     }}
                   />
@@ -1191,37 +1351,54 @@ function Configuracoes() {
                 <ArrowRight className="h-5 w-5 text-primary" />
                 Fluxo entre Status
               </h2>
-              <p className="text-sm text-muted-foreground mb-6">Defina quais transições de status são permitidas na listagem.</p>
-              
+              <p className="text-sm text-muted-foreground mb-6">
+                Defina quais transições de status são permitidas na listagem.
+              </p>
+
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {STATUS_OS.map((origem) => (
-                  <div key={origem.value} className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border">
+                  <div
+                    key={origem.value}
+                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
+                  >
                     <h3 className="font-bold text-sm flex items-center gap-2">
                       <ChevronRight className="h-4 w-4 text-primary" />
                       De: {origem.label}
                     </h3>
                     <div className="space-y-2">
-                      {STATUS_OS.filter(s => s.value !== origem.value).map((destino) => {
-                        const isAtivo = statusFlows.some(f => f.origem === origem.value && f.destino === destino.value && f.ativo);
+                      {STATUS_OS.filter((s) => s.value !== origem.value).map((destino) => {
+                        const isAtivo = statusFlows.some(
+                          (f) =>
+                            f.origem === origem.value && f.destino === destino.value && f.ativo,
+                        );
                         return (
-                          <div key={destino.value} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-background border border-border">
+                          <div
+                            key={destino.value}
+                            className="flex items-center justify-between gap-4 p-2 rounded-lg bg-background border border-border"
+                          >
                             <span className="text-xs font-medium">Para: {destino.label}</span>
-                            <Switch 
+                            <Switch
                               checked={isAtivo}
                               onCheckedChange={async (checked) => {
                                 if (checked) {
-                                  await supabase.from("os_status_flows" as any).upsert({
-                                    user_id: user!.id,
-                                    origem: origem.value,
-                                    destino: destino.value,
-                                    ativo: true
-                                  }, { onConflict: 'user_id,origem,destino' });
+                                  await supabase.from("os_status_flows" as any).upsert(
+                                    {
+                                      user_id: user!.id,
+                                      origem: origem.value,
+                                      destino: destino.value,
+                                      ativo: true,
+                                    },
+                                    { onConflict: "user_id,origem,destino" },
+                                  );
                                 } else {
-                                  await supabase.from("os_status_flows" as any).delete().match({
-                                    user_id: user!.id,
-                                    origem: origem.value,
-                                    destino: destino.value
-                                  });
+                                  await supabase
+                                    .from("os_status_flows" as any)
+                                    .delete()
+                                    .match({
+                                      user_id: user!.id,
+                                      origem: origem.value,
+                                      destino: destino.value,
+                                    });
                                 }
                                 refetchFlows();
                               }}
@@ -1247,44 +1424,60 @@ function Configuracoes() {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label>Tipo de caixa</Label>
-                  <select 
+                  <select
                     className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     value={saleConfig?.tipo_caixa || "venda_rapida"}
                     onChange={async (e) => {
-                      await supabase.from("sale_config" as any).upsert({ user_id: user!.id, tipo_caixa: e.target.value });
+                      await supabase
+                        .from("sale_config" as any)
+                        .upsert({ user_id: user!.id, tipo_caixa: e.target.value });
                       refetchSaleConfig();
                     }}
                   >
                     <option value="venda_rapida">Venda rápida (Sem abrir/fechar caixa)</option>
-                    <option value="controle_caixa">Controle de caixa (Turnos, sangria, conferência)</option>
+                    <option value="controle_caixa">
+                      Controle de caixa (Turnos, sangria, conferência)
+                    </option>
                   </select>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Status Padrão Venda</Label>
-                    <select 
+                    <select
                       className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       value={saleConfig?.status_padrao_venda || "aberto"}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, status_padrao_venda: e.target.value });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({ user_id: user!.id, status_padrao_venda: e.target.value });
                         refetchSaleConfig();
                       }}
                     >
-                      {STATUS_VENDAS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      {STATUS_VENDAS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Status Padrão OS</Label>
-                    <select 
+                    <select
                       className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       value={saleConfig?.status_padrao_os || "recebido"}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, status_padrao_os: e.target.value });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({ user_id: user!.id, status_padrao_os: e.target.value });
                         refetchSaleConfig();
                       }}
                     >
-                      {STATUS_OS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      {STATUS_OS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1292,20 +1485,24 @@ function Configuracoes() {
                 <div className="space-y-4 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label>Permitir desconto na finalização</Label>
-                    <Switch 
+                    <Switch
                       checked={saleConfig?.permitir_desconto ?? true}
                       onCheckedChange={async (val) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, permitir_desconto: val });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({ user_id: user!.id, permitir_desconto: val });
                         refetchSaleConfig();
                       }}
                     />
                   </div>
                   <div className="flex items-center justify-between">
                     <Label>Editar preço unitário no carrinho</Label>
-                    <Switch 
+                    <Switch
                       checked={saleConfig?.editar_preco_carrinho ?? true}
                       onCheckedChange={async (val) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, editar_preco_carrinho: val });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({ user_id: user!.id, editar_preco_carrinho: val });
                         refetchSaleConfig();
                       }}
                     />
@@ -1315,22 +1512,32 @@ function Configuracoes() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end">
                   <div className="space-y-2">
                     <Label>Teto de desconto (%)</Label>
-                    <Input 
+                    <Input
                       type="number"
                       value={saleConfig?.teto_desconto_percentual || 100}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, teto_desconto_percentual: Number(e.target.value) });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({
+                            user_id: user!.id,
+                            teto_desconto_percentual: Number(e.target.value),
+                          });
                         refetchSaleConfig();
                       }}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Garantia Padrão (Dias)</Label>
-                    <Input 
+                    <Input
                       type="number"
                       value={saleConfig?.dias_garantia_padrao || 90}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, dias_garantia_padrao: Number(e.target.value) });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({
+                            user_id: user!.id,
+                            dias_garantia_padrao: Number(e.target.value),
+                          });
                         refetchSaleConfig();
                       }}
                     />
@@ -1345,24 +1552,26 @@ function Configuracoes() {
                 Texto da Proposta Comercial
               </h2>
               <div className="space-y-4">
-                <Textarea 
+                <Textarea
                   className="min-h-[250px] font-mono text-sm"
                   placeholder="Termos e condições da proposta..."
                   value={saleConfig?.texto_proposta || ""}
                   onChange={async (e) => {
-                    await supabase.from("sale_config" as any).upsert({ user_id: user!.id, texto_proposta: e.target.value });
+                    await supabase
+                      .from("sale_config" as any)
+                      .upsert({ user_id: user!.id, texto_proposta: e.target.value });
                     refetchSaleConfig();
                   }}
                 />
                 <div className="flex justify-between items-center text-xs text-muted-foreground">
-                  <p>{(saleConfig?.texto_proposta?.length || 0)}/2000 caracteres</p>
+                  <p>{saleConfig?.texto_proposta?.length || 0}/2000 caracteres</p>
                   <div className="flex gap-4">
-                    <button 
+                    <button
                       className="text-primary hover:underline"
                       onClick={async () => {
-                        await supabase.from("sale_config" as any).upsert({ 
-                          user_id: user!.id, 
-                          texto_proposta: osConfig?.termos_condicoes || "" 
+                        await supabase.from("sale_config" as any).upsert({
+                          user_id: user!.id,
+                          texto_proposta: osConfig?.termos_condicoes || "",
                         });
                         refetchSaleConfig();
                         toast.success("Copiado da aba O.S.!");
@@ -1370,11 +1579,13 @@ function Configuracoes() {
                     >
                       Copiar da aba O.S.
                     </button>
-                    <button 
+                    <button
                       className="text-primary hover:underline"
                       onClick={async () => {
                         const def = `Formas de pagamento: Pix, dinheiro, cartão de débito ou crédito.\nParcelamento: em até 3x no cartão.\nPrazo de entrega: até 5 dias úteis após a confirmação do pedido.\nValidade desta proposta: 7 dias.\nGarantia: 90 dias contra defeito de fabricação.\n\nEsta proposta é uma previsão de valores, não uma cobrança. Os valores valem para os produtos e as quantidades descritos e podem mudar se o pedido for alterado ou se algum item estiver indisponível no estoque.`;
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, texto_proposta: def });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({ user_id: user!.id, texto_proposta: def });
                         refetchSaleConfig();
                         toast.success("Texto padrão restaurado!");
                       }}
@@ -1395,66 +1606,88 @@ function Configuracoes() {
                 <div className="flex items-center gap-4">
                   <div className="space-y-1">
                     <Label className="text-xs">Próximo número de Venda</Label>
-                    <Input 
-                      className="h-8 w-24" 
+                    <Input
+                      className="h-8 w-24"
                       type="number"
                       value={saleConfig?.proximo_numero_venda || 1}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert({ user_id: user!.id, proximo_numero_venda: Number(e.target.value) });
+                        await supabase
+                          .from("sale_config" as any)
+                          .upsert({
+                            user_id: user!.id,
+                            proximo_numero_venda: Number(e.target.value),
+                          });
                         refetchSaleConfig();
                       }}
                     />
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {STATUS_VENDAS.map((origem) => (
-                  <div key={origem.value} className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border">
+                  <div
+                    key={origem.value}
+                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
+                  >
                     <h3 className="font-bold text-sm flex items-center gap-2">
                       <ChevronRight className="h-4 w-4 text-primary" />
                       De: {origem.label}
                     </h3>
                     <div className="space-y-2">
-                      {STATUS_VENDAS.filter(s => s.value !== origem.value).map((destino) => {
-                        const flow = saleStatusFlows.find(f => f.origem === origem.value && f.destino === destino.value);
+                      {STATUS_VENDAS.filter((s) => s.value !== origem.value).map((destino) => {
+                        const flow = saleStatusFlows.find(
+                          (f) => f.origem === origem.value && f.destino === destino.value,
+                        );
                         const isAtivo = flow?.ativo ?? false;
                         return (
-                          <div key={destino.value} className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border">
+                          <div
+                            key={destino.value}
+                            className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border"
+                          >
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-medium">Para: {destino.label}</span>
-                              <Switch 
+                              <Switch
                                 checked={isAtivo}
                                 onCheckedChange={async (checked) => {
                                   if (checked) {
-                                    await supabase.from("sale_status_flows" as any).upsert({
-                                      user_id: user!.id,
-                                      origem: origem.value,
-                                      destino: destino.value,
-                                      ativo: true
-                                    }, { onConflict: 'user_id,origem,destino' });
+                                    await supabase.from("sale_status_flows" as any).upsert(
+                                      {
+                                        user_id: user!.id,
+                                        origem: origem.value,
+                                        destino: destino.value,
+                                        ativo: true,
+                                      },
+                                      { onConflict: "user_id,origem,destino" },
+                                    );
                                   } else {
-                                    await supabase.from("sale_status_flows" as any).delete().match({
-                                      user_id: user!.id,
-                                      origem: origem.value,
-                                      destino: destino.value
-                                    });
+                                    await supabase
+                                      .from("sale_status_flows" as any)
+                                      .delete()
+                                      .match({
+                                        user_id: user!.id,
+                                        origem: origem.value,
+                                        destino: destino.value,
+                                      });
                                   }
                                   refetchSaleFlows();
                                 }}
                               />
                             </div>
                             {isAtivo && (
-                              <Input 
-                                type="color" 
+                              <Input
+                                type="color"
                                 className="h-6 w-full p-0 border-none bg-transparent"
                                 value={flow?.cor || "#3b82f6"}
                                 onChange={async (e) => {
-                                  await supabase.from("sale_status_flows" as any).update({ cor: e.target.value }).match({
-                                    user_id: user!.id,
-                                    origem: origem.value,
-                                    destino: destino.value
-                                  });
+                                  await supabase
+                                    .from("sale_status_flows" as any)
+                                    .update({ cor: e.target.value })
+                                    .match({
+                                      user_id: user!.id,
+                                      origem: origem.value,
+                                      destino: destino.value,
+                                    });
                                   refetchSaleFlows();
                                 }}
                               />
@@ -1480,20 +1713,27 @@ function Configuracoes() {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label>Situação ao faturar pela listagem</Label>
-                  <p className="text-xs text-muted-foreground mb-2">Ao escolher esta situação, o sistema abrirá o faturamento antes de aplicar a situação.</p>
-                  <select 
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Ao escolher esta situação, o sistema abrirá o faturamento antes de aplicar a
+                    situação.
+                  </p>
+                  <select
                     className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     value={purchaseConfig?.situacao_faturar || ""}
                     onChange={async (e) => {
-                      await supabase.from("purchase_config" as any).upsert({ 
-                        user_id: user!.id, 
-                        situacao_faturar: e.target.value === "" ? null : e.target.value 
+                      await supabase.from("purchase_config" as any).upsert({
+                        user_id: user!.id,
+                        situacao_faturar: e.target.value === "" ? null : e.target.value,
                       });
                       refetchPurchaseConfig();
                     }}
                   >
                     <option value="">Nenhuma</option>
-                    {STATUS_COMPRAS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    {STATUS_COMPRAS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1506,39 +1746,56 @@ function Configuracoes() {
                   Fluxo entre Status de Compras
                 </h2>
               </div>
-              <p className="text-sm text-muted-foreground mb-6">A listagem de compras usa apenas as transições ativas. Desligue para ocultar no menu Alterar status.</p>
-              
+              <p className="text-sm text-muted-foreground mb-6">
+                A listagem de compras usa apenas as transições ativas. Desligue para ocultar no menu
+                Alterar status.
+              </p>
+
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {STATUS_COMPRAS.map((origem) => (
-                  <div key={origem.value} className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border">
+                  <div
+                    key={origem.value}
+                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
+                  >
                     <h3 className="font-bold text-sm flex items-center gap-2">
                       <ChevronRight className="h-4 w-4 text-primary" />
                       De: {origem.label}
                     </h3>
                     <div className="space-y-2">
-                      {STATUS_COMPRAS.filter(s => s.value !== origem.value).map((destino) => {
-                        const flow = purchaseStatusFlows.find(f => f.from_status === origem.value && f.to_status === destino.value);
+                      {STATUS_COMPRAS.filter((s) => s.value !== origem.value).map((destino) => {
+                        const flow = purchaseStatusFlows.find(
+                          (f) => f.from_status === origem.value && f.to_status === destino.value,
+                        );
                         const isAtivo = flow?.is_active ?? false;
                         return (
-                          <div key={destino.value} className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border">
+                          <div
+                            key={destino.value}
+                            className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border"
+                          >
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-medium">Para: {destino.label}</span>
-                              <Switch 
+                              <Switch
                                 checked={isAtivo}
                                 onCheckedChange={async (checked) => {
                                   if (checked) {
-                                    await supabase.from("purchase_status_flows" as any).upsert({
-                                      user_id: user!.id,
-                                      from_status: origem.value,
-                                      to_status: destino.value,
-                                      is_active: true
-                                    }, { onConflict: 'user_id,from_status,to_status' });
+                                    await supabase.from("purchase_status_flows" as any).upsert(
+                                      {
+                                        user_id: user!.id,
+                                        from_status: origem.value,
+                                        to_status: destino.value,
+                                        is_active: true,
+                                      },
+                                      { onConflict: "user_id,from_status,to_status" },
+                                    );
                                   } else {
-                                    await supabase.from("purchase_status_flows" as any).delete().match({
-                                      user_id: user!.id,
-                                      from_status: origem.value,
-                                      to_status: destino.value
-                                    });
+                                    await supabase
+                                      .from("purchase_status_flows" as any)
+                                      .delete()
+                                      .match({
+                                        user_id: user!.id,
+                                        from_status: origem.value,
+                                        to_status: destino.value,
+                                      });
                                   }
                                   refetchPurchaseFlows();
                                 }}
@@ -1546,17 +1803,22 @@ function Configuracoes() {
                             </div>
                             {isAtivo && (
                               <div className="space-y-1">
-                                <Label className="text-[10px] text-muted-foreground uppercase">Cor</Label>
-                                <Input 
-                                  type="color" 
+                                <Label className="text-[10px] text-muted-foreground uppercase">
+                                  Cor
+                                </Label>
+                                <Input
+                                  type="color"
                                   className="h-6 w-full p-0 border-none bg-transparent"
                                   value={flow?.color || "#3b82f6"}
                                   onChange={async (e) => {
-                                    await supabase.from("purchase_status_flows" as any).update({ color: e.target.value }).match({
-                                      user_id: user!.id,
-                                      from_status: origem.value,
-                                      to_status: destino.value
-                                    });
+                                    await supabase
+                                      .from("purchase_status_flows" as any)
+                                      .update({ color: e.target.value })
+                                      .match({
+                                        user_id: user!.id,
+                                        from_status: origem.value,
+                                        to_status: destino.value,
+                                      });
                                     refetchPurchaseFlows();
                                   }}
                                 />
@@ -1583,7 +1845,8 @@ function Configuracoes() {
                 <div>
                   <h2 className="text-lg font-bold">Estoque mínimo padrão</h2>
                   <p className="text-sm text-muted-foreground">
-                    Usado ao cadastrar um novo produto em Produtos — pode ser ajustado por produto depois.
+                    Usado ao cadastrar um novo produto em Produtos — pode ser ajustado por produto
+                    depois.
                   </p>
                 </div>
               </div>
@@ -1637,7 +1900,11 @@ function Configuracoes() {
                   onChange={(e) => setNovaCategoria(e.target.value)}
                   placeholder="Nova categoria (ex: Telas, Baterias)"
                 />
-                <Button type="submit" disabled={adicionarCategoria.isPending} className="gap-2 shrink-0">
+                <Button
+                  type="submit"
+                  disabled={adicionarCategoria.isPending}
+                  className="gap-2 shrink-0"
+                >
                   <Plus className="h-4 w-4" /> Adicionar
                 </Button>
               </form>
@@ -1720,13 +1987,16 @@ function Configuracoes() {
               </div>
               <div>
                 <h2 className="text-lg font-bold">E-mail</h2>
-                <p className="text-sm text-muted-foreground">Configure o SMTP da sua empresa e envie avisos, orçamentos e laudos com o seu próprio endereço de e-mail.</p>
+                <p className="text-sm text-muted-foreground">
+                  Configure o SMTP da sua empresa e envie avisos, orçamentos e laudos com o seu
+                  próprio endereço de e-mail.
+                </p>
               </div>
             </div>
 
             <div className="grid gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-6">
-                <form 
+                <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     const fd = new FormData(e.currentTarget);
@@ -1745,39 +2015,70 @@ function Configuracoes() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Servidor SMTP (Host)</Label>
-                      <Input name="host" placeholder="smtp.exemplo.com" defaultValue={smtpConfig?.host || ""} required />
+                      <Input
+                        name="host"
+                        placeholder="smtp.exemplo.com"
+                        defaultValue={smtpConfig?.host || ""}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Porta</Label>
-                      <Input name="port" type="number" placeholder="587" defaultValue={smtpConfig?.port || 587} required />
+                      <Input
+                        name="port"
+                        type="number"
+                        placeholder="587"
+                        defaultValue={smtpConfig?.port || 587}
+                        required
+                      />
                     </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Usuário</Label>
-                      <Input name="user" placeholder="email@exemplo.com" defaultValue={smtpConfig?.user || ""} required />
+                      <Input
+                        name="user"
+                        placeholder="email@exemplo.com"
+                        defaultValue={smtpConfig?.user || ""}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Senha</Label>
-                      <Input name="password" type="password" placeholder="••••••••" defaultValue={smtpConfig?.password || ""} required />
+                      <Input
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        defaultValue={smtpConfig?.password || ""}
+                        required
+                      />
                     </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>E-mail de Remetente</Label>
-                      <Input name="from_email" placeholder="contato@empresa.com" defaultValue={smtpConfig?.from_email || ""} required />
+                      <Input
+                        name="from_email"
+                        placeholder="contato@empresa.com"
+                        defaultValue={smtpConfig?.from_email || ""}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Nome do Remetente</Label>
-                      <Input name="from_name" placeholder="Minha Loja" defaultValue={smtpConfig?.from_name || ""} />
+                      <Input
+                        name="from_name"
+                        placeholder="Minha Loja"
+                        defaultValue={smtpConfig?.from_name || ""}
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Criptografia</Label>
-                    <select 
+                    <select
                       name="encryption"
                       className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       defaultValue={smtpConfig?.encryption || "tls"}
@@ -1801,7 +2102,10 @@ function Configuracoes() {
                     Por que configurar o e-mail da empresa?
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Quando você cadastra seu próprio SMTP, todos os e-mails do sistema — avisos de OS pronta, orçamentos, laudos e notificações — chegam ao cliente com o nome e o endereço de e-mail da sua empresa, transmitindo mais profissionalismo e aumentando a taxa de entrega. Sem configuração, o sistema usa o servidor padrão.
+                    Quando você cadastra seu próprio SMTP, todos os e-mails do sistema — avisos de
+                    OS pronta, orçamentos, laudos e notificações — chegam ao cliente com o nome e o
+                    endereço de e-mail da sua empresa, transmitindo mais profissionalismo e
+                    aumentando a taxa de entrega. Sem configuração, o sistema usa o servidor padrão.
                   </p>
                 </div>
 
@@ -1826,7 +2130,9 @@ function Configuracoes() {
               </div>
               <div>
                 <h2 className="text-lg font-bold">WhatsApp</h2>
-                <p className="text-sm text-muted-foreground">Conexão da instância, templates de mensagens e relatório de dados para IA.</p>
+                <p className="text-sm text-muted-foreground">
+                  Conexão da instância, templates de mensagens e relatório de dados para IA.
+                </p>
               </div>
             </div>
 
@@ -1834,23 +2140,33 @@ function Configuracoes() {
               <div className="lg:col-span-7 space-y-8">
                 {/* Conexão da instância */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Conexão da instância</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Conexão da instância
+                  </h3>
                   <div className="rounded-xl border border-border p-4 space-y-4 bg-muted/30">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-xs uppercase font-bold text-muted-foreground">Status</Label>
+                        <Label className="text-xs uppercase font-bold text-muted-foreground">
+                          Status
+                        </Label>
                         <div className="flex items-center gap-2">
-                          <div className={`h-2.5 w-2.5 rounded-full ${whatsappConfig?.status === 'Conectado' ? 'bg-success' : 'bg-destructive'} animate-pulse`} />
-                          <span className="font-bold">{whatsappConfig?.status || 'Desconectado'}</span>
+                          <div
+                            className={`h-2.5 w-2.5 rounded-full ${whatsappConfig?.status === "Conectado" ? "bg-success" : "bg-destructive"} animate-pulse`}
+                          />
+                          <span className="font-bold">
+                            {whatsappConfig?.status || "Desconectado"}
+                          </span>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {whatsappConfig?.status === 'Conectado' && (
+                        {whatsappConfig?.status === "Conectado" && (
                           <Button
                             size="sm"
                             variant="outline"
                             disabled={salvarWhatsapp.isPending}
-                            onClick={() => salvarWhatsapp.mutate({ status: 'Desconectado', instancia_id: null })}
+                            onClick={() =>
+                              salvarWhatsapp.mutate({ status: "Desconectado", instancia_id: null })
+                            }
                           >
                             Desconectar
                           </Button>
@@ -1866,7 +2182,8 @@ function Configuracoes() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Vincule o número da empresa para enviar notificações automáticas. Use os botões ao lado para conectar via QR Code ou desconectar a instância atual.
+                      Vincule o número da empresa para enviar notificações automáticas. Use os
+                      botões ao lado para conectar via QR Code ou desconectar a instância atual.
                     </p>
                   </div>
                 </div>
@@ -1874,34 +2191,80 @@ function Configuracoes() {
                 {/* Mensagens e automações */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Mensagens e automações</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                      Mensagens e automações
+                    </h3>
                   </div>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Cada bloco abaixo corresponde a um tipo de envio. Expanda para editar o texto e o interruptor de ativação; o botão Salvar configurações WhatsApp no fim da aba aplica todas as alterações de uma vez.
+                    Cada bloco abaixo corresponde a um tipo de envio. Expanda para editar o texto e
+                    o interruptor de ativação; o botão Salvar configurações WhatsApp no fim da aba
+                    aplica todas as alterações de uma vez.
                   </p>
 
                   <div className="space-y-2">
                     {[
-                      { id: 'notif_os_criada', label: 'Notificação: Quando uma OS for criada', key: 'notif_os_criada' },
-                      { id: 'notif_os_editada', label: 'Notificação: Quando uma OS for editada', key: 'notif_os_editada' },
-                      { id: 'notif_nfe_emitida', label: 'Notificação: Quando uma nota fiscal for emitida', key: 'notif_nfe_emitida' },
-                      { id: 'boas_vindas', label: 'Relacionamento: Boas-vindas ao novo cliente', key: 'boas_vindas' },
-                      { id: 'pesquisa_pos_os', label: 'Pesquisa de Satisfação: Pós-OS (avaliação de serviço)', key: 'pesquisa_pos_os' },
-                      { id: 'pesquisa_pos_venda', label: 'Pesquisa de Satisfação: Pós-Venda (avaliação de produto)', key: 'pesquisa_pos_venda' },
-                      { id: 'relatorio_semanal_ia', label: 'Gestão: Relatório Semanal de Desempenho (via IA)', key: 'relatorio_semanal_ia' },
-                      { id: 'feliz_aniversario', label: 'Relacionamento: Mensagem de Feliz Aniversário', key: 'feliz_aniversario' },
-                      { id: 'lembrete_tecnico', label: 'Equipe: Lembrete de visita/entrega ao técnico', key: 'lembrete_tecnico' },
+                      {
+                        id: "notif_os_criada",
+                        label: "Notificação: Quando uma OS for criada",
+                        key: "notif_os_criada",
+                      },
+                      {
+                        id: "notif_os_editada",
+                        label: "Notificação: Quando uma OS for editada",
+                        key: "notif_os_editada",
+                      },
+                      {
+                        id: "notif_nfe_emitida",
+                        label: "Notificação: Quando uma nota fiscal for emitida",
+                        key: "notif_nfe_emitida",
+                      },
+                      {
+                        id: "boas_vindas",
+                        label: "Relacionamento: Boas-vindas ao novo cliente",
+                        key: "boas_vindas",
+                      },
+                      {
+                        id: "pesquisa_pos_os",
+                        label: "Pesquisa de Satisfação: Pós-OS (avaliação de serviço)",
+                        key: "pesquisa_pos_os",
+                      },
+                      {
+                        id: "pesquisa_pos_venda",
+                        label: "Pesquisa de Satisfação: Pós-Venda (avaliação de produto)",
+                        key: "pesquisa_pos_venda",
+                      },
+                      {
+                        id: "relatorio_semanal_ia",
+                        label: "Gestão: Relatório Semanal de Desempenho (via IA)",
+                        key: "relatorio_semanal_ia",
+                      },
+                      {
+                        id: "feliz_aniversario",
+                        label: "Relacionamento: Mensagem de Feliz Aniversário",
+                        key: "feliz_aniversario",
+                      },
+                      {
+                        id: "lembrete_tecnico",
+                        label: "Equipe: Lembrete de visita/entrega ao técnico",
+                        key: "lembrete_tecnico",
+                      },
                     ].map((item) => (
-                      <details key={item.id} className="group rounded-xl border border-border bg-card overflow-hidden">
+                      <details
+                        key={item.id}
+                        className="group rounded-xl border border-border bg-card overflow-hidden"
+                      >
                         <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors list-none">
                           <span className="text-sm font-medium">{item.label}</span>
-                          <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                            <Switch 
-                              checked={whatsappConfig?.[item.key] ?? false} 
+                          <div
+                            className="flex items-center gap-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Switch
+                              checked={whatsappConfig?.[item.key] ?? false}
                               onCheckedChange={async (val) => {
-                                await supabase.from("whatsapp_config" as any).upsert({ 
-                                  user_id: user!.id, 
-                                  [item.key]: val 
+                                await supabase.from("whatsapp_config" as any).upsert({
+                                  user_id: user!.id,
+                                  [item.key]: val,
                                 });
                                 refetchWhatsapp();
                               }}
@@ -1911,20 +2274,23 @@ function Configuracoes() {
                         </summary>
                         <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Texto da Mensagem</Label>
-                            <Textarea 
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Texto da Mensagem
+                            </Label>
+                            <Textarea
                               className="min-h-[100px] text-sm"
                               defaultValue={whatsappConfig?.[`${item.key}_texto`] || ""}
                               onBlur={async (e) => {
-                                await supabase.from("whatsapp_config" as any).upsert({ 
-                                  user_id: user!.id, 
-                                  [`${item.key}_texto`]: e.target.value 
+                                await supabase.from("whatsapp_config" as any).upsert({
+                                  user_id: user!.id,
+                                  [`${item.key}_texto`]: e.target.value,
                                 });
                                 refetchWhatsapp();
                               }}
                             />
                             <p className="text-[10px] text-muted-foreground">
-                              Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"}, {"{{status}}"}, {"{{tecnico}}"}.
+                              Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"}, {"{{status}}"}
+                              , {"{{tecnico}}"}.
                             </p>
                           </div>
                         </div>
@@ -1933,7 +2299,7 @@ function Configuracoes() {
                   </div>
                 </div>
 
-                <Button 
+                <Button
                   className="w-full bg-green-600 hover:bg-green-700"
                   onClick={() => toast.success("Configurações salvas com sucesso!")}
                 >
@@ -1944,7 +2310,9 @@ function Configuracoes() {
               {/* Preview */}
               <div className="lg:col-span-5">
                 <div className="sticky top-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Prévia no WhatsApp</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
+                    Prévia no WhatsApp
+                  </h3>
                   <div className="relative mx-auto w-full max-w-[320px] aspect-[9/18.5] bg-[#0b141a] rounded-[3rem] border-[8px] border-[#202c33] shadow-2xl overflow-hidden">
                     {/* Top Bar */}
                     <div className="h-14 bg-[#202c33] flex items-center px-4 gap-3">
@@ -1962,7 +2330,8 @@ function Configuracoes() {
                       <div className="flex justify-end">
                         <div className="max-w-[85%] bg-[#005c4b] text-white p-2.5 rounded-lg rounded-tr-none shadow-sm relative group">
                           <p className="text-xs leading-relaxed">
-                            {whatsappConfig?.notif_os_criada_texto || "Abra um bloco ao lado para ver a mensagem aqui."}
+                            {whatsappConfig?.notif_os_criada_texto ||
+                              "Abra um bloco ao lado para ver a mensagem aqui."}
                           </p>
                           <div className="flex justify-end mt-1 gap-1">
                             <span className="text-[9px] opacity-70">00:22</span>
@@ -1994,7 +2363,10 @@ function Configuracoes() {
               </div>
               <div>
                 <h2 className="text-lg font-bold">Seu E-commerce B2C</h2>
-                <p className="text-sm text-muted-foreground">Personalize o visual e as informações da sua loja virtual. Compartilhe os links de acesso com seus clientes para que comprem diretamente pelo catálogo.</p>
+                <p className="text-sm text-muted-foreground">
+                  Personalize o visual e as informações da sua loja virtual. Compartilhe os links de
+                  acesso com seus clientes para que comprem diretamente pelo catálogo.
+                </p>
               </div>
             </div>
 
@@ -2002,13 +2374,17 @@ function Configuracoes() {
               <div className="lg:col-span-7 space-y-8">
                 {/* Status da Loja */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status da Loja</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Status da Loja
+                  </h3>
                   <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                     <div className="space-y-1">
                       <Label className="font-bold">Loja Ativa e Pública</Label>
-                      <p className="text-xs text-muted-foreground">Desmarque para ocultar temporariamente o catálogo.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Desmarque para ocultar temporariamente o catálogo.
+                      </p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={catalogoConfig?.loja_ativa ?? true}
                       onCheckedChange={(val) => salvarCatalogo.mutate({ loja_ativa: val })}
                     />
@@ -2017,19 +2393,32 @@ function Configuracoes() {
 
                 {/* Endereço da loja */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Endereço da loja</h3>
-                  <p className="text-xs text-muted-foreground">Subdomínio SpaceTech (ERP + loja) e, opcionalmente, domínio com sua marca.</p>
-                  
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Endereço da loja
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Subdomínio SpaceTech (ERP + loja) e, opcionalmente, domínio com sua marca.
+                  </p>
+
                   <div className="grid gap-4">
                     {/* Loja Padrão */}
                     <div className="p-4 rounded-xl border border-border bg-card space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase text-muted-foreground">Loja padrão (SpaceTech)</span>
+                        <span className="text-xs font-bold uppercase text-muted-foreground">
+                          Loja padrão (SpaceTech)
+                        </span>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={() => {
-                            navigator.clipboard.writeText(`https://${catalogoConfig?.subdominio || 'spacetech'}.spacetech.app/catalogo`);
-                            toast.success("Link copiado!");
-                          }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[10px] gap-1"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                `https://${catalogoConfig?.subdominio || "spacetech"}.spacetech.app/catalogo`,
+                              );
+                              toast.success("Link copiado!");
+                            }}
+                          >
                             <Copy className="h-3 w-3" /> Copiar
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1">
@@ -2038,17 +2427,23 @@ function Configuracoes() {
                         </div>
                       </div>
                       <p className="text-sm font-medium text-primary underline">
-                        https://{catalogoConfig?.subdominio || 'spacetech'}.spacetech.app/catalogo
+                        https://{catalogoConfig?.subdominio || "spacetech"}.spacetech.app/catalogo
                       </p>
                     </div>
 
                     {/* Domínio Próprio */}
                     <div className="p-4 rounded-xl border border-border bg-card space-y-3 opacity-60">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase text-muted-foreground">Domínio próprio</span>
-                        <Button variant="link" size="sm" className="h-7 text-[10px] p-0">Tutorial DNS/SSL</Button>
+                        <span className="text-xs font-bold uppercase text-muted-foreground">
+                          Domínio próprio
+                        </span>
+                        <Button variant="link" size="sm" className="h-7 text-[10px] p-0">
+                          Tutorial DNS/SSL
+                        </Button>
                       </div>
-                      <p className="text-sm font-medium italic">Não configurado. Siga o tutorial.</p>
+                      <p className="text-sm font-medium italic">
+                        Não configurado. Siga o tutorial.
+                      </p>
                     </div>
                   </div>
 
@@ -2058,29 +2453,41 @@ function Configuracoes() {
                       <div className="space-y-2">
                         <Label className="text-[10px]">Subdomínio *</Label>
                         <div className="flex gap-2">
-                          <Input 
-                            className="h-8 text-xs" 
-                            defaultValue={catalogoConfig?.subdominio || "spacetech"} 
+                          <Input
+                            className="h-8 text-xs"
+                            defaultValue={catalogoConfig?.subdominio || "spacetech"}
                             onBlur={(e) => salvarCatalogo.mutate({ subdominio: e.target.value })}
                           />
                         </div>
                       </div>
                       <div className="space-y-1 text-[10px] text-muted-foreground">
-                        <p>ERP: https://{catalogoConfig?.subdominio || 'spacetech'}.spacetech.app/</p>
-                        <p>Loja: https://{catalogoConfig?.subdominio || 'spacetech'}.spacetech.app/catalogo</p>
+                        <p>
+                          ERP: https://{catalogoConfig?.subdominio || "spacetech"}.spacetech.app/
+                        </p>
+                        <p>
+                          Loja: https://{catalogoConfig?.subdominio || "spacetech"}
+                          .spacetech.app/catalogo
+                        </p>
                       </div>
                     </div>
 
                     <div className="space-y-3 p-4 rounded-xl bg-card border border-border relative overflow-hidden group">
-                      <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-orange-500 text-[8px] font-bold text-white uppercase">Add-on premium</div>
+                      <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-orange-500 text-[8px] font-bold text-white uppercase">
+                        Add-on premium
+                      </div>
                       <h4 className="text-xs font-bold uppercase">Domínio personalizado</h4>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">Use o endereço da sua marca na loja online — exemplo: https://seudominio.com.br</p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Use o endereço da sua marca na loja online — exemplo:
+                        https://seudominio.com.br
+                      </p>
                       <div className="flex items-center justify-between mt-2">
                         <div>
                           <p className="text-[10px] text-muted-foreground">Por apenas</p>
                           <p className="text-sm font-bold text-primary">R$ 49,90/mês</p>
                         </div>
-                        <Button size="sm" className="h-8 text-[10px]">Contratar add-on</Button>
+                        <Button size="sm" className="h-8 text-[10px]">
+                          Contratar add-on
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -2088,16 +2495,35 @@ function Configuracoes() {
 
                 {/* Estoque do ERP */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Estoque do ERP no catálogo</h3>
-                  <p className="text-xs text-muted-foreground">O catálogo usa o mesmo saldo da tabela de produtos do sistema.</p>
-                  
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Estoque do ERP no catálogo
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    O catálogo usa o mesmo saldo da tabela de produtos do sistema.
+                  </p>
+
                   <div className="space-y-2">
                     {[
-                      { key: 'ignorar_estoque', label: 'Ignorar estoque do sistema', desc: 'Ativo por padrão. Desative para vincular vitrine ao saldo real.' },
-                      { key: 'exibir_apenas_com_estoque', label: 'Exibir apenas produtos com estoque', desc: 'Clientes só veem produtos com saldo maior que zero.' },
-                      { key: 'permitir_vender_sem_estoque', label: 'Permitir vender sem estoque', desc: 'Permite pedido acima do saldo (inclusive estoque negativo).' },
-                    ].map(item => (
-                      <div key={item.key} className="flex items-center justify-between p-3 rounded-xl border border-border bg-background">
+                      {
+                        key: "ignorar_estoque",
+                        label: "Ignorar estoque do sistema",
+                        desc: "Ativo por padrão. Desative para vincular vitrine ao saldo real.",
+                      },
+                      {
+                        key: "exibir_apenas_com_estoque",
+                        label: "Exibir apenas produtos com estoque",
+                        desc: "Clientes só veem produtos com saldo maior que zero.",
+                      },
+                      {
+                        key: "permitir_vender_sem_estoque",
+                        label: "Permitir vender sem estoque",
+                        desc: "Permite pedido acima do saldo (inclusive estoque negativo).",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
+                      >
                         <div className="space-y-0.5">
                           <Label className="text-sm font-medium flex items-center gap-1.5">
                             {item.label}
@@ -2105,7 +2531,7 @@ function Configuracoes() {
                           </Label>
                           <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                         </div>
-                        <Switch 
+                        <Switch
                           checked={catalogoConfig?.[item.key] ?? false}
                           onCheckedChange={(val) => salvarCatalogo.mutate({ [item.key]: val })}
                         />
@@ -2116,33 +2542,41 @@ function Configuracoes() {
 
                 {/* WhatsApp Flutuante */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">WhatsApp Flutuante</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    WhatsApp Flutuante
+                  </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Ativar Ícone</Label>
                       <div className="flex items-center gap-2 h-10 px-3 rounded-lg border border-input bg-background">
-                        <Switch 
+                        <Switch
                           checked={catalogoConfig?.whatsapp_flutuante_ativo ?? true}
-                          onCheckedChange={(val) => salvarCatalogo.mutate({ whatsapp_flutuante_ativo: val })}
+                          onCheckedChange={(val) =>
+                            salvarCatalogo.mutate({ whatsapp_flutuante_ativo: val })
+                          }
                         />
                         <span className="text-sm">Sim, mostrar no canto inferior</span>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label>WhatsApp Atendimento</Label>
-                      <Input 
-                        placeholder="(00) 00000-0000" 
+                      <Input
+                        placeholder="(00) 00000-0000"
                         defaultValue={catalogoConfig?.whatsapp_atendimento || ""}
-                        onBlur={(e) => salvarCatalogo.mutate({ whatsapp_atendimento: e.target.value })}
+                        onBlur={(e) =>
+                          salvarCatalogo.mutate({ whatsapp_atendimento: e.target.value })
+                        }
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Mensagem Inicial</Label>
-                    <Input 
-                      placeholder="Olá, gostaria de mais informações..." 
+                    <Input
+                      placeholder="Olá, gostaria de mais informações..."
                       defaultValue={catalogoConfig?.whatsapp_mensagem_inicial || ""}
-                      onBlur={(e) => salvarCatalogo.mutate({ whatsapp_mensagem_inicial: e.target.value })}
+                      onBlur={(e) =>
+                        salvarCatalogo.mutate({ whatsapp_mensagem_inicial: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -2155,7 +2589,9 @@ function Configuracoes() {
               {/* Preview */}
               <div className="lg:col-span-5">
                 <div className="sticky top-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Preview da Loja</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
+                    Preview da Loja
+                  </h3>
                   <div className="rounded-3xl border border-border bg-muted/30 aspect-[9/16] overflow-hidden flex flex-col shadow-2xl">
                     <div className="h-10 bg-card border-b border-border flex items-center px-4 justify-between">
                       <div className="flex gap-1.5">
@@ -2172,7 +2608,9 @@ function Configuracoes() {
                           <Monitor className="h-8 w-8" />
                         </div>
                         <h4 className="font-bold">Carregando preview...</h4>
-                        <p className="text-xs text-muted-foreground">O preview da sua loja aparecerá aqui em tempo real.</p>
+                        <p className="text-xs text-muted-foreground">
+                          O preview da sua loja aparecerá aqui em tempo real.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2203,23 +2641,41 @@ function Configuracoes() {
         </TabsContent>
 
         {/* Placeholders for remaining tabs */}
-        {tabs.filter(t => !['empresa', 'mp', 'financeiro', 'estoque', 'os', 'vendas', 'compras', 'email', 'whatsapp', 'fiscal', 'catalogo', 'funcionarios'].includes(t.id)).map(tab => (
-          <TabsContent key={tab.id} value={tab.id} className="outline-none">
-            <section className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <tab.icon className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-bold">{tab.label}</h3>
-              <p className="mx-auto mt-2 max-w-sm text-muted-foreground">
-                Configurações específicas do módulo de {tab.label} estarão disponíveis em breve nesta seção.
-              </p>
-              <Button variant="outline" className="mt-6 gap-2" disabled>
-                <Lock className="h-4 w-4" /> Em desenvolvimento
-              </Button>
-            </section>
-          </TabsContent>
-        ))}
-
+        {tabs
+          .filter(
+            (t) =>
+              ![
+                "empresa",
+                "mp",
+                "financeiro",
+                "estoque",
+                "os",
+                "vendas",
+                "compras",
+                "email",
+                "whatsapp",
+                "fiscal",
+                "catalogo",
+                "funcionarios",
+              ].includes(t.id),
+          )
+          .map((tab) => (
+            <TabsContent key={tab.id} value={tab.id} className="outline-none">
+              <section className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                  <tab.icon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-bold">{tab.label}</h3>
+                <p className="mx-auto mt-2 max-w-sm text-muted-foreground">
+                  Configurações específicas do módulo de {tab.label} estarão disponíveis em breve
+                  nesta seção.
+                </p>
+                <Button variant="outline" className="mt-6 gap-2" disabled>
+                  <Lock className="h-4 w-4" /> Em desenvolvimento
+                </Button>
+              </section>
+            </TabsContent>
+          ))}
       </Tabs>
 
       <WhatsAppConnectModal open={whatsappConnectOpen} onOpenChange={setWhatsappConnectOpen} />
