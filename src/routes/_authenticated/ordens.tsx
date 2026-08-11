@@ -53,12 +53,19 @@ import {
   type RenderOsData,
 } from "@/lib/os-template-render";
 
-import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useMinhaEmpresa, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -101,6 +108,7 @@ const vazio = {
   senha_dispositivo: "",
   padrao_desbloqueio: "",
   responsavel: "",
+  responsavel_user_id: "",
   itens: [] as any[],
 };
 
@@ -285,6 +293,7 @@ function Ordens() {
       senha_dispositivo: os.senha_dispositivo || "",
       padrao_desbloqueio: os.padrao_desbloqueio || "",
       responsavel: os.responsavel || "",
+      responsavel_user_id: (os as any).responsavel_user_id || "",
       itens: [],
     });
     setEditOpen(true);
@@ -367,6 +376,23 @@ function Ordens() {
       (await supabase.from("clientes").select("id, nome").order("nome")).data ?? [],
   });
 
+  const { data: minhaEmpresa } = useMinhaEmpresa();
+  const empresaId = minhaEmpresa?.empresa_id;
+  const { data: tecnicos = [] } = useQuery({
+    queryKey: ["empresa-membros-tecnicos", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_empresa_membros", {
+        p_empresa_id: empresaId as string,
+      });
+      if (error) throw error;
+      return ((data as any[]) ?? []).filter((m) =>
+        ["tecnico", "gerente", "admin"].includes(m.role),
+      );
+    },
+  });
+  const nomeTecnico = (m: { nome?: string | null; email: string }) => m.nome || m.email;
+
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos"],
     queryFn: async () => (await supabase.from("produtos").select("*").order("nome")).data ?? [],
@@ -386,6 +412,10 @@ function Ordens() {
     mutationFn: async () => {
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
+      const tecnicoSelecionado = tecnicos.find(
+        (m: any) => m.user_id === form.responsavel_user_id,
+      );
+
       const { data: os, error } = await supabase
         .from("ordens_servico")
         .insert({
@@ -398,7 +428,8 @@ function Ordens() {
           cor: form.cor,
           senha_dispositivo: form.senha_dispositivo,
           padrao_desbloqueio: form.padrao_desbloqueio,
-          responsavel: form.responsavel || null,
+          responsavel_user_id: form.responsavel_user_id || null,
+          responsavel: tecnicoSelecionado ? nomeTecnico(tecnicoSelecionado) : null,
           defeito: form.defeito,
           diagnostico: form.diagnostico,
           valor: Number(form.valor) || 0,
@@ -439,6 +470,10 @@ function Ordens() {
       if (!selectedOsId) return;
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
+      const tecnicoSelecionado = tecnicos.find(
+        (m: any) => m.user_id === form.responsavel_user_id,
+      );
+
       const { error } = await supabase
         .from("ordens_servico")
         .update({
@@ -451,7 +486,8 @@ function Ordens() {
           cor: form.cor,
           senha_dispositivo: form.senha_dispositivo,
           padrao_desbloqueio: form.padrao_desbloqueio,
-          responsavel: form.responsavel || null,
+          responsavel_user_id: form.responsavel_user_id || null,
+          responsavel: tecnicoSelecionado ? nomeTecnico(tecnicoSelecionado) : null,
           defeito: form.defeito,
           diagnostico: form.diagnostico,
           laudo_tecnico: laudo,
@@ -894,11 +930,24 @@ function Ordens() {
                   value={form.imei}
                   onChange={(v) => setForm({ ...form, imei: v })}
                 />
-                <Campo
-                  label="Técnico responsável"
-                  value={form.responsavel}
-                  onChange={(v) => setForm({ ...form, responsavel: v })}
-                />
+                <div className="space-y-1.5">
+                  <Label>Técnico responsável</Label>
+                  <Select
+                    value={form.responsavel_user_id}
+                    onValueChange={(v) => setForm({ ...form, responsavel_user_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem técnico atribuído" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tecnicos.map((m: any) => (
+                        <SelectItem key={m.user_id} value={m.user_id}>
+                          {nomeTecnico(m)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Senha (PIN)</Label>
                   <Input
@@ -1523,11 +1572,24 @@ function Ordens() {
                     ))}
                   </select>
                 </div>
-                <Campo
-                  label="Técnico responsável"
-                  value={form.responsavel}
-                  onChange={(v) => setForm({ ...form, responsavel: v })}
-                />
+                <div className="space-y-1.5">
+                  <Label>Técnico responsável</Label>
+                  <Select
+                    value={form.responsavel_user_id}
+                    onValueChange={(v) => setForm({ ...form, responsavel_user_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem técnico atribuído" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tecnicos.map((m: any) => (
+                        <SelectItem key={m.user_id} value={m.user_id}>
+                          {nomeTecnico(m)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Defeito relatado</Label>
                   <Textarea

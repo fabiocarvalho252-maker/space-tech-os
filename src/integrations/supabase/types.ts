@@ -861,6 +861,7 @@ export type Database = {
           padrao_desbloqueio: string | null
           previsao: string | null
           responsavel: string | null
+          responsavel_user_id: string | null
           senha_dispositivo: string | null
           serial_number: string | null
           status: string
@@ -894,6 +895,7 @@ export type Database = {
           padrao_desbloqueio?: string | null
           previsao?: string | null
           responsavel?: string | null
+          responsavel_user_id?: string | null
           senha_dispositivo?: string | null
           serial_number?: string | null
           status?: string
@@ -927,6 +929,7 @@ export type Database = {
           padrao_desbloqueio?: string | null
           previsao?: string | null
           responsavel?: string | null
+          responsavel_user_id?: string | null
           senha_dispositivo?: string | null
           serial_number?: string | null
           status?: string
@@ -2414,6 +2417,7 @@ export type Database = {
         Returns: {
           created_at: string
           email: string
+          nome: string | null
           role: string
           user_id: string
         }[]
