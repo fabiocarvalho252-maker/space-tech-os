@@ -14,6 +14,7 @@ const TONS_OS: Record<string, StatusTone> = {
   pronto: "success",
   entregue: "success",
   faturado: "success",
+  reprovado: "danger",
   cancelado: "danger",
 };
 
