@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,9 @@ function Clientes() {
   const { data: user } = useCurrentUser();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(vazio);
+  const [confirmExcluir, setConfirmExcluir] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes"],
@@ -51,15 +54,40 @@ function Clientes() {
     },
   });
 
-  const criar = useMutation({
+  function abrirNovo() {
+    setEditId(null);
+    setForm(vazio);
+    setOpen(true);
+  }
+
+  function abrirEdicao(c: (typeof clientes)[number]) {
+    setEditId(c.id);
+    setForm({
+      nome: c.nome ?? "",
+      telefone: c.telefone ?? "",
+      email: c.email ?? "",
+      documento: c.documento ?? "",
+      endereco: c.endereco ?? "",
+      observacoes: c.observacoes ?? "",
+    });
+    setOpen(true);
+  }
+
+  const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do cliente");
-      const { error } = await supabase.from("clientes").insert({ ...form, user_id: user!.id });
-      if (error) throw error;
+      if (editId) {
+        const { error } = await supabase.from("clientes").update(form).eq("id", editId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("clientes").insert({ ...form, user_id: user!.id });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Cliente cadastrado");
+      toast.success(editId ? "Cliente atualizado" : "Cliente cadastrado");
       setForm(vazio);
+      setEditId(null);
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["clientes"] });
     },
@@ -73,7 +101,12 @@ function Clientes() {
     },
     onSuccess: () => {
       toast.success("Cliente removido");
+      setConfirmExcluir(null);
       qc.invalidateQueries({ queryKey: ["clientes"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmExcluir(null);
     },
   });
 
@@ -87,18 +120,28 @@ function Clientes() {
         title="Clientes"
         subtitle="Todo o histórico da sua assistência começa aqui"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(v) => {
+              setOpen(v);
+              if (!v) setEditId(null);
+            }}
+          >
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={abrirNovo}>
                 <Plus className="h-4 w-4" /> Novo cliente
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Novo cliente</DialogTitle>
+                <DialogTitle>{editId ? "Editar cliente" : "Novo cliente"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Campo label="Nome" value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} />
+                <Campo
+                  label="Nome"
+                  value={form.nome}
+                  onChange={(v) => setForm({ ...form, nome: v })}
+                />
                 <Campo
                   label="Telefone"
                   value={form.telefone}
@@ -129,8 +172,8 @@ function Clientes() {
                   />
                 </div>
               </div>
-              <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
-                Salvar cliente
+              <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+                {editId ? "Salvar alterações" : "Salvar cliente"}
               </Button>
             </DialogContent>
           </Dialog>
@@ -167,13 +210,22 @@ function Clientes() {
                     {c.email || "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => remover.mutate(c.id)}
-                      className="text-muted-foreground transition hover:text-destructive"
-                      aria-label="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => abrirEdicao(c)}
+                        className="text-muted-foreground transition hover:text-primary"
+                        aria-label="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmExcluir({ id: c.id, nome: c.nome })}
+                        className="text-muted-foreground transition hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -188,6 +240,21 @@ function Clientes() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmExcluir}
+        onOpenChange={(v) => !v && setConfirmExcluir(null)}
+        title="Deseja realmente excluir este cliente?"
+        description={
+          confirmExcluir
+            ? `"${confirmExcluir.nome}" será removido permanentemente. Ordens de serviço e vendas já vinculadas continuam existindo, apenas sem o vínculo ao cliente.`
+            : ""
+        }
+        confirmLabel="Excluir"
+        destructive
+        loading={remover.isPending}
+        onConfirm={() => confirmExcluir && remover.mutate(confirmExcluir.id)}
+      />
     </div>
   );
 }
