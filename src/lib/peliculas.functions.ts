@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 export const buscarModelosCompativeis = createServerFn({ method: "POST" })
-  .inputValidator((data) => z.object({ modelo: z.string() }).parse(data))
+  .validator((data) => z.object({ modelo: z.string() }).parse(data))
   .handler(async ({ data }) => {
     // Note: Em um ambiente real, aqui chamaríamos a API da OpenAI/Anthropic via AI Gateway.
     // Como estamos simulando a lógica de IA dentro da instrução, vou retornar uma resposta estruturada.

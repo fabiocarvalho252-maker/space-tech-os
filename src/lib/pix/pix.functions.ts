@@ -20,7 +20,7 @@ const schema = z.object({
 
 export const criarCobrancaPixFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => schema.parse(data))
+  .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }): Promise<Cobranca> => {
     const origin = new URL(getRequest().url).origin;
     return criarCobrancaPix({
@@ -38,7 +38,7 @@ export const criarCobrancaPixFn = createServerFn({ method: "POST" })
 // the payment directly against Mercado Pago's API instead of waiting.
 export const verificarPagamentoPixFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ cobrancaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ cobrancaId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }): Promise<void> => {
     await verificarPagamentoCobranca(data.cobrancaId, context.userId);
   });

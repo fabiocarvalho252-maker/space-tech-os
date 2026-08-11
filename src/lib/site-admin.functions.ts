@@ -99,7 +99,7 @@ const planoSchema = z.object({
 
 export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => planoSchema.parse(data))
+  .validator((data: unknown) => planoSchema.parse(data))
   .handler(async ({ data, context }) => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -124,7 +124,7 @@ function gerarSenhaAleatoria(): string {
 
 export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ senha: string }> => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

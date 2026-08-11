@@ -53,7 +53,7 @@ const toolSpecs = TOOLS.map((t) => ({
 
 export const enviarMensagemIA = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => entradaSchema.parse(data))
+  .validator((data: unknown) => entradaSchema.parse(data))
   .handler(async ({ data, context }): Promise<{ resposta: string | null; erro: string | null }> => {
     if (!dentroDoLimite(context.userId)) {
       return {

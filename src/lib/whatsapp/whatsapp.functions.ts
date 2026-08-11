@@ -54,7 +54,7 @@ const enviarSchema = z.object({
 
 export const enviarMensagemWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => enviarSchema.parse(data))
+  .validator((data: unknown) => enviarSchema.parse(data))
   .handler(async ({ data, context }): Promise<WhatsappMensagem> => {
     return whatsappService.enviarMensagem(context.userId, data.numero, data.mensagem);
   });
@@ -79,7 +79,7 @@ const notificacaoOsSchema = z.object({
 // other table) and, for scheduled sends, the "sent_by" attribution.
 export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => notificacaoOsSchema.parse(data))
+  .validator((data: unknown) => notificacaoOsSchema.parse(data))
   .handler(async ({ data, context }): Promise<WhatsappMensagem> => {
     return whatsappService.enviarNotificacaoOs({
       userId: context.userId,

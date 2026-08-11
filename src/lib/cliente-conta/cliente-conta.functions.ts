@@ -124,7 +124,7 @@ const dadosSchema = z.object({
 
 export const atualizarMeusDados = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => dadosSchema.parse(data))
+  .validator((data: unknown) => dadosSchema.parse(data))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const { error } = await supabaseAdmin
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
@@ -157,7 +157,7 @@ export type AcessoClienteResultado = { link: string; nome: string; telefone: str
 // rejected below, same as it would anywhere else in the app.
 export const gerarAcessoCliente = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => gerarAcessoSchema.parse(data))
+  .validator((data: unknown) => gerarAcessoSchema.parse(data))
   .handler(async ({ data, context }): Promise<AcessoClienteResultado> => {
     const { data: cliente, error } = await context.supabase
       .from("clientes")
