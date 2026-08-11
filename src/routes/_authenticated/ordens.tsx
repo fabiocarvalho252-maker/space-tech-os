@@ -22,6 +22,7 @@ import {
   Wand2,
   MoreVertical,
   Undo2,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -41,7 +42,10 @@ import { OsFotos } from "@/components/OsFotos";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
+import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
+import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
+import { processarNotificacoesAgendadasWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -92,8 +96,63 @@ const vazio = {
   status: "recebido",
   senha_dispositivo: "",
   padrao_desbloqueio: "",
+  responsavel: "",
   itens: [] as any[],
 };
+
+// Checklist funcional de entrada — cada item aceita 4 estados possíveis.
+const CHECKLIST_STATUS = [
+  {
+    value: "ok",
+    label: "OK",
+    className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  },
+  { value: "defeito", label: "Defeito", className: "bg-red-500/10 text-red-600 border-red-500/20" },
+  {
+    value: "nao_testado",
+    label: "Não testado",
+    className: "bg-secondary text-muted-foreground border-border",
+  },
+  {
+    value: "nao_se_aplica",
+    label: "N/A",
+    className: "bg-secondary text-muted-foreground border-border",
+  },
+] as const;
+
+const CHECKLIST_ITENS = [
+  { key: "liga", label: "Liga" },
+  { key: "desliga", label: "Desliga" },
+  { key: "tela", label: "Tela" },
+  { key: "touch", label: "Touch" },
+  { key: "cameras", label: "Câmeras" },
+  { key: "flash", label: "Flash" },
+  { key: "alto_falante", label: "Alto-falante" },
+  { key: "microfone", label: "Microfone" },
+  { key: "vibracao", label: "Vibração" },
+  { key: "wifi", label: "Wi-Fi" },
+  { key: "bluetooth", label: "Bluetooth" },
+  { key: "rede_movel", label: "Rede móvel" },
+  { key: "carregamento", label: "Carregamento" },
+  { key: "biometria", label: "Biometria" },
+  { key: "face_id", label: "Face ID" },
+  { key: "botoes", label: "Botões" },
+  { key: "sensores", label: "Sensores" },
+  { key: "nfc", label: "NFC" },
+] as const;
+
+const ESTADO_FISICO_ITENS = [
+  { key: "tela_trincada", label: "Tela trincada" },
+  { key: "tela_riscada", label: "Tela riscada" },
+  { key: "tampa_quebrada", label: "Tampa traseira quebrada" },
+  { key: "carcaca_amassada", label: "Carcaça amassada" },
+  { key: "camera_danificada", label: "Câmera danificada" },
+  { key: "oxidacao", label: "Oxidação" },
+  { key: "sinais_liquido", label: "Sinais de líquido" },
+  { key: "parafusos_ausentes", label: "Parafusos ausentes" },
+  { key: "lacre_violado", label: "Lacre violado" },
+  { key: "outros", label: "Outros" },
+] as const;
 
 function Ordens() {
   const qc = useQueryClient();
@@ -137,6 +196,12 @@ function Ordens() {
   const [valorPago, setValorPago] = useState("0");
   const [statusPagamento, setStatusPagamento] = useState("pendente");
   const [verSenha, setVerSenha] = useState(false);
+  const [checklist, setChecklist] = useState<Record<string, string>>({});
+  const [estadoFisico, setEstadoFisico] = useState<Record<string, boolean>>({});
+  const [estadoFisicoObs, setEstadoFisicoObs] = useState("");
+  const [garantiaDias, setGarantiaDias] = useState("");
+  const [dataEntrega, setDataEntrega] = useState("");
+  const [previsaoData, setPrevisaoData] = useState("");
   const itemVazio = { descricao: "", observacao: "", preco_unitario: "", quantidade: "1" };
   const [novoProduto, setNovoProduto] = useState(itemVazio);
   const [novoServico, setNovoServico] = useState(itemVazio);
@@ -195,6 +260,12 @@ function Ordens() {
     setDesconto(String(os.desconto ?? 0));
     setValorPago(String(os.valor_pago ?? 0));
     setStatusPagamento(os.status_pagamento || "pendente");
+    setChecklist(os.checklist_entrada || {});
+    setEstadoFisico(os.estado_fisico || {});
+    setEstadoFisicoObs(os.estado_fisico_obs || "");
+    setGarantiaDias(os.garantia_dias != null ? String(os.garantia_dias) : "");
+    setDataEntrega(os.data_entrega ? os.data_entrega.slice(0, 10) : "");
+    setPrevisaoData(os.previsao || "");
     setForm({
       cliente_id: os.cliente_id || "",
       aparelho: os.aparelho,
@@ -209,6 +280,7 @@ function Ordens() {
       status: os.status,
       senha_dispositivo: os.senha_dispositivo || "",
       padrao_desbloqueio: os.padrao_desbloqueio || "",
+      responsavel: os.responsavel || "",
       itens: [],
     });
     setEditOpen(true);
@@ -261,6 +333,22 @@ function Ordens() {
     },
   });
 
+  // Não existe fila/worker real para "Agendar na fila" no WhatsApp — a
+  // melhor aproximação sem infraestrutura nova é disparar o que já venceu
+  // sempre que alguém abrir a tela de Ordens.
+  useQuery({
+    queryKey: ["whatsapp-notificacoes-agendadas-flush"],
+    queryFn: async () => {
+      const resultado = await processarNotificacoesAgendadasWhatsAppFn();
+      if (resultado.processadas > 0) {
+        qc.invalidateQueries({ queryKey: ["os-historico"] });
+      }
+      return resultado;
+    },
+    staleTime: 5 * 60_000,
+    enabled: !!user,
+  });
+
   useEffect(() => {
     if (!searchParams.os || !ordens.length) return;
     const alvo = ordens.find((o: any) => o.id === searchParams.os);
@@ -306,6 +394,7 @@ function Ordens() {
           cor: form.cor,
           senha_dispositivo: form.senha_dispositivo,
           padrao_desbloqueio: form.padrao_desbloqueio,
+          responsavel: form.responsavel || null,
           defeito: form.defeito,
           diagnostico: form.diagnostico,
           valor: Number(form.valor) || 0,
@@ -358,6 +447,7 @@ function Ordens() {
           cor: form.cor,
           senha_dispositivo: form.senha_dispositivo,
           padrao_desbloqueio: form.padrao_desbloqueio,
+          responsavel: form.responsavel || null,
           defeito: form.defeito,
           diagnostico: form.diagnostico,
           laudo_tecnico: laudo,
@@ -367,6 +457,12 @@ function Ordens() {
           status_pagamento: statusPagamento,
           valor: totalOs,
           status: form.status,
+          checklist_entrada: checklist,
+          estado_fisico: estadoFisico,
+          estado_fisico_obs: estadoFisicoObs || null,
+          garantia_dias: garantiaDias ? Number(garantiaDias) : null,
+          data_entrega: dataEntrega || null,
+          previsao: previsaoData || null,
         } as any)
         .eq("id", selectedOsId);
 
@@ -419,6 +515,20 @@ function Ordens() {
     enabled: !!user,
   });
 
+  const { data: historico = [] } = useQuery({
+    queryKey: ["os-historico", selectedOsId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("os_historico" as any)
+        .select("*")
+        .eq("os_id", selectedOsId as string)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!selectedOsId && editOpen,
+  });
+
   const mudarStatus = useMutation({
     mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
       // Validar fluxo se houver fluxos configurados
@@ -434,9 +544,10 @@ function Ordens() {
       const { error } = await supabase.from("ordens_servico").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["ordens"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["os-historico", variables.id] });
       toast.success("Status atualizado");
     },
     onError: (error: Error) => {
@@ -475,6 +586,26 @@ function Ordens() {
   function enviarWhatsAppOs(os: any) {
     setWhatsappOs(os);
     setWhatsappOpen(true);
+  }
+
+  const [acesso, setAcesso] = useState<ClienteAcesso | null>(null);
+  const [acessoOpen, setAcessoOpen] = useState(false);
+
+  const gerarAcesso = useMutation({
+    mutationFn: (clienteId: string) => gerarAcessoCliente({ data: { clienteId } }),
+    onSuccess: (res) => {
+      setAcesso(res);
+      setAcessoOpen(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function gerarAcessoOs(os: any) {
+    if (!os.cliente_id) {
+      toast.error("Esta OS não tem um cliente vinculado.");
+      return;
+    }
+    gerarAcesso.mutate(os.cliente_id);
   }
 
   const estornar = useMutation({
@@ -525,7 +656,7 @@ function Ordens() {
     );
 
     // Buscar o termo padrão e a configuração de OS
-    const [{ data: termo }, { data: osConfigData }, { data: fotos }] = await Promise.all([
+    const [{ data: termo }, { data: osConfigData }, { data: fotosData }] = await Promise.all([
       supabase
         .from("termos_garantia")
         .select("conteudo")
@@ -540,10 +671,14 @@ function Ordens() {
       supabase
         .from("service_order_photos" as any)
         .select("*")
-        .eq("os_id", os.id),
+        .eq("service_order_id", os.id),
     ]);
 
     const osConfig = osConfigData as any;
+    // `.from(x as any)` above makes postgrest-js fall back to an opaque
+    // SelectQueryError element type it can't statically resolve — cast once
+    // here instead of at every access site below.
+    const fotos = (fotosData ?? []) as any[];
 
     // Gerar QR Code se configurado
     let qrCodeHtml = "";
@@ -557,20 +692,35 @@ function Ordens() {
       );
     }
 
-    // Gerar HTML de fotos se configurado
+    // Gerar HTML de fotos se configurado (bucket "os-fotos" é privado — precisa
+    // de signed URL, a public URL retornaria 400/403 em silêncio na <img>)
     let fotosHtml = "";
-    if (osConfig?.exibir_fotos_impressao && fotos && fotos.length > 0) {
+    const fotosGaleria = fotos.filter(
+      (f: any) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
+    );
+    if (osConfig?.exibir_fotos_impressao && fotosGaleria.length > 0) {
+      const fotosComUrl = await Promise.all(
+        fotosGaleria.map(async (f: any) => {
+          const { data: signed } = await supabase.storage
+            .from("os-fotos")
+            .createSignedUrl(f.url, 3600);
+          return { ...f, src: signed?.signedUrl ?? "" };
+        }),
+      );
+      const legenda = (cat: string) =>
+        cat === "entrada" ? "Entrada" : cat === "durante" ? "Durante" : "Saída";
       fotosHtml = `
         <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
           <h3 style="font-size: 14px; margin-bottom: 10px;">Fotos do Equipamento</h3>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            ${fotos
+            ${fotosComUrl
+              .filter((f) => f.src)
               .map(
                 (f: any) => `
               <div style="text-align: center;">
-                <img src="${supabase.storage.from("os-fotos").getPublicUrl(f.file_path).data.publicUrl}" 
+                <img src="${f.src}"
                      style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" />
-                <p style="font-size: 8px; color: #999; margin-top: 2px;">${f.phase === "entrada" ? "Entrada" : f.phase === "reparo" ? "Durante" : "Saída"}</p>
+                <p style="font-size: 8px; color: #999; margin-top: 2px;">${legenda(f.category)}</p>
               </div>
             `,
               )
@@ -579,6 +729,58 @@ function Ordens() {
         </div>
       `;
     }
+
+    // Assinaturas reais, quando já coletadas — senão, linha em branco para
+    // assinar na hora (mantido no rodapé abaixo).
+    const assinaturaCliente = fotos.find((f: any) => f.category === "assinatura_cliente");
+    const assinaturaTecnico = fotos.find((f: any) => f.category === "assinatura_tecnico");
+    const [assinaturaClienteSrc, assinaturaTecnicoSrc] = await Promise.all([
+      assinaturaCliente
+        ? supabase.storage
+            .from("os-fotos")
+            .createSignedUrl(assinaturaCliente.url, 3600)
+            .then((r) => r.data?.signedUrl ?? "")
+        : Promise.resolve(""),
+      assinaturaTecnico
+        ? supabase.storage
+            .from("os-fotos")
+            .createSignedUrl(assinaturaTecnico.url, 3600)
+            .then((r) => r.data?.signedUrl ?? "")
+        : Promise.resolve(""),
+    ]);
+
+    // Checklist técnico e estado físico — só imprime o que foi de fato
+    // preenchido (evita poluir o A4 de OS simples que não usaram a aba).
+    const checklistEntrada = ((os as any).checklist_entrada || {}) as Record<string, string>;
+    const checklistPreenchido = CHECKLIST_ITENS.filter((i) => checklistEntrada[i.key]);
+    const checklistHtml = checklistPreenchido.length
+      ? `
+        <div style="margin-top: 20px;">
+          <h3 style="font-size: 14px; margin-bottom: 8px;">Checklist de Entrada</h3>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 10px;">
+            ${checklistPreenchido
+              .map(
+                (i) =>
+                  `<div>${i.label}: <strong>${CHECKLIST_STATUS.find((s) => s.value === checklistEntrada[i.key])?.label ?? "—"}</strong></div>`,
+              )
+              .join("")}
+          </div>
+        </div>
+      `
+      : "";
+
+    const estadoFisicoOs = ((os as any).estado_fisico || {}) as Record<string, boolean>;
+    const estadoFisicoMarcado = ESTADO_FISICO_ITENS.filter((i) => estadoFisicoOs[i.key]);
+    const estadoFisicoHtml =
+      estadoFisicoMarcado.length || (os as any).estado_fisico_obs
+        ? `
+        <div style="margin-top: 20px;">
+          <h3 style="font-size: 14px; margin-bottom: 8px;">Estado Físico do Aparelho</h3>
+          <p style="font-size: 10px;">${estadoFisicoMarcado.map((i) => i.label).join(", ") || "Sem avarias marcadas."}</p>
+          ${(os as any).estado_fisico_obs ? `<p style="font-size: 10px; color: #666;">${(os as any).estado_fisico_obs}</p>` : ""}
+        </div>
+      `
+        : "";
 
     const tituloDoc = modo === "orcamento" ? "Orçamento" : "Ordem de Serviço";
     const conteudoVias = [];
@@ -606,21 +808,31 @@ function Ordens() {
             <tr><td>Padrão</td><td>${(os as any).padrao_desbloqueio ? `Sequência: ${(os as any).padrao_desbloqueio}` : "—"}</td></tr>
             <tr><td>Defeito relatado</td><td>${os.defeito ?? "—"}</td></tr>
             <tr><td>Diagnóstico</td><td>${os.diagnostico ?? "—"}</td></tr>
+            <tr><td>Garantia</td><td>${(os as any).garantia_dias ? `${(os as any).garantia_dias} dias` : "—"}${(os as any).garantia_vencimento ? ` — válida até ${dataBR((os as any).garantia_vencimento)}` : ""}</td></tr>
           </table>
 
           <p class="total">Total: ${brl(os.valor)}</p>
           ${modo === "nao_fiscal" ? '<p style="font-size:10px;color:#999;margin-top:4px;">Documento sem valor fiscal.</p>' : ""}
 
+          ${checklistHtml}
+          ${estadoFisicoHtml}
+
           ${termo?.conteudo ? `<div class="garantia"><strong>Termos de Garantia:</strong><br>${termo.conteudo}</div>` : ""}
           ${osConfig?.termos_condicoes ? `<div class="condicoes"><strong>Condições do Orçamento:</strong><br>${osConfig.termos_condicoes}</div>` : ""}
-          
+
           ${qrCodeHtml}
           ${fotosHtml}
           
           <footer style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px;">
             <div style="display: flex; justify-content: space-between;">
-              <div style="width: 45%; border-top: 1px solid #000; margin-top: 30px; text-align: center; font-size: 10px;">Assinatura do Cliente</div>
-              <div style="width: 45%; border-top: 1px solid #000; margin-top: 30px; text-align: center; font-size: 10px;">Assinatura do Técnico</div>
+              <div style="width: 45%; text-align: center; font-size: 10px;">
+                ${assinaturaClienteSrc ? `<img src="${assinaturaClienteSrc}" style="max-height: 60px; margin-bottom: 4px;" />` : ""}
+                <div style="border-top: 1px solid #000; margin-top: 6px; padding-top: 4px;">Assinatura do Cliente</div>
+              </div>
+              <div style="width: 45%; text-align: center; font-size: 10px;">
+                ${assinaturaTecnicoSrc ? `<img src="${assinaturaTecnicoSrc}" style="max-height: 60px; margin-bottom: 4px;" />` : ""}
+                <div style="border-top: 1px solid #000; margin-top: 6px; padding-top: 4px;">Assinatura do Técnico</div>
+              </div>
             </div>
           </footer>
         </div>
@@ -681,13 +893,11 @@ function Ordens() {
     return base;
   }, [ordens, filtro, filtrosAvancados]);
 
-  const getVencimentoGarantia = (dataFinal: string | null) => {
-    if (!dataFinal) return "—";
-    const date = new Date(dataFinal);
-    // Use mid-day to avoid TZ shifts and ensure calculation is from "Data Final"
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + 90);
-    return date.toLocaleDateString("pt-BR");
+  // garantia_vencimento vem pronto do banco (data_entrega + garantia_dias da
+  // própria OS) — só existe depois que o aparelho foi de fato entregue.
+  const getVencimentoGarantia = (garantiaVencimento: string | null) => {
+    if (!garantiaVencimento) return "—";
+    return dataBR(garantiaVencimento);
   };
 
   return (
@@ -746,6 +956,11 @@ function Ordens() {
                   label="IMEI / Serial"
                   value={form.imei}
                   onChange={(v) => setForm({ ...form, imei: v })}
+                />
+                <Campo
+                  label="Técnico responsável"
+                  value={form.responsavel}
+                  onChange={(v) => setForm({ ...form, responsavel: v })}
                 />
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Senha (PIN)</Label>
@@ -1053,7 +1268,9 @@ function Ordens() {
                     <span className="text-xs text-primary">{dataBR(os.previsao)}</span>
                   </div>
                 </td>
-                <td className="p-4 text-muted-foreground">{getVencimentoGarantia(os.previsao)}</td>
+                <td className="p-4 text-muted-foreground">
+                  {getVencimentoGarantia(os.garantia_vencimento)}
+                </td>
                 <td className="p-4">
                   <div className="flex flex-col">
                     <span className="font-extrabold text-primary text-base">{brl(os.valor)}</span>
@@ -1123,6 +1340,7 @@ function Ordens() {
                       os={os}
                       onImprimir={imprimir}
                       onWhatsApp={enviarWhatsAppOs}
+                      onGerarAcesso={gerarAcessoOs}
                       onAssinatura={(o) => {
                         setAssinaturaOs(o);
                         setAssinaturaOpen(true);
@@ -1178,7 +1396,7 @@ function Ordens() {
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span>Aberta: {dataBR(os.created_at)}</span>
               <span className="text-primary">Previsão: {dataBR(os.previsao)}</span>
-              <span>Garantia: {getVencimentoGarantia(os.previsao)}</span>
+              <span>Garantia: {getVencimentoGarantia(os.garantia_vencimento)}</span>
             </div>
 
             <select
@@ -1238,6 +1456,7 @@ function Ordens() {
                 os={os}
                 onImprimir={imprimir}
                 onWhatsApp={enviarWhatsAppOs}
+                onGerarAcesso={gerarAcessoOs}
                 onAssinatura={(o) => {
                   setAssinaturaOs(o);
                   setAssinaturaOpen(true);
@@ -1305,6 +1524,9 @@ function Ordens() {
               <TabsTrigger value="fotos">Imagens e Fotos</TabsTrigger>
               <TabsTrigger value="anotacoes">Anotações</TabsTrigger>
               <TabsTrigger value="checklist">Checklist</TabsTrigger>
+              <TabsTrigger value="estado-fisico">Estado Físico</TabsTrigger>
+              <TabsTrigger value="garantia">Garantia</TabsTrigger>
+              <TabsTrigger value="historico">Histórico</TabsTrigger>
               <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
             </TabsList>
 
@@ -1370,6 +1592,11 @@ function Ordens() {
                     ))}
                   </select>
                 </div>
+                <Campo
+                  label="Técnico responsável"
+                  value={form.responsavel}
+                  onChange={(v) => setForm({ ...form, responsavel: v })}
+                />
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Defeito relatado</Label>
                   <Textarea
@@ -1628,6 +1855,152 @@ function Ordens() {
                   className="mt-2"
                 />
               </div>
+
+              <div className="space-y-3 border-t border-border pt-4">
+                <Label className="text-base font-bold">Checklist de entrada</Label>
+                <p className="text-xs text-muted-foreground">
+                  Registre o estado de cada item no momento em que o aparelho foi recebido.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {CHECKLIST_ITENS.map((item) => {
+                    const atual = checklist[item.key] || "nao_testado";
+                    return (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-border p-2"
+                      >
+                        <span className="text-sm font-medium">{item.label}</span>
+                        <div className="flex gap-1">
+                          {CHECKLIST_STATUS.map((s) => (
+                            <button
+                              key={s.value}
+                              type="button"
+                              title={s.label}
+                              onClick={() => setChecklist({ ...checklist, [item.key]: s.value })}
+                              className={`h-7 rounded-md border px-2 text-[11px] font-semibold transition ${
+                                atual === s.value
+                                  ? s.className
+                                  : "border-border bg-transparent text-muted-foreground/50 hover:bg-muted"
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ESTADO FÍSICO */}
+            <TabsContent value="estado-fisico" className="mt-4 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Marque as avarias visíveis no aparelho no momento da entrada.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {ESTADO_FISICO_ITENS.map((item) => (
+                  <label
+                    key={item.key}
+                    className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm cursor-pointer hover:bg-muted/30"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!estadoFisico[item.key]}
+                      onChange={(e) =>
+                        setEstadoFisico({ ...estadoFisico, [item.key]: e.target.checked })
+                      }
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Observações sobre o estado físico</Label>
+                <Textarea
+                  rows={4}
+                  value={estadoFisicoObs}
+                  onChange={(e) => setEstadoFisicoObs(e.target.value)}
+                  placeholder="Detalhe as avarias marcadas acima, se necessário"
+                />
+              </div>
+            </TabsContent>
+
+            {/* GARANTIA */}
+            <TabsContent value="garantia" className="mt-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Data inicial</Label>
+                  <Input
+                    disabled
+                    value={dataBR(ordens.find((o) => o.id === selectedOsId)?.created_at)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data prevista</Label>
+                  <Input
+                    type="date"
+                    value={previsaoData}
+                    onChange={(e) => setPrevisaoData(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data de entrega</Label>
+                  <Input
+                    type="date"
+                    value={dataEntrega}
+                    onChange={(e) => setDataEntrega(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Preenchida automaticamente ao marcar a OS como "Entregue".
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Prazo de garantia (dias)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={garantiaDias}
+                    onChange={(e) => setGarantiaDias(e.target.value)}
+                    placeholder="Ex: 90"
+                  />
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vencimento da garantia</span>
+                  <strong className="text-primary">
+                    {dataBR(ordens.find((o) => o.id === selectedOsId)?.garantia_vencimento) || "—"}
+                  </strong>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Calculado a partir da data de entrega + prazo de garantia. Salve a OS após
+                  informar a data de entrega para ver o vencimento atualizado.
+                </p>
+              </div>
+            </TabsContent>
+
+            {/* HISTÓRICO */}
+            <TabsContent value="historico" className="mt-4">
+              {historico.length ? (
+                <ol className="space-y-4 border-l-2 border-border pl-4">
+                  {historico.map((h: any) => (
+                    <li key={h.id} className="relative">
+                      <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                      <p className="text-sm font-medium">{h.descricao}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(h.created_at).toLocaleString("pt-BR")}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="py-12 text-center text-sm text-muted-foreground">
+                  Nenhum evento registrado ainda.
+                </p>
+              )}
             </TabsContent>
 
             {/* PAGAMENTOS */}
@@ -1714,11 +2087,24 @@ function Ordens() {
         </DialogContent>
       </Dialog>
 
-      <FaturarOsModal osId={selectedOsId} open={faturarOpen} onOpenChange={setFaturarOpen} />
+      <FaturarOsModal
+        osId={selectedOsId}
+        open={faturarOpen}
+        onOpenChange={setFaturarOpen}
+        onFaturado={(os) => {
+          setWhatsappOs(os);
+          setWhatsappOpen(true);
+        }}
+      />
 
       <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+      <ClienteAcessoModal acesso={acesso} open={acessoOpen} onOpenChange={setAcessoOpen} />
 
-      <AssinaturaDigitalModal os={assinaturaOs} open={assinaturaOpen} onOpenChange={setAssinaturaOpen} />
+      <AssinaturaDigitalModal
+        os={assinaturaOs}
+        open={assinaturaOpen}
+        onOpenChange={setAssinaturaOpen}
+      />
 
       <ConfirmDialog
         open={!!confirmExcluirOs}
@@ -1757,6 +2143,7 @@ function AcoesOsMenu({
   os,
   onImprimir,
   onWhatsApp,
+  onGerarAcesso,
   onAssinatura,
   onEstornar,
   navigate,
@@ -1764,6 +2151,7 @@ function AcoesOsMenu({
   os: any;
   onImprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
   onWhatsApp: (os: any) => void;
+  onGerarAcesso: (os: any) => void;
   onAssinatura: (os: any) => void;
   onEstornar: (os: any) => void;
   navigate: ReturnType<typeof useNavigate>;
@@ -1784,11 +2172,12 @@ function AcoesOsMenu({
         <DropdownMenuItem onClick={() => onImprimir(os, "nao_fiscal")}>
           Imprimir não fiscal
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAssinatura(os)}>
-          Assinatura digital
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onAssinatura(os)}>Assinatura digital</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onWhatsApp(os)}>Enviar por WhatsApp</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onGerarAcesso(os)}>
+          <KeyRound className="mr-2 h-4 w-4" /> Gerar acesso do cliente
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate({ to: "/cobrancas" })}>
           Emitir cobrança
         </DropdownMenuItem>

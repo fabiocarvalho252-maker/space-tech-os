@@ -21,6 +21,8 @@ export const STATUS_OS = [
   { value: "aguardando_peca", label: "Aguardando peça" },
   { value: "pronto", label: "Pronto" },
   { value: "entregue", label: "Entregue" },
+  { value: "faturado", label: "Faturado" },
+  { value: "reprovado", label: "Reprovado" },
   { value: "cancelado", label: "Cancelado" },
 ] as const;
 
