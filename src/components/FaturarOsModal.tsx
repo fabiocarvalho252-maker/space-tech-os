@@ -66,6 +66,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
 
 const OUTRO = "__outro__";
 const hojeISO = () => format(new Date(), "yyyy-MM-dd");
@@ -137,9 +138,11 @@ type FaturarOsModalProps = {
   osId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Chamado após faturar com sucesso, com a OS já com status "faturado" — usado para oferecer o envio da notificação por WhatsApp. */
+  onFaturado?: (os: WhatsAppOsAlvo) => void;
 };
 
-export function FaturarOsModal({ osId, open, onOpenChange }: FaturarOsModalProps) {
+export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: FaturarOsModalProps) {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: minhaEmpresa } = useMinhaEmpresa();
@@ -353,10 +356,7 @@ export function FaturarOsModal({ osId, open, onOpenChange }: FaturarOsModalProps
   }
 
   function adicionarTecnico() {
-    setTecnicos((ts) => [
-      ...ts,
-      { id: randomId(), membro_user_id: "", nome_livre: "", valor: 0 },
-    ]);
+    setTecnicos((ts) => [...ts, { id: randomId(), membro_user_id: "", nome_livre: "", valor: 0 }]);
     setSujo(true);
   }
   function removerTecnico(id: string) {
@@ -442,6 +442,7 @@ export function FaturarOsModal({ osId, open, onOpenChange }: FaturarOsModalProps
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
       setSujo(false);
       onOpenChange(false);
+      if (os) onFaturado?.({ ...os, status: "faturado" });
     },
     onError: (e: Error) => {
       setErro(e.message || "Não foi possível faturar a OS. Tente novamente.");

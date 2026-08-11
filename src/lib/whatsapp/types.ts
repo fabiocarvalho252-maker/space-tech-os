@@ -25,7 +25,13 @@ export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type WhatsappMensagemDirecao = "inbound" | "outbound";
-export type WhatsappMensagemStatus = "pendente" | "enviado" | "falhou" | "recebido";
+export type WhatsappMensagemStatus = "pendente" | "enviado" | "falhou" | "recebido" | "agendado";
+
+export type WhatsappAnexoRegistro = {
+  tipo: "os" | "orcamento";
+  nome: string;
+  status: "pendente" | "enviado" | "falhou";
+};
 
 export type WhatsappMensagem = {
   id: string;
@@ -38,5 +44,11 @@ export type WhatsappMensagem = {
   status: WhatsappMensagemStatus;
   evolution_message_id: string | null;
   metadata: JsonValue | null;
+  os_id: string | null;
+  template_id: string | null;
+  attachments: WhatsappAnexoRegistro[];
+  scheduled_at: string | null;
+  error: string | null;
+  sent_by: string | null;
   created_at: string;
 };

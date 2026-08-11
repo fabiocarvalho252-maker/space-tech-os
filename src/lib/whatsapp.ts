@@ -44,12 +44,18 @@ export type VariaveisWhatsApp = Partial<{
   cliente: string;
   os: string;
   numero: string;
+  numero_os: string;
   valor: string;
   empresa: string;
+  nome_loja: string;
   data: string;
   telefone: string;
   status: string;
   tecnico: string;
+  aparelho: string;
+  modelo: string;
+  servico: string;
+  garantia: string;
 }>;
 
 // Supports both the {variavel} syntax from the spec and the {{variavel}}
@@ -87,77 +93,115 @@ export async function solicitarQrCodeWhatsApp(): Promise<{ qr: string }> {
   throw new WhatsAppNaoConfiguradoError();
 }
 
-export type MensagemRapida = {
+export type WhatsAppMessageTemplate = {
   id: string;
-  label: string;
-  texto: string;
-  /** true para as geradas por padrão neste modal — chips editados/adicionados pelo usuário ficam false */
+  name: string;
+  message: string;
+  /** true para os templates padrão do sistema — chips editados/adicionados pelo usuário ficam false */
   builtin?: boolean;
 };
 
-// Builds the "mensagens rápidas" chip bank from the message templates that
-// genuinely exist (whatsapp_config's saved texts) plus a handful of sensible
-// status-based defaults. Nothing here is persisted beyond this component's
-// state — there's no backend for arbitrary custom templates yet (see
-// WhatsAppSendModal's "Editar"/"+ Nova mensagem" — those edits are
-// session-only, matching the config table's fixed set of columns).
-export function buildMensagensRapidas(whatsappConfig: Record<string, unknown> | null | undefined): MensagemRapida[] {
+export type WhatsAppAttachmentKind = "os" | "orcamento";
+export type WhatsAppAttachment = {
+  tipo: WhatsAppAttachmentKind;
+  nome: string;
+  status: "pendente" | "enviado" | "falhou";
+};
+
+export type WhatsAppSchedule = { tipo: "agora" } | { tipo: "fila"; data: string; hora: string };
+
+export type WhatsAppNotification = {
+  osId: string;
+  telefone: string;
+  mensagem: string;
+  templateId: string | null;
+  anexos: { os: boolean; orcamento: boolean };
+  agendamento: WhatsAppSchedule;
+};
+
+/** @deprecated use WhatsAppMessageTemplate — kept only so old imports don't break mid-refactor. */
+export type MensagemRapida = WhatsAppMessageTemplate;
+
+// The 8 base templates from the spec, defined as data (not hardcoded JSX in
+// the modal) so "+ Nova mensagem" can append to this same shape and "Editar"
+// can point at real persisted overrides — see buildMensagensRapidas, which
+// merges whatsapp_config's saved texts (Configurações → WhatsApp) on top of
+// these defaults for the 3 templates that already have a dedicated column
+// there.
+export const messageTemplates: WhatsAppMessageTemplate[] = [
+  {
+    id: "padrao",
+    name: "Padrão",
+    builtin: true,
+    message: "Olá {cliente}! Sua OS nº {numero_os} está com status: {status}. Total: {valor}.",
+  },
+  {
+    id: "nova_os",
+    name: "Nova OS",
+    builtin: true,
+    message: "Olá {cliente}, sua OS nº {numero_os} foi aberta com sucesso!",
+  },
+  {
+    id: "os_atualizada",
+    name: "OS atualizada",
+    builtin: true,
+    message: "Olá {cliente}, sua OS nº {numero_os} foi atualizada para o status: {status}.",
+  },
+  {
+    id: "pos_atendimento",
+    name: "Pós-atendimento",
+    builtin: true,
+    message: "Olá {cliente}, como foi sua experiência com a OS nº {numero_os}?",
+  },
+  {
+    id: "pronto_retirar",
+    name: "Pronto p/ retirar",
+    builtin: true,
+    message:
+      "Olá {cliente}! Sua OS nº {numero_os} está pronta para retirada. Valor: {valor}. Aguardamos você!",
+  },
+  {
+    id: "aguardando_peca",
+    name: "Aguardando peça",
+    builtin: true,
+    message:
+      "Olá {cliente}, sua OS nº {numero_os} está aguardando a chegada de uma peça. Assim que chegar, avisamos você.",
+  },
+  {
+    id: "em_analise",
+    name: "Em análise",
+    builtin: true,
+    message:
+      "Olá {cliente}, seu aparelho da OS nº {numero_os} está em análise técnica. Em breve traremos novidades.",
+  },
+  {
+    id: "orcamento",
+    name: "Orçamento / valor",
+    builtin: true,
+    message:
+      "Olá {cliente}! O orçamento da OS nº {numero_os} ficou em {valor}. Podemos prosseguir?",
+  },
+];
+
+// Builds the "sugestões de mensagem" chip bank from messageTemplates,
+// overriding with whatsapp_config's saved texts where a dedicated column
+// exists (edited from Configurações → WhatsApp, linked from this modal's
+// "Editar" button). Templates without a saved column keep their built-in
+// default — there's no free-form template CRUD backend yet, so "+ Nova
+// mensagem" additions only persist for the current modal session.
+export function buildMensagensRapidas(
+  whatsappConfig: Record<string, unknown> | null | undefined,
+): WhatsAppMessageTemplate[] {
   const texto = (chave: string) => {
     const v = whatsappConfig?.[chave];
     return typeof v === "string" && v.trim() ? v : null;
   };
-  const lista: MensagemRapida[] = [
-    {
-      id: "padrao",
-      label: "Padrão",
-      builtin: true,
-      texto: "Olá {cliente}! Sua OS nº {os} está com status: {status}. Total: {valor}.",
-    },
-  ];
-  lista.push({
-    id: "nova_os",
-    label: "Nova OS",
-    builtin: true,
-    texto: texto("notif_os_criada_texto") ?? "Olá {cliente}, sua OS nº {os} foi aberta com sucesso!",
-  });
-  lista.push({
-    id: "os_atualizada",
-    label: "OS atualizada",
-    builtin: true,
-    texto:
-      texto("notif_os_editada_texto") ??
-      "Olá {cliente}, sua OS nº {os} foi atualizada para o status: {status}.",
-  });
-  lista.push({
-    id: "pos_atendimento",
-    label: "Pós-atendimento",
-    builtin: true,
-    texto: texto("pesquisa_pos_os_texto") ?? "Olá {cliente}, como foi sua experiência com a OS nº {os}?",
-  });
-  lista.push({
-    id: "pronto_retirar",
-    label: "Pronto p/ retirar",
-    builtin: true,
-    texto: "Olá {cliente}! Sua OS nº {os} está pronta para retirada. Valor: {valor}. Aguardamos você!",
-  });
-  lista.push({
-    id: "aguardando_peca",
-    label: "Aguardando peça",
-    builtin: true,
-    texto:
-      "Olá {cliente}, sua OS nº {os} está aguardando a chegada de uma peça. Assim que chegar, avisamos você.",
-  });
-  lista.push({
-    id: "em_analise",
-    label: "Em análise",
-    builtin: true,
-    texto: "Olá {cliente}, seu aparelho da OS nº {os} está em análise técnica. Em breve traremos novidades.",
-  });
-  lista.push({
-    id: "orcamento",
-    label: "Orçamento / valor",
-    builtin: true,
-    texto: "Olá {cliente}! O orçamento da OS nº {os} ficou em {valor}. Podemos prosseguir?",
-  });
-  return lista;
+  const overrides: Record<string, string | null> = {
+    nova_os: texto("notif_os_criada_texto"),
+    os_atualizada: texto("notif_os_editada_texto"),
+    pos_atendimento: texto("pesquisa_pos_os_texto"),
+  };
+  return messageTemplates.map((t) =>
+    overrides[t.id] ? { ...t, message: overrides[t.id] as string } : t,
+  );
 }

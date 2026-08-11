@@ -12,6 +12,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import * as whatsappService from "./whatsapp-service";
 import type { WhatsappConexao, WhatsappMensagem } from "./types";
 
+const anexosSchema = z.object({ os: z.boolean(), orcamento: z.boolean() });
+const agendamentoSchema = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("agora") }),
+  z.object({ tipo: z.literal("fila"), scheduledAt: z.string().datetime() }),
+]);
+
 function origemAtual(): string {
   const request = getRequest();
   return new URL(request.url).origin;
@@ -57,4 +63,42 @@ export const listarMensagensWhatsapp = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappMensagem[]> => {
     return whatsappService.listarMensagensRecentes(context.userId);
+  });
+
+const notificacaoOsSchema = z.object({
+  osId: z.string().uuid(),
+  numero: z.string().trim().min(8).max(20),
+  mensagem: z.string().trim().max(4096),
+  templateId: z.string().nullable(),
+  anexos: anexosSchema,
+  agendamento: agendamentoSchema,
+});
+
+// Behind "Enviar notificação por WhatsApp" in the OS faturamento/notification
+// modal. context.userId doubles as both the empresa scope (matches every
+// other table) and, for scheduled sends, the "sent_by" attribution.
+export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => notificacaoOsSchema.parse(data))
+  .handler(async ({ data, context }): Promise<WhatsappMensagem> => {
+    return whatsappService.enviarNotificacaoOs({
+      userId: context.userId,
+      osId: data.osId,
+      numero: data.numero,
+      mensagem: data.mensagem,
+      templateId: data.templateId,
+      anexos: data.anexos,
+      agendamento: data.agendamento,
+      sentBy: context.userId,
+    });
+  });
+
+// Opportunistic "queue worker" — there is no cron in this project, so this
+// is called once when Ordens de Serviço loads (see ordens.tsx) to flush any
+// notification whose scheduled_at has already passed.
+export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ processadas: number }> => {
+    const processadas = await whatsappService.processarNotificacoesAgendadasOs(context.userId);
+    return { processadas };
   });

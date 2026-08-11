@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, MessageCircle, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, statusLabel } from "@/lib/format";
+import { brl, dataBR, statusLabel } from "@/lib/format";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useProfile } from "@/hooks/useCurrentUser";
 import {
   Dialog,
   DialogContent,
@@ -16,25 +13,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { enviarMensagemWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
+import { WhatsAppPhoneInput } from "@/components/whatsapp/WhatsAppPhoneInput";
+import { WhatsAppMessageTemplates } from "@/components/whatsapp/WhatsAppMessageTemplates";
+import { WhatsAppMessageEditor } from "@/components/whatsapp/WhatsAppMessageEditor";
+import { WhatsAppScheduleOptions } from "@/components/whatsapp/WhatsAppScheduleOptions";
+import { WhatsAppAttachmentOptions } from "@/components/whatsapp/WhatsAppAttachmentOptions";
+import { WhatsAppModalFooter } from "@/components/whatsapp/WhatsAppModalFooter";
+import { enviarNotificacaoOsWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
 import {
   buildMensagensRapidas,
   buildWaMeLink,
   digitsOnlyBR,
   isValidPhoneBR,
   maskPhoneBR,
-  possuiVariaveisNaoPreenchidas,
   preencherVariaveisWhatsApp,
+  type VariaveisWhatsApp,
+  type WhatsAppSchedule,
 } from "@/lib/whatsapp";
 
 // Any OS row shape from the ordens.tsx list/edit form is enough here — this
-// modal only ever reads the fields below.
+// modal only ever reads the fields below (select("*") already brings all of
+// them, since ordens.tsx's list query has no column projection).
 export type WhatsAppOsAlvo = {
+  id: string;
   numero: number;
   aparelho?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
   status: string;
   valor: number;
   responsavel?: string | null;
+  created_at?: string | null;
+  garantia_dias?: number | null;
   clientes?: { nome?: string | null; telefone?: string | null } | null;
 };
 
@@ -47,6 +57,10 @@ export function WhatsAppSendModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const qc = useQueryClient();
+  const { data: profile } = useProfile();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-config"],
     queryFn: async () => {
@@ -61,165 +75,174 @@ export function WhatsAppSendModal({
     enabled: open,
   });
 
-  const mensagens = useMemo(() => buildMensagensRapidas(whatsappConfig), [whatsappConfig]);
-  const [mensagemId, setMensagemId] = useState(mensagens[0]?.id ?? "padrao");
+  const templates = useMemo(() => buildMensagensRapidas(whatsappConfig), [whatsappConfig]);
+  const [templateId, setTemplateId] = useState<string | null>(templates[0]?.id ?? null);
   const [texto, setTexto] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [textoEditadoManualmente, setTextoEditadoManualmente] = useState(false);
+  const [editadoManualmente, setEditadoManualmente] = useState(false);
+  const [anexos, setAnexos] = useState({ os: false, orcamento: false });
+  const [agendamento, setAgendamento] = useState<WhatsAppSchedule>({ tipo: "agora" });
 
-  const variaveis = useMemo(
+  const variaveis: VariaveisWhatsApp = useMemo(
     () => ({
       cliente: os?.clientes?.nome ?? "",
       os: os ? String(os.numero) : "",
       numero: os ? String(os.numero) : "",
+      numero_os: os ? String(os.numero) : "",
       valor: os ? brl(os.valor) : "",
       status: os ? statusLabel(os.status) : "",
       tecnico: os?.responsavel ?? "",
+      aparelho: [os?.aparelho, os?.marca].filter(Boolean).join(" "),
+      modelo: os?.modelo ?? "",
+      data: os?.created_at ? dataBR(os.created_at) : "",
+      garantia: os?.garantia_dias ? `${os.garantia_dias} dias` : "",
+      nome_loja: (profile as any)?.loja ?? "",
+      empresa: (profile as any)?.loja ?? "",
+      telefone: (profile as any)?.whatsapp ?? "",
     }),
-    [os],
+    [os, profile],
   );
 
   // Reset to the first template + the client's own phone every time the
-  // modal is opened for a (possibly different) OS.
+  // modal is opened for a (possibly different) OS — but never wipe state
+  // while it's already open, so a backdrop-click-to-close-then-reopen (or a
+  // stray re-render) doesn't discard anything the user typed.
   useEffect(() => {
     if (!open || !os) return;
-    const primeira = mensagens[0];
-    setMensagemId(primeira?.id ?? "padrao");
-    setTexto(primeira ? preencherVariaveisWhatsApp(primeira.texto, variaveis) : "");
+    const primeira = templates[0];
+    setTemplateId(primeira?.id ?? null);
+    setTexto(primeira ? preencherVariaveisWhatsApp(primeira.message, variaveis) : "");
     setTelefone(maskPhoneBR(os.clientes?.telefone ?? ""));
-    setTextoEditadoManualmente(false);
+    setEditadoManualmente(false);
+    setAnexos({ os: false, orcamento: false });
+    setAgendamento({ tipo: "agora" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, os?.numero]);
+  }, [open, os?.id]);
 
-  function selecionarMensagem(id: string) {
-    setMensagemId(id);
-    const msg = mensagens.find((m) => m.id === id);
-    setTexto(msg ? preencherVariaveisWhatsApp(msg.texto, variaveis) : "");
-    setTextoEditadoManualmente(false);
+  function selecionarTemplate(id: string) {
+    setTemplateId(id);
+    const modelo = templates.find((t) => t.id === id);
+    setTexto(modelo ? preencherVariaveisWhatsApp(modelo.message, variaveis) : "");
+    setEditadoManualmente(false);
+  }
+
+  function novaMensagem() {
+    setTemplateId(null);
+    setTexto("");
+    setEditadoManualmente(true);
+    textareaRef.current?.focus();
   }
 
   const telefoneValido = isValidPhoneBR(telefone);
-  const faltamVariaveis = possuiVariaveisNaoPreenchidas(texto);
+  const orcamentoDisponivel = Number(os?.valor ?? 0) > 0;
   const isMobile = useIsMobile();
 
-  const enviarPelaConexao = useMutation({
-    mutationFn: () =>
-      enviarMensagemWhatsapp({ data: { numero: digitsOnlyBR(telefone), mensagem: texto } }),
-    onSuccess: (res) => {
-      if (res.status === "falhou") {
-        toast.error("Evolution API não confirmou o envio — verifique a conexão em WhatsApp.");
+  const agendamentoValido =
+    agendamento.tipo === "agora" || (!!agendamento.data && !!agendamento.hora);
+  const podeEnviar = telefoneValido && texto.trim().length > 0 && agendamentoValido;
+
+  const enviar = useMutation({
+    mutationFn: async () => {
+      if (!os) throw new Error("OS não carregada.");
+
+      // No celular, sem anexos e sem agendamento, deixa a pessoa mandar pelo
+      // próprio app do WhatsApp — mais natural do que depender da conexão da
+      // empresa. Anexos e agendamento sempre passam pelo servidor, já que o
+      // wa.me não suporta nem um nem outro.
+      if (isMobile && !anexos.os && !anexos.orcamento && agendamento.tipo === "agora") {
+        window.open(buildWaMeLink(telefone, texto), "_blank");
+        return "wa_me" as const;
+      }
+
+      const agendamentoPayload =
+        agendamento.tipo === "fila"
+          ? {
+              tipo: "fila" as const,
+              scheduledAt: new Date(`${agendamento.data}T${agendamento.hora}:00`).toISOString(),
+            }
+          : { tipo: "agora" as const };
+
+      return enviarNotificacaoOsWhatsAppFn({
+        data: {
+          osId: os.id,
+          numero: digitsOnlyBR(telefone),
+          mensagem: texto,
+          templateId,
+          anexos,
+          agendamento: agendamentoPayload,
+        },
+      });
+    },
+    onSuccess: (resultado) => {
+      if (resultado === "wa_me") {
+        onOpenChange(false);
         return;
       }
-      toast.success("Mensagem enviada pelo WhatsApp da empresa!");
+      if (resultado.status === "falhou") {
+        toast.error("Não foi possível enviar a mensagem. Verifique o WhatsApp e tente novamente.");
+        return; // mantém o modal aberto para o usuário tentar de novo
+      }
+      toast.success(
+        resultado.status === "agendado"
+          ? "Notificação agendada com sucesso."
+          : "Mensagem enviada com sucesso pelo WhatsApp.",
+      );
+      qc.invalidateQueries({ queryKey: ["os-historico"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function enviar() {
-    if (!telefoneValido) {
-      toast.error("Informe um telefone válido com DDD para enviar.");
-      return;
-    }
-    if (!texto.trim()) {
-      toast.error("A mensagem não pode ficar vazia.");
-      return;
-    }
-    // No celular, deixa a pessoa mandar pelo próprio app do WhatsApp — mais
-    // natural do que depender da conexão da empresa. No desktop, onde não
-    // tem WhatsApp instalado, usa a conexão real (Evolution API).
-    if (isMobile) {
-      window.open(buildWaMeLink(telefone, texto), "_blank");
-      onOpenChange(false);
-      return;
-    }
-    enviarPelaConexao.mutate();
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(v) => !enviar.isPending && onOpenChange(v)}>
+      <DialogContent className="max-w-xl rounded-2xl shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-green-600" /> Enviar WhatsApp
+          <DialogTitle className="flex items-center justify-center gap-2 text-center">
+            <MessageCircle className="h-5 w-5 text-green-600" /> Enviar notificação por WhatsApp
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-center">
             {os ? `OS ${os.numero} — ${os.clientes?.nome ?? "cliente sem nome"}` : ""}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Telefone</Label>
-            <Input
-              value={telefone}
-              onChange={(e) => setTelefone(maskPhoneBR(e.target.value))}
-              placeholder="(00) 00000-0000"
-            />
-            {!telefoneValido && telefone.length > 0 && (
-              <p className="text-xs text-destructive">Telefone incompleto — inclua o DDD.</p>
-            )}
-            {digitsOnlyBR(telefone).length === 0 && (
-              <p className="text-xs text-muted-foreground">Cliente sem telefone cadastrado.</p>
-            )}
-          </div>
+        <div className="space-y-5">
+          <WhatsAppPhoneInput value={telefone} onChange={setTelefone} valido={telefoneValido} />
 
-          <div className="space-y-2">
-            <Label>Mensagem rápida</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {mensagens.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => selecionarMensagem(m.id)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    mensagemId === m.id && !textoEditadoManualmente
-                      ? "border-green-600 bg-green-600/10 text-green-700 dark:text-green-400"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <WhatsAppMessageTemplates
+            templates={templates}
+            selecionadoId={templateId ?? ""}
+            destacado={!editadoManualmente}
+            onSelecionar={selecionarTemplate}
+            onNovaMensagem={novaMensagem}
+          />
 
-          <div className="space-y-2">
-            <Label>Texto</Label>
-            <Textarea
-              className="min-h-[110px] text-sm"
-              value={texto}
-              onChange={(e) => {
-                setTexto(e.target.value);
-                setTextoEditadoManualmente(true);
-              }}
-            />
-            {faltamVariaveis && (
-              <p className="flex items-center gap-1.5 text-xs text-amber-600">
-                <AlertTriangle className="h-3.5 w-3.5" /> A mensagem ainda tem variáveis sem
-                preencher ({"{cliente}"}, {"{os}"} etc.).
-              </p>
-            )}
-          </div>
+          <WhatsAppMessageEditor
+            value={texto}
+            onChange={(v) => {
+              setTexto(v);
+              setEditadoManualmente(true);
+            }}
+            inputRef={textareaRef}
+          />
+
+          <WhatsAppScheduleOptions value={agendamento} onChange={setAgendamento} />
+
+          <WhatsAppAttachmentOptions
+            osSelecionado={anexos.os}
+            orcamentoSelecionado={anexos.orcamento}
+            orcamentoDisponivel={orcamentoDisponivel}
+            onToggleOs={() => setAnexos((a) => ({ ...a, os: !a.os }))}
+            onToggleOrcamento={() => setAnexos((a) => ({ ...a, orcamento: !a.orcamento }))}
+          />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button
-            className="gap-2 bg-green-600 hover:bg-green-700"
-            disabled={!telefoneValido || !texto.trim() || enviarPelaConexao.isPending}
-            onClick={enviar}
-          >
-            {enviarPelaConexao.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}{" "}
-            Enviar
-          </Button>
-        </div>
+        <WhatsAppModalFooter
+          enviando={enviar.isPending}
+          podeEnviar={podeEnviar}
+          agendando={agendamento.tipo === "fila"}
+          onCancelar={() => onOpenChange(false)}
+          onEnviar={() => enviar.mutate()}
+        />
       </DialogContent>
     </Dialog>
   );
