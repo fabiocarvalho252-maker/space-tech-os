@@ -1398,6 +1398,15 @@ function Ordens() {
                     >
                       <FileCheck className="h-4 w-4 text-primary" />
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => enviarOs(os)}
+                      title="Enviar OS (PDF)"
+                    >
+                      <Share2 className="h-4 w-4 text-primary" />
+                    </Button>
                     <AcoesOsMenu
                       os={os}
                       onImprimir={imprimir}
