@@ -19,25 +19,17 @@ function ConsultaPublica() {
   const { data: os, isLoading, error } = useQuery({
     queryKey: ["os-publica", osId],
     queryFn: async () => {
-      // Tentar buscar por UUID (id) ou por número sequencial (numero)
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(osId);
-      
-      let query = supabase
-        .from("ordens_servico")
-        .select("*, clientes(nome), profiles(loja, telefone_contato)");
+      // consultar_os_publica() aceita tanto o UUID (o que o QR Code
+      // codifica) quanto o número sequencial da OS, e roda com
+      // SECURITY DEFINER — ordens_servico não tem nenhuma policy de RLS
+      // liberada para o papel "anon", então uma consulta direta na tabela
+      // sempre voltava vazia para um cliente sem login.
+      const { data, error } = await supabase.rpc("consultar_os_publica" as any, {
+        p_identificador: osId,
+      });
 
-      if (isUuid) {
-        query = query.eq("id", osId);
-      } else {
-        const num = parseInt(osId);
-        if (isNaN(num)) throw new Error("ID inválido");
-        query = query.eq("numero", num);
-      }
-
-      const { data, error } = await query.maybeSingle();
-      
       if (error) throw error;
-      return data;
+      return ((data as any[]) ?? [])[0] ?? null;
     },
   });
 
@@ -157,9 +149,9 @@ function ConsultaPublica() {
             <footer className="pt-6 text-center border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-4">Em caso de dúvidas, entre em contato com a assistência:</p>
               <div className="flex flex-col items-center gap-1">
-                <p className="font-bold text-sm">{(os as any).profiles?.loja || "SpaceTech"}</p>
-                { (os as any).profiles?.telefone_contato && (
-                  <p className="text-xs text-muted-foreground">WhatsApp: {(os as any).profiles.telefone_contato}</p>
+                <p className="font-bold text-sm">{os.loja || "SpaceTech"}</p>
+                {os.whatsapp && (
+                  <p className="text-xs text-muted-foreground">WhatsApp: {os.whatsapp}</p>
                 )}
               </div>
             </footer>
