@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Loader2, Trash2, Camera, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +24,16 @@ const CATEGORIAS = [
 
 type Categoria = typeof CATEGORIAS[number]["value"];
 
-export function OsFotos({ osId, numero }: { osId: string; numero: number }) {
+export function OsFotos({
+  osId,
+  numero,
+  empresaId,
+}: {
+  osId: string;
+  numero: number;
+  empresaId: string;
+}) {
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [tabAtiva, setTabAtiva] = useState<Categoria>("entrada");
@@ -58,11 +64,15 @@ export function OsFotos({ osId, numero }: { osId: string; numero: number }) {
     mutationFn: async (files: File[]) => {
       for (const file of files) {
         const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${user!.id}/${osId}/${randomId()}.${ext}`;
+        // Path prefix must be the empresa's id, not the uploader's own —
+        // storage RLS ("os fotos ver"/"gravar") checks has_permission() on
+        // this folder segment, and a técnico/atendente's own uid isn't a
+        // company anyone (including the empresa owner) has membership in.
+        const path = `${empresaId}/${osId}/${randomId()}.${ext}`;
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file);
         if (upErr) throw upErr;
         const { error } = await supabase.from("service_order_photos").insert({
-          user_id: user!.id,
+          user_id: empresaId,
           service_order_id: osId,
           url: path,
           category: tabAtiva,

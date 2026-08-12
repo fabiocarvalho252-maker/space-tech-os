@@ -452,7 +452,7 @@ function Seminovos() {
             <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
               <span className="text-[10px] text-muted-foreground">{dataBR(s.data_avaliacao)}</span>
               <div className="flex items-center gap-2">
-                <SeminovosFotos seminovoId={s.id} fotos={s.fotos ?? []} />
+                <SeminovosFotos seminovoId={s.id} fotos={s.fotos ?? []} empresaId={s.user_id} />
                 {gerenciar && (
                   <button
                     onClick={() => remover.mutate(s.id)}

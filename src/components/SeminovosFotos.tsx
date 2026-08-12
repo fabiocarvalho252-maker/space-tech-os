@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Loader2, Trash2, Camera, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,9 +15,16 @@ import {
 
 const BUCKET = "seminovos-fotos";
 
-export function SeminovosFotos({ seminovoId, fotos }: { seminovoId: string; fotos: string[] }) {
+export function SeminovosFotos({
+  seminovoId,
+  fotos,
+  empresaId,
+}: {
+  seminovoId: string;
+  fotos: string[];
+  empresaId: string;
+}) {
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
 
@@ -41,7 +47,9 @@ export function SeminovosFotos({ seminovoId, fotos }: { seminovoId: string; foto
       const novosPaths: string[] = [];
       for (const file of files) {
         const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${user!.id}/${seminovoId}/${randomId()}.${ext}`;
+        // Path prefix must be the empresa's id, not the uploader's own —
+        // storage RLS checks has_permission() on this folder segment.
+        const path = `${empresaId}/${seminovoId}/${randomId()}.${ext}`;
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file);
         if (upErr) throw upErr;
         novosPaths.push(path);

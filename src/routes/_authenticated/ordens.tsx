@@ -1366,7 +1366,7 @@ function Ordens() {
                 </td>
                 <td className="p-4">
                   <div className="flex items-center justify-center gap-1">
-                    <OsFotos osId={os.id} numero={os.numero} />
+                    <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
                     <Button
                       variant="outline"
                       size="icon"
@@ -1479,7 +1479,7 @@ function Ordens() {
             </select>
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-              <OsFotos osId={os.id} numero={os.numero} />
+              <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
               <Button
                 variant="outline"
                 size="icon"
@@ -1910,6 +1910,7 @@ function Ordens() {
                 <OsFotos
                   osId={selectedOsId}
                   numero={ordens.find((o) => o.id === selectedOsId)?.numero as any}
+                  empresaId={ordens.find((o) => o.id === selectedOsId)?.user_id as any}
                 />
               ) : null}
             </TabsContent>

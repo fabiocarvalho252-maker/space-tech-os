@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eraser, Loader2, PenTool } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,12 +22,11 @@ export function AssinaturaDigitalModal({
   open,
   onOpenChange,
 }: {
-  os: { id: string; numero: number } | null;
+  os: { id: string; numero: number; user_id: string } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
   const [tipo, setTipo] = useState<Tipo>("cliente");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
@@ -113,20 +111,22 @@ export function AssinaturaDigitalModal({
 
   const salvar = useMutation({
     mutationFn: async () => {
-      if (!os || !user) return;
+      if (!os) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const blob: Blob = await new Promise((resolve, reject) =>
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Falha ao gerar a imagem"))), "image/png"),
       );
       const category = TIPOS.find((t) => t.value === tipo)!.category;
-      const path = `${user.id}/${os.id}/${category}-${randomId()}.png`;
+      // Path prefix must be the empresa's id, not the signer's own login —
+      // storage RLS checks has_permission() on this folder segment.
+      const path = `${os.user_id}/${os.id}/${category}-${randomId()}.png`;
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
         contentType: "image/png",
       });
       if (upErr) throw upErr;
       const { error } = await supabase.from("service_order_photos").insert({
-        user_id: user.id,
+        user_id: os.user_id,
         service_order_id: os.id,
         url: path,
         category,
