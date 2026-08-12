@@ -1096,11 +1096,14 @@ function Configuracoes() {
                       const val = e.target.value;
                       const { error } = await supabase
                         .from("os_config" as any)
-                        .upsert({
-                          user_id: user!.id,
-                          termos_condicoes: val,
-                          updated_at: new Date().toISOString(),
-                        });
+                        .upsert(
+                          {
+                            user_id: user!.id,
+                            termos_condicoes: val,
+                            updated_at: new Date().toISOString(),
+                          },
+                          { onConflict: "user_id" },
+                        );
                       if (error) toast.error("Erro ao salvar termos: " + error.message);
                       else toast.success("Termos atualizados!");
                     }}
@@ -1113,14 +1116,19 @@ function Configuracoes() {
                         const defaultText = `Parcelamento: em até 3x no cartão.\nPrazo de execução: até 5 dias úteis após a aprovação.\nValidade deste orçamento: 7 dias.\nGarantia: 90 dias sobre o serviço executado.\n\nEste orçamento é uma previsão de valores, não uma cobrança. Se durante a execução aparecer outro problema, você é avisado antes e nada é feito sem a sua aprovação. A aprovação autoriza a execução dos serviços e a aplicação das peças listadas.`;
                         const { error } = await supabase
                           .from("os_config" as any)
-                          .upsert({
-                            user_id: user!.id,
-                            termos_condicoes: defaultText,
-                            updated_at: new Date().toISOString(),
-                          });
+                          .upsert(
+                            {
+                              user_id: user!.id,
+                              termos_condicoes: defaultText,
+                              updated_at: new Date().toISOString(),
+                            },
+                            { onConflict: "user_id" },
+                          );
                         if (!error) {
                           toast.success("Texto padrão restaurado!");
                           refetchOsConfig();
+                        } else {
+                          toast.error("Erro ao restaurar texto: " + error.message);
                         }
                       }}
                     >
@@ -1225,53 +1233,6 @@ function Configuracoes() {
                 )}
               </div>
             </section>
-          </div>
-        </TabsContent>
-        <TabsContent value="os" className="space-y-6 outline-none">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-              <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-primary" />
-                Termos e Condições da OS
-              </h2>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Texto de Condições (Impressão)</Label>
-                  <Textarea
-                    className="min-h-[300px] font-mono text-sm"
-                    placeholder="Digite os termos que aparecerão no final da OS..."
-                    value={osConfig?.termos_condicoes || ""}
-                    onChange={async (e) => {
-                      const val = e.target.value;
-                      await supabase.from("os_config" as any).upsert({
-                        user_id: user!.id,
-                        termos_condicoes: val,
-                        updated_at: new Date().toISOString(),
-                      });
-                      refetchOsConfig();
-                    }}
-                  />
-                  <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <p>{osConfig?.termos_condicoes?.length || 0}/2000 caracteres</p>
-                    <button
-                      className="text-primary hover:underline"
-                      onClick={async () => {
-                        const defaultText = `Parcelamento: em até 3x no cartão.\nPrazo de execução: até 5 dias úteis após a aprovação.\nValidade deste orçamento: 7 dias.\nGarantia: 90 dias sobre o serviço executado.\n\nEste orçamento é uma previsão de valores, não uma cobrança. Se durante a execução aparecer outro problema, você é avisado antes e nada é feito sem a sua aprovação. A aprovação autoriza a execução dos serviços e a aplicação das peças listadas.`;
-                        await supabase.from("os_config" as any).upsert({
-                          user_id: user!.id,
-                          termos_condicoes: defaultText,
-                          updated_at: new Date().toISOString(),
-                        });
-                        refetchOsConfig();
-                        toast.success("Texto padrão restaurado!");
-                      }}
-                    >
-                      Restaurar texto padrão
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
 
             <section className="rounded-2xl border border-border bg-card p-6 shadow-soft">
               <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
@@ -1291,7 +1252,10 @@ function Configuracoes() {
                     onCheckedChange={async (val) => {
                       await supabase
                         .from("os_config" as any)
-                        .upsert({ user_id: user!.id, exibir_fotos_impressao: val });
+                        .upsert(
+                          { user_id: user!.id, exibir_fotos_impressao: val },
+                          { onConflict: "user_id" },
+                        );
                       refetchOsConfig();
                     }}
                   />
@@ -1308,7 +1272,10 @@ function Configuracoes() {
                     onCheckedChange={async (val) => {
                       await supabase
                         .from("os_config" as any)
-                        .upsert({ user_id: user!.id, imprimir_duas_vias: val });
+                        .upsert(
+                          { user_id: user!.id, imprimir_duas_vias: val },
+                          { onConflict: "user_id" },
+                        );
                       refetchOsConfig();
                     }}
                   />
@@ -1325,7 +1292,10 @@ function Configuracoes() {
                     onCheckedChange={async (val) => {
                       await supabase
                         .from("os_config" as any)
-                        .upsert({ user_id: user!.id, imprimir_qrcode_cliente: val });
+                        .upsert(
+                          { user_id: user!.id, imprimir_qrcode_cliente: val },
+                          { onConflict: "user_id" },
+                        );
                       refetchOsConfig();
                     }}
                   />
@@ -1338,10 +1308,13 @@ function Configuracoes() {
                     onChange={async (e) => {
                       await supabase
                         .from("os_config" as any)
-                        .upsert({
-                          user_id: user!.id,
-                          dias_garantia_padrao: Number(e.target.value),
-                        });
+                        .upsert(
+                          {
+                            user_id: user!.id,
+                            dias_garantia_padrao: Number(e.target.value),
+                          },
+                          { onConflict: "user_id" },
+                        );
                       refetchOsConfig();
                     }}
                   />
