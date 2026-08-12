@@ -38,6 +38,7 @@ import { OsTemplateThumbnail } from "./OsTemplateThumbnail";
 import { OsTemplatePreviewModal } from "./OsTemplatePreviewModal";
 import { OsTemplateEditorModal } from "./OsTemplateEditorModal";
 import { useEmpresaTemplateData } from "./useEmpresaTemplateData";
+import { useEmpresaTermosData } from "./useEmpresaTermosData";
 import { CATEGORIA_LABEL, CATEGORIAS, type OsTemplateDbRow } from "./types";
 
 function TemplateCard({
@@ -169,7 +170,8 @@ export function OsTemplatesLibrary() {
   const { data: user } = useCurrentUser();
   const qc = useQueryClient();
   const empresa = useEmpresaTemplateData();
-  const sample = useMemo(() => buildSampleOsRenderData(empresa), [empresa]);
+  const termos = useEmpresaTermosData();
+  const sample = useMemo(() => buildSampleOsRenderData(empresa, termos), [empresa, termos]);
 
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState("todos");

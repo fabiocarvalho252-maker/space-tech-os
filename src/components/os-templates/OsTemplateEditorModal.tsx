@@ -28,6 +28,7 @@ import {
 } from "@/lib/os-template-render";
 import { OsTemplateThumbnail } from "./OsTemplateThumbnail";
 import { useEmpresaTemplateData } from "./useEmpresaTemplateData";
+import { useEmpresaTermosData } from "./useEmpresaTermosData";
 import { CATEGORIA_LABEL, CATEGORIAS, type OsTemplateDbRow } from "./types";
 
 const TODAS_SECOES = Object.keys(SECAO_LABEL) as OsTemplateSecao[];
@@ -62,6 +63,7 @@ export function OsTemplateEditorModal({
 }) {
   const qc = useQueryClient();
   const empresa = useEmpresaTemplateData();
+  const termos = useEmpresaTermosData();
 
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -117,9 +119,9 @@ export function OsTemplateEditorModal({
 
   const previewHtml = useMemo(() => {
     if (!template) return "";
-    const sample = buildSampleOsRenderData(empresa);
+    const sample = buildSampleOsRenderData(empresa, termos);
     return renderOsTemplateHtml({ ...template, orientacao, tema, config }, sample);
-  }, [template, empresa, orientacao, tema, config]);
+  }, [template, empresa, termos, orientacao, tema, config]);
 
   const salvar = useMutation({
     mutationFn: async () => {

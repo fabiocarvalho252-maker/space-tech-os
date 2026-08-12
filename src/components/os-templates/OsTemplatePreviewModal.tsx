@@ -18,6 +18,7 @@ import {
 } from "@/lib/os-template-render";
 import { OsTemplateThumbnail } from "./OsTemplateThumbnail";
 import { useEmpresaTemplateData } from "./useEmpresaTemplateData";
+import { useEmpresaTermosData } from "./useEmpresaTermosData";
 import type { OsTemplateDbRow } from "./types";
 
 function abrirImpressao(html: string) {
@@ -42,10 +43,11 @@ export function OsTemplatePreviewModal({
   onEditar: (template: OsTemplateDbRow) => void;
 }) {
   const empresa = useEmpresaTemplateData();
+  const termos = useEmpresaTermosData();
   const [scale, setScale] = useState<number | "fit">("fit");
   const [pagina, setPagina] = useState(0);
 
-  const sample = useMemo(() => buildSampleOsRenderData(empresa), [empresa]);
+  const sample = useMemo(() => buildSampleOsRenderData(empresa, termos), [empresa, termos]);
   const paginas = useMemo(
     () => (template ? renderOsTemplatePages(template, sample) : []),
     [template, sample],
