@@ -10,7 +10,16 @@
 //
 // SECURITY: never log the raw request body (may contain message content)
 // beyond what's needed for a terse error, and never log EVOLUTION_WEBHOOK_TOKEN.
-import { registrarMensagemRecebida, aplicarAtualizacaoConexaoWebhook } from "./whatsapp-service";
+import {
+  registrarMensagemRecebida,
+  aplicarAtualizacaoConexaoWebhook,
+  aplicarQrCodeWebhook,
+} from "./whatsapp-service";
+import {
+  SYSTEM_INSTANCE_NAME,
+  aplicarAtualizacaoWebhookSistema,
+  aplicarQrCodeWebhookSistema,
+} from "./system-instance";
 
 function tokenValido(url: URL): boolean {
   const esperado = process.env["EVOLUTION_WEBHOOK_TOKEN"];
@@ -103,7 +112,25 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         stateRaw === "open" ? "open" : stateRaw === "connecting" ? "connecting" : "close";
       const wuid = texto(data["wuid"]);
       const phoneNumber = (wuid ? wuid.split("@")[0] : texto(data["number"])) ?? null;
-      await aplicarAtualizacaoConexaoWebhook(instanceName, state, phoneNumber);
+      if (instanceName === SYSTEM_INSTANCE_NAME) {
+        await aplicarAtualizacaoWebhookSistema(state, phoneNumber);
+      } else {
+        await aplicarAtualizacaoConexaoWebhook(instanceName, state, phoneNumber);
+      }
+    } else if (event.toUpperCase().includes("QRCODE_UPDATED") || event === "qrcode.updated") {
+      // Baileys rotates the pairing QR every ~20-60s — without applying
+      // this event, whatever QR was stored at connect-time goes stale and
+      // every scan after that first window silently fails.
+      const data = objeto(raiz["data"]);
+      const base64 =
+        texto(objeto(data["qrcode"])["base64"]) ?? texto(data["base64"]) ?? texto(data["qrcode"]);
+      if (base64) {
+        if (instanceName === SYSTEM_INSTANCE_NAME) {
+          await aplicarQrCodeWebhookSistema(base64);
+        } else {
+          await aplicarQrCodeWebhook(instanceName, base64);
+        }
+      }
     }
 
     return new Response("ok", { status: 200 });

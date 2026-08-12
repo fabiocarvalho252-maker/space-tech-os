@@ -1559,6 +1559,7 @@ export type Database = {
           loja: string | null
           nome: string | null
           plano: string
+          status: string
           trial_aviso_enviado_em: string | null
           updated_at: string
           whatsapp: string | null
@@ -1575,6 +1576,7 @@ export type Database = {
           loja?: string | null
           nome?: string | null
           plano?: string
+          status?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -1591,6 +1593,7 @@ export type Database = {
           loja?: string | null
           nome?: string | null
           plano?: string
+          status?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string
           whatsapp?: string | null

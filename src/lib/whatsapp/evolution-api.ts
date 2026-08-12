@@ -60,7 +60,11 @@ async function chamar<T>(
     throw new EvolutionApiError("Não foi possível conectar ao servidor Evolution API.");
   }
 
-  if (res.status === 401 || res.status === 403) {
+  // Only 401 unambiguously means "the API key itself was rejected" — Evolution
+  // API also uses 403 for ordinary validation failures (e.g. "instance name
+  // already in use"), which criarInstancia() needs to see the real message
+  // for so it can tell that case apart from an actual failure.
+  if (res.status === 401) {
     throw new EvolutionApiError(
       "Evolution API recusou a chave configurada (EVOLUTION_API_KEY inválida).",
     );
@@ -102,7 +106,11 @@ export async function criarInstancia(
         url: webhookUrl,
         byEvents: false,
         base64: true,
-        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+        // QRCODE_UPDATED matters as much as CONNECTION_UPDATE here: Baileys
+        // rotates the pairing QR every ~20-60s, and without this event our
+        // stored qr_code goes stale — the modal keeps showing an expired
+        // code that WhatsApp silently rejects on scan.
+        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
       },
     });
     const base64 = data?.qrcode?.base64 ?? data?.qrcode ?? null;

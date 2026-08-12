@@ -3,7 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { addMonths, format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Check, Copy, KeyRound, ShieldAlert, Users } from "lucide-react";
+import {
+  Building2,
+  Check,
+  Copy,
+  KeyRound,
+  Loader2,
+  MessageSquare,
+  QrCode,
+  ShieldAlert,
+  Smartphone,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
@@ -13,16 +24,32 @@ import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { dataBR } from "@/lib/format";
 import {
   atualizarPlanoEmpresa,
+  conectarWhatsappSistema,
+  desconectarWhatsappSistema,
   listarEmpresasDoSite,
   resetarSenhaEmpresa,
+  statusWhatsappSistema,
   type EmpresaDoSite,
 } from "@/lib/site-admin.functions";
+import type { WhatsappSistemaConexao } from "@/lib/whatsapp/system-instance";
 
 const SITE_ADMIN_EMAIL = "admin@spacetech.app";
 
@@ -101,6 +128,8 @@ function AdminDoSite() {
         subtitle="Todas as empresas cadastradas no SpaceTech, há quanto tempo estão ativas e o plano de cada uma."
       />
 
+      <WhatsappSistemaCard souAdmin={souAdmin} />
+
       <SectionCard
         title="Empresas cadastradas"
         subtitle={`${empresas.length} no total`}
@@ -135,7 +164,10 @@ function AdminDoSite() {
                     <td className="px-3 py-3 font-medium">{e.loja || e.nome || "Sem nome"}</td>
                     <td className="px-3 py-3 text-muted-foreground">{e.email || "—"}</td>
                     <td className="px-3 py-3">
-                      <StatusBadge label={planoLabel(e.plano)} tone={TONE_POR_PLANO[e.plano] ?? "neutral"} />
+                      <StatusBadge
+                        label={planoLabel(e.plano)}
+                        tone={TONE_POR_PLANO[e.plano] ?? "neutral"}
+                      />
                     </td>
                     <td className="px-3 py-3">
                       <div>{dataBR(e.criadoEm)}</div>
@@ -163,6 +195,166 @@ function AdminDoSite() {
         onOpenChange={(v) => !v && setEmpresaSelecionada(null)}
       />
     </div>
+  );
+}
+
+function ehNaoConfigurado(erro: unknown): boolean {
+  return erro instanceof Error && /não foi configurada/i.test(erro.message);
+}
+
+function qrCodeSrc(qr: string): string {
+  return qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`;
+}
+
+// Pairs the "spacetech_system" Evolution API instance that sends WhatsApp
+// activation codes for every empresa signup — separate from each empresa's
+// own /whatsapp connection, paired once here by the SPACE TECH operator.
+function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
+  const qc = useQueryClient();
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [confirmDesconectar, setConfirmDesconectar] = useState(false);
+
+  const statusQuery = useQuery({
+    queryKey: ["whatsapp-sistema-status"],
+    queryFn: () => statusWhatsappSistema(),
+    enabled: souAdmin,
+    retry: false,
+    refetchInterval: (query) => {
+      const conexao = query.state.data as WhatsappSistemaConexao | null | undefined;
+      return conexao?.status === "conectando" ? 4000 : false;
+    },
+  });
+
+  const naoConfigurado = ehNaoConfigurado(statusQuery.error);
+  const conexao = statusQuery.data ?? null;
+  const status = conexao?.status ?? "desconectado";
+  const conectado = status === "conectado";
+
+  const conectar = useMutation({
+    mutationFn: () => conectarWhatsappSistema(),
+    onSuccess: (res) => {
+      qc.setQueryData(["whatsapp-sistema-status"], res);
+      setQrDialogOpen(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const desconectar = useMutation({
+    mutationFn: () => desconectarWhatsappSistema(),
+    onSuccess: (res) => {
+      qc.setQueryData(["whatsapp-sistema-status"], res);
+      setConfirmDesconectar(false);
+      toast.success("WhatsApp do sistema desconectado.");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmDesconectar(false);
+    },
+  });
+
+  return (
+    <SectionCard
+      title="WhatsApp do sistema (ativação de contas)"
+      subtitle="Envia os códigos de verificação do cadastro de novas empresas."
+      icon={MessageSquare}
+    >
+      {naoConfigurado ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Evolution API não configurada no servidor. Preencha <code>EVOLUTION_API_URL</code> e{" "}
+          <code>EVOLUTION_API_KEY</code> no <code>.env</code> para habilitar a conexão.
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${conectado ? "bg-success animate-pulse" : "bg-destructive"}`}
+              />
+              <span className="font-bold">
+                {status === "conectado" && "🟢 Conectado"}
+                {status === "desconectado" && "🔴 Desconectado"}
+                {status === "conectando" && "🟡 Conectando..."}
+                {status === "erro" && "🔴 Erro na conexão"}
+              </span>
+            </div>
+            {statusQuery.isFetching && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {conectado && conexao?.phone_number && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Smartphone className="h-4 w-4" /> Número conectado:{" "}
+              <strong>{conexao.phone_number}</strong>
+            </div>
+          )}
+          {status === "erro" && conexao?.last_error && (
+            <p className="mt-3 text-xs text-destructive">{conexao.last_error}</p>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            {!conectado ? (
+              <Button
+                className="bg-green-600 hover:bg-green-700 gap-2"
+                disabled={conectar.isPending}
+                onClick={() => conectar.mutate()}
+              >
+                {conectar.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <QrCode className="h-4 w-4" />
+                )}
+                Conectar WhatsApp do sistema
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setConfirmDesconectar(true)}>
+                Desconectar
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-green-600" /> Conectar WhatsApp do sistema
+            </DialogTitle>
+            <DialogDescription>
+              Abra o WhatsApp no celular dedicado do SPACE TECH → Aparelhos conectados → Conectar um
+              aparelho, e escaneie o código abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+            {conexao?.qr_code ? (
+              <img
+                src={qrCodeSrc(conexao.qr_code)}
+                alt="QR Code do WhatsApp"
+                className="h-56 w-56"
+              />
+            ) : (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+              </>
+            )}
+            <p className="text-xs text-muted-foreground">Aguardando leitura...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmDesconectar}
+        onOpenChange={setConfirmDesconectar}
+        title="Desconectar o WhatsApp do sistema?"
+        description="Novos cadastros de empresa deixarão de receber o código de ativação até reconectar."
+        confirmLabel="Desconectar"
+        destructive
+        loading={desconectar.isPending}
+        onConfirm={() => desconectar.mutate()}
+      />
+    </SectionCard>
   );
 }
 
@@ -246,7 +438,8 @@ function EmpresaDetalheDialog({
           <div>
             <p className="text-xs text-muted-foreground">Equipe / OS criadas</p>
             <p className="font-medium">
-              {empresa.totalMembros} membro{empresa.totalMembros === 1 ? "" : "s"} · {empresa.totalOrdens} OS
+              {empresa.totalMembros} membro{empresa.totalMembros === 1 ? "" : "s"} ·{" "}
+              {empresa.totalOrdens} OS
             </p>
           </div>
           <div>

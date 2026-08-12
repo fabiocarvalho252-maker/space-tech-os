@@ -33,6 +33,28 @@ export function isValidPhoneBR(value: string): boolean {
   return true;
 }
 
+// Storage format used by profiles.whatsapp and every Evolution API call:
+// digits only, "55" country code prefixed. Same convention as
+// whatsapp-service.ts's paraE164BR and the handle_new_user() DB trigger.
+export function normalizarWhatsappBR(value: string): string {
+  const digits = digitsOnlyBR(value);
+  return digits.length === 10 || digits.length === 11 ? `55${digits}` : digits;
+}
+
+// "+55 (87) *****-9999" — for showing where an activation code was sent
+// without exposing the full number. Falls back to the raw value if it
+// doesn't look like a normalized BR number (defensive; shouldn't happen for
+// anything that passed isValidPhoneBR before normalizarWhatsappBR).
+export function mascararWhatsappBR(value: string): string {
+  const digits = digitsOnlyBR(value);
+  const semPais = digits.length > 11 && digits.startsWith("55") ? digits.slice(2) : digits;
+  if (semPais.length !== 10 && semPais.length !== 11) return value;
+  const ddd = semPais.slice(0, 2);
+  const resto = semPais.slice(2);
+  const ultimos4 = resto.slice(-4);
+  return `+55 (${ddd}) ${"*".repeat(resto.length - 4)}-${ultimos4}`;
+}
+
 // Same convention ordens.tsx already used: assumes Brazil, prefixes "55".
 export function buildWaMeLink(phone: string, message: string): string {
   const digits = digitsOnlyBR(phone);

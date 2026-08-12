@@ -1,6 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  atualizarStatusSistema,
+  conectarSistema,
+  desconectarSistema,
+  obterStatusSistemaSalvo,
+  type WhatsappSistemaConexao,
+} from "@/lib/whatsapp/system-instance";
 
 // Hardcoded on purpose: this is a single-operator platform-wide view (every
 // empresa that has ever signed up, across every tenant), not a permission a
@@ -134,4 +142,34 @@ export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
     });
     if (error) throw error;
     return { senha };
+  });
+
+// The platform-wide "spacetech_system" WhatsApp instance that sends
+// activation codes for every empresa signup (see
+// src/lib/auth/ativacao-whatsapp.functions.ts) — paired once by the SPACE
+// TECH operator from this screen, distinct from each empresa's own
+// WhatsApp connection at /whatsapp.
+export const conectarWhatsappSistema = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<WhatsappSistemaConexao> => {
+    checarSiteAdmin(context.claims);
+    const origin = new URL(getRequest().url).origin;
+    return conectarSistema(origin);
+  });
+
+export const statusWhatsappSistema = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<WhatsappSistemaConexao | null> => {
+    checarSiteAdmin(context.claims);
+    const existente = await obterStatusSistemaSalvo();
+    if (!existente) return null;
+    if (existente.status === "conectado") return existente;
+    return atualizarStatusSistema();
+  });
+
+export const desconectarWhatsappSistema = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<WhatsappSistemaConexao | null> => {
+    checarSiteAdmin(context.claims);
+    return desconectarSistema();
   });

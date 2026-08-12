@@ -569,3 +569,20 @@ export async function aplicarAtualizacaoConexaoWebhook(
     .eq("instance_name", instanceName);
   if (error) throw error;
 }
+
+/**
+ * Applies a QRCODE_UPDATED webhook event — Baileys rotates the pairing QR
+ * every ~20-60s, so without this the qr_code stored at connect-time goes
+ * stale and every scan after the first window silently fails.
+ */
+export async function aplicarQrCodeWebhook(
+  instanceName: string,
+  qrcodeBase64: string,
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
+    .from("whatsapp_connections" as any)
+    .update({ qr_code: qrcodeBase64, status: "conectando" })
+    .eq("instance_name", instanceName);
+  if (error) throw error;
+}

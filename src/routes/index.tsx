@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.functions";
+import { enviarCodigoAtivacao } from "@/lib/auth/ativacao-whatsapp.functions";
+import { VerificacaoWhatsappForm } from "@/components/VerificacaoWhatsappForm";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -165,26 +167,70 @@ function Login() {
   );
 }
 
+type EstadoLoginEmpresa = "login" | "pendente" | "verificar";
+
 function PainelEmpresa() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [ver, setVer] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [estado, setEstado] = useState<EstadoLoginEmpresa>("login");
+  const [ativando, setAtivando] = useState(false);
+  const [whatsappMascarado, setWhatsappMascarado] = useState("");
+  const [cooldownInicial, setCooldownInicial] = useState(60);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: senha,
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error("Não foi possível entrar", { description: error.message });
       return;
     }
+
+    // Empresa signups only (Área do Cliente never gets a profiles row) —
+    // profiles.status gates dashboard access now that GoTrue's own e-mail
+    // confirmation is off; WhatsApp OTP replaces it (see /cadastro).
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    setLoading(false);
+    if (perfil?.status === "pending") {
+      setEstado("pendente");
+      return;
+    }
     navigate({ to: "/dashboard" });
+  }
+
+  async function ativarConta() {
+    setAtivando(true);
+    try {
+      const resultado = await enviarCodigoAtivacao();
+      setWhatsappMascarado(resultado.whatsappMascarado);
+      setCooldownInicial(resultado.cooldownSegundos);
+      setEstado("verificar");
+    } catch (e) {
+      toast.error("Não foi possível enviar o código de ativação", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setAtivando(false);
+    }
+  }
+
+  async function aoAtivar() {
+    await supabase.auth.signOut();
+    toast.success("Conta ativada! Faça login para continuar.");
+    setSenha("");
+    setEstado("login");
   }
 
   async function recuperar() {
@@ -204,65 +250,111 @@ function PainelEmpresa() {
       <div className="flex flex-col items-center">
         <LogoMark className="h-16 w-16" />
         <LogoWord className="mt-3 text-xl" />
-        <h1 className="mt-6 text-3xl font-extrabold tracking-tight">SpaceTech OS</h1>
-        <p className="mt-1 text-sm text-muted-foreground text-center">
-          Gestão inteligente para assistência técnica
-        </p>
+        {estado === "login" && (
+          <>
+            <h1 className="mt-6 text-3xl font-extrabold tracking-tight">SpaceTech OS</h1>
+            <p className="mt-1 text-sm text-muted-foreground text-center">
+              Gestão inteligente para assistência técnica
+            </p>
+          </>
+        )}
+        {estado === "pendente" && (
+          <>
+            <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-center">
+              Conta ainda não ativada
+            </h1>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Sua conta ainda não foi ativada. Enviamos um código para o WhatsApp informado no
+              cadastro.
+            </p>
+          </>
+        )}
+        {estado === "verificar" && (
+          <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-center">
+            Verifique seu WhatsApp
+          </h1>
+        )}
       </div>
 
-      <form onSubmit={entrar} className="mt-7 space-y-4">
-        <Campo icon={Mail} label="Email" type="email" value={email} onChange={setEmail} />
-        <div className="space-y-1.5">
-          <label htmlFor="senha" className="text-sm font-semibold">
-            Senha
-          </label>
-          <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              id="senha"
-              type={ver ? "text" : "password"}
-              required
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="••••••••"
-              className="h-12 w-full rounded-xl border border-input bg-card pl-10 pr-11 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
-            />
+      {estado === "login" && (
+        <>
+          <form onSubmit={entrar} className="mt-7 space-y-4">
+            <Campo icon={Mail} label="Email" type="email" value={email} onChange={setEmail} />
+            <div className="space-y-1.5">
+              <label htmlFor="senha" className="text-sm font-semibold">
+                Senha
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  id="senha"
+                  type={ver ? "text" : "password"}
+                  required
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder="••••••••"
+                  className="h-12 w-full rounded-xl border border-input bg-card pl-10 pr-11 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setVer((v) => !v)}
+                  aria-label="Mostrar senha"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {ver ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
+                Lembrar de mim
+              </label>
+              <button type="button" onClick={recuperar} className="font-semibold text-primary">
+                Esqueci minha senha
+              </button>
+            </div>
+
             <button
-              type="button"
-              onClick={() => setVer((v) => !v)}
-              aria-label="Mostrar senha"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              type="submit"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95 disabled:opacity-60"
             >
-              {ver ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {loading ? "Entrando..." : "Entrar"} <ArrowRight className="h-4 w-4" />
             </button>
-          </div>
-        </div>
+          </form>
 
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 text-muted-foreground">
-            <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
-            Lembrar de mim
-          </label>
-          <button type="button" onClick={recuperar} className="font-semibold text-primary">
-            Esqueci minha senha
-          </button>
-        </div>
+          <p className="mt-7 text-center text-sm text-muted-foreground">
+            Ainda não tem conta?{" "}
+            <Link to="/cadastro" className="font-semibold text-primary underline">
+              Criar conta grátis
+            </Link>
+          </p>
+        </>
+      )}
 
+      {estado === "pendente" && (
         <button
-          type="submit"
-          disabled={loading}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95 disabled:opacity-60"
+          type="button"
+          onClick={ativarConta}
+          disabled={ativando}
+          className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95 disabled:opacity-60"
         >
-          {loading ? "Entrando..." : "Entrar"} <ArrowRight className="h-4 w-4" />
+          {ativando ? "Enviando código..." : "Ativar minha conta"}{" "}
+          <ArrowRight className="h-4 w-4" />
         </button>
-      </form>
+      )}
 
-      <p className="mt-7 text-center text-sm text-muted-foreground">
-        Ainda não tem conta?{" "}
-        <Link to="/cadastro" className="font-semibold text-primary underline">
-          Criar conta grátis
-        </Link>
-      </p>
+      {estado === "verificar" && (
+        <div className="mt-7">
+          <VerificacaoWhatsappForm
+            whatsappMascarado={whatsappMascarado}
+            cooldownInicial={cooldownInicial}
+            onAtivado={aoAtivar}
+          />
+        </div>
+      )}
     </div>
   );
 }
