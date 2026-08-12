@@ -137,7 +137,7 @@ function Estoque() {
       const { data, error } = await supabase
         .from("produtos")
         .select("*")
-        .neq("categoria", "Serviço")
+        .or("categoria.neq.Serviço,categoria.is.null")
         .order("nome");
       if (error) throw error;
       return data as Produto[];
@@ -194,6 +194,7 @@ function Estoque() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do produto");
+      if (!form.categoria.trim()) throw new Error("Informe a categoria do produto");
       if (Number(form.preco_venda) <= 0)
         throw new Error("O preço de venda deve ser maior que zero");
 
