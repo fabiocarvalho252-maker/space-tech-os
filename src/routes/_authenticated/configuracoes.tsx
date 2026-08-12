@@ -129,13 +129,16 @@ function Configuracoes() {
   const salvarMp = useMutation({
     mutationFn: async () => {
       if (!user) return;
-      const { error } = await supabase.from("pagamento_config").upsert({
-        user_id: user.id,
-        mercado_pago_access_token: mpForm.access_token,
-        mercado_pago_public_key: mpForm.public_key,
-        mercado_pago_webhook_secret: mpForm.webhook_secret || null,
-        updated_at: new Date().toISOString(),
-      } as any);
+      const { error } = await supabase.from("pagamento_config").upsert(
+        {
+          user_id: user.id,
+          mercado_pago_access_token: mpForm.access_token,
+          mercado_pago_public_key: mpForm.public_key,
+          mercado_pago_webhook_secret: mpForm.webhook_secret || null,
+          updated_at: new Date().toISOString(),
+        } as any,
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -442,11 +445,14 @@ function Configuracoes() {
   const salvarSmtp = useMutation({
     mutationFn: async (formData: any) => {
       if (!user) return;
-      const { error } = await supabase.from("smtp_config" as any).upsert({
-        user_id: user.id,
-        ...formData,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await supabase.from("smtp_config" as any).upsert(
+        {
+          user_id: user.id,
+          ...formData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -505,11 +511,14 @@ function Configuracoes() {
   const salvarCatalogo = useMutation({
     mutationFn: async (formData: any) => {
       if (!user) return;
-      const { error } = await supabase.from("catalogo_config" as any).upsert({
-        user_id: user.id,
-        ...formData,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await supabase.from("catalogo_config" as any).upsert(
+        {
+          user_id: user.id,
+          ...formData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1410,7 +1419,10 @@ function Configuracoes() {
                     onChange={async (e) => {
                       await supabase
                         .from("sale_config" as any)
-                        .upsert({ user_id: user!.id, tipo_caixa: e.target.value });
+                        .upsert(
+                          { user_id: user!.id, tipo_caixa: e.target.value },
+                          { onConflict: "user_id" },
+                        );
                       refetchSaleConfig();
                     }}
                   >
@@ -1430,7 +1442,10 @@ function Configuracoes() {
                       onChange={async (e) => {
                         await supabase
                           .from("sale_config" as any)
-                          .upsert({ user_id: user!.id, status_padrao_venda: e.target.value });
+                          .upsert(
+                            { user_id: user!.id, status_padrao_venda: e.target.value },
+                            { onConflict: "user_id" },
+                          );
                         refetchSaleConfig();
                       }}
                     >
@@ -1449,7 +1464,10 @@ function Configuracoes() {
                       onChange={async (e) => {
                         await supabase
                           .from("sale_config" as any)
-                          .upsert({ user_id: user!.id, status_padrao_os: e.target.value });
+                          .upsert(
+                            { user_id: user!.id, status_padrao_os: e.target.value },
+                            { onConflict: "user_id" },
+                          );
                         refetchSaleConfig();
                       }}
                     >
@@ -1470,7 +1488,10 @@ function Configuracoes() {
                       onCheckedChange={async (val) => {
                         await supabase
                           .from("sale_config" as any)
-                          .upsert({ user_id: user!.id, permitir_desconto: val });
+                          .upsert(
+                            { user_id: user!.id, permitir_desconto: val },
+                            { onConflict: "user_id" },
+                          );
                         refetchSaleConfig();
                       }}
                     />
@@ -1482,7 +1503,10 @@ function Configuracoes() {
                       onCheckedChange={async (val) => {
                         await supabase
                           .from("sale_config" as any)
-                          .upsert({ user_id: user!.id, editar_preco_carrinho: val });
+                          .upsert(
+                            { user_id: user!.id, editar_preco_carrinho: val },
+                            { onConflict: "user_id" },
+                          );
                         refetchSaleConfig();
                       }}
                     />
@@ -1496,12 +1520,13 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.teto_desconto_percentual || 100}
                       onChange={async (e) => {
-                        await supabase
-                          .from("sale_config" as any)
-                          .upsert({
+                        await supabase.from("sale_config" as any).upsert(
+                          {
                             user_id: user!.id,
                             teto_desconto_percentual: Number(e.target.value),
-                          });
+                          },
+                          { onConflict: "user_id" },
+                        );
                         refetchSaleConfig();
                       }}
                     />
@@ -1512,12 +1537,13 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.dias_garantia_padrao || 90}
                       onChange={async (e) => {
-                        await supabase
-                          .from("sale_config" as any)
-                          .upsert({
+                        await supabase.from("sale_config" as any).upsert(
+                          {
                             user_id: user!.id,
                             dias_garantia_padrao: Number(e.target.value),
-                          });
+                          },
+                          { onConflict: "user_id" },
+                        );
                         refetchSaleConfig();
                       }}
                     />
@@ -1539,7 +1565,10 @@ function Configuracoes() {
                   onChange={async (e) => {
                     await supabase
                       .from("sale_config" as any)
-                      .upsert({ user_id: user!.id, texto_proposta: e.target.value });
+                      .upsert(
+                        { user_id: user!.id, texto_proposta: e.target.value },
+                        { onConflict: "user_id" },
+                      );
                     refetchSaleConfig();
                   }}
                 />
@@ -1549,10 +1578,13 @@ function Configuracoes() {
                     <button
                       className="text-primary hover:underline"
                       onClick={async () => {
-                        await supabase.from("sale_config" as any).upsert({
-                          user_id: user!.id,
-                          texto_proposta: osConfig?.termos_condicoes || "",
-                        });
+                        await supabase.from("sale_config" as any).upsert(
+                          {
+                            user_id: user!.id,
+                            texto_proposta: osConfig?.termos_condicoes || "",
+                          },
+                          { onConflict: "user_id" },
+                        );
                         refetchSaleConfig();
                         toast.success("Copiado da aba O.S.!");
                       }}
@@ -1565,7 +1597,10 @@ function Configuracoes() {
                         const def = `Formas de pagamento: Pix, dinheiro, cartão de débito ou crédito.\nParcelamento: em até 3x no cartão.\nPrazo de entrega: até 5 dias úteis após a confirmação do pedido.\nValidade desta proposta: 7 dias.\nGarantia: 90 dias contra defeito de fabricação.\n\nEsta proposta é uma previsão de valores, não uma cobrança. Os valores valem para os produtos e as quantidades descritos e podem mudar se o pedido for alterado ou se algum item estiver indisponível no estoque.`;
                         await supabase
                           .from("sale_config" as any)
-                          .upsert({ user_id: user!.id, texto_proposta: def });
+                          .upsert(
+                            { user_id: user!.id, texto_proposta: def },
+                            { onConflict: "user_id" },
+                          );
                         refetchSaleConfig();
                         toast.success("Texto padrão restaurado!");
                       }}
@@ -1591,12 +1626,13 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.proximo_numero_venda || 1}
                       onChange={async (e) => {
-                        await supabase
-                          .from("sale_config" as any)
-                          .upsert({
+                        await supabase.from("sale_config" as any).upsert(
+                          {
                             user_id: user!.id,
                             proximo_numero_venda: Number(e.target.value),
-                          });
+                          },
+                          { onConflict: "user_id" },
+                        );
                         refetchSaleConfig();
                       }}
                     />
@@ -1701,10 +1737,13 @@ function Configuracoes() {
                     className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     value={purchaseConfig?.situacao_faturar || ""}
                     onChange={async (e) => {
-                      await supabase.from("purchase_config" as any).upsert({
-                        user_id: user!.id,
-                        situacao_faturar: e.target.value === "" ? null : e.target.value,
-                      });
+                      await supabase.from("purchase_config" as any).upsert(
+                        {
+                          user_id: user!.id,
+                          situacao_faturar: e.target.value === "" ? null : e.target.value,
+                        },
+                        { onConflict: "user_id" },
+                      );
                       refetchPurchaseConfig();
                     }}
                   >
@@ -2242,10 +2281,13 @@ function Configuracoes() {
                             <Switch
                               checked={whatsappConfig?.[item.key] ?? false}
                               onCheckedChange={async (val) => {
-                                await supabase.from("whatsapp_config" as any).upsert({
-                                  user_id: user!.id,
-                                  [item.key]: val,
-                                });
+                                await supabase.from("whatsapp_config" as any).upsert(
+                                  {
+                                    user_id: user!.id,
+                                    [item.key]: val,
+                                  },
+                                  { onConflict: "user_id" },
+                                );
                                 refetchWhatsapp();
                               }}
                             />
@@ -2261,10 +2303,13 @@ function Configuracoes() {
                               className="min-h-[100px] text-sm"
                               defaultValue={whatsappConfig?.[`${item.key}_texto`] || ""}
                               onBlur={async (e) => {
-                                await supabase.from("whatsapp_config" as any).upsert({
-                                  user_id: user!.id,
-                                  [`${item.key}_texto`]: e.target.value,
-                                });
+                                await supabase.from("whatsapp_config" as any).upsert(
+                                  {
+                                    user_id: user!.id,
+                                    [`${item.key}_texto`]: e.target.value,
+                                  },
+                                  { onConflict: "user_id" },
+                                );
                                 refetchWhatsapp();
                               }}
                             />
