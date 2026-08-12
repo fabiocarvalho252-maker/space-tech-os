@@ -53,7 +53,7 @@ import {
   FileStack,
 } from "lucide-react";
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
-import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -75,6 +75,7 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
 
 function Configuracoes() {
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const { data: profile } = useProfile();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +132,7 @@ function Configuracoes() {
       if (!user) return;
       const { error } = await supabase.from("pagamento_config").upsert(
         {
-          user_id: user.id,
+          user_id: empresaId!,
           mercado_pago_access_token: mpForm.access_token,
           mercado_pago_public_key: mpForm.public_key,
           mercado_pago_webhook_secret: mpForm.webhook_secret || null,
@@ -338,7 +339,7 @@ function Configuracoes() {
       const { error } = await supabase
         .from("estoque_config" as any)
         .upsert(
-          { user_id: user.id, estoque_minimo_padrao, updated_at: new Date().toISOString() },
+          { user_id: empresaId!, estoque_minimo_padrao, updated_at: new Date().toISOString() },
           { onConflict: "user_id" },
         );
       if (error) throw error;
@@ -371,7 +372,7 @@ function Configuracoes() {
       if (!nome.trim()) throw new Error("Informe o nome da categoria.");
       const { error } = await supabase
         .from("produto_categorias" as any)
-        .insert({ user_id: user.id, nome: nome.trim() });
+        .insert({ user_id: empresaId!, nome: nome.trim() });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -414,7 +415,7 @@ function Configuracoes() {
         .from("fiscal_config" as any)
         .upsert(
           {
-            user_id: user.id,
+            user_id: empresaId!,
             serie_padrao: serie_padrao.trim(),
             updated_at: new Date().toISOString(),
           },
@@ -447,7 +448,7 @@ function Configuracoes() {
       if (!user) return;
       const { error } = await supabase.from("smtp_config" as any).upsert(
         {
-          user_id: user.id,
+          user_id: empresaId!,
           ...formData,
           updated_at: new Date().toISOString(),
         },
@@ -480,7 +481,7 @@ function Configuracoes() {
       if (!user) return;
       const { error } = await supabase.from("whatsapp_config" as any).upsert(
         {
-          user_id: user.id,
+          user_id: empresaId!,
           ...formData,
           updated_at: new Date().toISOString(),
         },
@@ -513,7 +514,7 @@ function Configuracoes() {
       if (!user) return;
       const { error } = await supabase.from("catalogo_config" as any).upsert(
         {
-          user_id: user.id,
+          user_id: empresaId!,
           ...formData,
           updated_at: new Date().toISOString(),
         },
@@ -812,7 +813,7 @@ function Configuracoes() {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const { error } = await supabase.from("bank_accounts" as any).insert({
-                          user_id: user!.id,
+                          user_id: empresaId!,
                           banco: formData.get("banco"),
                           agencia: formData.get("agencia"),
                           conta: formData.get("conta"),
@@ -947,7 +948,7 @@ function Configuracoes() {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const { error } = await supabase.from("finance_categories" as any).insert({
-                          user_id: user!.id,
+                          user_id: empresaId!,
                           nome: formData.get("nome"),
                           tipo: formData.get("tipo"),
                         });
@@ -1030,7 +1031,7 @@ function Configuracoes() {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const { error } = await supabase.from("payment_methods" as any).insert({
-                          user_id: user!.id,
+                          user_id: empresaId!,
                           nome: formData.get("nome"),
                           taxa: Number(formData.get("taxa")),
                         });
@@ -1107,7 +1108,7 @@ function Configuracoes() {
                         .from("os_config" as any)
                         .upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             termos_condicoes: val,
                             updated_at: new Date().toISOString(),
                           },
@@ -1127,7 +1128,7 @@ function Configuracoes() {
                           .from("os_config" as any)
                           .upsert(
                             {
-                              user_id: user!.id,
+                              user_id: empresaId!,
                               termos_condicoes: defaultText,
                               updated_at: new Date().toISOString(),
                             },
@@ -1174,7 +1175,7 @@ function Configuracoes() {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const { error } = await supabase.from("os_checklists" as any).insert({
-                          user_id: user!.id,
+                          user_id: empresaId!,
                           nome: formData.get("nome"),
                           itens: [],
                         });
@@ -1262,7 +1263,7 @@ function Configuracoes() {
                       await supabase
                         .from("os_config" as any)
                         .upsert(
-                          { user_id: user!.id, exibir_fotos_impressao: val },
+                          { user_id: empresaId!, exibir_fotos_impressao: val },
                           { onConflict: "user_id" },
                         );
                       refetchOsConfig();
@@ -1282,7 +1283,7 @@ function Configuracoes() {
                       await supabase
                         .from("os_config" as any)
                         .upsert(
-                          { user_id: user!.id, imprimir_duas_vias: val },
+                          { user_id: empresaId!, imprimir_duas_vias: val },
                           { onConflict: "user_id" },
                         );
                       refetchOsConfig();
@@ -1302,7 +1303,7 @@ function Configuracoes() {
                       await supabase
                         .from("os_config" as any)
                         .upsert(
-                          { user_id: user!.id, imprimir_qrcode_cliente: val },
+                          { user_id: empresaId!, imprimir_qrcode_cliente: val },
                           { onConflict: "user_id" },
                         );
                       refetchOsConfig();
@@ -1319,7 +1320,7 @@ function Configuracoes() {
                         .from("os_config" as any)
                         .upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             dias_garantia_padrao: Number(e.target.value),
                           },
                           { onConflict: "user_id" },
@@ -1368,7 +1369,7 @@ function Configuracoes() {
                                 if (checked) {
                                   await supabase.from("os_status_flows" as any).upsert(
                                     {
-                                      user_id: user!.id,
+                                      user_id: empresaId!,
                                       origem: origem.value,
                                       destino: destino.value,
                                       ativo: true,
@@ -1380,7 +1381,7 @@ function Configuracoes() {
                                     .from("os_status_flows" as any)
                                     .delete()
                                     .match({
-                                      user_id: user!.id,
+                                      user_id: empresaId!,
                                       origem: origem.value,
                                       destino: destino.value,
                                     });
@@ -1420,7 +1421,7 @@ function Configuracoes() {
                       await supabase
                         .from("sale_config" as any)
                         .upsert(
-                          { user_id: user!.id, tipo_caixa: e.target.value },
+                          { user_id: empresaId!, tipo_caixa: e.target.value },
                           { onConflict: "user_id" },
                         );
                       refetchSaleConfig();
@@ -1443,7 +1444,7 @@ function Configuracoes() {
                         await supabase
                           .from("sale_config" as any)
                           .upsert(
-                            { user_id: user!.id, status_padrao_venda: e.target.value },
+                            { user_id: empresaId!, status_padrao_venda: e.target.value },
                             { onConflict: "user_id" },
                           );
                         refetchSaleConfig();
@@ -1465,7 +1466,7 @@ function Configuracoes() {
                         await supabase
                           .from("sale_config" as any)
                           .upsert(
-                            { user_id: user!.id, status_padrao_os: e.target.value },
+                            { user_id: empresaId!, status_padrao_os: e.target.value },
                             { onConflict: "user_id" },
                           );
                         refetchSaleConfig();
@@ -1489,7 +1490,7 @@ function Configuracoes() {
                         await supabase
                           .from("sale_config" as any)
                           .upsert(
-                            { user_id: user!.id, permitir_desconto: val },
+                            { user_id: empresaId!, permitir_desconto: val },
                             { onConflict: "user_id" },
                           );
                         refetchSaleConfig();
@@ -1504,7 +1505,7 @@ function Configuracoes() {
                         await supabase
                           .from("sale_config" as any)
                           .upsert(
-                            { user_id: user!.id, editar_preco_carrinho: val },
+                            { user_id: empresaId!, editar_preco_carrinho: val },
                             { onConflict: "user_id" },
                           );
                         refetchSaleConfig();
@@ -1522,7 +1523,7 @@ function Configuracoes() {
                       onChange={async (e) => {
                         await supabase.from("sale_config" as any).upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             teto_desconto_percentual: Number(e.target.value),
                           },
                           { onConflict: "user_id" },
@@ -1539,7 +1540,7 @@ function Configuracoes() {
                       onChange={async (e) => {
                         await supabase.from("sale_config" as any).upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             dias_garantia_padrao: Number(e.target.value),
                           },
                           { onConflict: "user_id" },
@@ -1566,7 +1567,7 @@ function Configuracoes() {
                     await supabase
                       .from("sale_config" as any)
                       .upsert(
-                        { user_id: user!.id, texto_proposta: e.target.value },
+                        { user_id: empresaId!, texto_proposta: e.target.value },
                         { onConflict: "user_id" },
                       );
                     refetchSaleConfig();
@@ -1580,7 +1581,7 @@ function Configuracoes() {
                       onClick={async () => {
                         await supabase.from("sale_config" as any).upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             texto_proposta: osConfig?.termos_condicoes || "",
                           },
                           { onConflict: "user_id" },
@@ -1598,7 +1599,7 @@ function Configuracoes() {
                         await supabase
                           .from("sale_config" as any)
                           .upsert(
-                            { user_id: user!.id, texto_proposta: def },
+                            { user_id: empresaId!, texto_proposta: def },
                             { onConflict: "user_id" },
                           );
                         refetchSaleConfig();
@@ -1628,7 +1629,7 @@ function Configuracoes() {
                       onChange={async (e) => {
                         await supabase.from("sale_config" as any).upsert(
                           {
-                            user_id: user!.id,
+                            user_id: empresaId!,
                             proximo_numero_venda: Number(e.target.value),
                           },
                           { onConflict: "user_id" },
@@ -1669,7 +1670,7 @@ function Configuracoes() {
                                   if (checked) {
                                     await supabase.from("sale_status_flows" as any).upsert(
                                       {
-                                        user_id: user!.id,
+                                        user_id: empresaId!,
                                         origem: origem.value,
                                         destino: destino.value,
                                         ativo: true,
@@ -1681,7 +1682,7 @@ function Configuracoes() {
                                       .from("sale_status_flows" as any)
                                       .delete()
                                       .match({
-                                        user_id: user!.id,
+                                        user_id: empresaId!,
                                         origem: origem.value,
                                         destino: destino.value,
                                       });
@@ -1700,7 +1701,7 @@ function Configuracoes() {
                                     .from("sale_status_flows" as any)
                                     .update({ cor: e.target.value })
                                     .match({
-                                      user_id: user!.id,
+                                      user_id: empresaId!,
                                       origem: origem.value,
                                       destino: destino.value,
                                     });
@@ -1739,7 +1740,7 @@ function Configuracoes() {
                     onChange={async (e) => {
                       await supabase.from("purchase_config" as any).upsert(
                         {
-                          user_id: user!.id,
+                          user_id: empresaId!,
                           situacao_faturar: e.target.value === "" ? null : e.target.value,
                         },
                         { onConflict: "user_id" },
@@ -1799,7 +1800,7 @@ function Configuracoes() {
                                   if (checked) {
                                     await supabase.from("purchase_status_flows" as any).upsert(
                                       {
-                                        user_id: user!.id,
+                                        user_id: empresaId!,
                                         from_status: origem.value,
                                         to_status: destino.value,
                                         is_active: true,
@@ -1811,7 +1812,7 @@ function Configuracoes() {
                                       .from("purchase_status_flows" as any)
                                       .delete()
                                       .match({
-                                        user_id: user!.id,
+                                        user_id: empresaId!,
                                         from_status: origem.value,
                                         to_status: destino.value,
                                       });
@@ -1834,7 +1835,7 @@ function Configuracoes() {
                                       .from("purchase_status_flows" as any)
                                       .update({ color: e.target.value })
                                       .match({
-                                        user_id: user!.id,
+                                        user_id: empresaId!,
                                         from_status: origem.value,
                                         to_status: destino.value,
                                       });
@@ -2283,7 +2284,7 @@ function Configuracoes() {
                               onCheckedChange={async (val) => {
                                 await supabase.from("whatsapp_config" as any).upsert(
                                   {
-                                    user_id: user!.id,
+                                    user_id: empresaId!,
                                     [item.key]: val,
                                   },
                                   { onConflict: "user_id" },
@@ -2305,7 +2306,7 @@ function Configuracoes() {
                               onBlur={async (e) => {
                                 await supabase.from("whatsapp_config" as any).upsert(
                                   {
-                                    user_id: user!.id,
+                                    user_id: empresaId!,
                                     [`${item.key}_texto`]: e.target.value,
                                   },
                                   { onConflict: "user_id" },

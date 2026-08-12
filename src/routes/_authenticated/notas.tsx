@@ -17,7 +17,13 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser, useProfile, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
+import {
+  useCurrentUser,
+  useEmpresaId,
+  useProfile,
+  usePermissoes,
+  podeGerenciar,
+} from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SectionCard } from "@/components/SectionCard";
@@ -81,6 +87,7 @@ function NotasFiscais() {
   const navigate = useNavigate();
   const searchParams = Route.useSearch();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const { data: profile } = useProfile();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "notas");
@@ -240,7 +247,7 @@ function NotasFiscais() {
       const { data: nota, error: notaErro } = await supabase
         .from("notas_fiscais")
         .insert({
-          user_id: user!.id,
+          user_id: empresaId!,
           cliente_id: form.cliente_id,
           venda_id: vendaId,
           os_id: osId,
@@ -254,7 +261,7 @@ function NotasFiscais() {
 
       const { error: itensErro } = await supabase
         .from("nota_fiscal_itens")
-        .insert(itensFinal.map((i) => ({ ...i, nota_id: nota.id, user_id: user!.id })));
+        .insert(itensFinal.map((i) => ({ ...i, nota_id: nota.id, user_id: empresaId! })));
       if (itensErro) throw itensErro;
     },
     onSuccess: () => {

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SeminovosFotos } from "@/components/SeminovosFotos";
-import { useCurrentUser, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,7 @@ const vazio = {
 function Seminovos() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "seminovos");
 
@@ -110,7 +111,7 @@ function Seminovos() {
       if (!form.marca.trim() || !form.modelo.trim()) throw new Error("Informe marca e modelo");
 
       const payload = {
-        user_id: user.id,
+        user_id: empresaId!,
         cliente_id: form.cliente_id || null,
         vendedor_nome: form.vendedor_nome || null,
         vendedor_telefone: form.vendedor_telefone || null,

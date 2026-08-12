@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -168,6 +168,7 @@ function TemplateCard({
 
 export function OsTemplatesLibrary() {
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const qc = useQueryClient();
   const empresa = useEmpresaTemplateData();
   const termos = useEmpresaTermosData();
@@ -186,13 +187,13 @@ export function OsTemplatesLibrary() {
   const [excluirTemplate, setExcluirTemplate] = useState<OsTemplateDbRow | null>(null);
 
   const { data: templates, isLoading } = useQuery({
-    queryKey: ["os-templates", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["os-templates", empresaId],
+    enabled: !!empresaId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("os_templates" as any)
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("user_id", empresaId!)
         .eq("ativo", true)
         // The 6 seed templates are inserted in one statement, so they all
         // get the exact same created_at (now() is evaluated once per
@@ -212,18 +213,20 @@ export function OsTemplatesLibrary() {
   // this app self-heals instead of depending on the signup trigger.
   const seedTentadoRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!user?.id || isLoading || seedTentadoRef.current === user.id) return;
+    if (!empresaId || isLoading || seedTentadoRef.current === empresaId) return;
     if (templates && templates.length === 0) {
-      seedTentadoRef.current = user.id;
-      supabase.rpc("garantir_templates_padrao" as any, { p_user_id: user.id }).then(({ error }) => {
-        if (error) {
-          toast.error("Não foi possível carregar os modelos padrão: " + error.message);
-          return;
-        }
-        qc.invalidateQueries({ queryKey: ["os-templates", user.id] });
-      });
+      seedTentadoRef.current = empresaId;
+      supabase
+        .rpc("garantir_templates_padrao" as any, { p_user_id: empresaId })
+        .then(({ error }) => {
+          if (error) {
+            toast.error("Não foi possível carregar os modelos padrão: " + error.message);
+            return;
+          }
+          qc.invalidateQueries({ queryKey: ["os-templates", empresaId] });
+        });
     }
-  }, [user?.id, isLoading, templates, qc]);
+  }, [empresaId, isLoading, templates, qc]);
 
   const favoritar = useMutation({
     mutationFn: async (t: OsTemplateDbRow) => {
@@ -256,7 +259,7 @@ export function OsTemplatesLibrary() {
       const { data, error } = await supabase
         .from("os_templates" as any)
         .insert({
-          user_id: user!.id,
+          user_id: empresaId!,
           nome: `${t.nome} — Cópia`,
           descricao: t.descricao,
           categoria: t.categoria,

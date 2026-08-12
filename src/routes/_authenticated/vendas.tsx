@@ -5,7 +5,7 @@ import { Plus, Trash2, Search, Eye, Minus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_VENDAS, statusLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ type CartItem = {
 function Vendas() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<string>("todas");
   const [open, setOpen] = useState(false);
@@ -169,7 +170,7 @@ function Vendas() {
       const { data: venda, error: vendaErro } = await supabase
         .from("vendas")
         .insert({
-          user_id: user.id,
+          user_id: empresaId!,
           cliente_id: clienteId || null,
           total,
           desconto: descontoNum,
@@ -183,7 +184,7 @@ function Vendas() {
 
       const { error: itensErro } = await supabase.from("venda_itens").insert(
         carrinho.map((i) => ({
-          user_id: user.id,
+          user_id: empresaId!,
           venda_id: venda.id,
           produto_id: i.id,
           descricao: i.nome,
@@ -210,7 +211,7 @@ function Vendas() {
       }
 
       await supabase.from("lancamentos").insert({
-        user_id: user.id,
+        user_id: empresaId!,
         tipo: "entrada",
         categoria: "Venda",
         descricao: `Venda #${String(venda.numero ?? venda.id.slice(0, 8)).padStart(4, "0")}`,

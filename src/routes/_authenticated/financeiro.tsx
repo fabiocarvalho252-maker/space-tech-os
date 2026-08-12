@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
 import { useMemo } from "react";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
@@ -55,6 +55,7 @@ const vazio = {
 function Financeiro() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const { data: profile } = useProfile();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
@@ -117,7 +118,7 @@ function Financeiro() {
       const valor = Number(form.valor);
       if (!valor || valor <= 0) throw new Error("Informe um valor válido");
       const { error } = await supabase.from("lancamentos").insert({
-        user_id: user!.id,
+        user_id: empresaId!,
         tipo: form.tipo,
         categoria: form.categoria || null,
         descricao: form.descricao || form.categoria || "Lançamento",

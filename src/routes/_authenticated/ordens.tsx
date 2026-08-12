@@ -473,7 +473,7 @@ function Ordens() {
       const { data: os, error } = await supabase
         .from("ordens_servico")
         .insert({
-          user_id: user!.id,
+          user_id: empresaId!,
           cliente_id: form.cliente_id || null,
           aparelho: form.aparelho,
           marca: form.marca,
@@ -497,7 +497,7 @@ function Ordens() {
       if (form.itens.length > 0) {
         const { error: itensError } = await supabase.from("os_itens" as any).insert(
           form.itens.map((i) => ({
-            user_id: user!.id,
+            user_id: empresaId!,
             os_id: os.id,
             tipo: i.tipo,
             produto_id: i.produto_id,
@@ -571,7 +571,7 @@ function Ordens() {
       if (itensEdicao.length > 0) {
         const { error: insError } = await supabase.from("os_itens" as any).insert(
           itensEdicao.map((i) => ({
-            user_id: user!.id,
+            user_id: empresaId!,
             os_id: selectedOsId,
             produto_id: i.produto_id ?? null,
             tipo: i.tipo,
@@ -767,13 +767,13 @@ function Ordens() {
       supabase
         .from("termos_garantia")
         .select("conteudo")
-        .eq("user_id", user?.id || "")
+        .eq("user_id", empresaId || "")
         .eq("is_default", true)
         .single(),
       supabase
         .from("os_config" as any)
         .select("*")
-        .eq("user_id", user?.id || "")
+        .eq("user_id", empresaId || "")
         .maybeSingle(),
       supabase
         .from("service_order_photos" as any)
@@ -786,7 +786,7 @@ function Ordens() {
       supabase
         .from("os_templates" as any)
         .select("*")
-        .eq("user_id", user?.id || "")
+        .eq("user_id", empresaId || "")
         .eq("ativo", true)
         .order("padrao", { ascending: false })
         .order("created_at", { ascending: true })

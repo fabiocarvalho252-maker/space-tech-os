@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEmpresaId } from "@/hooks/useCurrentUser";
 import { supabase } from "@/integrations/supabase/client";
 import type { RenderOsData } from "@/lib/os-template-render";
 
@@ -15,29 +15,29 @@ import type { RenderOsData } from "@/lib/os-template-render";
 export function useEmpresaTermosData(): Partial<
   Pick<RenderOsData, "condicoesTexto" | "termoGarantiaTexto">
 > {
-  const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
 
   const { data: osConfig } = useQuery({
-    queryKey: ["os-config", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["os-config", empresaId],
+    enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
         .from("os_config" as any)
         .select("termos_condicoes")
-        .eq("user_id", user!.id)
+        .eq("user_id", empresaId!)
         .maybeSingle();
       return data as { termos_condicoes: string | null } | null;
     },
   });
 
   const { data: termoGarantia } = useQuery({
-    queryKey: ["termo-garantia-padrao", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["termo-garantia-padrao", empresaId],
+    enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
         .from("termos_garantia")
         .select("conteudo")
-        .eq("user_id", user!.id)
+        .eq("user_id", empresaId!)
         .eq("is_default", true)
         .maybeSingle();
       return data as { conteudo: string } | null;

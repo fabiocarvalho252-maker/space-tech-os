@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { dataBR } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
@@ -44,6 +44,7 @@ type Termo = {
 
 function Garantia() {
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -75,7 +76,7 @@ function Garantia() {
       } else {
         const { error } = await supabase
           .from("termos_garantia")
-          .insert([{ ...form, user_id: user.id, is_default: termos.length === 0 }]);
+          .insert([{ ...form, user_id: empresaId!, is_default: termos.length === 0 }]);
         if (error) throw error;
       }
     },
@@ -110,7 +111,7 @@ function Garantia() {
       await supabase
         .from("termos_garantia")
         .update({ is_default: false })
-        .eq("user_id", user?.id || "");
+        .eq("user_id", empresaId || "");
       const { error } = await supabase
         .from("termos_garantia")
         .update({ is_default: true })

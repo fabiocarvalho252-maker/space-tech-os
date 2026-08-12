@@ -5,7 +5,7 @@ import { Plus, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ const vazio = {
 function Fornecedores() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
@@ -63,7 +64,9 @@ function Fornecedores() {
   const criar = useMutation({
     mutationFn: async () => {
       if (!form.razao_social.trim()) throw new Error("Informe a razão social do fornecedor");
-      const { error } = await supabase.from("fornecedores").insert({ ...form, user_id: user!.id });
+      const { error } = await supabase
+        .from("fornecedores")
+        .insert({ ...form, user_id: empresaId! });
       if (error) throw error;
     },
     onSuccess: () => {

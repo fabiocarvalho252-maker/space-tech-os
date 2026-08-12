@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,6 +117,7 @@ function imprimirEtiquetas(produtos: Produto[]) {
 function Estoque() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [busca, setBusca] = useState("");
   const [modo, setModo] = useState<"fechado" | "criar" | "editar" | "ver">("fechado");
   const [form, setForm] = useState(vazio);
@@ -146,7 +147,10 @@ function Estoque() {
   const { data: estoqueConfig } = useQuery({
     queryKey: ["estoque-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("estoque_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("estoque_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -197,7 +201,7 @@ function Estoque() {
         const { data: existente } = await supabase
           .from("produtos")
           .select("id")
-          .eq("user_id", user!.id)
+          .eq("user_id", empresaId!)
           .eq("sku", form.sku)
           .neq("id", produtoAtual?.id ?? "")
           .maybeSingle();
@@ -218,7 +222,9 @@ function Estoque() {
         const { error } = await supabase.from("produtos").update(payload).eq("id", produtoAtual.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("produtos").insert({ ...payload, user_id: user!.id });
+        const { error } = await supabase
+          .from("produtos")
+          .insert({ ...payload, user_id: empresaId! });
         if (error) throw error;
       }
     },
@@ -234,7 +240,7 @@ function Estoque() {
   const duplicar = useMutation({
     mutationFn: async (p: Produto) => {
       const { error } = await supabase.from("produtos").insert({
-        user_id: user!.id,
+        user_id: empresaId!,
         nome: `${p.nome} (cópia)`,
         sku: null,
         categoria: p.categoria,

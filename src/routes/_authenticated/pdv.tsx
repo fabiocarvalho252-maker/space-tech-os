@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +65,7 @@ function PDV() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [carrinho, setCarrinho] = useState<Item[]>([]);
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<'Tudo' | 'Produto' | 'Serviço'>('Tudo');
@@ -132,7 +133,7 @@ function PDV() {
       const { data: venda, error: vendaErro } = await supabase
         .from("vendas")
         .insert({
-          user_id: user.id,
+          user_id: empresaId!,
           cliente_id: clienteId,
           total,
           forma_pagamento: "pix",
@@ -145,7 +146,7 @@ function PDV() {
 
       const { error: itensErro } = await supabase.from("venda_itens").insert(
         carrinho.map(i => ({
-          user_id: user.id,
+          user_id: empresaId!,
           venda_id: (venda as any).id,
           produto_id: i.id,
           descricao: i.nome,
@@ -166,7 +167,7 @@ function PDV() {
       }
 
       await supabase.from("lancamentos").insert({
-        user_id: user.id,
+        user_id: empresaId!,
         tipo: "entrada",
         categoria: "Venda PDV",
         descricao: `Venda #${(venda as any).id.slice(0, 8)}`,

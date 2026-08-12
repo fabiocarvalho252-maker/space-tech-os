@@ -5,7 +5,7 @@ import { Plus, Trash2, Search, Sparkles, Layers, Target } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
 import { buscarModelosCompativeis } from "@/lib/peliculas.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ const vazio = { marca: "", modelo: "", codigo: "", pelicula_compativel: "", obse
 function Ferramentas() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "produtos");
 
@@ -76,7 +77,7 @@ function Ferramentas() {
       }
       const { error } = await supabase
         .from("peliculas_catalogo")
-        .insert({ ...form, user_id: user!.id });
+        .insert({ ...form, user_id: empresaId! });
       if (error) throw error;
     },
     onSuccess: () => {

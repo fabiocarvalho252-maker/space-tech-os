@@ -5,7 +5,7 @@ import { Plus, Trash2, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEmpresaId } from "@/hooks/useCurrentUser";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ const vazio = { nome: "", telefone: "", email: "", documento: "", endereco: "", 
 
 function Clientes() {
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -80,7 +80,7 @@ function Clientes() {
         const { error } = await supabase.from("clientes").update(form).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("clientes").insert({ ...form, user_id: user!.id });
+        const { error } = await supabase.from("clientes").insert({ ...form, user_id: empresaId! });
         if (error) throw error;
       }
     },

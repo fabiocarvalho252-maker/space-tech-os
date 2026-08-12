@@ -54,6 +54,20 @@ export function useMinhaEmpresa() {
   });
 }
 
+/** The empresa id every write should use as its "user_id" scope column —
+ * not necessarily the login's own auth id. Once someone accepts an invite,
+ * their own id and the empresa they work for are different values (see
+ * useMinhaEmpresa); writing user.id directly instead of this would file the
+ * record under the staff member's own personal company, invisible to the
+ * empresa they actually work for and to everyone else on the team. Falls
+ * back to the login's own id only while useMinhaEmpresa is still loading —
+ * correct for the common single-owner case, where the two are equal anyway. */
+export function useEmpresaId(): string | undefined {
+  const { data: user } = useCurrentUser();
+  const { data: empresa } = useMinhaEmpresa();
+  return empresa?.empresa_id ?? user?.id;
+}
+
 export function useUserRole() {
   const { data: empresa } = useMinhaEmpresa();
   return useQuery({

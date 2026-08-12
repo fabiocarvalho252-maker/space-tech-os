@@ -5,7 +5,7 @@ import { Eye, Package, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { SearchInput } from "@/components/SearchInput";
@@ -59,6 +59,7 @@ const itemVazio: ItemForm = { produto_id: "", descricao: "", quantidade: "1", cu
 function Compras() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [verId, setVerId] = useState<string | null>(null);
@@ -181,7 +182,7 @@ function Compras() {
       const { data: compra, error: compraErro } = await supabase
         .from("compras" as any)
         .insert({
-          user_id: user!.id,
+          user_id: empresaId!,
           fornecedor_id: fornecedorId,
           forma_pagamento: formaPagamento || null,
           observacoes: observacoes || null,
@@ -193,7 +194,7 @@ function Compras() {
 
       const { error: itensErro } = await supabase.from("compra_itens" as any).insert(
         itens.map((i) => ({
-          user_id: user!.id,
+          user_id: empresaId!,
           compra_id: (compra as any).id,
           produto_id: i.produto_id || null,
           descricao: i.descricao,
@@ -257,7 +258,7 @@ function Compras() {
       if (status === situacaoFaturar && !compra?.faturado_em) {
         patch["faturado_em"] = new Date().toISOString();
         await supabase.from("lancamentos").insert({
-          user_id: user!.id,
+          user_id: empresaId!,
           tipo: "saida",
           categoria: "Compra de fornecedor",
           descricao: `Compra #${id.slice(0, 8)}`,

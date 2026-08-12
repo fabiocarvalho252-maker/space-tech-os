@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Sparkles, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ function CadastroServico() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const empresaId = useEmpresaId();
   const [form, setForm] = useState(vazio);
   const [carregado, setCarregado] = useState(!id);
 
@@ -98,7 +99,7 @@ function CadastroServico() {
       } else {
         const { error } = await supabase
           .from("produtos")
-          .insert({ ...payload, user_id: user!.id, quantidade: 999, estoque_minimo: 0 });
+          .insert({ ...payload, user_id: empresaId!, quantidade: 999, estoque_minimo: 0 });
         if (error) throw error;
       }
     },
