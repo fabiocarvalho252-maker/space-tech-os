@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { origemPublica } from "@/lib/site-url";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 
@@ -192,7 +193,7 @@ function PainelEmpresa() {
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
+      redirectTo: `${origemPublica()}/redefinir-senha`,
     });
     if (error) toast.error(error.message);
     else toast.success("Enviamos um link de recuperação para o seu email");
@@ -334,7 +335,7 @@ function PainelCliente() {
       email: parsed.data.email,
       password: parsed.data.senha,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: origemPublica(),
         // account_type=cliente tells handle_new_user() to skip creating an
         // empresa profile for this account (see the migration).
         data: {

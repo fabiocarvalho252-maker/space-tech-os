@@ -63,6 +63,7 @@ import {
 
 import { useCurrentUser, useMinhaEmpresa, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
+import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -878,9 +879,7 @@ function Ordens() {
         telefone: (profile as any)?.whatsapp ?? null,
         responsavel: null,
       },
-      qrCodeUrl: osConfig?.imprimir_qrcode_cliente
-        ? `${window.location.origin}/consulta/${os.id}`
-        : null,
+      qrCodeUrl: osConfig?.imprimir_qrcode_cliente ? `${origemPublica()}/consulta/${os.id}` : null,
       modo,
       duasVias: !!osConfig?.imprimir_duas_vias,
     };
@@ -1382,7 +1381,7 @@ function Ordens() {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => {
-                        const url = `${window.location.origin}/consulta/${os.id}`;
+                        const url = `${origemPublica()}/consulta/${os.id}`;
                         navigator.clipboard.writeText(url);
                         toast.success("Link da Área do Cliente copiado!");
                       }}
@@ -1495,7 +1494,7 @@ function Ordens() {
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => {
-                  const url = `${window.location.origin}/consulta/${os.id}`;
+                  const url = `${origemPublica()}/consulta/${os.id}`;
                   navigator.clipboard.writeText(url);
                   toast.success("Link da Área do Cliente copiado!");
                 }}

@@ -4,6 +4,7 @@ import { ArrowRight, Lock, Mail, Store, User, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { origemPublica } from "@/lib/site-url";
 import { LogoMark, LogoWord } from "@/components/Logo";
 
 export const Route = createFileRoute("/cadastro")({
@@ -50,7 +51,7 @@ function Cadastro() {
       email: parsed.data.email,
       password: parsed.data.senha,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: origemPublica(),
         data: { nome: parsed.data.nome, loja: parsed.data.loja, whatsapp: parsed.data.whatsapp },
       },
     });
