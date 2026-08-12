@@ -35,6 +35,12 @@ import {
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ajustarLaudo } from "@/lib/laudo.functions";
+import {
+  analyzeDeviceDescription,
+  CATEGORIAS_CONHECIDAS,
+  MARCAS_CONHECIDAS,
+  CORES_CONHECIDAS,
+} from "@/lib/device-analyzer";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -334,6 +340,29 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const analiseAparelho = useMutation({
+    mutationFn: async () => {
+      if (!form.defeito.trim()) throw new Error("Escreva o defeito relatado antes de analisar.");
+      return analyzeDeviceDescription(form.defeito);
+    },
+    onSuccess: (res) => {
+      const encontrou = res.aparelho || res.marca || res.modelo || res.cor;
+      if (!encontrou) {
+        toast.info("Nenhum aparelho reconhecido no texto.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        aparelho: res.aparelho ?? f.aparelho,
+        marca: res.marca ?? f.marca,
+        modelo: res.modelo ?? f.modelo,
+        cor: res.cor ?? f.cor,
+      }));
+      toast.success("Aparelho identificado a partir do defeito relatado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: ordens = [] } = useQuery({
     queryKey: ["ordens"],
     queryFn: async () => {
@@ -345,6 +374,26 @@ function Ordens() {
       return data;
     },
   });
+
+  const valoresUsados = (campo: "aparelho" | "marca" | "modelo" | "cor") =>
+    (ordens as any[]).map((o) => o[campo]).filter((v): v is string => !!v);
+
+  const sugestoesAparelho = useMemo(
+    () => Array.from(new Set([...CATEGORIAS_CONHECIDAS, ...valoresUsados("aparelho")])).sort(),
+    [ordens],
+  );
+  const sugestoesMarca = useMemo(
+    () => Array.from(new Set([...MARCAS_CONHECIDAS, ...valoresUsados("marca")])).sort(),
+    [ordens],
+  );
+  const sugestoesModelo = useMemo(
+    () => Array.from(new Set(valoresUsados("modelo"))).sort(),
+    [ordens],
+  );
+  const sugestoesCor = useMemo(
+    () => Array.from(new Set([...CORES_CONHECIDAS, ...valoresUsados("cor")])).sort(),
+    [ordens],
+  );
 
   // Não existe fila/worker real para "Agendar na fila" no WhatsApp — a
   // melhor aproximação sem infraestrutura nova é disparar o que já venceu
@@ -909,21 +958,29 @@ function Ordens() {
                   label="Aparelho"
                   value={form.aparelho}
                   onChange={(v) => setForm({ ...form, aparelho: v })}
+                  sugestoesId="sugestoes-aparelho-novo"
+                  sugestoes={sugestoesAparelho}
                 />
                 <Campo
                   label="Marca"
                   value={form.marca}
                   onChange={(v) => setForm({ ...form, marca: v })}
+                  sugestoesId="sugestoes-marca-novo"
+                  sugestoes={sugestoesMarca}
                 />
                 <Campo
                   label="Modelo"
                   value={form.modelo}
                   onChange={(v) => setForm({ ...form, modelo: v })}
+                  sugestoesId="sugestoes-modelo-novo"
+                  sugestoes={sugestoesModelo}
                 />
                 <Campo
                   label="Cor"
                   value={form.cor}
                   onChange={(v) => setForm({ ...form, cor: v })}
+                  sugestoesId="sugestoes-cor-novo"
+                  sugestoes={sugestoesCor}
                 />
                 <Campo
                   label="IMEI / Serial"
@@ -1121,10 +1178,24 @@ function Ordens() {
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Defeito relatado</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Defeito relatado</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={analiseAparelho.isPending}
+                      onClick={() => analiseAparelho.mutate()}
+                    >
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      {analiseAparelho.isPending ? "Analisando..." : "Identificar aparelho"}
+                    </Button>
+                  </div>
                   <Textarea
                     value={form.defeito}
                     onChange={(e) => setForm({ ...form, defeito: e.target.value })}
+                    placeholder="Ex: iPhone 13 Pro Max dourado com tela quebrada"
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
@@ -1532,21 +1603,29 @@ function Ordens() {
                   label="Aparelho"
                   value={form.aparelho}
                   onChange={(v) => setForm({ ...form, aparelho: v })}
+                  sugestoesId="sugestoes-aparelho-editar"
+                  sugestoes={sugestoesAparelho}
                 />
                 <Campo
                   label="Marca"
                   value={form.marca}
                   onChange={(v) => setForm({ ...form, marca: v })}
+                  sugestoesId="sugestoes-marca-editar"
+                  sugestoes={sugestoesMarca}
                 />
                 <Campo
                   label="Modelo"
                   value={form.modelo}
                   onChange={(v) => setForm({ ...form, modelo: v })}
+                  sugestoesId="sugestoes-modelo-editar"
+                  sugestoes={sugestoesModelo}
                 />
                 <Campo
                   label="Cor"
                   value={form.cor}
                   onChange={(v) => setForm({ ...form, cor: v })}
+                  sugestoesId="sugestoes-cor-editar"
+                  sugestoes={sugestoesCor}
                 />
                 <Campo
                   label="IMEI"
@@ -2190,15 +2269,26 @@ function Campo({
   label,
   value,
   onChange,
+  sugestoesId,
+  sugestoes,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  sugestoesId?: string;
+  sugestoes?: string[];
 }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} list={sugestoesId} />
+      {sugestoesId && sugestoes && (
+        <datalist id={sugestoesId}>
+          {sugestoes.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      )}
     </div>
   );
 }
