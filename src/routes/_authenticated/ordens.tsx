@@ -23,6 +23,7 @@ import {
   MoreVertical,
   Undo2,
   KeyRound,
+  Share2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ import { OsFotos } from "@/components/OsFotos";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
+import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
@@ -184,6 +186,8 @@ function Ordens() {
   const [faturarOpen, setFaturarOpen] = useState(false);
   const [whatsappOs, setWhatsappOs] = useState<any>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [enviarOsAlvo, setEnviarOsAlvo] = useState<any>(null);
+  const [enviarOsOpen, setEnviarOsOpen] = useState(false);
   const [assinaturaOs, setAssinaturaOs] = useState<any>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const [form, setForm] = useState(vazio);
@@ -675,6 +679,11 @@ function Ordens() {
   function enviarWhatsAppOs(os: any) {
     setWhatsappOs(os);
     setWhatsappOpen(true);
+  }
+
+  function enviarOs(os: any) {
+    setEnviarOsAlvo(os);
+    setEnviarOsOpen(true);
   }
 
   const [acesso, setAcesso] = useState<ClienteAcesso | null>(null);
@@ -1503,6 +1512,15 @@ function Ordens() {
               >
                 <FileCheck className="h-4 w-4 text-primary" />
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => enviarOs(os)}
+                title="Enviar OS (PDF)"
+              >
+                <Share2 className="h-4 w-4 text-primary" />
+              </Button>
               <AcoesOsMenu
                 os={os}
                 onImprimir={imprimir}
@@ -1553,6 +1571,16 @@ function Ordens() {
             </Button>
             <Button variant="outline" size="sm" onClick={enviarWhatsApp}>
               <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const os = ordens.find((o) => o.id === selectedOsId);
+                if (os) enviarOs(os);
+              }}
+            >
+              <Share2 className="mr-2 h-4 w-4" /> Enviar OS
             </Button>
             <Button variant="outline" size="sm" onClick={() => setTabEdicao("pagamentos")}>
               <DollarSign className="mr-2 h-4 w-4" /> Pagamento Parcial
@@ -2170,6 +2198,7 @@ function Ordens() {
       />
 
       <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+      <EnviarOsModal os={enviarOsAlvo} open={enviarOsOpen} onOpenChange={setEnviarOsOpen} />
       <ClienteAcessoModal acesso={acesso} open={acessoOpen} onOpenChange={setAcessoOpen} />
 
       <AssinaturaDigitalModal
