@@ -67,6 +67,68 @@ const brl = (v: number | string | null | undefined) =>
 const dataBR = (v: string | null | undefined) =>
   v ? new Date(v).toLocaleDateString("pt-BR") : "—";
 
+// The standard 14 PDF fonts (Helvetica included) are WinAnsi-encoded — a
+// superset of Latin-1 that covers every accented character Portuguese
+// needs (ã, õ, á, é, í, ó, ú, ç, ê, ô, …), but not emoji or most other
+// Unicode symbols. Termos de garantia and other free-text fields in this
+// app are often typed with "✅"/"❌"/"⚠️" headers, which throws
+// `WinAnsi cannot encode "✅" (0x2705)` and aborts PDF generation entirely.
+// Readable stand-ins for the emoji people actually type in those texts —
+// applied before the generic per-character fallback below so the PDF says
+// "[OK]" instead of a bare "?" wherever possible.
+const EMOJI_SUBSTITUICOES: Record<string, string> = {
+  "✅": "[OK]",
+  "✔️": "[OK]",
+  "✔": "[OK]",
+  "❌": "[X]",
+  "⚠️": "[ATENCAO]",
+  "⚠": "[ATENCAO]",
+  "🔧": "[SERVICO]",
+  "📱": "[APARELHO]",
+  "📋": "[INFORMACOES]",
+  "📄": "[PDF]",
+  "📞": "[TELEFONE]",
+  "💰": "[VALOR]",
+  "🔒": "[SEGURANCA]",
+  "❗": "[!]",
+  "❓": "[?]",
+  "➡️": "->",
+  "➡": "->",
+  "→": "->",
+  "←": "<-",
+  "★": "*",
+  "•": "-",
+};
+
+// Central sanitizer: every dynamic string reaching the PDF (termos,
+// garantia, defeito, diagnóstico, nomes, observações, ...) goes through
+// this before drawText()/widthOfTextAtSize() ever see it — called once,
+// from inside Escritor's own text methods, rather than at every call site
+// in gerarPdfOs() below. Only the PDF output is affected: the web UI still
+// renders the original text with emoji intact, and nothing is written back
+// to the database.
+function sanitizePdfText(texto: string | null | undefined, fonte: PDFFont): string {
+  if (texto == null) return "";
+  let resultado = String(texto);
+  for (const [emoji, substituto] of Object.entries(EMOJI_SUBSTITUICOES)) {
+    if (resultado.includes(emoji)) resultado = resultado.split(emoji).join(substituto);
+  }
+  // Catch-all for any character WinAnsi still can't encode (other emoji,
+  // rare symbols, …) that isn't in the explicit map above — actually asks
+  // the font itself rather than guessing a codepoint range, so it can
+  // never miss a case pdf-lib would otherwise throw on.
+  return Array.from(resultado)
+    .map((caractere) => {
+      try {
+        fonte.widthOfTextAtSize(caractere, 10);
+        return caractere;
+      } catch {
+        return "?";
+      }
+    })
+    .join("");
+}
+
 const MARGEM = 48;
 const LARGURA_PAGINA = 595.28; // A4 pt
 const ALTURA_PAGINA = 841.89;
@@ -122,7 +184,7 @@ class Escritor {
 
   titulo(texto: string, tamanho = 16) {
     this.garantirEspaco(tamanho + 8);
-    this.pagina.drawText(texto, {
+    this.pagina.drawText(sanitizePdfText(texto, this.fonte), {
       x: MARGEM,
       y: this.y,
       size: tamanho,
@@ -134,7 +196,7 @@ class Escritor {
 
   subtitulo(texto: string, cor: ReturnType<typeof rgb> = this.corAccent) {
     this.garantirEspaco(16);
-    this.pagina.drawText(texto, {
+    this.pagina.drawText(sanitizePdfText(texto, this.fonte), {
       x: MARGEM,
       y: this.y,
       size: 11,
@@ -145,7 +207,12 @@ class Escritor {
   }
 
   paragrafo(texto: string, tamanho = 9, cor = rgb(0.2, 0.2, 0.25)) {
-    const linhas = this.quebrarTexto(texto, this.fonte, tamanho, LARGURA_UTIL);
+    const linhas = this.quebrarTexto(
+      sanitizePdfText(texto, this.fonte),
+      this.fonte,
+      tamanho,
+      LARGURA_UTIL,
+    );
     for (const linha of linhas) {
       this.garantirEspaco(tamanho + 4);
       this.pagina.drawText(linha, {
@@ -161,14 +228,19 @@ class Escritor {
 
   linhaCampo(rotulo: string, valor: string) {
     this.garantirEspaco(14);
-    this.pagina.drawText(rotulo, {
+    this.pagina.drawText(sanitizePdfText(rotulo, this.fonte), {
       x: MARGEM,
       y: this.y,
       size: 9,
       font: this.fonteNegrito,
       color: rgb(0.45, 0.45, 0.5),
     });
-    const linhas = this.quebrarTexto(valor || "—", this.fonte, 9, LARGURA_UTIL - 130);
+    const linhas = this.quebrarTexto(
+      sanitizePdfText(valor, this.fonte) || "—",
+      this.fonte,
+      9,
+      LARGURA_UTIL - 130,
+    );
     this.pagina.drawText(linhas[0] ?? "—", {
       x: MARGEM + 130,
       y: this.y,
@@ -245,7 +317,7 @@ class Escritor {
           const altura = img.height * escala;
           const x = MARGEM + c * (larguraCel + gap);
           this.pagina.drawImage(img, { x, y: yLinha - altura, width: largura, height: altura });
-          this.pagina.drawText(item.legenda, {
+          this.pagina.drawText(sanitizePdfText(item.legenda, this.fonte), {
             x,
             y: yLinha - altura - 9,
             size: 7,
