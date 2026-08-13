@@ -1,8 +1,20 @@
 export const brl = (value: number | string | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
 
-export const dataBR = (value: string | null | undefined) =>
-  value ? new Date(value).toLocaleDateString("pt-BR") : "—";
+// A bare "YYYY-MM-DD" (Postgres `date` columns, with no time component) is
+// parsed by `new Date()` as UTC midnight — in any timezone behind UTC
+// (all of Brazil), toLocaleDateString() then rolls it back to the previous
+// day. Parsing the components as a local date sidesteps that; full
+// timestamps (with time/offset) go through the normal UTC-instant parse.
+export const dataBR = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match) {
+    const [, ano, mes, dia] = match;
+    return new Date(Number(ano), Number(mes) - 1, Number(dia)).toLocaleDateString("pt-BR");
+  }
+  return new Date(value).toLocaleDateString("pt-BR");
+};
 
 // Money math (splitting totals across installments, comparing sums) is done
 // in integer centavos to avoid float rounding drift like 33.33+33.33+33.34
