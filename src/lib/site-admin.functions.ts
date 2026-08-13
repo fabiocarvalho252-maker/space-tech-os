@@ -106,6 +106,8 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
   });
 
 const PLANOS_COM_VALIDADE = ["mensal", "trimestral", "semestral", "anual"] as const;
+const PLANOS_PAGOS = [...PLANOS_COM_VALIDADE, "vitalicio"] as const;
+const BONUS_CREDITOS_IA_POR_PLANO = 10;
 
 const planoSchema = z.object({
   empresaId: z.string().uuid(),
@@ -119,6 +121,20 @@ export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Contratar (ou renovar) um plano pago dá um bônus de créditos de IA —
+    // teste grátis não dá, só quando a empresa vira cliente pagante.
+    let iaCreditosBonus: { ia_creditos: number } | Record<string, never> = {};
+    if ((PLANOS_PAGOS as readonly string[]).includes(data.plano)) {
+      const { data: atual, error: erroLeitura } = await supabaseAdmin
+        .from("profiles")
+        .select("ia_creditos")
+        .eq("id", data.empresaId)
+        .single();
+      if (erroLeitura) throw erroLeitura;
+      iaCreditosBonus = { ia_creditos: atual.ia_creditos + BONUS_CREDITOS_IA_POR_PLANO };
+    }
+
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({
@@ -130,6 +146,7 @@ export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
         // asked for on /assinatura, even if a different plano was granted.
         plano_solicitado: null,
         plano_solicitado_em: null,
+        ...iaCreditosBonus,
       })
       .eq("id", data.empresaId);
     if (error) throw error;
