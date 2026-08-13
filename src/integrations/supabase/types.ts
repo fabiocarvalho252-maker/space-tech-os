@@ -97,6 +97,260 @@ export type Database = {
           },
         ]
       }
+      aparelho_fotos: {
+        Row: {
+          aparelho_id: string
+          created_at: string
+          id: string
+          path: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          aparelho_id: string
+          created_at?: string
+          id?: string
+          path: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          aparelho_id?: string
+          created_at?: string
+          id?: string
+          path?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aparelho_fotos_aparelho_id_fkey"
+            columns: ["aparelho_id"]
+            isOneToOne: false
+            referencedRelation: "aparelhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aparelho_garantias: {
+        Row: {
+          aparelho_id: string
+          cliente_id: string | null
+          created_at: string
+          dias: number
+          fim: string
+          id: string
+          inicio: string
+          numero: number
+          observacoes: string | null
+          status: string
+          termo_id: string | null
+          updated_at: string
+          user_id: string
+          venda_id: string | null
+        }
+        Insert: {
+          aparelho_id: string
+          cliente_id?: string | null
+          created_at?: string
+          dias: number
+          fim: string
+          id?: string
+          inicio: string
+          numero?: number
+          observacoes?: string | null
+          status?: string
+          termo_id?: string | null
+          updated_at?: string
+          user_id: string
+          venda_id?: string | null
+        }
+        Update: {
+          aparelho_id?: string
+          cliente_id?: string | null
+          created_at?: string
+          dias?: number
+          fim?: string
+          id?: string
+          inicio?: string
+          numero?: number
+          observacoes?: string | null
+          status?: string
+          termo_id?: string | null
+          updated_at?: string
+          user_id?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aparelho_garantias_aparelho_id_fkey"
+            columns: ["aparelho_id"]
+            isOneToOne: false
+            referencedRelation: "aparelhos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aparelho_garantias_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aparelho_garantias_termo_id_fkey"
+            columns: ["termo_id"]
+            isOneToOne: false
+            referencedRelation: "termos_garantia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aparelho_garantias_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aparelho_historico: {
+        Row: {
+          aparelho_id: string
+          created_at: string
+          created_by: string | null
+          descricao: string
+          evento: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          aparelho_id: string
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          evento: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          aparelho_id?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          evento?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aparelho_historico_aparelho_id_fkey"
+            columns: ["aparelho_id"]
+            isOneToOne: false
+            referencedRelation: "aparelhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aparelhos: {
+        Row: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        Insert: {
+          armazenamento?: string | null
+          checklist?: Json
+          ciclos_bateria?: number | null
+          cor?: string | null
+          created_at?: string
+          created_by: string
+          estado_conservacao?: string | null
+          id?: string
+          imei1?: string | null
+          imei2?: string | null
+          marca: string
+          modelo: string
+          numero?: number
+          numero_serie?: string | null
+          observacoes?: string | null
+          preco_custo?: number
+          preco_venda?: number
+          ram?: string | null
+          reservado_ate?: string | null
+          reservado_cliente_id?: string | null
+          reservado_observacao?: string | null
+          saude_bateria?: number | null
+          sold_at?: string | null
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+          variante?: string | null
+        }
+        Update: {
+          armazenamento?: string | null
+          checklist?: Json
+          ciclos_bateria?: number | null
+          cor?: string | null
+          created_at?: string
+          created_by?: string
+          estado_conservacao?: string | null
+          id?: string
+          imei1?: string | null
+          imei2?: string | null
+          marca?: string
+          modelo?: string
+          numero?: number
+          numero_serie?: string | null
+          observacoes?: string | null
+          preco_custo?: number
+          preco_venda?: number
+          ram?: string | null
+          reservado_ate?: string | null
+          reservado_cliente_id?: string | null
+          reservado_observacao?: string | null
+          saude_bateria?: number | null
+          sold_at?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          variante?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aparelhos_reservado_cliente_id_fkey"
+            columns: ["reservado_cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           agencia: string | null
@@ -2036,6 +2290,7 @@ export type Database = {
       }
       venda_itens: {
         Row: {
+          aparelho_id: string | null
           created_at: string
           descricao: string
           id: string
@@ -2046,6 +2301,7 @@ export type Database = {
           venda_id: string
         }
         Insert: {
+          aparelho_id?: string | null
           created_at?: string
           descricao: string
           id?: string
@@ -2056,6 +2312,7 @@ export type Database = {
           venda_id: string
         }
         Update: {
+          aparelho_id?: string | null
           created_at?: string
           descricao?: string
           id?: string
@@ -2066,6 +2323,13 @@ export type Database = {
           venda_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "venda_itens_aparelho_id_fkey"
+            columns: ["aparelho_id"]
+            isOneToOne: false
+            referencedRelation: "aparelhos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "venda_itens_produto_id_fkey"
             columns: ["produto_id"]
@@ -2327,6 +2591,72 @@ export type Database = {
           },
         ]
       }
+      whatsapp_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_system_connection: {
+        Row: {
+          created_at: string
+          id: string
+          instance_name: string
+          last_connected_at: string | null
+          last_error: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_name?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_name?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -2373,9 +2703,146 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cancelar_reserva_aparelho: {
+        Args: { p_aparelho_id: string }
+        Returns: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aparelhos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancelar_venda_aparelho: {
+        Args: { p_motivo?: string; p_venda_id: string }
+        Returns: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aparelhos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cliente_decidir_orcamento: {
+        Args: { p_aprovar: boolean; p_os_id: string }
+        Returns: string
+      }
+      consultar_os_publica: {
+        Args: { p_identificador: string }
+        Returns: {
+          aparelho: string
+          created_at: string
+          defeito: string
+          diagnostico: string
+          loja: string
+          marca: string
+          modelo: string
+          numero: number
+          status: string
+          valor: number
+          whatsapp: string
+        }[]
+      }
       definir_template_padrao: {
         Args: { p_template_id: string }
         Returns: undefined
+      }
+      devolver_aparelho: {
+        Args: { p_aparelho_id: string; p_condicao?: string; p_motivo: string }
+        Returns: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aparelhos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       empresa_role: { Args: { p_empresa_id: string }; Returns: string }
       faturar_os: {
@@ -2420,7 +2887,7 @@ export type Database = {
         Returns: {
           created_at: string
           email: string
-          nome: string | null
+          nome: string
           role: string
           user_id: string
         }[]
@@ -2430,6 +2897,10 @@ export type Database = {
         Returns: boolean
       }
       meu_cliente_id: { Args: never; Returns: string }
+      pode_ver_custo_aparelho: {
+        Args: { p_empresa_id: string }
+        Returns: boolean
+      }
       recalcular_status_pagamento_os: {
         Args: { p_os_id: string }
         Returns: undefined
@@ -2458,6 +2929,98 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "os_faturamento_parcelas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reservar_aparelho: {
+        Args: {
+          p_aparelho_id: string
+          p_cliente_id: string
+          p_expira_em?: string
+          p_observacao?: string
+        }
+        Returns: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aparelhos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      vender_aparelho: {
+        Args: {
+          p_aparelho_id: string
+          p_cliente_id: string
+          p_desconto?: number
+          p_dias_garantia?: number
+          p_forma_pagamento?: string
+          p_observacoes?: string
+          p_preco_venda: number
+          p_termo_garantia_id?: string
+        }
+        Returns: {
+          armazenamento: string | null
+          checklist: Json
+          ciclos_bateria: number | null
+          cor: string | null
+          created_at: string
+          created_by: string
+          estado_conservacao: string | null
+          id: string
+          imei1: string | null
+          imei2: string | null
+          marca: string
+          modelo: string
+          numero: number
+          numero_serie: string | null
+          observacoes: string | null
+          preco_custo: number
+          preco_venda: number
+          ram: string | null
+          reservado_ate: string | null
+          reservado_cliente_id: string | null
+          reservado_observacao: string | null
+          saude_bateria: number | null
+          sold_at: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          variante: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aparelhos"
           isOneToOne: true
           isSetofReturn: false
         }

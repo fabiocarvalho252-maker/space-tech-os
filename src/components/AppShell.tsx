@@ -32,6 +32,7 @@ import {
   Bell,
   Clock,
   Calculator,
+  Boxes,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -89,6 +90,7 @@ const NAV = [
   { to: "/fornecedores", label: "Fornecedores", icon: Truck, modulo: "fornecedores" },
   { to: "/financeiro", label: "Financeiro", icon: Wallet, modulo: "financeiro" },
   { to: "/compras", label: "Compras", icon: ShoppingCart, modulo: "compras" },
+  { to: "/aparelhos", label: "Aparelhos", icon: Boxes, modulo: "aparelhos" },
   { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
   { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "configuracoes" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },

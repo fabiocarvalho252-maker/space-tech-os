@@ -60,6 +60,7 @@ const MODULOS = [
   { value: "agenda", label: "Agenda" },
   { value: "vendas", label: "Vendas e PDV" },
   { value: "compras", label: "Compras" },
+  { value: "aparelhos", label: "Aparelhos" },
   { value: "seminovos", label: "Compra de Seminovos" },
   { value: "financeiro", label: "Financeiro" },
   { value: "cobrancas", label: "Cobranças" },
