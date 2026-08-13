@@ -48,7 +48,7 @@ const TONE_POR_STATUS: Record<string, StatusTone> = {
 export function DetalheAparelhoModal({
   open,
   onOpenChange,
-  aparelho,
+  aparelho: aparelhoProp,
   empresaId,
   podeVerCusto,
   podeGerenciarModulo,
@@ -71,11 +71,38 @@ export function DetalheAparelhoModal({
   const [motivo, setMotivo] = useState("");
   const [condicao, setCondicao] = useState("");
   const [emitirGarantiaAberto, setEmitirGarantiaAberto] = useState(false);
+  const [reservarAberto, setReservarAberto] = useState(false);
+  const [reservarClienteId, setReservarClienteId] = useState("");
+  const [reservarExpiraEm, setReservarExpiraEm] = useState("");
+  const [reservarObs, setReservarObs] = useState("");
   const [pdfDialogAberto, setPdfDialogAberto] = useState(false);
   const [pdfTitulo, setPdfTitulo] = useState("");
   const [pdf, setPdf] = useState<PdfGerado | null>(null);
   const [termoId, setTermoId] = useState("");
   const [diasGarantia, setDiasGarantia] = useState("90");
+
+  // A lista (aparelhos.tsx) só recarrega quando ["aparelhos"] é invalidado,
+  // mas o objeto `aparelhoProp` passado a este modal fica congelado no
+  // momento em que a linha foi clicada — sem isso, depois de reservar/
+  // vender/devolver etc. *a partir deste próprio modal*, os botões e o
+  // badge de status continuariam mostrando o estado antigo até fechar e
+  // reabrir. Busca o registro atual, usando a prop só como valor inicial
+  // (sem flicker) e refetchando toda vez que `invalidarTudo()` roda.
+  const { data: aparelhoAtual } = useQuery({
+    queryKey: ["aparelho-atual", aparelhoProp?.id],
+    enabled: open && !!aparelhoProp,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("aparelhos")
+        .select("*")
+        .eq("id", aparelhoProp!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    initialData: aparelhoProp ?? undefined,
+  });
+  const aparelho = aparelhoAtual ?? aparelhoProp;
 
   const { data: historico = [] } = useQuery({
     queryKey: ["aparelho-historico", aparelho?.id],
@@ -147,11 +174,45 @@ export function DetalheAparelhoModal({
     },
   });
 
+  const { data: clientesParaReserva = [] } = useQuery({
+    queryKey: ["clientes-aparelhos"],
+    enabled: reservarAberto,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clientes").select("id, nome").order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   function invalidarTudo() {
     qc.invalidateQueries({ queryKey: ["aparelhos"] });
+    qc.invalidateQueries({ queryKey: ["aparelho-atual", aparelho?.id] });
     qc.invalidateQueries({ queryKey: ["aparelho-historico", aparelho?.id] });
     qc.invalidateQueries({ queryKey: ["aparelho-garantia", aparelho?.id] });
+    qc.invalidateQueries({ queryKey: ["aparelho-venda", aparelho?.id] });
   }
+
+  const reservar = useMutation({
+    mutationFn: async () => {
+      if (!reservarClienteId) throw new Error("Selecione o cliente.");
+      const { error } = await supabase.rpc("reservar_aparelho", {
+        p_aparelho_id: aparelho!.id,
+        p_cliente_id: reservarClienteId,
+        ...(reservarExpiraEm ? { p_expira_em: new Date(reservarExpiraEm).toISOString() } : {}),
+        ...(reservarObs.trim() ? { p_observacao: reservarObs.trim() } : {}),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Aparelho reservado");
+      invalidarTudo();
+      setReservarAberto(false);
+      setReservarClienteId("");
+      setReservarExpiraEm("");
+      setReservarObs("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const cancelarReserva = useMutation({
     mutationFn: async () => {
@@ -326,6 +387,9 @@ export function DetalheAparelhoModal({
               {aparelho.status === "disponivel" && podeGerenciarModulo && (
                 <>
                   <Button onClick={onVender}>Vender</Button>
+                  <Button variant="outline" onClick={() => setReservarAberto(true)}>
+                    Reservar
+                  </Button>
                   <Button variant="outline" onClick={onEditar}>
                     Editar
                   </Button>
@@ -563,6 +627,58 @@ export function DetalheAparelhoModal({
             </Button>
             <Button onClick={() => emitirGarantia.mutate()} disabled={emitirGarantia.isPending}>
               {emitirGarantia.isPending ? "Emitindo..." : "Emitir"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reservarAberto} onOpenChange={setReservarAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reservar aparelho</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Cliente *</Label>
+              <Select value={reservarClienteId} onValueChange={setReservarClienteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientesParaReserva.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data de expiração</Label>
+              <Input
+                type="date"
+                value={reservarExpiraEm}
+                onChange={(e) => setReservarExpiraEm(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observação</Label>
+              <Textarea
+                value={reservarObs}
+                onChange={(e) => setReservarObs(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setReservarAberto(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => reservar.mutate()}
+              disabled={reservar.isPending || !reservarClienteId}
+            >
+              {reservar.isPending ? "Reservando..." : "Reservar"}
             </Button>
           </div>
         </DialogContent>
