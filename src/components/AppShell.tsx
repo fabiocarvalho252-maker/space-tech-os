@@ -225,6 +225,13 @@ export function AppShell() {
                 </p>
                 <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
               </div>
+              <Link
+                to="/assinatura"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+              >
+                <CreditCard className="h-5 w-5" /> Meu Plano
+              </Link>
               <button
                 onClick={sair}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
