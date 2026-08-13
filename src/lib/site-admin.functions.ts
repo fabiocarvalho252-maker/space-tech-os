@@ -144,6 +144,39 @@ export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
     return { senha };
   });
 
+// "Entrar no painel" from /admin — reuses the exact same passwordless
+// mechanism as gerarAcessoCliente (src/lib/cliente-conta/cliente-conta.functions.ts):
+// an admin-generated Supabase magic link, never emailed, just handed back to
+// the caller to navigate to directly. Unlike resetarSenhaEmpresa, this never
+// touches the empresa's own password — it's the site admin borrowing a
+// session, not changing how the empresa logs in.
+export const entrarComoEmpresa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }): Promise<{ link: string }> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: userData, error: userErro } = await supabaseAdmin.auth.admin.getUserById(
+      data.empresaId,
+    );
+    if (userErro || !userData?.user?.email) {
+      throw new Error("Esta empresa não tem um e-mail de login válido.");
+    }
+
+    const origin = new URL(getRequest().url).origin;
+    const { data: gerado, error: erroLink } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: userData.user.email,
+      options: { redirectTo: `${origin}/dashboard` },
+    });
+    if (erroLink || !gerado?.properties?.action_link) {
+      throw new Error(erroLink?.message ?? "Não foi possível gerar o acesso a essa empresa.");
+    }
+
+    return { link: gerado.properties.action_link };
+  });
+
 // The platform-wide "spacetech_system" WhatsApp instance that sends
 // activation codes for every empresa signup (see
 // src/lib/auth/ativacao-whatsapp.functions.ts) — paired once by the SPACE

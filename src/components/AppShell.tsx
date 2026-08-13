@@ -38,6 +38,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TrialBanner } from "@/components/TrialBanner";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
 import { ATALHOS, estaDigitando } from "@/lib/atalhos";
@@ -270,6 +271,7 @@ export function AppShell() {
           </div>
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <ImpersonationBanner />
           <TrialBanner />
           <Outlet />
         </main>

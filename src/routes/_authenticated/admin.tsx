@@ -4,15 +4,22 @@ import { useState } from "react";
 import { addMonths, format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
+  Ban,
   Building2,
   Check,
   Copy,
   KeyRound,
   Loader2,
+  LogIn,
   MessageSquare,
+  MoreVertical,
   QrCode,
+  RotateCcw,
+  Search,
   ShieldAlert,
+  ShieldCheck,
   Smartphone,
+  TimerReset,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,12 +45,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DIAS_TESTE, useCurrentUser } from "@/hooks/useCurrentUser";
 import { dataBR } from "@/lib/format";
+import { supabase } from "@/integrations/supabase/client";
+import { salvarImpersonacao } from "@/lib/impersonation";
 import {
   atualizarPlanoEmpresa,
   conectarWhatsappSistema,
   desconectarWhatsappSistema,
+  entrarComoEmpresa,
   listarEmpresasDoSite,
   resetarSenhaEmpresa,
   statusWhatsappSistema,
@@ -91,10 +107,44 @@ function planoLabel(plano: string) {
   return PLANOS.find((p) => p.value === plano)?.label ?? plano;
 }
 
+type StatusAcesso = "ativa" | "teste" | "expirada" | "suspensa";
+
+const STATUS_LABEL: Record<StatusAcesso, string> = {
+  ativa: "Ativa",
+  teste: "Em teste",
+  expirada: "Expirada",
+  suspensa: "Suspensa",
+};
+
+const STATUS_TONE: Record<StatusAcesso, StatusTone> = {
+  ativa: "success",
+  teste: "warning",
+  expirada: "danger",
+  suspensa: "neutral",
+};
+
+// Mirrors the trial/plano gate in src/routes/_authenticated/route.tsx exactly,
+// so the badge shown here always matches whether the empresa can actually log in.
+function statusAcesso(e: EmpresaDoSite): StatusAcesso {
+  if (e.plano === "suspenso") return "suspensa";
+  if (e.plano === "vitalicio") return "ativa";
+  if (PLANOS_COM_VALIDADE.includes(e.plano)) {
+    if (e.acessoAte && new Date(e.acessoAte) < new Date(new Date().toDateString())) {
+      return "expirada";
+    }
+    return "ativa";
+  }
+  const diasDecorridos = Math.floor((Date.now() - new Date(e.criadoEm).getTime()) / 86_400_000);
+  return diasDecorridos > DIAS_TESTE ? "expirada" : "teste";
+}
+
 function AdminDoSite() {
   const { data: user, isLoading: carregandoUser } = useCurrentUser();
   const souAdmin = user?.email === SITE_ADMIN_EMAIL;
   const [empresaSelecionada, setEmpresaSelecionada] = useState<EmpresaDoSite | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroPlano, setFiltroPlano] = useState<string>("todos");
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["site-admin-empresas"],
@@ -121,20 +171,105 @@ function AdminDoSite() {
     ? (empresas.find((e) => e.id === empresaSelecionada.id) ?? empresaSelecionada)
     : null;
 
+  const contagem = { total: 0, ativa: 0, teste: 0, bloqueada: 0 };
+  for (const e of empresas) {
+    contagem.total++;
+    const s = statusAcesso(e);
+    if (s === "ativa") contagem.ativa++;
+    else if (s === "teste") contagem.teste++;
+    else contagem.bloqueada++;
+  }
+
+  const termo = busca.trim().toLowerCase();
+  const empresasFiltradas = empresas.filter((e) => {
+    if (filtroPlano !== "todos" && e.plano !== filtroPlano) return false;
+    if (filtroStatus !== "todos" && statusAcesso(e) !== filtroStatus) return false;
+    if (termo) {
+      const alvo = `${e.loja ?? ""} ${e.nome ?? ""} ${e.email ?? ""}`.toLowerCase();
+      if (!alvo.includes(termo)) return false;
+    }
+    return true;
+  });
+
   return (
     <div>
       <PageHeader
         title="Administração do site"
-        subtitle="Todas as empresas cadastradas no SpaceTech, há quanto tempo estão ativas e o plano de cada uma."
+        subtitle="Controle geral das empresas cadastradas no SpaceTech e da ativação da plataforma."
       />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile
+          icon={Building2}
+          label="Empresas"
+          valor={contagem.total}
+          cor="text-primary bg-primary/10"
+        />
+        <StatTile
+          icon={ShieldCheck}
+          label="Ativas"
+          valor={contagem.ativa}
+          cor="text-emerald-600 bg-emerald-500/10"
+        />
+        <StatTile
+          icon={TimerReset}
+          label="Em teste"
+          valor={contagem.teste}
+          cor="text-amber-600 bg-amber-500/10"
+        />
+        <StatTile
+          icon={Ban}
+          label="Bloqueadas"
+          valor={contagem.bloqueada}
+          cor="text-red-600 bg-red-500/10"
+        />
+      </div>
 
       <WhatsappSistemaCard souAdmin={souAdmin} />
 
       <SectionCard
         title="Empresas cadastradas"
-        subtitle={`${empresas.length} no total`}
+        subtitle={`${empresasFiltradas.length} de ${empresas.length}`}
         icon={Building2}
       >
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar empresa por nome ou e-mail..."
+              className="pl-9"
+            />
+          </div>
+          <Select value={filtroPlano} onValueChange={setFiltroPlano}>
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="Plano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os planos</SelectItem>
+              {PLANOS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os status</SelectItem>
+              {(Object.keys(STATUS_LABEL) as StatusAcesso[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {isLoading ? (
           <TableSkeleton />
         ) : isError ? (
@@ -143,14 +278,17 @@ function AdminDoSite() {
           </p>
         ) : !empresas.length ? (
           <EmptyState icon={Users} title="Nenhuma empresa cadastrada ainda" />
+        ) : !empresasFiltradas.length ? (
+          <EmptyState icon={Search} title="Nenhuma empresa encontrada com esses filtros" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[920px] text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Empresa</th>
                   <th className="px-3 py-2">E-mail</th>
                   <th className="px-3 py-2">Plano</th>
+                  <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Cadastro</th>
                   <th className="px-3 py-2">Último acesso</th>
                   <th className="px-3 py-2 text-center">Equipe</th>
@@ -159,7 +297,7 @@ function AdminDoSite() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {empresas.map((e) => (
+                {empresasFiltradas.map((e) => (
                   <tr key={e.id} className="hover:bg-secondary/30">
                     <td className="px-3 py-3 font-medium">{e.loja || e.nome || "Sem nome"}</td>
                     <td className="px-3 py-3 text-muted-foreground">{e.email || "—"}</td>
@@ -170,6 +308,12 @@ function AdminDoSite() {
                       />
                     </td>
                     <td className="px-3 py-3">
+                      <StatusBadge
+                        label={STATUS_LABEL[statusAcesso(e)]}
+                        tone={STATUS_TONE[statusAcesso(e)]}
+                      />
+                    </td>
+                    <td className="px-3 py-3">
                       <div>{dataBR(e.criadoEm)}</div>
                       <div className="text-xs text-muted-foreground">{haQuanto(e.criadoEm)}</div>
                     </td>
@@ -177,9 +321,10 @@ function AdminDoSite() {
                     <td className="px-3 py-3 text-center">{e.totalMembros}</td>
                     <td className="px-3 py-3 text-center">{e.totalOrdens}</td>
                     <td className="px-3 py-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => setEmpresaSelecionada(e)}>
-                        Gerenciar
-                      </Button>
+                      <EmpresaAcoesMenu
+                        empresa={e}
+                        onVerDetalhes={() => setEmpresaSelecionada(e)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -195,6 +340,142 @@ function AdminDoSite() {
         onOpenChange={(v) => !v && setEmpresaSelecionada(null)}
       />
     </div>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  label,
+  valor,
+  cor,
+}: {
+  icon: typeof Building2;
+  label: string;
+  valor: number;
+  cor: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${cor}`}>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <p className="mt-2 text-2xl font-extrabold tracking-tight">{valor}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+// Quick actions that don't need the full plano/senha dialog open — suspending
+// or reactivating is a one-click decision an operator makes straight from the
+// row. Deleting an empresa or impersonating its login are deliberately not
+// here: neither has server-side support yet (no cascading delete, no
+// impersonation session), so faking them in the menu would be misleading.
+function EmpresaAcoesMenu({
+  empresa,
+  onVerDetalhes,
+}: {
+  empresa: EmpresaDoSite;
+  onVerDetalhes: () => void;
+}) {
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmEntrarOpen, setConfirmEntrarOpen] = useState(false);
+  const suspensa = empresa.plano === "suspenso";
+
+  const alternarSuspensao = useMutation({
+    mutationFn: () =>
+      atualizarPlanoEmpresa({
+        data: {
+          empresaId: empresa.id,
+          plano: suspensa ? "trial" : "suspenso",
+          acessoAte: null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success(suspensa ? "Empresa reativada." : "Empresa suspensa.");
+      qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
+      setConfirmOpen(false);
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmOpen(false);
+    },
+  });
+
+  const entrar = useMutation({
+    mutationFn: async () => {
+      const { data: sessaoAtual } = await supabase.auth.getSession();
+      const adminSessao = sessaoAtual.session;
+      if (!adminSessao) throw new Error("Sessão de administrador expirou. Faça login novamente.");
+      const { link } = await entrarComoEmpresa({ data: { empresaId: empresa.id } });
+      salvarImpersonacao({
+        adminAccessToken: adminSessao.access_token,
+        adminRefreshToken: adminSessao.refresh_token,
+        empresaNome: empresa.loja || empresa.nome || "Empresa",
+      });
+      window.location.href = link;
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmEntrarOpen(false);
+    },
+  });
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" aria-label="Ações">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onVerDetalhes}>Ver detalhes / gerenciar</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setConfirmEntrarOpen(true)}>
+            <LogIn className="mr-2 h-4 w-4" /> Entrar no painel
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={suspensa ? "" : "text-destructive focus:text-destructive"}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {suspensa ? (
+              <>
+                <RotateCcw className="mr-2 h-4 w-4" /> Reativar empresa
+              </>
+            ) : (
+              <>
+                <Ban className="mr-2 h-4 w-4" /> Suspender empresa
+              </>
+            )}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={suspensa ? "Reativar esta empresa?" : "Suspender esta empresa?"}
+        description={
+          suspensa
+            ? "O acesso volta a ser liberado com um novo período de teste — ajuste o plano depois se necessário."
+            : "A empresa perde acesso ao sistema imediatamente, até ser reativada ou ter um plano definido."
+        }
+        confirmLabel={suspensa ? "Reativar" : "Suspender"}
+        destructive={!suspensa}
+        loading={alternarSuspensao.isPending}
+        onConfirm={() => alternarSuspensao.mutate()}
+      />
+
+      <ConfirmDialog
+        open={confirmEntrarOpen}
+        onOpenChange={setConfirmEntrarOpen}
+        title={`Entrar como ${empresa.loja || empresa.nome || "esta empresa"}?`}
+        description="Você passa a ver o sistema exatamente como essa empresa vê, sem alterar a senha dela. Sua sessão de administrador fica guardada nesta aba para você voltar depois pelo botão que aparece no topo da tela."
+        confirmLabel="Entrar no painel"
+        loading={entrar.isPending}
+        onConfirm={() => entrar.mutate()}
+      />
+    </>
   );
 }
 
@@ -252,11 +533,38 @@ function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
     },
   });
 
+  const STATUS_TEXTO: Record<string, string> = {
+    conectado: "Conectado",
+    desconectado: "Desconectado",
+    conectando: "Conectando...",
+    erro: "Erro na conexão",
+  };
+  const STATUS_BADGE_TONE: Record<string, StatusTone> = {
+    conectado: "success",
+    desconectado: "danger",
+    conectando: "warning",
+    erro: "danger",
+  };
+
   return (
     <SectionCard
-      title="WhatsApp do sistema (ativação de contas)"
-      subtitle="Envia os códigos de verificação do cadastro de novas empresas."
+      title="WhatsApp do sistema"
+      subtitle="Envia os códigos de ativação para novos cadastros de empresa."
       icon={MessageSquare}
+      className="mb-6"
+      action={
+        !naoConfigurado && (
+          <div className="flex items-center gap-2">
+            {statusQuery.isFetching && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+            <StatusBadge
+              label={STATUS_TEXTO[status] ?? status}
+              tone={STATUS_BADGE_TONE[status] ?? "neutral"}
+            />
+          </div>
+        )
+      }
     >
       {naoConfigurado ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -264,37 +572,24 @@ function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
           <code>EVOLUTION_API_KEY</code> no <code>.env</code> para habilitar a conexão.
         </div>
       ) : (
-        <>
-          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
-            <div className="flex items-center gap-2">
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${conectado ? "bg-success animate-pulse" : "bg-destructive"}`}
-              />
-              <span className="font-bold">
-                {status === "conectado" && "🟢 Conectado"}
-                {status === "desconectado" && "🔴 Desconectado"}
-                {status === "conectando" && "🟡 Conectando..."}
-                {status === "erro" && "🔴 Erro na conexão"}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-muted-foreground">
+            {conectado && conexao?.phone_number ? (
+              <span className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" /> Número conectado:{" "}
+                <strong className="text-foreground">{conexao.phone_number}</strong>
               </span>
-            </div>
-            {statusQuery.isFetching && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : status === "erro" && conexao?.last_error ? (
+              <span className="text-destructive">{conexao.last_error}</span>
+            ) : (
+              "Nenhum número conectado no momento."
             )}
           </div>
 
-          {conectado && conexao?.phone_number && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Smartphone className="h-4 w-4" /> Número conectado:{" "}
-              <strong>{conexao.phone_number}</strong>
-            </div>
-          )}
-          {status === "erro" && conexao?.last_error && (
-            <p className="mt-3 text-xs text-destructive">{conexao.last_error}</p>
-          )}
-
-          <div className="mt-4 flex gap-2">
+          <div className="flex gap-2">
             {!conectado ? (
               <Button
+                size="sm"
                 className="bg-green-600 hover:bg-green-700 gap-2"
                 disabled={conectar.isPending}
                 onClick={() => conectar.mutate()}
@@ -304,15 +599,15 @@ function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
                 ) : (
                   <QrCode className="h-4 w-4" />
                 )}
-                Conectar WhatsApp do sistema
+                Conectar
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setConfirmDesconectar(true)}>
+              <Button size="sm" variant="outline" onClick={() => setConfirmDesconectar(true)}>
                 Desconectar
               </Button>
             )}
           </div>
-        </>
+        </div>
       )}
 
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
