@@ -1813,6 +1813,8 @@ export type Database = {
           loja: string | null
           nome: string | null
           plano: string
+          plano_solicitado: string | null
+          plano_solicitado_em: string | null
           status: string
           trial_aviso_enviado_em: string | null
           updated_at: string
@@ -1830,6 +1832,8 @@ export type Database = {
           loja?: string | null
           nome?: string | null
           plano?: string
+          plano_solicitado?: string | null
+          plano_solicitado_em?: string | null
           status?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string
@@ -1847,6 +1851,8 @@ export type Database = {
           loja?: string | null
           nome?: string | null
           plano?: string
+          plano_solicitado?: string | null
+          plano_solicitado_em?: string | null
           status?: string
           trial_aviso_enviado_em?: string | null
           updated_at?: string

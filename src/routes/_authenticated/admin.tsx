@@ -16,6 +16,7 @@ import {
   QrCode,
   RotateCcw,
   Search,
+  Send,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
@@ -170,6 +171,7 @@ function AdminDoSite() {
   const empresaAtual = empresaSelecionada
     ? (empresas.find((e) => e.id === empresaSelecionada.id) ?? empresaSelecionada)
     : null;
+  const pedidosPendentes = empresas.filter((e) => e.planoSolicitado);
 
   const contagem = { total: 0, ativa: 0, teste: 0, bloqueada: 0 };
   for (const e of empresas) {
@@ -224,6 +226,35 @@ function AdminDoSite() {
           cor="text-red-600 bg-red-500/10"
         />
       </div>
+
+      {pedidosPendentes.length > 0 && (
+        <SectionCard
+          title="Pedidos de reativação"
+          subtitle={`${pedidosPendentes.length} empresa${pedidosPendentes.length > 1 ? "s" : ""} esperando ativação`}
+          icon={Send}
+          className="mb-6 border-violet-500/30 bg-violet-500/5"
+        >
+          <div className="space-y-2">
+            {pedidosPendentes.map((e) => (
+              <div
+                key={e.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium">{e.loja || e.nome || "Sem nome"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Quer o plano <strong>{planoLabel(e.planoSolicitado!)}</strong>
+                    {e.planoSolicitadoEm ? ` · ${haQuanto(e.planoSolicitadoEm)}` : ""}
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => setEmpresaSelecionada(e)}>
+                  Atender
+                </Button>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       <WhatsappSistemaCard souAdmin={souAdmin} />
 
@@ -306,6 +337,11 @@ function AdminDoSite() {
                         label={planoLabel(e.plano)}
                         tone={TONE_POR_PLANO[e.plano] ?? "neutral"}
                       />
+                      {e.planoSolicitado && (
+                        <div className="mt-1 text-xs text-violet-600">
+                          Quer: {planoLabel(e.planoSolicitado)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge
@@ -653,6 +689,16 @@ function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
   );
 }
 
+// Renewing the same kind of plan while it's still valid stacks on top of the
+// current expiry instead of shortening it.
+function calcularAcessoAte(planoValue: string, acessoAteAtual: string): string {
+  const definicao = PLANOS.find((p) => p.value === planoValue);
+  if (!definicao?.meses) return acessoAteAtual;
+  const baseAtual =
+    acessoAteAtual && new Date(acessoAteAtual) > new Date() ? new Date(acessoAteAtual) : new Date();
+  return format(addMonths(baseAtual, definicao.meses), "yyyy-MM-dd");
+}
+
 function EmpresaDetalheDialog({
   empresa,
   open,
@@ -673,8 +719,11 @@ function EmpresaDetalheDialog({
   const [empresaIdAberta, setEmpresaIdAberta] = useState<string | null>(null);
   if (empresa && empresa.id !== empresaIdAberta) {
     setEmpresaIdAberta(empresa.id);
-    setPlano(empresa.plano);
-    setAcessoAte(empresa.acessoAte ?? "");
+    // Pre-select whatever plano the empresa asked for on /assinatura, if any
+    // — saves the admin a click, since that's almost always what they came here to grant.
+    const planoInicial = empresa.planoSolicitado ?? empresa.plano;
+    setPlano(planoInicial);
+    setAcessoAte(calcularAcessoAte(planoInicial, empresa.acessoAte ?? ""));
     setSenhaGerada(null);
     setCopiado(false);
   }
@@ -710,6 +759,15 @@ function EmpresaDetalheDialog({
           <DialogTitle>{empresa.loja || empresa.nome || "Empresa"}</DialogTitle>
           <DialogDescription>{empresa.email || "Sem e-mail"}</DialogDescription>
         </DialogHeader>
+
+        {empresa.planoSolicitado && (
+          <div className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-600">
+            <Send className="h-3.5 w-3.5 shrink-0" />
+            Pediu o plano <strong>{planoLabel(empresa.planoSolicitado)}</strong>
+            {empresa.planoSolicitadoEm ? ` · ${haQuanto(empresa.planoSolicitadoEm)}` : ""} — já
+            pré-selecionado abaixo.
+          </div>
+        )}
 
         <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 text-sm sm:grid-cols-2">
           <div>
@@ -757,14 +815,7 @@ function EmpresaDetalheDialog({
             value={plano}
             onValueChange={(v) => {
               setPlano(v);
-              const definicao = PLANOS.find((p) => p.value === v);
-              if (definicao?.meses) {
-                // Renewing the same kind of plan while it's still valid stacks
-                // on top of the current expiry instead of shortening it.
-                const baseAtual =
-                  acessoAte && new Date(acessoAte) > new Date() ? new Date(acessoAte) : new Date();
-                setAcessoAte(format(addMonths(baseAtual, definicao.meses), "yyyy-MM-dd"));
-              }
+              setAcessoAte(calcularAcessoAte(v, acessoAte));
             }}
           >
             <SelectTrigger>

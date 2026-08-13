@@ -140,6 +140,31 @@ export function useTrialStatus() {
   });
 }
 
+/** Raw plano fields for the /assinatura ("Planos") page — current plano,
+ * validity, and whatever plano_solicitado is pending, for the company the
+ * current login acts under (same empresa resolution as useTrialStatus). */
+export function usePlanoAtual() {
+  const { data: minhaEmpresa } = useMinhaEmpresa();
+  return useQuery({
+    queryKey: ["plano-atual", minhaEmpresa?.empresa_id],
+    enabled: !!minhaEmpresa?.empresa_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("plano, acesso_ate, plano_solicitado, plano_solicitado_em")
+        .eq("id", minhaEmpresa!.empresa_id)
+        .maybeSingle();
+      if (error) throw error;
+      return {
+        plano: data?.plano ?? "trial",
+        acessoAte: data?.acesso_ate ?? null,
+        planoSolicitado: data?.plano_solicitado ?? null,
+        planoSolicitadoEm: data?.plano_solicitado_em ?? null,
+      };
+    },
+  });
+}
+
 export function podeVer(
   permissoes: Record<string, { ver: boolean; gerenciar: boolean }> | null | undefined,
   modulo: string,

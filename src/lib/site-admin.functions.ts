@@ -38,6 +38,8 @@ export type EmpresaDoSite = {
   totalMembros: number;
   plano: string;
   acessoAte: string | null;
+  planoSolicitado: string | null;
+  planoSolicitadoEm: string | null;
 };
 
 export const listarEmpresasDoSite = createServerFn({ method: "GET" })
@@ -49,7 +51,9 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
 
     const { data: empresas, error: empresasErro } = await supabaseAdmin
       .from("profiles")
-      .select("id, nome, loja, whatsapp, cnpj_cpf, endereco, cidade, created_at, plano, acesso_ate")
+      .select(
+        "id, nome, loja, whatsapp, cnpj_cpf, endereco, cidade, created_at, plano, acesso_ate, plano_solicitado, plano_solicitado_em",
+      )
       .order("created_at", { ascending: false });
     if (empresasErro) throw empresasErro;
     if (!empresas?.length) return { empresas: [] };
@@ -92,6 +96,8 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
           totalMembros: totalMembrosPorEmpresa.get(e.id) ?? 0,
           plano: e.plano,
           acessoAte: e.acesso_ate,
+          planoSolicitado: e.plano_solicitado,
+          planoSolicitadoEm: e.plano_solicitado_em,
         };
       }),
     };
@@ -118,6 +124,10 @@ export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
         acesso_ate: (PLANOS_COM_VALIDADE as readonly string[]).includes(data.plano)
           ? data.acessoAte
           : null,
+        // Setting a plano from here always resolves whatever the empresa
+        // asked for on /assinatura, even if a different plano was granted.
+        plano_solicitado: null,
+        plano_solicitado_em: null,
       })
       .eq("id", data.empresaId);
     if (error) throw error;
