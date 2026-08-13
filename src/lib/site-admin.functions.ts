@@ -40,6 +40,7 @@ export type EmpresaDoSite = {
   acessoAte: string | null;
   planoSolicitado: string | null;
   planoSolicitadoEm: string | null;
+  iaCreditos: number;
 };
 
 export const listarEmpresasDoSite = createServerFn({ method: "GET" })
@@ -52,7 +53,7 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
     const { data: empresas, error: empresasErro } = await supabaseAdmin
       .from("profiles")
       .select(
-        "id, nome, loja, whatsapp, cnpj_cpf, endereco, cidade, created_at, plano, acesso_ate, plano_solicitado, plano_solicitado_em",
+        "id, nome, loja, whatsapp, cnpj_cpf, endereco, cidade, created_at, plano, acesso_ate, plano_solicitado, plano_solicitado_em, ia_creditos",
       )
       .order("created_at", { ascending: false });
     if (empresasErro) throw empresasErro;
@@ -98,6 +99,7 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
           acessoAte: e.acesso_ate,
           planoSolicitado: e.plano_solicitado,
           planoSolicitadoEm: e.plano_solicitado_em,
+          iaCreditos: e.ia_creditos,
         };
       }),
     };
@@ -131,6 +133,37 @@ export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
       })
       .eq("id", data.empresaId);
     if (error) throw error;
+  });
+
+const creditosIASchema = z.object({
+  empresaId: z.string().uuid(),
+  delta: z
+    .number()
+    .int()
+    .refine((n) => n !== 0, "Informe uma quantidade diferente de zero."),
+});
+
+export const ajustarCreditosIA = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => creditosIASchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ iaCreditos: number }> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: atual, error: erroLeitura } = await supabaseAdmin
+      .from("profiles")
+      .select("ia_creditos")
+      .eq("id", data.empresaId)
+      .single();
+    if (erroLeitura) throw erroLeitura;
+
+    const novoSaldo = Math.max(0, atual.ia_creditos + data.delta);
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ ia_creditos: novoSaldo })
+      .eq("id", data.empresaId);
+    if (error) throw error;
+    return { iaCreditos: novoSaldo };
   });
 
 function gerarSenhaAleatoria(): string {

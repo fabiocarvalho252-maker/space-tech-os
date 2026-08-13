@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TOOLS } from "./tools.server";
 import { chamarProvedorIA, IAIndisponivelError } from "./provider.server";
+import { verificarEDescontarCreditoIA, estornarCreditoIA } from "./creditos.server";
 
 const MAX_MENSAGEM = 1000;
 const MAX_HISTORICO = 12;
@@ -68,6 +69,16 @@ export const enviarMensagemIA = createServerFn({ method: "POST" })
       { role: "user", content: data.mensagem },
     ];
 
+    // One credit per user message, not per tool-calling round — a message
+    // that takes 3 rounds to answer (tool call → result → tool call →
+    // result → text) still only costs the empresa 1 credit.
+    try {
+      await verificarEDescontarCreditoIA(context.userId);
+    } catch (e) {
+      if (e instanceof IAIndisponivelError) return { resposta: null, erro: e.message };
+      throw e;
+    }
+
     try {
       for (let rodada = 0; rodada < MAX_RODADAS_FERRAMENTA; rodada++) {
         const resposta = await chamarProvedorIA({
@@ -109,6 +120,10 @@ export const enviarMensagemIA = createServerFn({ method: "POST" })
       };
     } catch (e) {
       if (e instanceof IAIndisponivelError) {
+        // A credit was already spent above — refund it since the empresa
+        // didn't get an answer back (provider outage, no credit on the
+        // platform's own Anthropic account, etc).
+        await estornarCreditoIA(context.userId);
         return { resposta: null, erro: e.message };
       }
       throw e;

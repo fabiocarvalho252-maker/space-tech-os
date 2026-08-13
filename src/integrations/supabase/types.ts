@@ -1808,6 +1808,7 @@ export type Database = {
           cnpj_cpf: string | null
           created_at: string
           endereco: string | null
+          ia_creditos: number
           id: string
           logo_url: string | null
           loja: string | null
@@ -1827,6 +1828,7 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string
           endereco?: string | null
+          ia_creditos?: number
           id: string
           logo_url?: string | null
           loja?: string | null
@@ -1846,6 +1848,7 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string
           endereco?: string | null
+          ia_creditos?: number
           id?: string
           logo_url?: string | null
           loja?: string | null
@@ -2810,6 +2813,10 @@ export type Database = {
       definir_template_padrao: {
         Args: { p_template_id: string }
         Returns: undefined
+      }
+      descontar_credito_ia: {
+        Args: { p_empresa_id: string }
+        Returns: boolean
       }
       devolver_aparelho: {
         Args: { p_aparelho_id: string; p_condicao?: string; p_motivo: string }

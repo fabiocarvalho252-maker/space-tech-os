@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { chamarProvedorIA, IAIndisponivelError } from "@/lib/ai/provider.server";
+import { verificarEDescontarCreditoIA, estornarCreditoIA } from "@/lib/ai/creditos.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const schema = z.object({
   tipo: z.enum(["diagnostico", "orcamento", "mensagem_cliente", "resumo_os", "pecas"]),
@@ -20,36 +23,31 @@ const INSTRUCOES: Record<z.infer<typeof schema>["tipo"], string> = {
 };
 
 export const gerarComIA = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((data: unknown) => schema.parse(data))
-  .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("IA indisponível no momento.");
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash",
-        messages: [
-          {
-            role: "system",
-            content: `${INSTRUCOES[data.tipo]} Responda apenas com o texto final, sem comentários.`,
-          },
-          { role: "user", content: data.entrada },
-        ],
-      }),
-    });
-
-    if (res.status === 429)
-      throw new Error("Limite de uso da IA atingido. Tente novamente em instantes.");
-    if (res.status === 402) throw new Error("Créditos de IA esgotados.");
-    if (!res.ok) throw new Error("Não foi possível processar com IA.");
-
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const texto = json?.choices?.[0]?.message?.content?.trim();
-    if (!texto) throw new Error("A IA não retornou nenhum texto.");
-    return { texto };
+  .handler(async ({ data, context }): Promise<{ texto: string }> => {
+    try {
+      await verificarEDescontarCreditoIA(context.userId);
+    } catch (e) {
+      if (e instanceof IAIndisponivelError) throw new Error(e.message);
+      throw e;
+    }
+    try {
+      const resposta = await chamarProvedorIA({
+        systemPrompt: `${INSTRUCOES[data.tipo]} Responda apenas com o texto final, sem comentários.`,
+        mensagens: [{ role: "user", content: data.entrada }],
+        tools: [],
+      });
+      if (resposta.kind !== "text" || !resposta.text) {
+        throw new Error("A IA não retornou nenhum texto.");
+      }
+      return { texto: resposta.text };
+    } catch (e) {
+      // A credit was already spent above — refund it since the empresa
+      // didn't get an answer back (provider outage, no credit on the
+      // platform's own Anthropic account, etc).
+      await estornarCreditoIA(context.userId);
+      if (e instanceof IAIndisponivelError) throw new Error(e.message);
+      throw e;
+    }
   });
