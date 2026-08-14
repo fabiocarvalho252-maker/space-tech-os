@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedAparelhosRouteImport } from './routes/_authenticated/aparelhos'
@@ -64,6 +65,11 @@ const CadastroRoute = CadastroRouteImport.update({
 const MinhaContaRoute = MinhaContaRouteImport.update({
   id: '/minha-conta',
   path: '/minha-conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -214,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aparelhos': typeof AuthenticatedAparelhosRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aparelhos': typeof AuthenticatedAparelhosRoute
@@ -282,6 +290,7 @@ export interface FileRoutesById {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/aparelhos': typeof AuthenticatedAparelhosRoute
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/redefinir-senha'
     | '/admin'
     | '/agenda'
     | '/aparelhos'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/redefinir-senha'
     | '/admin'
     | '/agenda'
     | '/aparelhos'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/redefinir-senha'
     | '/_authenticated/admin'
     | '/_authenticated/agenda'
     | '/_authenticated/aparelhos'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   AssinaturaRoute: typeof AssinaturaRoute
   CadastroRoute: typeof CadastroRoute
   MinhaContaRoute: typeof MinhaContaRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   ConsultaOsIdRoute: typeof ConsultaOsIdRoute
 }
 
@@ -457,6 +470,13 @@ declare module '@tanstack/react-router' {
       path: '/minha-conta'
       fullPath: '/minha-conta'
       preLoaderRoute: typeof MinhaContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -718,6 +738,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssinaturaRoute: AssinaturaRoute,
   CadastroRoute: CadastroRoute,
   MinhaContaRoute: MinhaContaRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   ConsultaOsIdRoute: ConsultaOsIdRoute,
 }
 export const routeTree = rootRouteImport

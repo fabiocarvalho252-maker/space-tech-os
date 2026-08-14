@@ -1,17 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, CheckCircle2, Lock, Mail, Store, User, Phone } from "lucide-react";
+import { ArrowRight, Lock, Mail, Store, User, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
 import { isValidPhoneBR, maskPhoneBR, normalizarWhatsappBR } from "@/lib/whatsapp";
-import {
-  enviarCodigoAtivacao,
-  verificarWhatsappDisponivel,
-} from "@/lib/auth/ativacao-whatsapp.functions";
+import { verificarWhatsappDisponivel } from "@/lib/auth/ativacao-whatsapp.functions";
 import { LogoMark, LogoWord } from "@/components/Logo";
-import { VerificacaoWhatsappForm } from "@/components/VerificacaoWhatsappForm";
 
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
@@ -45,15 +41,10 @@ function mensagemErroAmigavel(erro: unknown): string {
   return texto || "Não foi possível concluir a operação.";
 }
 
-type Etapa = "form" | "verificar" | "sucesso";
-
 function Cadastro() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ nome: "", loja: "", email: "", whatsapp: "", senha: "" });
   const [loading, setLoading] = useState(false);
-  const [etapa, setEtapa] = useState<Etapa>("form");
-  const [whatsappMascarado, setWhatsappMascarado] = useState("");
-  const [cooldownInicial, setCooldownInicial] = useState(60);
 
   const campo = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({
@@ -92,29 +83,13 @@ function Cadastro() {
         },
       },
     });
+    setLoading(false);
     if (error || !data.session) {
-      setLoading(false);
       toast.error("Não foi possível criar a conta", { description: mensagemErroAmigavel(error) });
       return;
     }
 
-    try {
-      const resultado = await enviarCodigoAtivacao();
-      setWhatsappMascarado(resultado.whatsappMascarado);
-      setCooldownInicial(resultado.cooldownSegundos);
-      setEtapa("verificar");
-    } catch (erroEnvio) {
-      toast.error("Não foi possível enviar o código de ativação", {
-        description: mensagemErroAmigavel(erroEnvio),
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function aoAtivar() {
-    await supabase.auth.signOut();
-    setEtapa("sucesso");
+    navigate({ to: "/dashboard" });
   }
 
   return (
@@ -123,103 +98,56 @@ function Cadastro() {
         <div className="flex flex-col items-center">
           <LogoMark className="h-14 w-14" />
           <LogoWord className="mt-3 text-lg" />
-          {etapa === "form" && (
-            <>
-              <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Criar conta</h1>
-              <p className="mt-1 text-center text-sm text-muted-foreground">
-                7 dias grátis, sem cartão de crédito
-              </p>
-            </>
-          )}
-          {etapa === "verificar" && (
-            <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-center">
-              Verifique seu WhatsApp
-            </h1>
-          )}
-          {etapa === "sucesso" && (
-            <>
-              <CheckCircle2 className="mt-6 h-12 w-12 text-success" />
-              <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-center">
-                Conta ativada com sucesso!
-              </h1>
-              <p className="mt-2 text-center text-sm text-muted-foreground">
-                Sua conta SPACE TECH OS foi ativada. Agora você pode entrar usando seu e-mail e
-                senha.
-              </p>
-            </>
-          )}
+          <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Criar conta</h1>
+          <p className="mt-1 text-center text-sm text-muted-foreground">
+            7 dias grátis, sem cartão de crédito
+          </p>
         </div>
 
-        {etapa === "form" && (
-          <form onSubmit={criar} className="mt-7 space-y-4">
-            <Campo icon={User} label="Seu nome" value={form.nome} onChange={campo("nome")} />
-            <Campo
-              icon={Store}
-              label="Nome da assistência"
-              value={form.loja}
-              onChange={campo("loja")}
-            />
-            <Campo
-              icon={Phone}
-              label="WhatsApp"
-              value={form.whatsapp}
-              onChange={campo("whatsapp")}
-              placeholder="(00) 00000-0000"
-            />
-            <p className="-mt-2 text-xs text-muted-foreground">
-              Seu WhatsApp será utilizado para ativar sua conta.
-            </p>
-            <Campo
-              icon={Mail}
-              label="Email"
-              type="email"
-              value={form.email}
-              onChange={campo("email")}
-            />
-            <Campo
-              icon={Lock}
-              label="Senha"
-              type="password"
-              value={form.senha}
-              onChange={campo("senha")}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95 disabled:opacity-60"
-            >
-              {loading ? "Criando..." : "Criar conta grátis"} <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-        )}
-
-        {etapa === "verificar" && (
-          <div className="mt-7">
-            <VerificacaoWhatsappForm
-              whatsappMascarado={whatsappMascarado}
-              cooldownInicial={cooldownInicial}
-              onAtivado={aoAtivar}
-            />
-          </div>
-        )}
-
-        {etapa === "sucesso" && (
+        <form onSubmit={criar} className="mt-7 space-y-4">
+          <Campo icon={User} label="Seu nome" value={form.nome} onChange={campo("nome")} />
+          <Campo
+            icon={Store}
+            label="Nome da assistência"
+            value={form.loja}
+            onChange={campo("loja")}
+          />
+          <Campo
+            icon={Phone}
+            label="WhatsApp"
+            value={form.whatsapp}
+            onChange={campo("whatsapp")}
+            placeholder="(00) 00000-0000"
+          />
+          <Campo
+            icon={Mail}
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={campo("email")}
+          />
+          <Campo
+            icon={Lock}
+            label="Senha"
+            type="password"
+            value={form.senha}
+            onChange={campo("senha")}
+          />
           <button
-            onClick={() => navigate({ to: "/" })}
-            className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95"
+            type="submit"
+            disabled={loading}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95 disabled:opacity-60"
           >
-            Ir para o login <ArrowRight className="h-4 w-4" />
+            {loading ? "Criando..." : "Criar conta grátis"} <ArrowRight className="h-4 w-4" />
           </button>
-        )}
+        </form>
 
-        {etapa === "form" && (
-          <p className="mt-7 text-center text-sm text-muted-foreground">
-            Já tem conta?{" "}
-            <Link to="/" className="font-semibold text-primary underline">
-              Entrar
-            </Link>
-          </p>
-        )}
+        <p className="mt-7 text-center text-sm text-muted-foreground">
+          Já tem conta?{" "}
+          <Link to="/" className="font-semibold text-primary underline">
+            Entrar
+          </Link>
+        </p>
       </div>
     </div>
   );

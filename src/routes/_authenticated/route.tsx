@@ -25,20 +25,9 @@ export const Route = createFileRoute("/_authenticated")({
 
     const { data: empresaProfile } = await supabase
       .from("profiles")
-      .select("created_at, plano, acesso_ate, status")
+      .select("created_at, plano, acesso_ate")
       .eq("id", empresaId)
       .maybeSingle();
-
-    // Defense in depth: the login screen already blocks a PENDING empresa
-    // from reaching here (see /, PainelEmpresa), but a session obtained
-    // before WhatsApp verification finished (e.g. tab left open mid-signup)
-    // could still land on an authenticated route directly. Sign out so the
-    // redirect to "/" doesn't just bounce straight back in via the session
-    // Login()'s own mount effect would otherwise still see.
-    if (empresaProfile?.status === "pending") {
-      await supabase.auth.signOut();
-      throw redirect({ to: "/" });
-    }
 
     // plano is set by the site admin (/admin) — defaults to "trial" for
     // every signup, so nothing changes here unless explicitly granted.
