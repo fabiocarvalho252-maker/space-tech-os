@@ -22,6 +22,7 @@ import {
   Smartphone,
   Sparkles,
   TimerReset,
+  Trash2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -63,6 +64,7 @@ import {
   conectarWhatsappSistema,
   desconectarWhatsappSistema,
   entrarComoEmpresa,
+  excluirEmpresa,
   listarEmpresasDoSite,
   resetarSenhaEmpresa,
   statusWhatsappSistema,
@@ -403,11 +405,11 @@ function StatTile({
   );
 }
 
-// Quick actions that don't need the full plano/senha dialog open — suspending
-// or reactivating is a one-click decision an operator makes straight from the
-// row. Deleting an empresa or impersonating its login are deliberately not
-// here: neither has server-side support yet (no cascading delete, no
-// impersonation session), so faking them in the menu would be misleading.
+// Quick actions that don't need the full plano/senha dialog open —
+// suspending or reactivating is a one-click decision an operator makes
+// straight from the row. Deleting an empresa lives in EmpresaDetalheDialog
+// instead, gated behind typing the store name — too destructive for a
+// one-click menu item.
 function EmpresaAcoesMenu({
   empresa,
   onVerDetalhes,
@@ -717,6 +719,8 @@ function EmpresaDetalheDialog({
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [quantidadeCreditos, setQuantidadeCreditos] = useState("10");
+  const [confirmExcluirOpen, setConfirmExcluirOpen] = useState(false);
+  const [textoConfirmacaoExcluir, setTextoConfirmacaoExcluir] = useState("");
 
   // Re-seed local form state whenever a different empresa is opened.
   const [empresaIdAberta, setEmpresaIdAberta] = useState<string | null>(null);
@@ -729,6 +733,7 @@ function EmpresaDetalheDialog({
     setAcessoAte(calcularAcessoAte(planoInicial, empresa.acessoAte ?? ""));
     setSenhaGerada(null);
     setCopiado(false);
+    setTextoConfirmacaoExcluir("");
   }
 
   const salvarPlano = useMutation({
@@ -762,7 +767,23 @@ function EmpresaDetalheDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const excluir = useMutation({
+    mutationFn: () => excluirEmpresa({ data: { empresaId: empresa!.id } }),
+    onSuccess: () => {
+      toast.success("Empresa excluída.");
+      qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
+      setConfirmExcluirOpen(false);
+      onOpenChange(false);
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmExcluirOpen(false);
+    },
+  });
+
   if (!empresa) return null;
+
+  const nomeConfirmacao = empresa.loja || empresa.nome || "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -953,6 +974,24 @@ function EmpresaDetalheDialog({
             </Button>
           )}
         </div>
+
+        <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+          <Label className="text-xs font-bold uppercase tracking-wider text-destructive">
+            Zona de risco
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Exclui a conta, o login e todos os dados desta empresa (OS, vendas, estoque, financeiro,
+            equipe) permanentemente. Não pode ser desfeito.
+          </p>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="w-full gap-2"
+            onClick={() => setConfirmExcluirOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" /> Excluir empresa
+          </Button>
+        </div>
       </DialogContent>
 
       <ConfirmDialog
@@ -965,6 +1004,58 @@ function EmpresaDetalheDialog({
         loading={resetarSenha.isPending}
         onConfirm={() => resetarSenha.mutate()}
       />
+
+      <Dialog
+        open={confirmExcluirOpen}
+        onOpenChange={(o) => {
+          setConfirmExcluirOpen(o);
+          if (!o) setTextoConfirmacaoExcluir("");
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              Excluir {nomeConfirmacao || "esta empresa"}?
+            </DialogTitle>
+            <DialogDescription>
+              Essa ação apaga permanentemente a conta, o login e todos os dados desta empresa —
+              ordens de serviço, vendas, estoque, financeiro e equipe. Não há como desfazer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Para confirmar, digite <strong>{nomeConfirmacao}</strong> abaixo
+            </Label>
+            <Input
+              value={textoConfirmacaoExcluir}
+              onChange={(e) => setTextoConfirmacaoExcluir(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmExcluirOpen(false)}
+              disabled={excluir.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                excluir.isPending ||
+                !nomeConfirmacao ||
+                textoConfirmacaoExcluir.trim() !== nomeConfirmacao
+              }
+              onClick={() => excluir.mutate()}
+            >
+              {excluir.isPending ? "Excluindo..." : "Excluir permanentemente"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

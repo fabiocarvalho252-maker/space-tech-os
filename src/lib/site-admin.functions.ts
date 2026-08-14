@@ -190,6 +190,26 @@ function gerarSenhaAleatoria(): string {
   return senha;
 }
 
+// Permanently deletes an empresa's account. profiles.id → auth.users(id) ON
+// DELETE CASCADE, and every tenant table's own user_id also references
+// auth.users(id) ON DELETE CASCADE (see the schema migrations) — deleting
+// the auth user is enough for Postgres to cascade through the whole
+// company's data (OS, vendas, estoque, financeiro, user_empresas
+// memberships, etc). There is no undo.
+export const excluirEmpresa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    checarSiteAdmin(context.claims);
+    if (data.empresaId === context.userId) {
+      throw new Error("Você não pode excluir a própria conta de administrador.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.empresaId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
