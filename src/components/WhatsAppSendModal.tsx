@@ -20,6 +20,8 @@ import { WhatsAppScheduleOptions } from "@/components/whatsapp/WhatsAppScheduleO
 import { WhatsAppAttachmentOptions } from "@/components/whatsapp/WhatsAppAttachmentOptions";
 import { WhatsAppModalFooter } from "@/components/whatsapp/WhatsAppModalFooter";
 import { enviarNotificacaoOsWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
+import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
+import { base64ParaBytes, baixarArquivo } from "@/lib/pdf-share";
 import {
   buildMensagensRapidas,
   buildWaMeLink,
@@ -145,11 +147,50 @@ export function WhatsAppSendModal({
     mutationFn: async () => {
       if (!os) throw new Error("OS não carregada.");
 
-      // No celular, sem anexos e sem agendamento, deixa a pessoa mandar pelo
-      // próprio app do WhatsApp — mais natural do que depender da conexão da
-      // empresa. Anexos e agendamento sempre passam pelo servidor, já que o
-      // wa.me não suporta nem um nem outro.
-      if (isMobile && !anexos.os && !anexos.orcamento && agendamento.tipo === "agora") {
+      // No celular, manda direto sem depender da conexão da empresa com a
+      // Evolution API: sem anexo é só o link wa.me; com anexo, gera o(s)
+      // PDF(s) no cliente e usa o share sheet nativo — que já inclui o
+      // WhatsApp como destino, com o arquivo anexado — caindo para baixar o
+      // PDF + abrir o wa.me (anexo manual) quando o navegador não suporta
+      // compartilhar arquivo. Agendamento sempre passa pelo servidor, já que
+      // nenhum dos dois caminhos acima suporta isso.
+      if (isMobile && agendamento.tipo === "agora") {
+        if (!anexos.os && !anexos.orcamento) {
+          window.open(buildWaMeLink(telefone, texto), "_blank");
+          return "wa_me" as const;
+        }
+
+        const arquivos: File[] = [];
+        for (const modo of ["os", "orcamento"] as const) {
+          if (!anexos[modo]) continue;
+          const { base64 } = await gerarPdfOsCompartilharFn({ data: { osId: os.id, modo } });
+          const rotulo = modo === "orcamento" ? "ORCAMENTO" : "OS";
+          arquivos.push(
+            new File(
+              [base64ParaBytes(base64)],
+              `SPACE-TECH-${rotulo}-${String(os.numero).padStart(6, "0")}.pdf`,
+              { type: "application/pdf" },
+            ),
+          );
+        }
+
+        const podeCompartilhar =
+          typeof navigator !== "undefined" &&
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: arquivos });
+
+        if (podeCompartilhar) {
+          try {
+            await navigator.share({ text: texto, files: arquivos });
+            return "compartilhado" as const;
+          } catch (e) {
+            if (e instanceof DOMException && e.name === "AbortError") return "cancelado" as const;
+            throw e;
+          }
+        }
+
+        arquivos.forEach(baixarArquivo);
         window.open(buildWaMeLink(telefone, texto), "_blank");
         return "wa_me" as const;
       }
@@ -174,7 +215,8 @@ export function WhatsAppSendModal({
       });
     },
     onSuccess: (resultado) => {
-      if (resultado === "wa_me") {
+      if (resultado === "cancelado") return;
+      if (resultado === "wa_me" || resultado === "compartilhado") {
         onOpenChange(false);
         return;
       }

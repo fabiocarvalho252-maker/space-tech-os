@@ -6,11 +6,13 @@
 // needed server-side). Respects the empresa's selected "Modelos de OS"
 // template the same way ordens.tsx's imprimir() does — theme color, which
 // sections to include and in what order, and the photo grid layout — just
-// laid out with pdf-lib instead of HTML. QR code section is accepted in the
-// section list but not rendered here: there's no raster QR generator
-// dependency in this project (qrcode.react only renders SVG, browser-side)
-// and no public origin available in this server context to encode.
+// laid out with pdf-lib instead of HTML. The QR code is rendered with the
+// `qrcode` package (raster PNG, unlike qrcode.react which only renders SVG
+// in the browser) and encodes the same "/consulta/:id" public link as the
+// HTML template — see origemPublicaServer() below for why this reads
+// VITE_SITE_URL from process.env instead of site-url.ts's origemPublica().
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import QRCode from "qrcode";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   FALLBACK_TEMPLATE,
@@ -21,6 +23,16 @@ import {
   type OsTemplateSecao,
 } from "@/lib/os-template-render";
 import { Escritor } from "@/lib/pdf-writer.server";
+
+// site-url.ts's origemPublica() falls back to window.location.origin, which
+// doesn't exist in this server context — read the same VITE_SITE_URL env var
+// straight from process.env instead (already how client.server.ts reads
+// SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY: dotenv loads the whole .env file
+// into process.env regardless of the VITE_ prefix, that prefix only matters
+// for Vite's client-bundle injection rules).
+function origemPublicaServer(): string {
+  return process.env["VITE_SITE_URL"] ?? "";
+}
 
 const CHECKLIST_LABELS: Record<string, string> = {
   liga: "Liga",
@@ -205,6 +217,14 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
           "Aparelho",
           [osAny.aparelho, osAny.marca, osAny.modelo].filter(Boolean).join(" "),
         );
+        if (osAny.cor) w.linhaCampo("Cor", osAny.cor);
+        if (osAny.imei) w.linhaCampo("IMEI", osAny.imei);
+        if (osAny.serial_number) w.linhaCampo("Número de série", osAny.serial_number);
+        w.linhaCampo("Senha (PIN)", osAny.senha_dispositivo || "—");
+        w.linhaCampo(
+          "Padrão",
+          osAny.padrao_desbloqueio ? `Sequência: ${osAny.padrao_desbloqueio}` : "—",
+        );
         break;
 
       case "defeito":
@@ -238,6 +258,9 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break;
 
       case "valores":
+        if (Number(osAny.desconto ?? 0) > 0) {
+          w.paragrafo(`Desconto: ${brl(osAny.desconto)}`, 9, rgb(0.4, 0.4, 0.45));
+        }
         w.subtitulo(`Total: ${brl(osAny.valor)}`);
         w.espaco(10);
         break;
@@ -316,11 +339,23 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break;
       }
 
-      case "qrcode":
-        // Sem gerador de QR raster server-side neste projeto (ver
-        // comentário no topo do arquivo) — aceito na config do modelo mas
-        // ainda não desenhado aqui.
+      case "qrcode": {
+        const origem = origemPublicaServer();
+        if (!(osConfig as any)?.imprimir_qrcode_cliente || !origem) break;
+        try {
+          const png = await QRCode.toBuffer(`${origem}/consulta/${osId}`, {
+            type: "png",
+            margin: 1,
+            width: 200,
+          });
+          await w.imagem(new Uint8Array(png), true, 100, 100);
+          w.paragrafo("Acompanhe sua OS online", 8, rgb(0.5, 0.5, 0.55));
+          w.espaco(4);
+        } catch {
+          // QR indisponível — segue sem travar a geração do PDF.
+        }
         break;
+      }
 
       case "assinaturas":
         if (assinaturaCliente || assinaturaTecnico) {
