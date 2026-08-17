@@ -240,11 +240,42 @@ function Vendas() {
           );
         }
       }
+
+      // Cancelar uma venda precisa desfazer os dois efeitos colaterais que a
+      // criação dela causou: devolver ao estoque as unidades de produto
+      // baixadas (itens tipo Serviço nunca baixaram estoque, então ficam de
+      // fora) e tirar o lançamento de receita do financeiro/DRE — sem isso o
+      // CMV para de contar o custo (já exclui vendas canceladas) mas a
+      // receita continuava contando, inflando o lucro líquido artificialmente.
+      if (status === "cancelado") {
+        const { data: itens } = await supabase
+          .from("venda_itens")
+          .select("produto_id, quantidade")
+          .eq("venda_id", id);
+        for (const item of itens ?? []) {
+          if (!item.produto_id) continue;
+          const { data: produto } = await supabase
+            .from("produtos")
+            .select("quantidade, categoria")
+            .eq("id", item.produto_id)
+            .single();
+          if (produto && produto.categoria !== "Serviço") {
+            await supabase
+              .from("produtos")
+              .update({ quantidade: produto.quantidade + item.quantidade })
+              .eq("id", item.produto_id);
+          }
+        }
+        await supabase.from("lancamentos").update({ status: "cancelado" }).eq("venda_id", id);
+      }
+
       const { error } = await supabase.from("vendas").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["vendas"] });
+      qc.invalidateQueries({ queryKey: ["produtos-vendas"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-home"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

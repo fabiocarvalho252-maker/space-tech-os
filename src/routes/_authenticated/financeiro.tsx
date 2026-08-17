@@ -170,11 +170,15 @@ function Financeiro() {
     });
   }, [lancamentos, filtros]);
 
+  // Um lançamento cancelado (ex: venda cancelada em Vendas) continua na
+  // lista para consulta/auditoria, mas nunca é dinheiro que entrou ou saiu
+  // de verdade — não pode contar nos totais independente do filtro de
+  // status escolhido acima.
   const entradas = listaFiltrada
-    .filter((l) => l.tipo === "entrada")
+    .filter((l) => l.tipo === "entrada" && l.status !== "cancelado")
     .reduce((s, l) => s + Number(l.valor), 0);
   const saidas = listaFiltrada
-    .filter((l) => l.tipo === "saida")
+    .filter((l) => l.tipo === "saida" && l.status !== "cancelado")
     .reduce((s, l) => s + Number(l.valor), 0);
 
   return (
@@ -461,6 +465,11 @@ function Financeiro() {
                     {(l as any).status === "pendente" && (
                       <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         Pendente
+                      </span>
+                    )}
+                    {(l as any).status === "cancelado" && (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        Cancelado
                       </span>
                     )}
                   </td>
