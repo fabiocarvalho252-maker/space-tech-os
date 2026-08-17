@@ -172,6 +172,7 @@ function PDV() {
         categoria: "Venda PDV",
         descricao: `Venda #${(venda as any).id.slice(0, 8)}`,
         valor: total,
+        venda_id: (venda as any).id,
       });
     },
     onSuccess: () => {

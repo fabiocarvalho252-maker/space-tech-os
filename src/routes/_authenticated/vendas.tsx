@@ -216,6 +216,7 @@ function Vendas() {
         categoria: "Venda",
         descricao: `Venda #${String(venda.numero ?? venda.id.slice(0, 8)).padStart(4, "0")}`,
         valor: total,
+        venda_id: venda.id,
       });
     },
     onSuccess: () => {

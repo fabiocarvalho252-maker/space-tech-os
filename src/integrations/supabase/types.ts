@@ -935,6 +935,7 @@ export type Database = {
           tipo: string
           user_id: string
           valor: number
+          venda_id: string | null
           vencimento: string | null
         }
         Insert: {
@@ -949,6 +950,7 @@ export type Database = {
           tipo?: string
           user_id: string
           valor?: number
+          venda_id?: string | null
           vencimento?: string | null
         }
         Update: {
@@ -963,6 +965,7 @@ export type Database = {
           tipo?: string
           user_id?: string
           valor?: number
+          venda_id?: string | null
           vencimento?: string | null
         }
         Relationships: [
@@ -978,6 +981,13 @@ export type Database = {
             columns: ["payment_method_id"]
             isOneToOne: false
             referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
             referencedColumns: ["id"]
           },
         ]
