@@ -117,13 +117,13 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
     };
   });
 
-const PLANOS_COM_VALIDADE = ["mensal", "trimestral", "semestral", "anual"] as const;
+const PLANOS_COM_VALIDADE = ["mensal", "anual"] as const;
 const PLANOS_PAGOS = [...PLANOS_COM_VALIDADE, "vitalicio"] as const;
 const BONUS_CREDITOS_IA_POR_PLANO = 10;
 
 const planoSchema = z.object({
   empresaId: z.string().uuid(),
-  plano: z.enum(["trial", "mensal", "trimestral", "semestral", "anual", "vitalicio", "suspenso"]),
+  plano: z.enum(["trial", "mensal", "anual", "vitalicio", "suspenso"]),
   acessoAte: z.string().nullable(),
 });
 

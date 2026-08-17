@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authenticated")({
     const plano = empresaProfile?.plano ?? "trial";
     const acessoAte = empresaProfile?.acesso_ate;
 
-    const PLANOS_COM_VALIDADE = ["mensal", "trimestral", "semestral", "anual"];
+    const PLANOS_COM_VALIDADE = ["mensal", "anual"];
 
     if (plano === "suspenso") {
       throw redirect({ to: "/assinatura" });

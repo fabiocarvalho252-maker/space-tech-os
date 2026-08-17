@@ -90,20 +90,16 @@ export const Route = createFileRoute("/_authenticated/admin")({
 const PLANOS = [
   { value: "trial", label: "Teste grátis (7 dias)", meses: null },
   { value: "mensal", label: "Mensal (1 mês)", meses: 1 },
-  { value: "trimestral", label: "Trimestral (3 meses)", meses: 3 },
-  { value: "semestral", label: "Semestral (6 meses)", meses: 6 },
   { value: "anual", label: "Anual (12 meses)", meses: 12 },
   { value: "vitalicio", label: "Vitalício", meses: null },
   { value: "suspenso", label: "Suspenso", meses: null },
 ] as const;
 
-const PLANOS_COM_VALIDADE = ["mensal", "trimestral", "semestral", "anual"];
+const PLANOS_COM_VALIDADE = ["mensal", "anual"];
 
 const TONE_POR_PLANO: Record<string, StatusTone> = {
   trial: "neutral",
   mensal: "success",
-  trimestral: "success",
-  semestral: "success",
   anual: "success",
   vitalicio: "purple",
   suspenso: "danger",

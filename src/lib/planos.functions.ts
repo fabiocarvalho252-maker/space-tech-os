@@ -8,7 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const PLANOS_SOLICITAVEIS = ["mensal", "trimestral", "semestral", "anual", "vitalicio"] as const;
+const PLANOS_SOLICITAVEIS = ["mensal", "anual", "vitalicio"] as const;
 
 const schema = z.object({ plano: z.enum(PLANOS_SOLICITAVEIS) });
 

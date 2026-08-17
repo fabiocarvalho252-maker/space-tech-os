@@ -126,7 +126,7 @@ export function useTrialStatus() {
 
       if (plano === "vitalicio") return { diasRestantes: Infinity, expirado: false };
       if (plano === "suspenso") return { diasRestantes: -1, expirado: true };
-      if (["mensal", "trimestral", "semestral", "anual"].includes(plano)) {
+      if (["mensal", "anual"].includes(plano)) {
         if (!acessoAte) return { diasRestantes: Infinity, expirado: false };
         const diasRestantes = differenceInCalendarDays(new Date(acessoAte), new Date());
         return { diasRestantes, expirado: diasRestantes < 0 };
