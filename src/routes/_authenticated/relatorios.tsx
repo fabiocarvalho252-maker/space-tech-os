@@ -34,8 +34,11 @@ function Relatorios() {
   const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [dataFim, setDataFim] = useState(hojeStr());
 
-  const inicioISO = `${dataInicio}T00:00:00`;
-  const fimISO = `${dataFim}T23:59:59`;
+  // Limites do dia no fuso local, convertidos para UTC — comparar strings
+  // sem timezone com colunas timestamptz faz o Postgres assumir UTC, o que
+  // exclui vendas/OS feitas à noite (horário local) do período selecionado.
+  const inicioISO = new Date(`${dataInicio}T00:00:00`).toISOString();
+  const fimISO = new Date(`${dataFim}T23:59:59.999`).toISOString();
 
   const { data } = useQuery({
     queryKey: ["relatorios", dataInicio, dataFim],

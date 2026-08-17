@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   eachDayOfInterval,
+  endOfDay,
   endOfMonth,
   endOfWeek,
   format,
+  startOfDay,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -78,6 +80,11 @@ function Dashboard() {
   );
   const inicioStr = format(inicio, "yyyy-MM-dd");
   const fimStr = format(fim, "yyyy-MM-dd");
+  // Limites do dia no fuso local, convertidos para UTC — comparar strings
+  // sem timezone com colunas timestamptz faz o Postgres assumir UTC, o que
+  // exclui vendas/OS feitas à noite (horário local) do "hoje"/período.
+  const inicioTsISO = startOfDay(inicio).toISOString();
+  const fimTsISO = endOfDay(fim).toISOString();
 
   const {
     data,
@@ -112,13 +119,13 @@ function Dashboard() {
         supabase
           .from("os_itens")
           .select("produto_id, descricao, quantidade, tipo, created_at, ordens_servico(status)")
-          .gte("created_at", `${inicioStr}T00:00:00`)
-          .lte("created_at", `${fimStr}T23:59:59`),
+          .gte("created_at", inicioTsISO)
+          .lte("created_at", fimTsISO),
         supabase
           .from("venda_itens")
           .select("produto_id, descricao, quantidade, created_at, vendas(status)")
-          .gte("created_at", `${inicioStr}T00:00:00`)
-          .lte("created_at", `${fimStr}T23:59:59`),
+          .gte("created_at", inicioTsISO)
+          .lte("created_at", fimTsISO),
         supabase.from("termos_garantia").select("id", { count: "exact", head: true }),
       ]);
 

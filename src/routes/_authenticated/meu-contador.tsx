@@ -47,8 +47,8 @@ function MeuContador() {
           "id, numero, serie, chave_acesso, valor_total, status, created_at, emitida_em, venda_id, os_id, cliente:clientes(nome, documento)",
         )
         .eq("status", "emitida")
-        .gte("created_at", `${filtro.inicio}T00:00:00`)
-        .lte("created_at", `${filtro.fim}T23:59:59`)
+        .gte("created_at", new Date(`${filtro.inicio}T00:00:00`).toISOString())
+        .lte("created_at", new Date(`${filtro.fim}T23:59:59.999`).toISOString())
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
