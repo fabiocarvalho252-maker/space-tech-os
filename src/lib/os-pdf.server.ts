@@ -26,12 +26,14 @@ import { Escritor } from "@/lib/pdf-writer.server";
 
 // site-url.ts's origemPublica() falls back to window.location.origin, which
 // doesn't exist in this server context — read the same VITE_SITE_URL env var
-// straight from process.env instead (already how client.server.ts reads
-// SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY: dotenv loads the whole .env file
-// into process.env regardless of the VITE_ prefix, that prefix only matters
-// for Vite's client-bundle injection rules).
+// directly instead. VITE_-prefixed vars in this project are only injected
+// into import.meta.env, never into process.env (verified against the
+// running dev process: process.env has none of them, even though this file
+// previously read it that way — the QR code below silently never rendered
+// because of it, since it no-ops when origem is empty). client.ts:33 already
+// reads VITE_SUPABASE_URL the same way this now does.
 function origemPublicaServer(): string {
-  return process.env["VITE_SITE_URL"] ?? "";
+  return import.meta.env["VITE_SITE_URL"] ?? "";
 }
 
 const CHECKLIST_LABELS: Record<string, string> = {

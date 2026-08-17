@@ -14,11 +14,12 @@ import {
 // bound to behind the reverse proxy (the internal dev port), not the public
 // https:// domain — using it as the magic-link redirect sent an admin
 // "entering" an empresa's panel to an unreachable internal URL instead of
-// the real site. Read VITE_SITE_URL straight from process.env instead, same
-// as origemPublicaServer() in os-pdf.server.ts (site-url.ts's origemPublica()
-// falls back to window.location.origin, which doesn't exist server-side).
+// the real site. VITE_-prefixed vars in this project are only injected into
+// import.meta.env (verified: process.env has none of them at runtime, even
+// though client.ts:33 already reads VITE_SUPABASE_URL this same way) — read
+// VITE_SITE_URL from there instead of process.env.
 function origemPublicaServer(): string {
-  return process.env["VITE_SITE_URL"] ?? "";
+  return import.meta.env["VITE_SITE_URL"] ?? "";
 }
 
 // Hardcoded on purpose: this is a single-operator platform-wide view (every
