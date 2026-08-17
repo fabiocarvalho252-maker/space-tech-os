@@ -1738,6 +1738,148 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          billing_cycle: string
+          canceled_at: string | null
+          created_at: string
+          empresa_id: string
+          id: string
+          mercado_pago_preapproval_id: string | null
+          next_billing_date: string | null
+          plan_id: string
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle: string
+          canceled_at?: string | null
+          created_at?: string
+          empresa_id: string
+          id?: string
+          mercado_pago_preapproval_id?: string | null
+          next_billing_date?: string | null
+          plan_id: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: string
+          canceled_at?: string | null
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          mercado_pago_preapproval_id?: string | null
+          next_billing_date?: string | null
+          plan_id?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string | null
+          external_reference: string
+          id: string
+          mercado_pago_payment_id: string | null
+          metadata: Json | null
+          paid_at: string | null
+          payment_method: string
+          status: string
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string | null
+          external_reference: string
+          id?: string
+          mercado_pago_payment_id?: string | null
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method: string
+          status?: string
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string | null
+          external_reference?: string
+          id?: string
+          mercado_pago_payment_id?: string | null
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method?: string
+          status?: string
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json | null
+          subscription_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          subscription_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          subscription_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean
