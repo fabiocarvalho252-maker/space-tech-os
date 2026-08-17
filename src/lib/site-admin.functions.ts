@@ -298,3 +298,125 @@ export const desconectarWhatsappSistema = createServerFn({ method: "POST" })
     checarSiteAdmin(context.claims);
     return desconectarSistema();
   });
+
+// "Planos" section of /admin — pricing (starts NULL, see the
+// 20260817170000_plans_features migration) and per-plan feature toggles.
+// plans/plan_features are read by every empresa (RLS: select for any
+// authenticated user), but only the site admin can write — enforced here,
+// not by RLS, same pattern as every other write in this file.
+export type PlanoDoSite = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
+  annualDiscountPct: number | null;
+  features: { feature: string; enabled: boolean }[];
+};
+
+export const listarPlanosDoSite = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<PlanoDoSite[]> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: plans, error } = await supabaseAdmin
+      .from("plans")
+      .select("id, slug, name, description, monthly_price, annual_price, annual_discount_pct")
+      .order("sort_order");
+    if (error) throw error;
+
+    const { data: features, error: featError } = await supabaseAdmin
+      .from("plan_features")
+      .select("plan_id, feature, enabled");
+    if (featError) throw featError;
+
+    return plans.map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      description: p.description,
+      monthlyPrice: p.monthly_price,
+      annualPrice: p.annual_price,
+      annualDiscountPct: p.annual_discount_pct,
+      features: (features ?? [])
+        .filter((f) => f.plan_id === p.id)
+        .map((f) => ({ feature: f.feature, enabled: f.enabled })),
+    }));
+  });
+
+// Preço em branco no formulário chega aqui como null — nunca 0. NULL
+// continua significando "não configurado"; só o admin, digitando um valor
+// de verdade, faz esse plano ficar contratável de fato.
+const atualizarPlanoSchema = z.object({
+  planoId: z.string().uuid(),
+  monthlyPrice: z.number().nonnegative().nullable(),
+  annualPrice: z.number().nonnegative().nullable(),
+  annualDiscountPct: z.number().min(0).max(100).nullable(),
+});
+
+export const atualizarPlano = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => atualizarPlanoSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin
+      .from("plans")
+      .update({
+        monthly_price: data.monthlyPrice,
+        annual_price: data.annualPrice,
+        annual_discount_pct: data.annualDiscountPct,
+      })
+      .eq("id", data.planoId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+const atualizarPlanoFeatureSchema = z.object({
+  planoId: z.string().uuid(),
+  feature: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+export const atualizarPlanoFeature = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => atualizarPlanoFeatureSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin
+      .from("plan_features")
+      .update({ enabled: data.enabled })
+      .eq("plan_id", data.planoId)
+      .eq("feature", data.feature);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+const alterarPlanoEmpresaSchema = z.object({
+  empresaId: z.string().uuid(),
+  planoId: z.string().uuid(),
+});
+
+// Muda o tier (Básico/Profissional) de uma empresa específica — distinto de
+// atualizarPlanoEmpresa (acima), que muda o ciclo de cobrança (plano/
+// acesso_ate). Empresa e login não podem escolher o próprio plan_id: só
+// chega aqui pela ação do site admin.
+export const alterarPlanoEmpresa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => alterarPlanoEmpresaSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ plan_id: data.planoId })
+      .eq("id", data.empresaId);
+    if (error) throw error;
+    return { ok: true };
+  });

@@ -60,16 +60,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
 import {
   ajustarCreditosIA,
+  alterarPlanoEmpresa,
+  atualizarPlano,
   atualizarPlanoEmpresa,
+  atualizarPlanoFeature,
   conectarWhatsappSistema,
   desconectarWhatsappSistema,
   entrarComoEmpresa,
   excluirEmpresa,
   listarEmpresasDoSite,
+  listarPlanosDoSite,
   resetarSenhaEmpresa,
   statusWhatsappSistema,
   type EmpresaDoSite,
+  type PlanoDoSite,
 } from "@/lib/site-admin.functions";
+import { FEATURES_EXIBICAO } from "@/lib/planos/features";
 import type { WhatsappSistemaConexao } from "@/lib/whatsapp/system-instance";
 
 const SITE_ADMIN_EMAIL = "admin@spacetech.app";
@@ -261,6 +267,8 @@ function AdminDoSite() {
       )}
 
       <WhatsappSistemaCard souAdmin={souAdmin} />
+
+      <PlanosCard souAdmin={souAdmin} />
 
       <SectionCard
         title="Empresas cadastradas"
@@ -689,6 +697,157 @@ function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
         loading={desconectar.isPending}
         onConfirm={() => desconectar.mutate()}
       />
+    </SectionCard>
+  );
+}
+
+// "Planos" — preços (começam em branco/NULL de propósito, ver a migration
+// 20260817170000_plans_features) e quais recursos cada plano libera. Puxa
+// de plans/plan_features via listarPlanosDoSite; salvar aqui é o único
+// lugar do sistema que grava nessas tabelas (site admin, checarSiteAdmin no
+// backend) — nenhuma empresa decide seu próprio preço ou feature.
+function PlanosCard({ souAdmin }: { souAdmin: boolean }) {
+  const qc = useQueryClient();
+  const [precos, setPrecos] = useState<
+    Record<string, { monthly: string; annual: string; discount: string }>
+  >({});
+
+  const { data: planos = [], isLoading } = useQuery({
+    queryKey: ["site-admin-planos"],
+    queryFn: () => listarPlanosDoSite(),
+    enabled: souAdmin,
+  });
+
+  function precoAtual(p: PlanoDoSite) {
+    return (
+      precos[p.id] ?? {
+        monthly: p.monthlyPrice?.toString() ?? "",
+        annual: p.annualPrice?.toString() ?? "",
+        discount: p.annualDiscountPct?.toString() ?? "",
+      }
+    );
+  }
+
+  const salvarPreco = useMutation({
+    mutationFn: (p: PlanoDoSite) => {
+      const v = precoAtual(p);
+      return atualizarPlano({
+        data: {
+          planoId: p.id,
+          monthlyPrice: v.monthly.trim() === "" ? null : Number(v.monthly),
+          annualPrice: v.annual.trim() === "" ? null : Number(v.annual),
+          annualDiscountPct: v.discount.trim() === "" ? null : Number(v.discount),
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Preços atualizados.");
+      qc.invalidateQueries({ queryKey: ["site-admin-planos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const alternarFeature = useMutation({
+    mutationFn: (v: { planoId: string; feature: string; enabled: boolean }) =>
+      atualizarPlanoFeature({ data: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["site-admin-planos"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!souAdmin) return null;
+
+  return (
+    <SectionCard
+      title="Planos"
+      subtitle="Preços e recursos de cada plano — em branco = ainda não configurado, nunca R$ 0,00."
+      icon={Sparkles}
+      className="mb-6"
+    >
+      {isLoading ? (
+        <TableSkeleton />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {planos.map((p) => {
+            const v = precoAtual(p);
+            return (
+              <div key={p.id} className="rounded-xl border border-border p-4">
+                <p className="font-bold">{p.name}</p>
+                {p.description && (
+                  <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>
+                )}
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Mensal (R$)</Label>
+                    <Input
+                      value={v.monthly}
+                      placeholder="A definir"
+                      onChange={(e) =>
+                        setPrecos((s) => ({ ...s, [p.id]: { ...v, monthly: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Anual (R$)</Label>
+                    <Input
+                      value={v.annual}
+                      placeholder="A definir"
+                      onChange={(e) =>
+                        setPrecos((s) => ({ ...s, [p.id]: { ...v, annual: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Desconto anual (%)</Label>
+                    <Input
+                      value={v.discount}
+                      placeholder="A definir"
+                      onChange={(e) =>
+                        setPrecos((s) => ({ ...s, [p.id]: { ...v, discount: e.target.value } }))
+                      }
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  disabled={salvarPreco.isPending}
+                  onClick={() => salvarPreco.mutate(p)}
+                >
+                  Salvar preços
+                </Button>
+
+                <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border pt-3">
+                  {FEATURES_EXIBICAO.map((f) => {
+                    const feature = p.features.find((pf) => pf.feature === f.feature);
+                    const enabled = feature?.enabled ?? false;
+                    return (
+                      <label
+                        key={f.feature}
+                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) =>
+                            alternarFeature.mutate({
+                              planoId: p.id,
+                              feature: f.feature,
+                              enabled: e.target.checked,
+                            })
+                          }
+                        />
+                        {f.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </SectionCard>
   );
 }
