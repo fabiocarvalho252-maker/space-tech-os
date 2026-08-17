@@ -8,7 +8,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
-import { useCurrentUser, usePlanoAtual, useTrialStatus } from "@/hooks/useCurrentUser";
+import {
+  useCurrentUser,
+  usePlanoAtual,
+  usePlanoTier,
+  useTrialStatus,
+} from "@/hooks/useCurrentUser";
 import { solicitarPlano } from "@/lib/planos.functions";
 import { dataBR } from "@/lib/format";
 
@@ -58,6 +63,7 @@ function Assinatura() {
   const { data: user, isLoading: carregandoUser } = useCurrentUser();
   const { data: trial } = useTrialStatus();
   const { data: planoAtual } = usePlanoAtual();
+  const { data: planoTier } = usePlanoTier();
   const [planoEscolhido, setPlanoEscolhido] = useState<PlanoDisponivel["value"] | null>(null);
 
   useEffect(() => {
@@ -129,6 +135,16 @@ function Assinatura() {
             )}
           </div>
           <StatusBadge label={status.label} tone={status.tone} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/20 p-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Recursos do plano</p>
+            <p className="text-lg font-bold">{planoTier?.name ?? "Básico"}</p>
+          </div>
+          <Link to="/planos" className="text-xs font-semibold text-primary hover:underline">
+            Ver Plano Profissional
+          </Link>
         </div>
 
         {pedidoPendente && (

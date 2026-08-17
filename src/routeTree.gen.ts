@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
+import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
@@ -65,6 +66,11 @@ const CadastroRoute = CadastroRouteImport.update({
 const MinhaContaRoute = MinhaContaRouteImport.update({
   id: '/minha-conta',
   path: '/minha-conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanosRoute = PlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/agenda': typeof AuthenticatedAgendaRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
   '/minha-conta': typeof MinhaContaRoute
+  '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/planos'
     | '/redefinir-senha'
     | '/admin'
     | '/agenda'
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/planos'
     | '/redefinir-senha'
     | '/admin'
     | '/agenda'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/cadastro'
     | '/minha-conta'
+    | '/planos'
     | '/redefinir-senha'
     | '/_authenticated/admin'
     | '/_authenticated/agenda'
@@ -431,6 +443,7 @@ export interface RootRouteChildren {
   AssinaturaRoute: typeof AssinaturaRoute
   CadastroRoute: typeof CadastroRoute
   MinhaContaRoute: typeof MinhaContaRoute
+  PlanosRoute: typeof PlanosRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   ConsultaOsIdRoute: typeof ConsultaOsIdRoute
 }
@@ -470,6 +483,13 @@ declare module '@tanstack/react-router' {
       path: '/minha-conta'
       fullPath: '/minha-conta'
       preLoaderRoute: typeof MinhaContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planos': {
+      id: '/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof PlanosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/redefinir-senha': {
@@ -738,6 +758,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssinaturaRoute: AssinaturaRoute,
   CadastroRoute: CadastroRoute,
   MinhaContaRoute: MinhaContaRoute,
+  PlanosRoute: PlanosRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   ConsultaOsIdRoute: ConsultaOsIdRoute,
 }
