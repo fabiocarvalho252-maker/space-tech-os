@@ -17,6 +17,16 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// getRequest().url reflects the internal host/port this Node process is
+// bound to behind the reverse proxy, not the public https:// domain — using
+// it as the magic-link redirect sends the customer to an unreachable
+// internal URL. Read VITE_SITE_URL straight from process.env instead, same
+// as origemPublicaServer() in os-pdf.server.ts (site-url.ts's origemPublica()
+// falls back to window.location.origin, which doesn't exist server-side).
+function origemPublicaServer(): string {
+  return process.env["VITE_SITE_URL"] ?? "";
+}
+
 export type VinculoResultado = { clienteId: string; criado: boolean };
 
 // Only used to look up which empresa owns a brand-new customer record when
@@ -171,7 +181,7 @@ export const gerarAcessoCliente = createServerFn({ method: "POST" })
       throw new Error("Cadastre um e-mail para este cliente antes de gerar o acesso.");
     }
 
-    const origin = new URL(getRequest().url).origin;
+    const origin = origemPublicaServer() || new URL(getRequest().url).origin;
     const { data: gerado, error: erroLink } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: cliente.email,

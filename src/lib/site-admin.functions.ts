@@ -10,6 +10,17 @@ import {
   type WhatsappSistemaConexao,
 } from "@/lib/whatsapp/system-instance";
 
+// getRequest().url reflects whatever host/port this Node process is actually
+// bound to behind the reverse proxy (the internal dev port), not the public
+// https:// domain — using it as the magic-link redirect sent an admin
+// "entering" an empresa's panel to an unreachable internal URL instead of
+// the real site. Read VITE_SITE_URL straight from process.env instead, same
+// as origemPublicaServer() in os-pdf.server.ts (site-url.ts's origemPublica()
+// falls back to window.location.origin, which doesn't exist server-side).
+function origemPublicaServer(): string {
+  return process.env["VITE_SITE_URL"] ?? "";
+}
+
 // Hardcoded on purpose: this is a single-operator platform-wide view (every
 // empresa that has ever signed up, across every tenant), not a permission a
 // company admin can be granted — there is no "site owner" role/flag in the
@@ -244,7 +255,7 @@ export const entrarComoEmpresa = createServerFn({ method: "POST" })
       throw new Error("Esta empresa não tem um e-mail de login válido.");
     }
 
-    const origin = new URL(getRequest().url).origin;
+    const origin = origemPublicaServer() || new URL(getRequest().url).origin;
     const { data: gerado, error: erroLink } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: userData.user.email,
