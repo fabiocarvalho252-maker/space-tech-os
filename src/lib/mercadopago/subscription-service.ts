@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { MercadoPagoProvider, type PaymentGateway } from "./payment-gateway";
+import { comTaxaRepassada } from "./fees";
 import {
   MercadoPagoNaoConfiguradoError,
   PlanInactiveError,
@@ -97,6 +98,7 @@ export async function iniciarAssinatura(
   // Referência externa única por tentativa de cobrança — nunca reaproveita
   // o id interno "cru" como se fosse suficiente sozinho (ver Fase 40).
   const externalReference = `ST-${input.empresaId}-${subscription.id}-${randomUUID()}`;
+  const valorCobrado = comTaxaRepassada(preco, input.paymentMethod);
 
   if (input.paymentMethod === "credit_card") {
     const resultado = await gateway.createCardSubscription({
@@ -106,7 +108,7 @@ export async function iniciarAssinatura(
       backUrl: `${input.origin}/assinatura`,
       frequency: input.billingCycle === "monthly" ? 1 : 12,
       frequencyType: "months",
-      transactionAmount: preco,
+      transactionAmount: valorCobrado,
     });
 
     await supabaseAdmin
@@ -127,7 +129,7 @@ export async function iniciarAssinatura(
     .from("subscription_payments")
     .insert({
       subscription_id: subscription.id,
-      amount: preco,
+      amount: valorCobrado,
       payment_method: "pix",
       status: "pending",
       external_reference: externalReference,
@@ -138,7 +140,7 @@ export async function iniciarAssinatura(
   if (pagErro) throw pagErro;
 
   const pix = await gateway.createPixPayment({
-    valor: preco,
+    valor: valorCobrado,
     descricao: `SpaceTech OS — Plano ${plan.name}`,
     externalReference,
     notificationUrl: `${input.origin}/api/subscriptions/mercadopago/webhook`,

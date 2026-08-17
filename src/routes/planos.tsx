@@ -8,6 +8,7 @@ import { LogoMark, LogoWord } from "@/components/Logo";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FEATURES_EXIBICAO } from "@/lib/planos/features";
 import { iniciarAssinaturaFn } from "@/lib/mercadopago/subscription.functions";
+import { comTaxaRepassada } from "@/lib/mercadopago/fees";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
@@ -203,8 +204,9 @@ function ContratarDialog({
   });
 
   if (!plano) return null;
-  const precoDisponivel =
-    billingCycle === "monthly" ? plano.monthly_price !== null : plano.annual_price !== null;
+  const precoLiquido = billingCycle === "monthly" ? plano.monthly_price : plano.annual_price;
+  const precoDisponivel = precoLiquido !== null;
+  const precoComTaxa = precoLiquido !== null ? comTaxaRepassada(precoLiquido, paymentMethod) : null;
 
   return (
     <Dialog
@@ -272,7 +274,13 @@ function ContratarDialog({
                 <SelectItem value="credit_card">Cartão de crédito</SelectItem>
               </SelectContent>
             </Select>
-            {!precoDisponivel && (
+            {precoDisponivel ? (
+              <p className="text-xs text-muted-foreground">
+                Total a pagar:{" "}
+                <span className="font-semibold text-foreground">{brl(precoComTaxa!)}</span> (inclui
+                a taxa do meio de pagamento — a SPACE TECH recebe {brl(precoLiquido!)})
+              </p>
+            ) : (
               <p className="text-xs text-destructive">
                 O preço {billingCycle === "monthly" ? "mensal" : "anual"} deste plano ainda não foi
                 configurado.
