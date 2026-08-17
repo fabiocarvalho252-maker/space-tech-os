@@ -1,12 +1,36 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FEATURES_EXIBICAO } from "@/lib/planos/features";
+import { iniciarAssinaturaFn } from "@/lib/mercadopago/subscription.functions";
 import { brl } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type PlanoComFeatures = {
+  id: string;
+  name: string;
+  monthly_price: number | null;
+  annual_price: number | null;
+};
 
 export const Route = createFileRoute("/planos")({
   head: () => ({
@@ -25,6 +49,7 @@ function precoLabel(valor: number | null) {
 function Planos() {
   const navigate = useNavigate();
   const { data: user, isLoading: carregandoUser } = useCurrentUser();
+  const [planoContratando, setPlanoContratando] = useState<PlanoComFeatures | null>(null);
 
   useEffect(() => {
     if (carregandoUser) return;
@@ -87,15 +112,26 @@ function Planos() {
                 </p>
               )}
             </div>
-            <Link
-              to="/assinatura"
-              className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-            >
-              Falar sobre este plano
-            </Link>
+            {p.monthly_price !== null || p.annual_price !== null ? (
+              <Button className="mt-5" onClick={() => setPlanoContratando(p)}>
+                Contratar
+              </Button>
+            ) : (
+              <Link
+                to="/assinatura"
+                className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              >
+                Falar sobre este plano
+              </Link>
+            )}
           </div>
         ))}
       </div>
+
+      <ContratarDialog
+        plano={planoContratando}
+        onOpenChange={(v) => !v && setPlanoContratando(null)}
+      />
 
       <div className="mx-auto mt-10 max-w-3xl overflow-x-auto rounded-3xl border border-border bg-card">
         <table className="w-full min-w-[420px] text-sm">
@@ -137,5 +173,121 @@ function Planos() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function ContratarDialog({
+  plano,
+  onOpenChange,
+}: {
+  plano: PlanoComFeatures | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit_card">("pix");
+  const [pix, setPix] = useState<{ qrCode: string | null; qrCodeBase64: string | null } | null>(
+    null,
+  );
+
+  const contratar = useMutation({
+    mutationFn: () =>
+      iniciarAssinaturaFn({ data: { planId: plano!.id, billingCycle, paymentMethod } }),
+    onSuccess: (resultado) => {
+      if (resultado.paymentMethod === "credit_card") {
+        window.location.href = resultado.initPoint;
+        return;
+      }
+      setPix({ qrCode: resultado.qrCode, qrCodeBase64: resultado.qrCodeBase64 });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!plano) return null;
+  const precoDisponivel =
+    billingCycle === "monthly" ? plano.monthly_price !== null : plano.annual_price !== null;
+
+  return (
+    <Dialog
+      open={!!plano}
+      onOpenChange={(v) => {
+        if (!v) setPix(null);
+        onOpenChange(v);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Contratar {plano.name}</DialogTitle>
+          <DialogDescription>
+            {pix
+              ? "Escaneie o QR Code ou use o Pix Copia e Cola."
+              : "Escolha a periodicidade e a forma de pagamento."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {pix ? (
+          <div className="space-y-3 text-center">
+            {pix.qrCodeBase64 && (
+              <img
+                src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                alt="QR Code Pix"
+                className="mx-auto h-48 w-48"
+              />
+            )}
+            {pix.qrCode && (
+              <textarea
+                readOnly
+                value={pix.qrCode}
+                className="w-full rounded-lg border border-input bg-secondary/40 p-2 text-xs"
+                rows={3}
+                onClick={(e) => e.currentTarget.select()}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Após o pagamento, a confirmação é automática — pode levar alguns instantes.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Select
+              value={billingCycle}
+              onValueChange={(v) => setBillingCycle(v as "monthly" | "yearly")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Mensal</SelectItem>
+                <SelectItem value="yearly">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) => setPaymentMethod(v as "pix" | "credit_card")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pix">Pix</SelectItem>
+                <SelectItem value="credit_card">Cartão de crédito</SelectItem>
+              </SelectContent>
+            </Select>
+            {!precoDisponivel && (
+              <p className="text-xs text-destructive">
+                O preço {billingCycle === "monthly" ? "mensal" : "anual"} deste plano ainda não foi
+                configurado.
+              </p>
+            )}
+            <Button
+              className="w-full"
+              disabled={!precoDisponivel || contratar.isPending}
+              onClick={() => contratar.mutate()}
+            >
+              {contratar.isPending ? "Processando..." : "Continuar"}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

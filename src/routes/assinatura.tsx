@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, LockKeyhole, LogOut, Send } from "lucide-react";
@@ -15,7 +15,23 @@ import {
   useTrialStatus,
 } from "@/hooks/useCurrentUser";
 import { solicitarPlano } from "@/lib/planos.functions";
-import { dataBR } from "@/lib/format";
+import { historicoPagamentosFn } from "@/lib/mercadopago/subscription.functions";
+import { brl, dataBR } from "@/lib/format";
+
+const STATUS_PAGAMENTO_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  processing: "Processando",
+  paid: "Pago",
+  failed: "Falhou",
+  canceled: "Cancelado",
+  expired: "Expirado",
+  refunded: "Reembolsado",
+};
+
+const METODO_PAGAMENTO_LABEL: Record<string, string> = {
+  pix: "Pix",
+  credit_card: "Cartão de crédito",
+};
 
 export const Route = createFileRoute("/assinatura")({
   head: () => ({
@@ -28,23 +44,19 @@ export const Route = createFileRoute("/assinatura")({
 });
 
 type PlanoDisponivel = {
-  value: "mensal" | "trimestral" | "semestral" | "anual" | "vitalicio";
+  value: "mensal" | "anual" | "vitalicio";
   label: string;
   descricao: string;
 };
 
 const PLANOS_DISPONIVEIS: PlanoDisponivel[] = [
   { value: "mensal", label: "Mensal", descricao: "Renovação a cada 1 mês" },
-  { value: "trimestral", label: "Trimestral", descricao: "Renovação a cada 3 meses" },
-  { value: "semestral", label: "Semestral", descricao: "Renovação a cada 6 meses" },
   { value: "anual", label: "Anual", descricao: "Renovação a cada 12 meses" },
 ];
 
 const PLANO_LABEL: Record<string, string> = {
   trial: "Teste grátis",
   mensal: "Mensal",
-  trimestral: "Trimestral",
-  semestral: "Semestral",
   anual: "Anual",
   vitalicio: "Vitalício",
   suspenso: "Suspenso",
@@ -64,6 +76,11 @@ function Assinatura() {
   const { data: trial } = useTrialStatus();
   const { data: planoAtual } = usePlanoAtual();
   const { data: planoTier } = usePlanoTier();
+  const { data: historico } = useQuery({
+    queryKey: ["historico-pagamentos"],
+    queryFn: () => historicoPagamentosFn(),
+    enabled: !!user,
+  });
   const [planoEscolhido, setPlanoEscolhido] = useState<PlanoDisponivel["value"] | null>(null);
 
   useEffect(() => {
@@ -189,6 +206,32 @@ function Assinatura() {
             );
           })}
         </div>
+
+        {historico && historico.length > 0 && (
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+              Histórico de pagamentos
+            </p>
+            <div className="divide-y divide-border rounded-xl border border-border">
+              {historico.map((p) => (
+                <div key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <div>
+                    <p className="font-medium">{dataBR(p.createdAt)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {METODO_PAGAMENTO_LABEL[p.paymentMethod] ?? p.paymentMethod}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{brl(p.amount)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {STATUS_PAGAMENTO_LABEL[p.status] ?? p.status}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
           <button
