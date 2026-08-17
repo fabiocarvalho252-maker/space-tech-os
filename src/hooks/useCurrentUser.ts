@@ -165,6 +165,74 @@ export function usePlanoAtual() {
   });
 }
 
+/** The plan tier (Básico/Profissional — plans.name/slug) for the company
+ * the current login acts under. Distinct from usePlanoAtual(), which is the
+ * billing cycle (profiles.plano). Falls back to "basico" when plan_id isn't
+ * set, same default used everywhere else in the plans system. */
+export function usePlanoTier() {
+  const { data: minhaEmpresa } = useMinhaEmpresa();
+  return useQuery({
+    queryKey: ["plano-tier", minhaEmpresa?.empresa_id],
+    enabled: !!minhaEmpresa?.empresa_id,
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan_id")
+        .eq("id", minhaEmpresa!.empresa_id)
+        .maybeSingle();
+
+      const query = supabase.from("plans").select("slug, name");
+      const { data: plano } = profile?.plan_id
+        ? await query.eq("id", profile.plan_id).maybeSingle()
+        : await query.eq("slug", "basico").maybeSingle();
+      return plano ?? { slug: "basico", name: "Básico" };
+    },
+  });
+}
+
+/** Which features the current login's empresa has, from its plan tier
+ * (Básico/Profissional — plans.plan_features, not to be confused with
+ * profiles.plano, which is only the billing cycle). Falls back to the
+ * Básico plan's features when plan_id isn't set, same default as
+ * getPlanoFeatures() server-side (src/lib/planos/features.ts). */
+export function usePlanoFeatures() {
+  const empresaId = useEmpresaId();
+  return useQuery({
+    queryKey: ["plano-features", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan_id")
+        .eq("id", empresaId!)
+        .maybeSingle();
+
+      let planId = profile?.plan_id ?? null;
+      if (!planId) {
+        const { data: padrao } = await supabase
+          .from("plans")
+          .select("id")
+          .eq("slug", "basico")
+          .maybeSingle();
+        planId = padrao?.id ?? null;
+      }
+      if (!planId) return new Set<string>();
+
+      const { data: features } = await supabase
+        .from("plan_features")
+        .select("feature")
+        .eq("plan_id", planId)
+        .eq("enabled", true);
+      return new Set((features ?? []).map((f) => f.feature));
+    },
+  });
+}
+
+export function temFeature(features: Set<string> | undefined, feature: string) {
+  if (!features) return true; // ainda carregando: não esconder de forma otimista
+  return features.has(feature);
+}
+
 export function podeVer(
   permissoes: Record<string, { ver: boolean; gerenciar: boolean }> | null | undefined,
   modulo: string,

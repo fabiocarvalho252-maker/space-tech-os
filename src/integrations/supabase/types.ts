@@ -1738,6 +1738,80 @@ export type Database = {
         }
         Relationships: []
       }
+      plans: {
+        Row: {
+          active: boolean
+          annual_discount_pct: number | null
+          annual_price: number | null
+          created_at: string
+          description: string | null
+          id: string
+          monthly_price: number | null
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          annual_discount_pct?: number | null
+          annual_price?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_price?: number | null
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          annual_discount_pct?: number | null
+          annual_price?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_price?: number | null
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plan_features: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature: string
+          id: string
+          plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature: string
+          id?: string
+          plan_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature?: string
+          id?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produto_categorias: {
         Row: {
           created_at: string | null
@@ -1823,6 +1897,7 @@ export type Database = {
           logo_url: string | null
           loja: string | null
           nome: string | null
+          plan_id: string | null
           plano: string
           plano_solicitado: string | null
           plano_solicitado_em: string | null
@@ -1843,6 +1918,7 @@ export type Database = {
           logo_url?: string | null
           loja?: string | null
           nome?: string | null
+          plan_id?: string | null
           plano?: string
           plano_solicitado?: string | null
           plano_solicitado_em?: string | null
@@ -1863,6 +1939,7 @@ export type Database = {
           logo_url?: string | null
           loja?: string | null
           nome?: string | null
+          plan_id?: string | null
           plano?: string
           plano_solicitado?: string | null
           plano_solicitado_em?: string | null
@@ -1871,7 +1948,15 @@ export type Database = {
           updated_at?: string
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_config: {
         Row: {
