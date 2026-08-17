@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,6 +116,7 @@ function imprimirEtiquetas(produtos: Produto[]) {
 }
 
 function Estoque() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const empresaId = useEmpresaId();

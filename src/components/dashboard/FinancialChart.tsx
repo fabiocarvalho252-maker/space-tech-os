@@ -5,7 +5,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 
 export type PontoResultado = { data: string; label: string; valor: number };
 
@@ -14,6 +14,7 @@ const config: ChartConfig = {
 };
 
 export function FinancialChart({ pontos }: { pontos: PontoResultado[] }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   if (!pontos.length) {
     return (
       <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">

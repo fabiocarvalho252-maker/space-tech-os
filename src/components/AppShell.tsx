@@ -37,6 +37,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FinancialVisibilityToggle } from "@/components/FinancialVisibilityToggle";
 import { TrialBanner } from "@/components/TrialBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
@@ -255,7 +256,10 @@ export function AppShell() {
             </button>
             <LogoWord className="text-base" />
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <FinancialVisibilityToggle />
+            <ThemeToggle />
+          </div>
         </header>
         <header className="hidden items-center justify-between gap-3 border-b border-border bg-card/70 px-6 py-2.5 backdrop-blur lg:flex">
           <p className="text-sm font-semibold text-foreground/80">
@@ -269,6 +273,7 @@ export function AppShell() {
               itens={SISTEMA_ITENS}
               topo={{ label: "Meu Plano", to: "/assinatura", icon: CreditCard }}
             />
+            <FinancialVisibilityToggle />
             <NotificacoesMenu />
             <PerfilMenu
               nome={nomeExibicao}

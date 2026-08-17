@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { base64ParaBytes, sanitizarNomeArquivo } from "@/lib/pdf-share";
 import { gerarComprovanteAparelhoCompartilharFn } from "@/lib/aparelhos/aparelhos.functions";
 import { PdfPreviewDialog, type PdfGerado } from "./PdfPreviewDialog";
@@ -43,6 +43,7 @@ export function VenderAparelhoModal({
   aparelho: AparelhoRow | null;
   empresaId: string;
 }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const [clienteId, setClienteId] = useState("");
   const [precoVenda, setPrecoVenda] = useState(0);

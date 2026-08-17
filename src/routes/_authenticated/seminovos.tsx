@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SeminovosFotos } from "@/components/SeminovosFotos";
 import { useCurrentUser, useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
-import { brl, dataBR } from "@/lib/format";
+import { dataBR } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +68,7 @@ const vazio = {
 };
 
 function Seminovos() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const empresaId = useEmpresaId();

@@ -6,8 +6,9 @@ import { Download, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useProfile } from "@/hooks/useCurrentUser";
-import { brl, statusLabel } from "@/lib/format";
+import { statusLabel } from "@/lib/format";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ function hojeStr() {
 }
 
 function Relatorios() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const { data: profile } = useProfile();
   const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [dataFim, setDataFim] = useState(hojeStr());
@@ -540,6 +542,7 @@ function TabelaTop({
 }: {
   itens: { descricao: string; qtd: number; faturamento: number; margem: number }[];
 }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   if (!itens.length)
     return <p className="text-sm text-muted-foreground">Nenhum item vendido no período.</p>;
   return (

@@ -1,6 +1,17 @@
 export const brl = (value: number | string | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
 
+// Presentation-only mask for the global "hide financial values" toggle
+// (useFinancialVisibility) — never changes the underlying value, only what's
+// rendered on screen, so PDFs/exports/WhatsApp messages that need the real
+// number keep calling brl() directly instead of this.
+export const VALOR_FINANCEIRO_OCULTO = "••••••";
+
+export const formatFinancialValue = (
+  value: number | string | null | undefined,
+  visible: boolean,
+) => (visible ? brl(value) : VALOR_FINANCEIRO_OCULTO);
+
 // A bare "YYYY-MM-DD" (Postgres `date` columns, with no time component) is
 // parsed by `new Date()` as UTC midnight — in any timezone behind UTC
 // (all of Brazil), toLocaleDateString() then rolls it back to the previous

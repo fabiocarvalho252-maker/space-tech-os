@@ -5,7 +5,7 @@ import { ArrowLeft, Sparkles, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,7 @@ const vazio = {
 };
 
 function CadastroServico() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const { id } = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();

@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { brl, dataBR, STATUS_COMPRAS, statusLabel } from "@/lib/format";
+import { dataBR, STATUS_COMPRAS, statusLabel } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
@@ -57,6 +58,7 @@ type ItemForm = { produto_id: string; descricao: string; quantidade: string; cus
 const itemVazio: ItemForm = { produto_id: "", descricao: "", quantidade: "1", custo_unitario: "0" };
 
 function Compras() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const empresaId = useEmpresaId();

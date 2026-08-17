@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
-import { brl, dataBR } from "@/lib/format";
+import { dataBR } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { useMemo } from "react";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ const vazio = {
 };
 
 function Financeiro() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const empresaId = useEmpresaId();

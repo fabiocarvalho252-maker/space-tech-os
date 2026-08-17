@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useMinhaEmpresa, usePermissoes } from "@/hooks/useCurrentUser";
 import { brl, dataBR, paraCentavos, paraReais } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,6 +144,7 @@ type FaturarOsModalProps = {
 };
 
 export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: FaturarOsModalProps) {
+  const { formatFinancialValue: fmt } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: minhaEmpresa } = useMinhaEmpresa();
@@ -679,7 +681,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                       <Label>
                         Valor bruto <span className="text-destructive">*</span>
                       </Label>
-                      <Input value={brl(totalItens)} disabled />
+                      <Input value={fmt(totalItens)} disabled />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Desconto</Label>
@@ -698,9 +700,9 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                       <Label>
                         Valor com desconto <span className="text-destructive">*</span>
                       </Label>
-                      <Input value={brl(totalOs)} disabled className="font-semibold" />
+                      <Input value={fmt(totalOs)} disabled className="font-semibold" />
                       <p className="text-xs text-muted-foreground">
-                        Desconto aplicado na OS: {brl(os.desconto ?? 0)}
+                        Desconto aplicado na OS: {fmt(os.desconto ?? 0)}
                       </p>
                     </div>
                     <div className="space-y-1.5">
@@ -733,15 +735,15 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Valor bruto</p>
-                      <p className="font-semibold">{brl(totalItens)}</p>
+                      <p className="font-semibold">{fmt(totalItens)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Desconto</p>
-                      <p className="font-semibold">{brl(desconto)}</p>
+                      <p className="font-semibold">{fmt(desconto)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total a faturar</p>
-                      <p className="text-lg font-extrabold text-primary">{brl(totalOs)}</p>
+                      <p className="text-lg font-extrabold text-primary">{fmt(totalOs)}</p>
                     </div>
                   </div>
                 </section>
@@ -756,7 +758,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                         Defina como o valor será recebido.
                       </p>
                     </div>
-                    <span className="text-sm font-semibold">Total: {brl(totalOs)}</span>
+                    <span className="text-sm font-semibold">Total: {fmt(totalOs)}</span>
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -993,13 +995,13 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
 
                   <div className="mt-3 grid gap-2 rounded-lg border border-border p-3 text-sm sm:grid-cols-3">
                     <p>
-                      Total da OS: <strong>{brl(totalOs)}</strong>
+                      Total da OS: <strong>{fmt(totalOs)}</strong>
                     </p>
                     <p>
-                      Soma das parcelas: <strong>{brl(somaParcelas)}</strong>
+                      Soma das parcelas: <strong>{fmt(somaParcelas)}</strong>
                     </p>
                     <p>
-                      Diferença: <strong>{brl(diferencaParcelas)}</strong>
+                      Diferença: <strong>{fmt(diferencaParcelas)}</strong>
                     </p>
                   </div>
                   {Math.abs(diferencaParcelas) <= 0.01 ? (
@@ -1100,13 +1102,13 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                     <>
                       <div className="mt-3 grid gap-2 rounded-lg border border-border p-3 text-sm sm:grid-cols-3">
                         <p>
-                          Total da OS: <strong>{brl(totalOs)}</strong>
+                          Total da OS: <strong>{fmt(totalOs)}</strong>
                         </p>
                         <p>
-                          Total distribuído: <strong>{brl(somaTecnicos)}</strong>
+                          Total distribuído: <strong>{fmt(somaTecnicos)}</strong>
                         </p>
                         <p>
-                          Diferença: <strong>{brl(diferencaTecnicos)}</strong>
+                          Diferença: <strong>{fmt(diferencaTecnicos)}</strong>
                         </p>
                       </div>
                       {Math.abs(diferencaTecnicos) <= 0.01 ? (
@@ -1115,13 +1117,13 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                         </p>
                       ) : diferencaTecnicos > 0 ? (
                         <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
-                          <AlertTriangle className="h-3.5 w-3.5" /> Faltam {brl(diferencaTecnicos)}{" "}
+                          <AlertTriangle className="h-3.5 w-3.5" /> Faltam {fmt(diferencaTecnicos)}{" "}
                           para distribuir
                         </p>
                       ) : (
                         <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
                           <AlertTriangle className="h-3.5 w-3.5" /> Você distribuiu{" "}
-                          {brl(Math.abs(diferencaTecnicos))} a mais que o valor da OS
+                          {fmt(Math.abs(diferencaTecnicos))} a mais que o valor da OS
                         </p>
                       )}
                     </>
@@ -1152,16 +1154,16 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    Total a faturar: <strong className="text-foreground">{brl(totalOs)}</strong>
+                    Total a faturar: <strong className="text-foreground">{fmt(totalOs)}</strong>
                   </span>
                   <span>
                     Parcelas: <strong className="text-foreground">{parcelas.length}</strong>
                   </span>
                   <span>
-                    Recebido: <strong className="text-foreground">{brl(recebidoTotal)}</strong>
+                    Recebido: <strong className="text-foreground">{fmt(recebidoTotal)}</strong>
                   </span>
                   <span>
-                    A receber: <strong className="text-foreground">{brl(aReceberTotal)}</strong>
+                    A receber: <strong className="text-foreground">{fmt(aReceberTotal)}</strong>
                   </span>
                 </div>
                 <div className="flex justify-end gap-2">
@@ -1231,6 +1233,7 @@ function FaturamentoDetalhe({
   motivoCancelamento: string;
   setMotivoCancelamento: (motivo: string) => void;
 }) {
+  const { formatFinancialValue: fmt } = useFinancialVisibility();
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -1238,7 +1241,7 @@ function FaturamentoDetalhe({
         <p className="text-sm">
           <strong>Esta OS já possui faturamento financeiro.</strong> Faturada em{" "}
           <strong>{dataBR(faturamento.created_at)}</strong>, total{" "}
-          <strong>{brl(faturamento.valor_total)}</strong>
+          <strong>{fmt(faturamento.valor_total)}</strong>
           {faturamento.categoriaNome ? ` — categoria ${faturamento.categoriaNome}` : ""}.
         </p>
       </div>
@@ -1263,7 +1266,7 @@ function FaturamentoDetalhe({
                   <TableCell>
                     {p.numero_parcela}/{p.total_parcelas}
                   </TableCell>
-                  <TableCell>{brl(p.valor)}</TableCell>
+                  <TableCell>{fmt(p.valor)}</TableCell>
                   <TableCell>{dataBR(p.vencimento)}</TableCell>
                   <TableCell>{p.payment_methods?.nome ?? "—"}</TableCell>
                   <TableCell>
@@ -1303,7 +1306,7 @@ function FaturamentoDetalhe({
           {faturamento.parcelas.map((p: any) => (
             <div key={p.id} className="space-y-1 rounded-lg border border-border p-3">
               <p className="text-sm font-bold">
-                Parcela {p.numero_parcela}/{p.total_parcelas} — {brl(p.valor)}
+                Parcela {p.numero_parcela}/{p.total_parcelas} — {fmt(p.valor)}
               </p>
               <p className="text-xs text-muted-foreground">Vencimento: {dataBR(p.vencimento)}</p>
               <p className="text-xs text-muted-foreground">
@@ -1349,7 +1352,7 @@ function FaturamentoDetalhe({
                 className="flex justify-between rounded-lg border border-border p-2 text-sm"
               >
                 <span>{t.nome_livre ?? t.membro_user_id}</span>
-                <span className="font-semibold">{brl(t.valor)}</span>
+                <span className="font-semibold">{fmt(t.valor)}</span>
               </div>
             ))}
           </div>

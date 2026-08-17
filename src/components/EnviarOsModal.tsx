@@ -10,8 +10,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, Loader2, MessageCircle, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/format";
 import { buildWaMeLink } from "@/lib/whatsapp";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
 import {
@@ -77,6 +77,7 @@ export function EnviarOsModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: profile } = useProfile();

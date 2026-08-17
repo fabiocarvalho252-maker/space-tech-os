@@ -62,7 +62,8 @@ import {
 } from "@/lib/os-template-render";
 
 import { useCurrentUser, useMinhaEmpresa, useProfile } from "@/hooks/useCurrentUser";
-import { brl, dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
+import { dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +177,7 @@ const ESTADO_FISICO_ITENS = [
 ] as const;
 
 function Ordens() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const searchParams = Route.useSearch();

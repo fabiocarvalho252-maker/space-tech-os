@@ -27,6 +27,7 @@ import {
   temFeature,
 } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { SectionCard } from "@/components/SectionCard";
@@ -86,6 +87,7 @@ const statusMap = {
 };
 
 function NotasFiscais() {
+  const { formatFinancialValue: fmt } = useFinancialVisibility();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const searchParams = Route.useSearch();
@@ -499,7 +501,7 @@ function NotasFiscais() {
                         <SelectContent>
                           {vendasDisponiveis.map((v) => (
                             <SelectItem key={v.id} value={v.id}>
-                              #{v.id.slice(0, 8)} — {brl(v.total)} — {dataBR(v.created_at)}
+                              #{v.id.slice(0, 8)} — {fmt(v.total)} — {dataBR(v.created_at)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -523,7 +525,7 @@ function NotasFiscais() {
                         <SelectContent>
                           {osDisponiveis.map((o) => (
                             <SelectItem key={o.id} value={o.id}>
-                              #{o.numero} — {o.aparelho} — {brl(o.valor)}
+                              #{o.numero} — {o.aparelho} — {fmt(o.valor)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -612,17 +614,17 @@ function NotasFiscais() {
       <div className="grid gap-4 sm:grid-cols-3">
         <SectionCard className="p-4">
           <p className="text-xs text-muted-foreground">Total emitidas</p>
-          <p className="mt-1 text-xl font-extrabold">{brl(totalEmitidas)}</p>
+          <p className="mt-1 text-xl font-extrabold">{fmt(totalEmitidas)}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">Notas autorizadas no mês</p>
         </SectionCard>
         <SectionCard className="p-4">
           <p className="text-xs text-muted-foreground">Notas de produtos</p>
-          <p className="mt-1 text-xl font-extrabold">{brl(totalProdutos)}</p>
+          <p className="mt-1 text-xl font-extrabold">{fmt(totalProdutos)}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">NF-e e NFC-e</p>
         </SectionCard>
         <SectionCard className="p-4">
           <p className="text-xs text-muted-foreground">Notas de serviços</p>
-          <p className="mt-1 text-xl font-extrabold">{brl(totalServicos)}</p>
+          <p className="mt-1 text-xl font-extrabold">{fmt(totalServicos)}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">NFS-e</p>
         </SectionCard>
       </div>
@@ -703,7 +705,7 @@ function NotasFiscais() {
                       <td className="px-4 py-3">
                         <StatusBadge label={status.label} tone={status.tone} />
                       </td>
-                      <td className="px-4 py-3 text-right font-medium">{brl(n.valor_total)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{fmt(n.valor_total)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button

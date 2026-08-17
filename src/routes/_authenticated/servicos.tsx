@@ -5,7 +5,7 @@ import { Pencil, Percent, Plus, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -30,6 +30,7 @@ type Servico = {
 };
 
 function Servicos() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const [busca, setBusca] = useState("");
   const [confirmExcluir, setConfirmExcluir] = useState<Servico | null>(null);

@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,6 +62,7 @@ function tipoDoItem(categoria: string | null): 'Produto' | 'Serviço' {
 }
 
 function PDV() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();

@@ -1,4 +1,4 @@
-import { brl } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 
 export function FinancialMetrics({
   lucroLiquido,
@@ -13,6 +13,7 @@ export function FinancialMetrics({
   cmv: number;
   despesas: number;
 }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div className="rounded-xl bg-secondary/40 p-3">

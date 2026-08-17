@@ -20,7 +20,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { brl, dataBR } from "@/lib/format";
+import { dataBR } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,6 +61,7 @@ const vazio = {
 };
 
 function Cobrancas() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const [busca, setBusca] = useState("");

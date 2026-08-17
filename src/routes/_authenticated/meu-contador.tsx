@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ function hojeStr() {
 }
 
 function MeuContador() {
+  const { formatFinancialValue: fmt } = useFinancialVisibility();
   const { data: profile } = useProfile();
   const [dataInicioInput, setDataInicioInput] = useState(
     format(startOfMonth(new Date()), "yyyy-MM-dd"),
@@ -236,28 +238,28 @@ function MeuContador() {
           icon={Calculator}
           cor="bg-indigo-500/10 text-indigo-600"
           titulo="Total Faturado"
-          valor={brl(totalFaturado)}
+          valor={fmt(totalFaturado)}
           loading={isLoading}
         />
         <CartaoFiscal
           icon={Package}
           cor="bg-blue-500/10 text-blue-600"
           titulo="NF-e Produtos"
-          valor={brl(totalNfe)}
+          valor={fmt(totalNfe)}
           loading={isLoading}
         />
         <CartaoFiscal
           icon={ShoppingCart}
           cor="bg-emerald-500/10 text-emerald-600"
           titulo="NFC-e Consumidor"
-          valor={brl(totalNfce)}
+          valor={fmt(totalNfce)}
           loading={isLoading}
         />
         <CartaoFiscal
           icon={Receipt}
           cor="bg-purple-500/10 text-purple-600"
           titulo="NFS-e Serviços"
-          valor={brl(totalServicos)}
+          valor={fmt(totalServicos)}
           loading={isLoading}
         />
         <CartaoFiscal

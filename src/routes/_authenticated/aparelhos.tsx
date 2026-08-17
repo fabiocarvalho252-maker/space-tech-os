@@ -19,7 +19,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
-import { brl, dataBR, statusLabel } from "@/lib/format";
+import { dataBR, statusLabel } from "@/lib/format";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
@@ -89,6 +90,7 @@ function CardEstatistica({
 }
 
 function Aparelhos() {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
   const empresaId = useEmpresaId();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "aparelhos");
