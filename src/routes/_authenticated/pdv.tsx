@@ -371,7 +371,7 @@ function PDV() {
             )}
           </div>
 
-          <div className="bg-muted/30 p-5 space-y-4">
+          <div className="bg-muted/30 p-5 pb-20 space-y-4 lg:pb-5">
              <div className="space-y-1.5">
                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Observações</Label>
                <Input 
