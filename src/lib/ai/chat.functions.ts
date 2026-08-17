@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TOOLS } from "./tools.server";
 import { chamarProvedorIA, IAIndisponivelError } from "./provider.server";
 import { verificarEDescontarCreditoIA, estornarCreditoIA } from "./creditos.server";
+import { requireFeature, FeatureIndisponivelError } from "@/lib/planos/features";
 
 const MAX_MENSAGEM = 1000;
 const MAX_HISTORICO = 12;
@@ -61,6 +62,25 @@ export const enviarMensagemIA = createServerFn({ method: "POST" })
         resposta: null,
         erro: "Muitas mensagens em pouco tempo — aguarde um instante e tente de novo.",
       };
+    }
+
+    // Mesma resolução de empresaId usada em solicitarPlano/route.tsx — a
+    // conta logada pode ser um membro convidado, cuja empresa não é o
+    // próprio user_id.
+    const { data: membership } = await context.supabase
+      .from("user_empresas")
+      .select("empresa_id")
+      .eq("user_id", context.userId);
+    const empresaId =
+      membership?.find((m) => m.empresa_id !== context.userId)?.empresa_id ??
+      membership?.[0]?.empresa_id ??
+      context.userId;
+
+    try {
+      await requireFeature(empresaId, "IA_BASICA", context.supabase);
+    } catch (e) {
+      if (e instanceof FeatureIndisponivelError) return { resposta: null, erro: e.message };
+      throw e;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

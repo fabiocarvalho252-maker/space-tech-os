@@ -22,10 +22,13 @@ import {
   useEmpresaId,
   useProfile,
   usePermissoes,
+  usePlanoFeatures,
   podeGerenciar,
+  temFeature,
 } from "@/hooks/useCurrentUser";
 import { brl, dataBR } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
+import { UpgradeModal } from "@/components/UpgradeModal";
 import { SectionCard } from "@/components/SectionCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -91,6 +94,9 @@ function NotasFiscais() {
   const { data: profile } = useProfile();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "notas");
+  const { data: features } = usePlanoFeatures();
+  const temNotaFiscal = temFeature(features, "NOTA_FISCAL");
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const [busca, setBusca] = useState("");
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
@@ -172,11 +178,15 @@ function NotasFiscais() {
 
   useEffect(() => {
     if (!searchParams.osId) return;
-    setForm({ ...vazio, origem: "os", os_id: searchParams.osId });
-    setOpen(true);
+    if (temNotaFiscal) {
+      setForm({ ...vazio, origem: "os", os_id: searchParams.osId });
+      setOpen(true);
+    } else {
+      setUpgradeOpen(true);
+    }
     navigate({ to: "/notas", search: {}, replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.osId]);
+  }, [searchParams.osId, temNotaFiscal]);
 
   // Once the deep-linked OS loads, carry over its cliente automatically —
   // the dialog still asks for "Cliente" as a separate field for the manual
@@ -425,7 +435,8 @@ function NotasFiscais() {
         title="Notas Fiscais"
         subtitle="Controle interno de notas vinculadas a vendas e ordens de serviço."
         action={
-          gerenciar && (
+          gerenciar &&
+          (temNotaFiscal ? (
             <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : fecharDialog())}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -588,9 +599,15 @@ function NotasFiscais() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          )
+          ) : (
+            <Button className="gap-2" onClick={() => setUpgradeOpen(true)}>
+              <Plus className="h-4 w-4" /> Nova Nota
+            </Button>
+          ))
         }
       />
+
+      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} titulo="Nota Fiscal" />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SectionCard className="p-4">

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -15,6 +15,8 @@ import { gerarComIA } from "@/lib/ia.functions";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/EmptyState";
+import { usePlanoFeatures, temFeature } from "@/hooks/useCurrentUser";
 
 export const Route = createFileRoute("/_authenticated/ia-spacetech")({
   head: () => ({
@@ -83,17 +85,31 @@ const FERRAMENTAS: {
 ];
 
 function IaSpaceTech() {
+  const navigate = useNavigate();
+  const { data: features } = usePlanoFeatures();
+  const temIaOs = temFeature(features, "IA_OS");
+
   return (
     <div>
       <PageHeader
         title="IA SPACE TECH"
         subtitle="Assistentes de inteligência artificial para agilizar o dia a dia da bancada"
       />
-      <div className="grid gap-4 md:grid-cols-2">
-        {FERRAMENTAS.map((f) => (
-          <FerramentaIA key={f.tipo} {...f} />
-        ))}
-      </div>
+      {temIaOs ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {FERRAMENTAS.map((f) => (
+            <FerramentaIA key={f.tipo} {...f} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          icon={Sparkles}
+          title="Recurso exclusivo do Plano Profissional"
+          description="Os assistentes de diagnóstico, orçamento e atendimento por IA estão disponíveis no Plano Profissional."
+          actionLabel="Ver Plano Profissional"
+          onAction={() => navigate({ to: "/planos" })}
+        />
+      )}
     </div>
   );
 }

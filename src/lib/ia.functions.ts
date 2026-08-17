@@ -3,6 +3,7 @@ import { z } from "zod";
 import { chamarProvedorIA, IAIndisponivelError } from "@/lib/ai/provider.server";
 import { verificarEDescontarCreditoIA, estornarCreditoIA } from "@/lib/ai/creditos.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireFeature, FeatureIndisponivelError } from "@/lib/planos/features";
 
 const schema = z.object({
   tipo: z.enum(["diagnostico", "orcamento", "mensagem_cliente", "resumo_os", "pecas"]),
@@ -26,6 +27,21 @@ export const gerarComIA = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }): Promise<{ texto: string }> => {
+    const { data: membership } = await context.supabase
+      .from("user_empresas")
+      .select("empresa_id")
+      .eq("user_id", context.userId);
+    const empresaId =
+      membership?.find((m) => m.empresa_id !== context.userId)?.empresa_id ??
+      membership?.[0]?.empresa_id ??
+      context.userId;
+    try {
+      await requireFeature(empresaId, "IA_OS", context.supabase);
+    } catch (e) {
+      if (e instanceof FeatureIndisponivelError) throw new Error(e.message);
+      throw e;
+    }
+
     try {
       await verificarEDescontarCreditoIA(context.userId);
     } catch (e) {
