@@ -198,19 +198,19 @@ function PDV() {
 
   return (
     <div className="flex flex-col gap-6 lg:h-[calc(100vh-120px)] lg:overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <ShoppingCart className="h-6 w-6" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-bold">PDV</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               Boa noite, <span className="font-semibold text-foreground uppercase">{userName}</span>
             </p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <div className="flex items-center justify-end gap-2 text-sm font-medium">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span>{dataFormatada}</span>
@@ -394,7 +394,10 @@ function PDV() {
                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
                    </button>
                  </DropdownMenuTrigger>
-                 <DropdownMenuContent align="end" className="w-[360px] rounded-xl">
+                 <DropdownMenuContent
+                   align="end"
+                   className="w-[min(360px,calc(100vw-2rem))] rounded-xl"
+                 >
                    <DropdownMenuItem onClick={() => setClienteId(null)}>Consumidor Final</DropdownMenuItem>
                    {clientes.map(c => (
                      <DropdownMenuItem key={c.id} onClick={() => setClienteId(c.id)}>
