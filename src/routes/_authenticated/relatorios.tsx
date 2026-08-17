@@ -108,9 +108,19 @@ function Relatorios() {
     const osPorStatus: Record<string, number> = {};
     for (const o of d.ordens) osPorStatus[o.status] = (osPorStatus[o.status] ?? 0) + 1;
 
-    const vendaIdsPeriodo = new Set(d.vendas.map((v) => v.id));
+    const vendasValidas = d.vendas.filter((v) => v.status !== "cancelado");
+    const vendasById = new Map(vendasValidas.map((v) => [v.id, v]));
+    const vendaIdsPeriodo = new Set(vendasValidas.map((v) => v.id));
     const itensVendaPeriodo = d.vendaItens.filter((i) => vendaIdsPeriodo.has(i.venda_id));
     const produtosById = new Map(d.produtos.map((p) => [p.id, p]));
+
+    // Soma bruta (sem desconto) dos itens de cada venda, usada para ratear o
+    // desconto da venda proporcionalmente entre os itens no faturamento por produto.
+    const subtotalBrutoPorVenda = new Map<string, number>();
+    for (const i of itensVendaPeriodo) {
+      const atual = subtotalBrutoPorVenda.get(i.venda_id) ?? 0;
+      subtotalBrutoPorVenda.set(i.venda_id, atual + i.quantidade * i.preco_unitario);
+    }
 
     const acumulador = new Map<
       string,
@@ -143,11 +153,16 @@ function Relatorios() {
     for (const i of itensVendaPeriodo) {
       const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
       const tipo = produto?.categoria === "Serviço" ? "Serviço" : "Produto";
+      const venda = vendasById.get(i.venda_id);
+      const subtotalBruto = subtotalBrutoPorVenda.get(i.venda_id) ?? 0;
+      // Rateia o desconto da venda proporcionalmente entre os itens, para que a
+      // soma do faturamento por produto bata com o faturamento total da venda.
+      const fatorDesconto = venda && subtotalBruto > 0 ? Number(venda.total) / subtotalBruto : 1;
       acumular(
         i.descricao,
         tipo,
         i.quantidade,
-        i.quantidade * i.preco_unitario,
+        i.quantidade * i.preco_unitario * fatorDesconto,
         Number(produto?.preco_custo ?? 0),
       );
     }
@@ -159,14 +174,18 @@ function Relatorios() {
     const topProdutos = todosItens.filter((i) => i.tipo === "Produto").slice(0, 10);
     const topServicos = todosItens.filter((i) => i.tipo === "Serviço").slice(0, 10);
 
-    const entradas = d.lancamentos
+    // Só lançamentos "pago" contam como caixa realizado — mesmo padrão da
+    // tela Financeiro (filtro padrão status="pago"). "pendente" ainda não
+    // entrou no caixa e "cancelado" não deve contar como receita/despesa.
+    const lancamentosPagos = d.lancamentos.filter((l) => l.status === "pago");
+    const entradas = lancamentosPagos
       .filter((l) => l.tipo === "entrada")
       .reduce((s, l) => s + Number(l.valor), 0);
-    const saidas = d.lancamentos
+    const saidas = lancamentosPagos
       .filter((l) => l.tipo === "saida")
       .reduce((s, l) => s + Number(l.valor), 0);
     const porCategoria = new Map<string, { entradas: number; saidas: number }>();
-    for (const l of d.lancamentos) {
+    for (const l of lancamentosPagos) {
       const cat = l.categoria || "Sem categoria";
       const atual = porCategoria.get(cat) ?? { entradas: 0, saidas: 0 };
       if (l.tipo === "entrada") atual.entradas += Number(l.valor);
@@ -174,7 +193,7 @@ function Relatorios() {
       porCategoria.set(cat, atual);
     }
 
-    const faturamentoVendas = d.vendas.reduce((s, v) => s + Number(v.total), 0);
+    const faturamentoVendas = vendasValidas.reduce((s, v) => s + Number(v.total), 0);
     const baixoEstoque = d.produtos.filter((p) => p.quantidade <= p.estoque_minimo);
     const valorEstoque = d.produtos.reduce((s, p) => s + p.quantidade * Number(p.preco_custo), 0);
 
@@ -194,7 +213,7 @@ function Relatorios() {
       margem: entradas > 0 ? ((entradas - saidas) / entradas) * 100 : 0,
       porCategoria: Array.from(porCategoria.entries()),
       faturamentoVendas,
-      ticketMedio: d.vendas.length ? faturamentoVendas / d.vendas.length : 0,
+      ticketMedio: vendasValidas.length ? faturamentoVendas / vendasValidas.length : 0,
       baixoEstoque,
       valorEstoque,
       valorComprasAparelhos,

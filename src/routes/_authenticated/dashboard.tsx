@@ -106,17 +106,17 @@ function Dashboard() {
         supabase.from("vendas").select("id", { count: "exact", head: true }),
         supabase
           .from("lancamentos")
-          .select("tipo, valor, data")
+          .select("tipo, valor, data, status")
           .gte("data", inicioStr)
           .lte("data", fimStr),
         supabase
           .from("os_itens")
-          .select("produto_id, descricao, quantidade, tipo, created_at")
+          .select("produto_id, descricao, quantidade, tipo, created_at, ordens_servico(status)")
           .gte("created_at", `${inicioStr}T00:00:00`)
           .lte("created_at", `${fimStr}T23:59:59`),
         supabase
           .from("venda_itens")
-          .select("produto_id, descricao, quantidade, created_at")
+          .select("produto_id, descricao, quantidade, created_at, vendas(status)")
           .gte("created_at", `${inicioStr}T00:00:00`)
           .lte("created_at", `${fimStr}T23:59:59`),
         supabase.from("termos_garantia").select("id", { count: "exact", head: true }),
@@ -142,10 +142,14 @@ function Dashboard() {
     [data?.produtos],
   );
 
-  const receita = (data?.lancamentos ?? [])
+  // Só lançamentos "pago" contam como caixa realizado — mesmo padrão da tela
+  // Financeiro (filtro padrão status="pago"). "pendente" ainda não entrou no
+  // caixa e "cancelado" não deve contar como receita/despesa.
+  const lancamentosPagos = (data?.lancamentos ?? []).filter((l) => l.status === "pago");
+  const receita = lancamentosPagos
     .filter((l) => l.tipo === "entrada")
     .reduce((s, l) => s + Number(l.valor), 0);
-  const despesas = (data?.lancamentos ?? [])
+  const despesas = lancamentosPagos
     .filter((l) => l.tipo === "saida")
     .reduce((s, l) => s + Number(l.valor), 0);
 
@@ -154,13 +158,21 @@ function Dashboard() {
   // ele categorizado como produto físico ou como serviço. Excluir os itens
   // tipo "servico" aqui zerava o CMV inteiro para uma assistência que só
   // cadastra peças dentro de Serviços (nunca em Produtos).
+  // Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
+  // nenhuma, então o custo deles também não pode ser descontado do lucro.
+  const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
   let cmv = 0;
   for (const i of data?.osItens ?? []) {
+    const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
+      .ordens_servico?.status;
+    if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
     if (i.produto_id) {
       cmv += Number(i.quantidade) * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0);
     }
   }
   for (const i of data?.vendaItens ?? []) {
+    const statusVenda = (i as unknown as { vendas?: { status?: string } | null }).vendas?.status;
+    if (statusVenda === "cancelado") continue;
     const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
     if (produto) {
       cmv += Number(i.quantidade) * Number(produto.preco_custo ?? 0);
@@ -173,13 +185,13 @@ function Dashboard() {
     const dias = eachDayOfInterval({ start: inicio, end: fim });
     return dias.map((dia) => {
       const diaStr = format(dia, "yyyy-MM-dd");
-      const doDia = (data?.lancamentos ?? []).filter((l) => l.data === diaStr);
+      const doDia = lancamentosPagos.filter((l) => l.data === diaStr);
       const valor =
         doDia.filter((l) => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0) -
         doDia.filter((l) => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
       return { data: diaStr, label: format(dia, "dd/MM", { locale: ptBR }), valor };
     });
-  }, [data?.lancamentos, inicio, fim]);
+  }, [lancamentosPagos, inicio, fim]);
 
   const { topProdutos, topServicos } = useMemo(() => {
     const produtosMap = new Map<string, number>();
