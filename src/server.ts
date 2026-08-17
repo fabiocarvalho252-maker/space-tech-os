@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handleWhatsappWebhook } from "./lib/whatsapp/webhook-handler.server";
 import { handlePixWebhook } from "./lib/pix/webhook-handler.server";
+import { handleMercadoPagoSubscriptionWebhook } from "./lib/mercadopago/webhook-handler.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -66,6 +67,17 @@ function isPixWebhookRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/pix/webhook";
 }
 
+// Same reasoning as the webhooks above — Mercado Pago's servers can't pass
+// the same-origin CSRF check either. This one is the SaaS subscription
+// webhook (SPACE TECH's own Mercado Pago account), distinct from
+// /api/pix/webhook above (each empresa's own account, used in Cobranças).
+// See src/lib/mercadopago/webhook-handler.server.ts for this endpoint's own
+// (signature-based) authentication.
+function isMercadoPagoSubscriptionWebhookRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/subscriptions/mercadopago/webhook";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -74,6 +86,9 @@ export default {
       }
       if (isPixWebhookRequest(request)) {
         return await handlePixWebhook(request);
+      }
+      if (isMercadoPagoSubscriptionWebhookRequest(request)) {
+        return await handleMercadoPagoSubscriptionWebhook(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
