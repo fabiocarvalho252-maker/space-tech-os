@@ -30,6 +30,7 @@ import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authentic
 import { Route as AuthenticatedFornecedoresRouteImport } from './routes/_authenticated/fornecedores'
 import { Route as AuthenticatedGarantiaRouteImport } from './routes/_authenticated/garantia'
 import { Route as AuthenticatedIaSpacetechRouteImport } from './routes/_authenticated/ia-spacetech'
+import { Route as AuthenticatedIndicacoesRouteImport } from './routes/_authenticated/indicacoes'
 import { Route as AuthenticatedMeuContadorRouteImport } from './routes/_authenticated/meu-contador'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedOrdensRouteImport } from './routes/_authenticated/ordens'
@@ -152,6 +153,11 @@ const AuthenticatedIaSpacetechRoute =
     path: '/ia-spacetech',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedIndicacoesRoute = AuthenticatedIndicacoesRouteImport.update({
+  id: '/indicacoes',
+  path: '/indicacoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMeuContadorRoute =
   AuthenticatedMeuContadorRouteImport.update({
     id: '/meu-contador',
@@ -242,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/garantia': typeof AuthenticatedGarantiaRoute
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/garantia': typeof AuthenticatedGarantiaRoute
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/_authenticated/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/_authenticated/garantia': typeof AuthenticatedGarantiaRoute
   '/_authenticated/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
+  '/_authenticated/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/_authenticated/meu-contador': typeof AuthenticatedMeuContadorRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/ordens': typeof AuthenticatedOrdensRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/garantia'
     | '/ia-spacetech'
+    | '/indicacoes'
     | '/meu-contador'
     | '/notas'
     | '/ordens'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/garantia'
     | '/ia-spacetech'
+    | '/indicacoes'
     | '/meu-contador'
     | '/notas'
     | '/ordens'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fornecedores'
     | '/_authenticated/garantia'
     | '/_authenticated/ia-spacetech'
+    | '/_authenticated/indicacoes'
     | '/_authenticated/meu-contador'
     | '/_authenticated/notas'
     | '/_authenticated/ordens'
@@ -597,6 +609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIaSpacetechRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/indicacoes': {
+      id: '/_authenticated/indicacoes'
+      path: '/indicacoes'
+      fullPath: '/indicacoes'
+      preLoaderRoute: typeof AuthenticatedIndicacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/meu-contador': {
       id: '/_authenticated/meu-contador'
       path: '/meu-contador'
@@ -706,6 +725,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFornecedoresRoute: typeof AuthenticatedFornecedoresRoute
   AuthenticatedGarantiaRoute: typeof AuthenticatedGarantiaRoute
   AuthenticatedIaSpacetechRoute: typeof AuthenticatedIaSpacetechRoute
+  AuthenticatedIndicacoesRoute: typeof AuthenticatedIndicacoesRoute
   AuthenticatedMeuContadorRoute: typeof AuthenticatedMeuContadorRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedOrdensRoute: typeof AuthenticatedOrdensRoute
@@ -735,6 +755,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFornecedoresRoute: AuthenticatedFornecedoresRoute,
   AuthenticatedGarantiaRoute: AuthenticatedGarantiaRoute,
   AuthenticatedIaSpacetechRoute: AuthenticatedIaSpacetechRoute,
+  AuthenticatedIndicacoesRoute: AuthenticatedIndicacoesRoute,
   AuthenticatedMeuContadorRoute: AuthenticatedMeuContadorRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedOrdensRoute: AuthenticatedOrdensRoute,

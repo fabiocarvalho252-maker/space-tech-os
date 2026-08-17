@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Lock, Mail, Store, User, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -7,6 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
 import { isValidPhoneBR, maskPhoneBR, normalizarWhatsappBR } from "@/lib/whatsapp";
 import { verificarWhatsappDisponivel } from "@/lib/auth/ativacao-whatsapp.functions";
+import { registrarReferralFn } from "@/lib/referrals/referral.functions";
+import {
+  lerCodigoIndicacaoSalvo,
+  limparCodigoIndicacaoSalvo,
+  salvarCodigoIndicacao,
+} from "@/lib/referrals/link";
 import { LogoMark, LogoWord } from "@/components/Logo";
 
 export const Route = createFileRoute("/cadastro")({
@@ -21,6 +27,10 @@ export const Route = createFileRoute("/cadastro")({
       { property: "og:description", content: "Teste o SpaceTech por 7 dias, sem cartão." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { ref?: string } => {
+    const ref = search["ref"];
+    return typeof ref === "string" && ref.trim() ? { ref: ref.trim() } : {};
+  },
   component: Cadastro,
 });
 
@@ -43,8 +53,16 @@ function mensagemErroAmigavel(erro: unknown): string {
 
 function Cadastro() {
   const navigate = useNavigate();
+  const { ref } = Route.useSearch();
   const [form, setForm] = useState({ nome: "", loja: "", email: "", whatsapp: "", senha: "" });
   const [loading, setLoading] = useState(false);
+
+  // O último link de indicação acessado antes do cadastro é o que vale
+  // (Fase 10 — "last valid referral") — sobrescreve qualquer atribuição
+  // anterior salva, e sobrevive a um refresh da própria página de cadastro.
+  useEffect(() => {
+    if (ref) salvarCodigoIndicacao(ref);
+  }, [ref]);
 
   const campo = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({
@@ -87,6 +105,15 @@ function Cadastro() {
     if (error || !data.session) {
       toast.error("Não foi possível criar a conta", { description: mensagemErroAmigavel(error) });
       return;
+    }
+
+    const codigoIndicacao = lerCodigoIndicacaoSalvo();
+    if (codigoIndicacao) {
+      // Best-effort: um problema aqui nunca pode impedir o usuário de
+      // entrar na conta que acabou de criar.
+      registrarReferralFn({ data: { referralCode: codigoIndicacao } })
+        .then(() => limparCodigoIndicacaoSalvo())
+        .catch((e) => console.error("[Referrals] Falha ao registrar indicação:", e));
     }
 
     navigate({ to: "/dashboard" });

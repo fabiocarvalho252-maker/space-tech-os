@@ -1880,6 +1880,434 @@ export type Database = {
           },
         ]
       }
+      referral_commissions: {
+        Row: {
+          amount: number
+          available_at: string | null
+          canceled_at: string | null
+          commission_type: string
+          created_at: string
+          description: string | null
+          id: string
+          paid_at: string | null
+          plan_id: string | null
+          referral_id: string
+          referrer_empresa_id: string
+          status: string
+          subscription_id: string | null
+          subscription_payment_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          available_at?: string | null
+          canceled_at?: string | null
+          commission_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          plan_id?: string | null
+          referral_id: string
+          referrer_empresa_id: string
+          status?: string
+          subscription_id?: string | null
+          subscription_payment_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          available_at?: string | null
+          canceled_at?: string | null
+          commission_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          plan_id?: string | null
+          referral_id?: string
+          referrer_empresa_id?: string
+          status?: string
+          subscription_id?: string | null
+          subscription_payment_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_commissions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_referrer_empresa_id_fkey"
+            columns: ["referrer_empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_subscription_payment_id_fkey"
+            columns: ["subscription_payment_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_events: {
+        Row: {
+          actor_empresa_id: string | null
+          commission_id: string | null
+          created_at: string
+          id: string
+          payload: Json | null
+          referral_id: string | null
+          type: string
+          withdrawal_id: string | null
+        }
+        Insert: {
+          actor_empresa_id?: string | null
+          commission_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          referral_id?: string | null
+          type: string
+          withdrawal_id?: string | null
+        }
+        Update: {
+          actor_empresa_id?: string | null
+          commission_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          referral_id?: string | null
+          type?: string
+          withdrawal_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_events_actor_empresa_id_fkey"
+            columns: ["actor_empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_events_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "referral_commissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_events_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_events_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "referral_withdrawals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_plan_rules: {
+        Row: {
+          active: boolean
+          commission_type: string
+          commission_value: number | null
+          created_at: string
+          id: string
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          commission_type: string
+          commission_value?: number | null
+          created_at?: string
+          id?: string
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          commission_type?: string
+          commission_value?: number | null
+          created_at?: string
+          id?: string
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_plan_rules_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: true
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_profiles: {
+        Row: {
+          active: boolean
+          created_at: string
+          empresa_id: string
+          id: string
+          referral_code: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          empresa_id: string
+          id?: string
+          referral_code: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          referral_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_program_config: {
+        Row: {
+          active: boolean
+          commission_type: string | null
+          commission_value: number | null
+          created_at: string
+          description: string | null
+          first_payment_only: boolean
+          id: string
+          minimum_withdrawal: number | null
+          name: string
+          pending_days: number | null
+          recurring_commission: boolean
+          updated_at: string
+          whatsapp_share_message: string | null
+        }
+        Insert: {
+          active?: boolean
+          commission_type?: string | null
+          commission_value?: number | null
+          created_at?: string
+          description?: string | null
+          first_payment_only?: boolean
+          id?: string
+          minimum_withdrawal?: number | null
+          name?: string
+          pending_days?: number | null
+          recurring_commission?: boolean
+          updated_at?: string
+          whatsapp_share_message?: string | null
+        }
+        Update: {
+          active?: boolean
+          commission_type?: string | null
+          commission_value?: number | null
+          created_at?: string
+          description?: string | null
+          first_payment_only?: boolean
+          id?: string
+          minimum_withdrawal?: number | null
+          name?: string
+          pending_days?: number | null
+          recurring_commission?: boolean
+          updated_at?: string
+          whatsapp_share_message?: string | null
+        }
+        Relationships: []
+      }
+      referral_withdrawal_items: {
+        Row: {
+          amount: number
+          commission_id: string
+          created_at: string
+          id: string
+          withdrawal_id: string
+        }
+        Insert: {
+          amount: number
+          commission_id: string
+          created_at?: string
+          id?: string
+          withdrawal_id: string
+        }
+        Update: {
+          amount?: number
+          commission_id?: string
+          created_at?: string
+          id?: string
+          withdrawal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_withdrawal_items_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "referral_commissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_withdrawal_items_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "referral_withdrawals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_withdrawals: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string
+          pix_key: string | null
+          referrer_empresa_id: string
+          rejected_at: string | null
+          rejection_reason: string | null
+          requested_at: string
+          status: string
+          transaction_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          pix_key?: string | null
+          referrer_empresa_id: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          pix_key?: string | null
+          referrer_empresa_id?: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_withdrawals_referrer_empresa_id_fkey"
+            columns: ["referrer_empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          clicked_at: string | null
+          converted_at: string | null
+          created_at: string
+          id: string
+          referral_code: string
+          referred_empresa_id: string | null
+          referrer_empresa_id: string
+          registered_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clicked_at?: string | null
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code: string
+          referred_empresa_id?: string | null
+          referrer_empresa_id: string
+          registered_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clicked_at?: string | null
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string
+          referred_empresa_id?: string | null
+          referrer_empresa_id?: string
+          registered_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_empresa_id_fkey"
+            columns: ["referred_empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_empresa_id_fkey"
+            columns: ["referrer_empresa_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean

@@ -33,6 +33,7 @@ import {
   Clock,
   Calculator,
   Boxes,
+  Gift,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -101,6 +102,7 @@ const NAV = [
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, modulo: "relatorios" },
   { to: "/ia-spacetech", label: "IA SPACE TECH", icon: Bot, modulo: null },
   { to: "/ferramentas", label: "Ferramentas Inteligentes", icon: Wand2, modulo: "produtos" },
+  { to: "/indicacoes", label: "Programa de Indicações", icon: Gift, modulo: null },
   { to: "/usuarios", label: "Usuários", icon: UserCog, modulo: "configuracoes" },
   { to: "/configuracoes", label: "Configurações", icon: Settings, modulo: "configuracoes" },
 ] as const;

@@ -8,6 +8,7 @@ import {
   Building2,
   Check,
   Copy,
+  Gift,
   KeyRound,
   Loader2,
   LogIn,
@@ -34,6 +35,8 @@ import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +79,14 @@ import {
   type PlanoDoSite,
 } from "@/lib/site-admin.functions";
 import { FEATURES_EXIBICAO } from "@/lib/planos/features";
+import {
+  atualizarConfiguracaoIndicacoesFn,
+  atualizarRegraIndicacaoPorPlanoFn,
+  listarRegrasIndicacaoPorPlanoFn,
+  obterConfiguracaoIndicacoesFn,
+  type ConfiguracaoIndicacoes,
+  type RegraIndicacaoPorPlano,
+} from "@/lib/referrals/admin-referral.functions";
 import type { WhatsappSistemaConexao } from "@/lib/whatsapp/system-instance";
 
 const SITE_ADMIN_EMAIL = "admin@spacetech.app";
@@ -265,6 +276,8 @@ function AdminDoSite() {
       <WhatsappSistemaCard souAdmin={souAdmin} />
 
       <PlanosCard souAdmin={souAdmin} />
+
+      <ReferralProgramCard souAdmin={souAdmin} />
 
       <SectionCard
         title="Empresas cadastradas"
@@ -842,6 +855,372 @@ function PlanosCard({ souAdmin }: { souAdmin: boolean }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+const TIPO_COMISSAO_LABEL: Record<string, string> = {
+  none: "Não definido",
+  FIXED: "Valor fixo",
+  PERCENTAGE: "Percentual",
+  PER_PLAN: "Por plano",
+};
+
+type ConfigForm = Partial<{
+  name: string;
+  active: boolean;
+  description: string;
+  commissionType: string; // "none" | FIXED | PERCENTAGE | PER_PLAN
+  commissionValue: string;
+  minimumWithdrawal: string;
+  pendingDays: string;
+  recurringCommission: boolean;
+  firstPaymentOnly: boolean;
+  whatsappShareMessage: string;
+}>;
+
+// Programa de Indicações (Fase A): fundação — configuração geral +
+// comissão por plano. O painel operacional (lista de indicações,
+// comissões, saques) é uma fase futura; aqui só existe o que controla
+// se/como uma comissão é gerada, nunca valores inventados (em branco =
+// não configurado, igual a PlanosCard acima).
+function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState<ConfigForm>({});
+  const [regraForm, setRegraForm] = useState<Record<string, { tipo: string; valor: string }>>({});
+
+  const { data: config, isLoading } = useQuery({
+    queryKey: ["site-admin-referral-config"],
+    queryFn: () => obterConfiguracaoIndicacoesFn(),
+    enabled: souAdmin,
+  });
+
+  const { data: regras = [], isLoading: carregandoRegras } = useQuery({
+    queryKey: ["site-admin-referral-regras"],
+    queryFn: () => listarRegrasIndicacaoPorPlanoFn(),
+    enabled: souAdmin,
+  });
+
+  function valor<K extends keyof ConfigForm>(campo: K): NonNullable<ConfigForm[K]> {
+    if (form[campo] !== undefined) return form[campo] as NonNullable<ConfigForm[K]>;
+    if (!config)
+      return (typeof form[campo] === "boolean" ? false : "") as NonNullable<ConfigForm[K]>;
+    switch (campo) {
+      case "name":
+        return config.name as NonNullable<ConfigForm[K]>;
+      case "active":
+        return config.active as NonNullable<ConfigForm[K]>;
+      case "description":
+        return (config.description ?? "") as NonNullable<ConfigForm[K]>;
+      case "commissionType":
+        return (config.commissionType ?? "none") as NonNullable<ConfigForm[K]>;
+      case "commissionValue":
+        return (config.commissionValue?.toString() ?? "") as NonNullable<ConfigForm[K]>;
+      case "minimumWithdrawal":
+        return (config.minimumWithdrawal?.toString() ?? "") as NonNullable<ConfigForm[K]>;
+      case "pendingDays":
+        return (config.pendingDays?.toString() ?? "") as NonNullable<ConfigForm[K]>;
+      case "recurringCommission":
+        return config.recurringCommission as NonNullable<ConfigForm[K]>;
+      case "firstPaymentOnly":
+        return config.firstPaymentOnly as NonNullable<ConfigForm[K]>;
+      case "whatsappShareMessage":
+        return (config.whatsappShareMessage ?? "") as NonNullable<ConfigForm[K]>;
+      default:
+        return "" as NonNullable<ConfigForm[K]>;
+    }
+  }
+
+  const modoPorPlano = valor("commissionType") === "PER_PLAN";
+
+  const salvarConfig = useMutation({
+    mutationFn: () => {
+      if (!config) throw new Error("Configuração ainda não carregada.");
+      const numOuNull = (s: string) => (s.trim() === "" ? null : Number(s));
+      return atualizarConfiguracaoIndicacoesFn({
+        data: {
+          id: config.id,
+          name: valor("name"),
+          active: valor("active"),
+          description: valor("description").trim() === "" ? null : valor("description"),
+          commissionType:
+            valor("commissionType") === "none"
+              ? null
+              : (valor("commissionType") as ConfiguracaoIndicacoes["commissionType"]),
+          commissionValue: numOuNull(valor("commissionValue")),
+          minimumWithdrawal: numOuNull(valor("minimumWithdrawal")),
+          pendingDays: numOuNull(valor("pendingDays")),
+          recurringCommission: valor("recurringCommission"),
+          firstPaymentOnly: valor("firstPaymentOnly"),
+          whatsappShareMessage:
+            valor("whatsappShareMessage").trim() === "" ? null : valor("whatsappShareMessage"),
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Configuração do programa de indicações salva.");
+      setForm({});
+      qc.invalidateQueries({ queryKey: ["site-admin-referral-config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function regraAtual(r: RegraIndicacaoPorPlano) {
+    return (
+      regraForm[r.planId] ?? {
+        tipo: r.commissionType,
+        valor: r.commissionValue?.toString() ?? "",
+      }
+    );
+  }
+
+  const salvarRegra = useMutation({
+    mutationFn: (r: RegraIndicacaoPorPlano) => {
+      const v = regraAtual(r);
+      return atualizarRegraIndicacaoPorPlanoFn({
+        data: {
+          planId: r.planId,
+          commissionType: v.tipo as "FIXED" | "PERCENTAGE",
+          commissionValue: v.valor.trim() === "" ? null : Number(v.valor),
+          active: r.active,
+        },
+      });
+    },
+    onSuccess: (_res, r) => {
+      toast.success(`Comissão do plano ${r.planName} salva.`);
+      setRegraForm((s) => {
+        const { [r.planId]: _remover, ...resto } = s;
+        return resto;
+      });
+      qc.invalidateQueries({ queryKey: ["site-admin-referral-regras"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const alternarRegraAtiva = useMutation({
+    mutationFn: (r: RegraIndicacaoPorPlano) =>
+      atualizarRegraIndicacaoPorPlanoFn({
+        data: {
+          planId: r.planId,
+          commissionType: r.commissionType,
+          commissionValue: r.commissionValue,
+          active: !r.active,
+        },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["site-admin-referral-regras"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!souAdmin) return null;
+
+  return (
+    <SectionCard
+      title="Programa de Indicações"
+      subtitle="Comissão, prazo e mínimo de saque — em branco/desligado = ainda não configurado, nunca um valor inventado."
+      icon={Gift}
+      className="mb-6"
+    >
+      {isLoading || !config ? (
+        <TableSkeleton />
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between rounded-xl border border-border p-4">
+            <div>
+              <p className="font-bold">Programa ativo</p>
+              <p className="text-xs text-muted-foreground">
+                Desligado: nenhuma indicação nova é convertida em comissão.
+              </p>
+            </div>
+            <Switch
+              checked={valor("active")}
+              onCheckedChange={(v) => setForm((s) => ({ ...s, active: v }))}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Nome do programa</Label>
+              <Input
+                value={valor("name")}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Modelo de comissão</Label>
+              <Select
+                value={valor("commissionType")}
+                onValueChange={(v) => setForm((s) => ({ ...s, commissionType: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPO_COMISSAO_LABEL).map(([v, label]) => (
+                    <SelectItem key={v} value={v}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Descrição (visível para quem indica)</Label>
+            <Textarea
+              value={valor("description")}
+              placeholder="A definir"
+              onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+            />
+          </div>
+
+          {!modoPorPlano && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">
+                  Comissão {valor("commissionType") === "PERCENTAGE" ? "(%)" : "(R$)"}
+                </Label>
+                <Input
+                  value={valor("commissionValue")}
+                  placeholder="A definir"
+                  onChange={(e) => setForm((s) => ({ ...s, commissionValue: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Prazo de liberação (dias)</Label>
+              <Input
+                value={valor("pendingDays")}
+                placeholder="A definir"
+                onChange={(e) => setForm((s) => ({ ...s, pendingDays: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Mínimo para saque (R$)</Label>
+              <Input
+                value={valor("minimumWithdrawal")}
+                placeholder="A definir"
+                onChange={(e) => setForm((s) => ({ ...s, minimumWithdrawal: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-xl border border-border p-3">
+              <div>
+                <p className="text-sm font-semibold">Comissão recorrente</p>
+                <p className="text-xs text-muted-foreground">Gera em cobranças futuras também.</p>
+              </div>
+              <Switch
+                checked={valor("recurringCommission")}
+                onCheckedChange={(v) => setForm((s) => ({ ...s, recurringCommission: v }))}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-border p-3">
+              <div>
+                <p className="text-sm font-semibold">Somente primeira cobrança</p>
+                <p className="text-xs text-muted-foreground">Ignora renovações do indicado.</p>
+              </div>
+              <Switch
+                checked={valor("firstPaymentOnly")}
+                onCheckedChange={(v) => setForm((s) => ({ ...s, firstPaymentOnly: v }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Mensagem de compartilhamento (WhatsApp)</Label>
+            <Textarea
+              value={valor("whatsappShareMessage")}
+              placeholder="A definir"
+              rows={3}
+              onChange={(e) => setForm((s) => ({ ...s, whatsappShareMessage: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use <code>{"{LINK}"}</code> onde o link de indicação deve entrar.
+            </p>
+          </div>
+
+          <Button onClick={() => salvarConfig.mutate()} disabled={salvarConfig.isPending}>
+            {salvarConfig.isPending ? "Salvando..." : "Salvar configuração"}
+          </Button>
+
+          {modoPorPlano && (
+            <div className="border-t border-border pt-5">
+              <p className="mb-1 font-bold">Comissão por plano</p>
+              <p className="mb-4 text-xs text-muted-foreground">
+                Modelo "Por plano" ativo — a comissão de cada plano é definida aqui.
+              </p>
+              {carregandoRegras ? (
+                <TableSkeleton />
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {regras.map((r) => {
+                    const v = regraAtual(r);
+                    return (
+                      <div key={r.planId} className="rounded-xl border border-border p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold">{r.planName}</p>
+                          <Switch
+                            checked={r.active}
+                            onCheckedChange={() => alternarRegraAtiva.mutate(r)}
+                          />
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">Tipo</Label>
+                            <Select
+                              value={v.tipo}
+                              onValueChange={(tipo) =>
+                                setRegraForm((s) => ({ ...s, [r.planId]: { ...v, tipo } }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="FIXED">Valor fixo</SelectItem>
+                                <SelectItem value="PERCENTAGE">Percentual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">
+                              Comissão {v.tipo === "PERCENTAGE" ? "(%)" : "(R$)"}
+                            </Label>
+                            <Input
+                              value={v.valor}
+                              placeholder="A definir"
+                              onChange={(e) =>
+                                setRegraForm((s) => ({
+                                  ...s,
+                                  [r.planId]: { ...v, valor: e.target.value },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-3"
+                          onClick={() => salvarRegra.mutate(r)}
+                          disabled={salvarRegra.isPending}
+                        >
+                          Salvar
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </SectionCard>

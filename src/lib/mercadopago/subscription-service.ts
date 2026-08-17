@@ -9,6 +9,10 @@ import type { Json } from "@/integrations/supabase/types";
 import { MercadoPagoProvider, type PaymentGateway } from "./payment-gateway";
 import { comTaxaRepassada } from "./fees";
 import {
+  marcarReferralComoPendente,
+  processarComissaoIndicacao,
+} from "@/lib/referrals/commission-service";
+import {
   MercadoPagoNaoConfiguradoError,
   PlanInactiveError,
   PlanNotFoundError,
@@ -94,6 +98,7 @@ export async function iniciarAssinatura(
     planId: input.planId,
     billingCycle: input.billingCycle,
   });
+  await marcarReferralComoPendente(input.empresaId);
 
   // Referência externa única por tentativa de cobrança — nunca reaproveita
   // o id interno "cru" como se fosse suficiente sozinho (ver Fase 40).
@@ -167,6 +172,7 @@ async function ativarAssinatura(subscriptionId: string, planId: string, empresaI
     .eq("id", subscriptionId);
   await supabaseAdmin.from("profiles").update({ plan_id: planId }).eq("id", empresaId);
   await registrarEvento(subscriptionId, "SUBSCRIPTION_ACTIVATED");
+  await processarComissaoIndicacao(subscriptionId, planId, empresaId);
 }
 
 /** Re-consulta o Mercado Pago pelo preapproval id — nunca confia no status
