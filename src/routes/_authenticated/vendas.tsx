@@ -69,6 +69,7 @@ function Vendas() {
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [desconto, setDesconto] = useState("0");
   const [observacoes, setObservacoes] = useState("");
+  const [dataVenda, setDataVenda] = useState(() => new Date().toISOString().slice(0, 10));
 
   const { data: vendas = [] } = useQuery({
     queryKey: ["vendas"],
@@ -162,12 +163,24 @@ function Vendas() {
     setFormaPagamento("PIX");
     setDesconto("0");
     setObservacoes("");
+    setDataVenda(new Date().toISOString().slice(0, 10));
   };
 
   const criar = useMutation({
     mutationFn: async () => {
       if (!carrinho.length) throw new Error("Adicione ao menos um item à venda");
       if (!user) throw new Error("Usuário não autenticado");
+
+      const agora = new Date();
+      const partes = dataVenda.split("-").map(Number);
+      const createdAt = new Date(
+        partes[0] ?? agora.getFullYear(),
+        (partes[1] ?? agora.getMonth() + 1) - 1,
+        partes[2] ?? agora.getDate(),
+        agora.getHours(),
+        agora.getMinutes(),
+        agora.getSeconds(),
+      ).toISOString();
 
       const { data: venda, error: vendaErro } = await supabase
         .from("vendas")
@@ -178,6 +191,7 @@ function Vendas() {
           desconto: descontoNum,
           forma_pagamento: formaPagamento,
           observacoes: observacoes || null,
+          created_at: createdAt,
         })
         .select()
         .single();
@@ -218,6 +232,8 @@ function Vendas() {
         categoria: "Venda",
         descricao: `Venda #${String(venda.numero ?? venda.id.slice(0, 8)).padStart(4, "0")}`,
         valor: total,
+        data: dataVenda,
+        created_at: createdAt,
         venda_id: venda.id,
       });
     },
@@ -369,6 +385,14 @@ function Vendas() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data da venda</Label>
+                  <Input
+                    type="date"
+                    value={dataVenda}
+                    onChange={(e) => setDataVenda(e.target.value)}
+                  />
                 </div>
               </div>
 
