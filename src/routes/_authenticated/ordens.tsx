@@ -627,8 +627,12 @@ function Ordens() {
 
   const mudarStatus = useMutation({
     mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
-      // Validar fluxo se houver fluxos configurados
-      if (origem && statusFlows.length > 0) {
+      // Validar fluxo se houver fluxos configurados. Cancelar é sempre
+      // permitido independente do fluxo configurado — é uma saída de
+      // emergência, não uma etapa do fluxo normal, e o cadastro de fluxos
+      // (Configurações > Fluxo entre Status) nunca inclui "cancelado" como
+      // destino por padrão, o que travava o cancelamento de qualquer OS.
+      if (origem && status !== "cancelado" && statusFlows.length > 0) {
         const permitido = statusFlows.some((f) => f.origem === origem && f.destino === status);
         if (!permitido) {
           throw new Error(
