@@ -80,11 +80,21 @@ export const STATUS_APARELHOS = [
   { value: "cancelado", label: "Cancelado" },
 ] as const;
 
+export const STATUS_SEMINOVOS = [
+  { value: "pendente", label: "Pendente" },
+  { value: "disponivel", label: "Disponível" },
+  { value: "vendido", label: "Vendido" },
+  { value: "devolvido", label: "Devolvido" },
+  { value: "sucata", label: "Sucata" },
+  { value: "sem_solucao", label: "Sem solução" },
+] as const;
+
 export const statusLabel = (value: string) =>
   STATUS_OS.find((s) => s.value === value)?.label ??
   STATUS_VENDAS.find((s) => s.value === value)?.label ??
   STATUS_COMPRAS.find((s) => s.value === value)?.label ??
   STATUS_APARELHOS.find((s) => s.value === value)?.label ??
+  STATUS_SEMINOVOS.find((s) => s.value === value)?.label ??
   value;
 
 // One distinct color per status of Ordem de Serviço, so a técnico scanning

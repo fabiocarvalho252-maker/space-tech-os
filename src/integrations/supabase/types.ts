@@ -2720,35 +2720,52 @@ export type Database = {
         Row: {
           acessorios: string | null
           armazenamento: string | null
+          assinatura_coletada_em: string | null
+          assinatura_url: string | null
           bateria_percentual: number | null
           cliente_id: string | null
           cor: string | null
           created_at: string
           data_avaliacao: string
+          devolucao_data: string | null
+          devolucao_motivo: string | null
           estado: string | null
           fotos: string[]
           id: string
           imei: string | null
+          lucro_minimo: number | null
+          lucro_previsto: number | null
           marca: string
           modelo: string
           observacoes: string | null
+          outros_custos: number
+          preco_lojista: number | null
+          preco_venda: number | null
           ram: string | null
           status: string
           updated_at: string
           user_id: string
+          valor_conserto: number
           valor_oferecido: number | null
           valor_pago: number | null
+          valor_total_gasto: number | null
+          vendedor_documento: string | null
+          venda_id: string | null
           vendedor_nome: string | null
           vendedor_telefone: string | null
         }
         Insert: {
           acessorios?: string | null
           armazenamento?: string | null
+          assinatura_coletada_em?: string | null
+          assinatura_url?: string | null
           bateria_percentual?: number | null
           cliente_id?: string | null
           cor?: string | null
           created_at?: string
           data_avaliacao?: string
+          devolucao_data?: string | null
+          devolucao_motivo?: string | null
           estado?: string | null
           fotos?: string[]
           id?: string
@@ -2756,23 +2773,33 @@ export type Database = {
           marca: string
           modelo: string
           observacoes?: string | null
+          outros_custos?: number
+          preco_lojista?: number | null
+          preco_venda?: number | null
           ram?: string | null
           status?: string
           updated_at?: string
           user_id: string
+          valor_conserto?: number
           valor_oferecido?: number | null
           valor_pago?: number | null
+          vendedor_documento?: string | null
+          venda_id?: string | null
           vendedor_nome?: string | null
           vendedor_telefone?: string | null
         }
         Update: {
           acessorios?: string | null
           armazenamento?: string | null
+          assinatura_coletada_em?: string | null
+          assinatura_url?: string | null
           bateria_percentual?: number | null
           cliente_id?: string | null
           cor?: string | null
           created_at?: string
           data_avaliacao?: string
+          devolucao_data?: string | null
+          devolucao_motivo?: string | null
           estado?: string | null
           fotos?: string[]
           id?: string
@@ -2780,12 +2807,18 @@ export type Database = {
           marca?: string
           modelo?: string
           observacoes?: string | null
+          outros_custos?: number
+          preco_lojista?: number | null
+          preco_venda?: number | null
           ram?: string | null
           status?: string
           updated_at?: string
           user_id?: string
+          valor_conserto?: number
           valor_oferecido?: number | null
           valor_pago?: number | null
+          vendedor_documento?: string | null
+          venda_id?: string | null
           vendedor_nome?: string | null
           vendedor_telefone?: string | null
         }
@@ -2795,6 +2828,98 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seminovos_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seminovos_conserto_itens: {
+        Row: {
+          categoria: string
+          created_at: string
+          descricao: string | null
+          fornecedor: string | null
+          id: string
+          observacao: string | null
+          seminovo_id: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          descricao?: string | null
+          fornecedor?: string | null
+          id?: string
+          observacao?: string | null
+          seminovo_id: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          fornecedor?: string | null
+          id?: string
+          observacao?: string | null
+          seminovo_id?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seminovos_conserto_itens_seminovo_id_fkey"
+            columns: ["seminovo_id"]
+            isOneToOne: false
+            referencedRelation: "seminovos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seminovos_historico: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string
+          evento: string
+          id: string
+          seminovo_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          evento: string
+          id?: string
+          seminovo_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          evento?: string
+          id?: string
+          seminovo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seminovos_historico_seminovo_id_fkey"
+            columns: ["seminovo_id"]
+            isOneToOne: false
+            referencedRelation: "seminovos"
             referencedColumns: ["id"]
           },
         ]
