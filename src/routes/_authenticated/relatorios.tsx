@@ -26,6 +26,20 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
   component: Relatorios,
 });
 
+type FaturamentoOsRow = {
+  id: string;
+  valor_total: number;
+  created_at: string;
+  ordens_servico: {
+    numero: number;
+    aparelho: string;
+    marca: string | null;
+    modelo: string | null;
+    clientes: { nome: string } | null;
+    os_itens: { produto_id: string | null; quantidade: number }[];
+  } | null;
+};
+
 function hojeStr() {
   return format(new Date(), "yyyy-MM-dd");
 }
@@ -57,6 +71,7 @@ function Relatorios() {
         comprasAparelhos,
         seminovos,
         termos,
+        faturamentosOs,
       ] = await Promise.all([
         supabase
           .from("ordens_servico")
@@ -65,7 +80,7 @@ function Relatorios() {
           .lte("created_at", fimISO),
         supabase
           .from("os_itens")
-          .select("*")
+          .select("*, ordens_servico(status)")
           .gte("created_at", inicioISO)
           .lte("created_at", fimISO),
         supabase.from("vendas").select("*").gte("created_at", inicioISO).lte("created_at", fimISO),
@@ -89,6 +104,17 @@ function Relatorios() {
           .gte("created_at", inicioISO)
           .lte("created_at", fimISO),
         supabase.from("termos_garantia").select("*"),
+        // Faturamentos de OS do período (data do faturamento, não da abertura
+        // da OS), com os itens da OS para calcular o custo das peças.
+        supabase
+          .from("os_faturamentos")
+          .select(
+            "id, valor_total, created_at, ordens_servico(numero, aparelho, marca, modelo, clientes(nome), os_itens(produto_id, quantidade))",
+          )
+          .neq("status", "cancelado")
+          .gte("created_at", inicioISO)
+          .lte("created_at", fimISO)
+          .order("created_at", { ascending: false }),
       ]);
       return {
         ordens: ordens.data ?? [],
@@ -102,6 +128,7 @@ function Relatorios() {
         comprasAparelhos: comprasAparelhos.data ?? [],
         seminovos: seminovos.data ?? [],
         termos: termos.data ?? [],
+        faturamentosOs: (faturamentosOs.data ?? []) as unknown as FaturamentoOsRow[],
       };
     },
   });
@@ -198,6 +225,33 @@ function Relatorios() {
       porCategoria.set(cat, atual);
     }
 
+    // Custo dos serviços: o "Custo adicional" do cadastro de Serviços
+    // (produtos.preco_custo com categoria "Serviço") de cada serviço usado em
+    // OS ou venda no período entra como despesa — mesma regra do CMV no
+    // Dashboard. Itens de OS cancelada/reprovada ou venda cancelada não
+    // geraram receita, então o custo deles também não conta.
+    const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
+    const custoServico = (produtoId: string | null, quantidade: number) => {
+      const produto = produtoId ? produtosById.get(produtoId) : null;
+      return produto?.categoria === "Serviço"
+        ? Number(quantidade) * Number(produto.preco_custo ?? 0)
+        : 0;
+    };
+    let custoServicos = 0;
+    for (const i of d.osItens) {
+      const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
+        .ordens_servico?.status;
+      if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
+      custoServicos += custoServico(i.produto_id, i.quantidade);
+    }
+    for (const i of itensVendaPeriodo) custoServicos += custoServico(i.produto_id, i.quantidade);
+    if (custoServicos > 0) {
+      const atual = porCategoria.get("Custo dos serviços") ?? { entradas: 0, saidas: 0 };
+      atual.saidas += custoServicos;
+      porCategoria.set("Custo dos serviços", atual);
+    }
+    const despesaTotal = saidas + custoServicos;
+
     const faturamentoVendas = vendasValidas.reduce((s, v) => s + Number(v.total), 0);
     const baixoEstoque = d.produtos.filter((p) => p.quantidade <= p.estoque_minimo);
     const valorEstoque = d.produtos.reduce((s, p) => s + p.quantidade * Number(p.preco_custo), 0);
@@ -210,14 +264,49 @@ function Relatorios() {
     const seminovosComprados = d.seminovos;
     const valorSeminovos = seminovosComprados.reduce((s, i) => s + Number(i.valor_pago ?? 0), 0);
 
+    // Faturamento de OS: o custo (despesa direta) de cada OS é o custo das
+    // peças/serviços usados, pelo preco_custo do cadastro — mesma regra do
+    // CMV no Dashboard.
+    const faturamentoOs = d.faturamentosOs.map((f) => {
+      const os = f.ordens_servico;
+      const custo = (os?.os_itens ?? []).reduce(
+        (s, i) =>
+          s +
+          (i.produto_id
+            ? Number(i.quantidade) * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0)
+            : 0),
+        0,
+      );
+      const faturado = Number(f.valor_total);
+      return {
+        id: f.id,
+        data: f.created_at,
+        numero: os?.numero ?? null,
+        cliente: os?.clientes?.nome ?? "Sem cliente",
+        aparelho: [os?.marca, os?.modelo].filter(Boolean).join(" ") || os?.aparelho || "—",
+        faturado,
+        custo,
+        lucro: faturado - custo,
+      };
+    });
+    const osFaturado = faturamentoOs.reduce((s, f) => s + f.faturado, 0);
+    const osCusto = faturamentoOs.reduce((s, f) => s + f.custo, 0);
+
     return {
+      faturamentoOs,
+      osFaturado,
+      osCusto,
+      osLucro: osFaturado - osCusto,
+      osMargem: osFaturado > 0 ? ((osFaturado - osCusto) / osFaturado) * 100 : 0,
       osPorStatus,
       topProdutos,
       topServicos,
       entradas,
       saidas,
-      resultado: entradas - saidas,
-      margem: entradas > 0 ? ((entradas - saidas) / entradas) * 100 : 0,
+      custoServicos,
+      despesaTotal,
+      resultado: entradas - despesaTotal,
+      margem: entradas > 0 ? ((entradas - despesaTotal) / entradas) * 100 : 0,
       porCategoria: Array.from(porCategoria.entries()),
       faturamentoVendas,
       ticketMedio: vendasValidas.length ? faturamentoVendas / vendasValidas.length : 0,
@@ -304,13 +393,90 @@ function Relatorios() {
               sub={`${data.clientesTotal} no total`}
             />
             <Stat label="Receita" value={brl(resumo.entradas)} tone="success" />
-            <Stat label="Despesa" value={brl(resumo.saidas)} tone="danger" />
+            <Stat
+              label="Despesa"
+              value={brl(resumo.despesaTotal)}
+              sub={`Saídas ${brl(resumo.saidas)} + custo dos serviços ${brl(resumo.custoServicos)}`}
+              tone="danger"
+            />
             <Stat label="Resultado" value={brl(resumo.resultado)} />
             <Stat label="Margem" value={`${resumo.margem.toFixed(1)}%`} />
           </div>
 
           <Secao
             id="ordens"
+            titulo="Faturamento de OS"
+            onExportar={() =>
+              exportToCSV(
+                resumo.faturamentoOs.map((f) => ({
+                  os: f.numero,
+                  data: format(new Date(f.data), "dd/MM/yyyy"),
+                  cliente: f.cliente,
+                  aparelho: f.aparelho,
+                  faturado: f.faturado.toFixed(2),
+                  custo_pecas: f.custo.toFixed(2),
+                  lucro: f.lucro.toFixed(2),
+                })),
+                "relatorio-faturamento-os",
+              )
+            }
+          >
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Stat label="Faturado em OS" value={brl(resumo.osFaturado)} tone="success" />
+              <Stat
+                label="Despesas das OS"
+                value={brl(resumo.osCusto)}
+                sub="Custo das peças e serviços"
+                tone="danger"
+              />
+              <Stat label="Lucro das OS" value={brl(resumo.osLucro)} />
+              <Stat label="Margem das OS" value={`${resumo.osMargem.toFixed(1)}%`} />
+              <Stat
+                label="Despesas do período"
+                value={brl(resumo.despesaTotal)}
+                sub="Saídas pagas + custo dos serviços"
+                tone="danger"
+              />
+            </div>
+            {resumo.faturamentoOs.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="pb-2">OS</th>
+                      <th className="pb-2">Data</th>
+                      <th className="pb-2">Cliente</th>
+                      <th className="pb-2">Aparelho</th>
+                      <th className="pb-2 text-right">Faturado</th>
+                      <th className="pb-2 text-right">Despesas</th>
+                      <th className="pb-2 text-right">Lucro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {resumo.faturamentoOs.map((f) => (
+                      <tr key={f.id}>
+                        <td className="py-2 font-semibold">{f.numero ?? "—"}</td>
+                        <td className="py-2">{format(new Date(f.data), "dd/MM/yyyy")}</td>
+                        <td className="py-2">{f.cliente}</td>
+                        <td className="py-2">{f.aparelho}</td>
+                        <td className="py-2 text-right text-emerald-600">{brl(f.faturado)}</td>
+                        <td className="py-2 text-right text-destructive">{brl(f.custo)}</td>
+                        <td
+                          className={`py-2 text-right font-semibold ${f.lucro < 0 ? "text-destructive" : ""}`}
+                        >
+                          {brl(f.lucro)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhuma OS faturada no período.</p>
+            )}
+          </Secao>
+
+          <Secao
             titulo="Ordens de serviço por status"
             onExportar={() =>
               exportToCSV(
@@ -394,7 +560,7 @@ function Relatorios() {
                 onClick={() =>
                   generateFinancePDF(data.lancamentos, profile, {
                     entradas: resumo.entradas,
-                    saidas: resumo.saidas,
+                    saidas: resumo.despesaTotal,
                     saldo: resumo.resultado,
                   })
                 }
