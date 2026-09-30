@@ -345,6 +345,10 @@ function renderSecao(
         </section>
       `;
     case "garantia":
+      // Garantia só se aplica a um serviço já executado e entregue — antes
+      // da aprovação do orçamento não há o que garantir, então mostrar esse
+      // bloco fazia o orçamento parecer uma OS já concluída.
+      if (d.modo === "orcamento") return "";
       return `
         <section class="bloco">
           <h2>Garantia</h2>
@@ -352,6 +356,10 @@ function renderSecao(
         </section>
       `;
     case "termos":
+      // Mesmo raciocínio do case "garantia" acima: termo de garantia e
+      // condições descrevem um serviço já realizado, não uma proposta ainda
+      // em aprovação.
+      if (d.modo === "orcamento") return "";
       return d.termoGarantiaTexto || d.condicoesTexto
         ? `
         <section class="bloco">

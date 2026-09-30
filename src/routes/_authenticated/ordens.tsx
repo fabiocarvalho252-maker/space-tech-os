@@ -190,6 +190,7 @@ function Ordens() {
   const [whatsappOs, setWhatsappOs] = useState<any>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [enviarOsAlvo, setEnviarOsAlvo] = useState<any>(null);
+  const [enviarOsModo, setEnviarOsModo] = useState<"os" | "orcamento">("os");
   const [enviarOsOpen, setEnviarOsOpen] = useState(false);
   const [assinaturaOs, setAssinaturaOs] = useState<any>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
@@ -688,8 +689,9 @@ function Ordens() {
     setWhatsappOpen(true);
   }
 
-  function enviarOs(os: any) {
+  function enviarOs(os: any, modo: "os" | "orcamento" = "os") {
     setEnviarOsAlvo(os);
+    setEnviarOsModo(modo);
     setEnviarOsOpen(true);
   }
 
@@ -1416,6 +1418,7 @@ function Ordens() {
                     <AcoesOsMenu
                       os={os}
                       onImprimir={imprimir}
+                      onEnviarOrcamento={(o) => enviarOs(o, "orcamento")}
                       onWhatsApp={enviarWhatsAppOs}
                       onGerarAcesso={gerarAcessoOs}
                       onAssinatura={(o) => {
@@ -1538,6 +1541,7 @@ function Ordens() {
               <AcoesOsMenu
                 os={os}
                 onImprimir={imprimir}
+                onEnviarOrcamento={(o) => enviarOs(o, "orcamento")}
                 onWhatsApp={enviarWhatsAppOs}
                 onGerarAcesso={gerarAcessoOs}
                 onAssinatura={(o) => {
@@ -2213,7 +2217,12 @@ function Ordens() {
       />
 
       <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
-      <EnviarOsModal os={enviarOsAlvo} open={enviarOsOpen} onOpenChange={setEnviarOsOpen} />
+      <EnviarOsModal
+        os={enviarOsAlvo}
+        modo={enviarOsModo}
+        open={enviarOsOpen}
+        onOpenChange={setEnviarOsOpen}
+      />
       <ClienteAcessoModal acesso={acesso} open={acessoOpen} onOpenChange={setAcessoOpen} />
 
       <AssinaturaDigitalModal
@@ -2258,6 +2267,7 @@ function Ordens() {
 function AcoesOsMenu({
   os,
   onImprimir,
+  onEnviarOrcamento,
   onWhatsApp,
   onGerarAcesso,
   onAssinatura,
@@ -2266,6 +2276,7 @@ function AcoesOsMenu({
 }: {
   os: any;
   onImprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
+  onEnviarOrcamento: (os: any) => void;
   onWhatsApp: (os: any) => void;
   onGerarAcesso: (os: any) => void;
   onAssinatura: (os: any) => void;
@@ -2290,6 +2301,9 @@ function AcoesOsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onAssinatura(os)}>Assinatura digital</DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onEnviarOrcamento(os)}>
+          Enviar orçamento (PDF)
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onWhatsApp(os)}>Enviar por WhatsApp</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onGerarAcesso(os)}>
           <KeyRound className="mr-2 h-4 w-4" /> Gerar acesso do cliente

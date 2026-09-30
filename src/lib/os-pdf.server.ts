@@ -238,12 +238,17 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break;
 
       case "garantia":
-        w.linhaCampo(
-          "Garantia",
-          osAny.garantia_dias
-            ? `${osAny.garantia_dias} dias${osAny.garantia_vencimento ? ` — válida até ${dataBR(osAny.garantia_vencimento)}` : ""}`
-            : "—",
-        );
+        // Garantia só se aplica a um serviço já executado e entregue — antes
+        // da aprovação do orçamento não há o que garantir, então mostrar
+        // esse campo aqui fazia o orçamento parecer uma OS já concluída.
+        if (modo !== "orcamento") {
+          w.linhaCampo(
+            "Garantia",
+            osAny.garantia_dias
+              ? `${osAny.garantia_dias} dias${osAny.garantia_vencimento ? ` — válida até ${dataBR(osAny.garantia_vencimento)}` : ""}`
+              : "—",
+          );
+        }
         break;
 
       case "itens":
@@ -298,15 +303,20 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
       }
 
       case "termos":
-        if (termo?.conteudo) {
-          w.subtitulo("Termos de garantia");
-          w.paragrafo(termo.conteudo, 8, rgb(0.35, 0.35, 0.4));
-          w.espaco(6);
-        }
-        if ((osConfig as any)?.termos_condicoes) {
-          w.subtitulo("Condições");
-          w.paragrafo((osConfig as any).termos_condicoes, 8, rgb(0.35, 0.35, 0.4));
-          w.espaco(6);
+        // Mesmo raciocínio do case "garantia" acima: termo de garantia e
+        // condições descrevem um serviço já realizado, não uma proposta
+        // ainda em aprovação.
+        if (modo !== "orcamento") {
+          if (termo?.conteudo) {
+            w.subtitulo("Termos de garantia");
+            w.paragrafo(termo.conteudo, 8, rgb(0.35, 0.35, 0.4));
+            w.espaco(6);
+          }
+          if ((osConfig as any)?.termos_condicoes) {
+            w.subtitulo("Condições");
+            w.paragrafo((osConfig as any).termos_condicoes, 8, rgb(0.35, 0.35, 0.4));
+            w.espaco(6);
+          }
         }
         break;
 

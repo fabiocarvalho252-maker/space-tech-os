@@ -70,10 +70,12 @@ function podeCompartilharArquivo(file: File): boolean {
 
 export function EnviarOsModal({
   os,
+  modo = "os",
   open,
   onOpenChange,
 }: {
   os: EnviarOsAlvo | null;
+  modo?: "os" | "orcamento";
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -82,16 +84,19 @@ export function EnviarOsModal({
   const { data: user } = useCurrentUser();
   const { data: profile } = useProfile();
   const [pdf, setPdf] = useState<{ file: File; url: string } | null>(null);
+  const rotulo = modo === "orcamento" ? "Orçamento" : "Ordem de Serviço";
 
   const gerar = useMutation({
     mutationFn: async () => {
       if (!os) throw new Error("OS não selecionada.");
-      const { base64 } = await gerarPdfOsCompartilharFn({ data: { osId: os.id, modo: "os" } });
-      const nomeArquivo = `SPACE-TECH-OS-${String(os.numero).padStart(6, "0")}-${sanitizarNomeArquivo(os.clientes?.nome || "cliente")}.pdf`;
+      const { base64 } = await gerarPdfOsCompartilharFn({ data: { osId: os.id, modo } });
+      const prefixo = modo === "orcamento" ? "ORCAMENTO" : "OS";
+      const nomeArquivo = `SPACE-TECH-${prefixo}-${String(os.numero).padStart(6, "0")}-${sanitizarNomeArquivo(os.clientes?.nome || "cliente")}.pdf`;
       return new File([base64ParaBytes(base64)], nomeArquivo, { type: "application/pdf" });
     },
     onSuccess: (file) => setPdf({ file, url: URL.createObjectURL(file) }),
-    onError: (e: Error) => toast.error("Erro ao gerar PDF da OS: " + e.message),
+    onError: (e: Error) =>
+      toast.error(`Erro ao gerar PDF ${modo === "orcamento" ? "do orçamento" : "da OS"}: ` + e.message),
   });
 
   useEffect(() => {
@@ -104,7 +109,7 @@ export function EnviarOsModal({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, os?.id]);
+  }, [open, os?.id, modo]);
 
   async function registrarEnvio(canal: string) {
     if (!os) return;
@@ -114,7 +119,7 @@ export function EnviarOsModal({
       user_id: os.user_id,
       os_id: os.id,
       evento: "envio",
-      descricao: `Compartilhamento iniciado por ${nomeUsuario} — ${canal}.`,
+      descricao: `Compartilhamento de ${rotulo.toLowerCase()} iniciado por ${nomeUsuario} — ${canal}.`,
       created_by: user?.id ?? null,
     });
     qc.invalidateQueries({ queryKey: ["os-historico", os.id] });
@@ -125,8 +130,8 @@ export function EnviarOsModal({
     if (podeCompartilharArquivo(pdf.file)) {
       try {
         await navigator.share({
-          title: `Ordem de Serviço ${os.numero}`,
-          text: `Segue a Ordem de Serviço nº ${os.numero} da SPACE TECH.`,
+          title: `${rotulo} ${os.numero}`,
+          text: `Segue ${modo === "orcamento" ? "o Orçamento" : "a Ordem de Serviço"} nº ${os.numero} da SPACE TECH.`,
           files: [pdf.file],
         });
         await registrarEnvio("compartilhamento nativo");
@@ -157,7 +162,10 @@ export function EnviarOsModal({
   function abrirWhatsApp() {
     const telefone = os?.clientes?.telefone;
     if (!os || !telefone) return;
-    const mensagem = `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue a Ordem de Serviço nº ${os.numero} da SPACE TECH.\n\nO documento contém os detalhes do serviço realizado, valores e condições de garantia.\n\nSPACE TECH`;
+    const mensagem =
+      modo === "orcamento"
+        ? `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue o Orçamento nº ${os.numero} da SPACE TECH.\n\nO documento contém os itens, valores e condições propostas.\n\nSPACE TECH`
+        : `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue a Ordem de Serviço nº ${os.numero} da SPACE TECH.\n\nO documento contém os detalhes do serviço realizado, valores e condições de garantia.\n\nSPACE TECH`;
     window.open(buildWaMeLink(telefone, mensagem), "_blank");
     registrarEnvio("WhatsApp (mensagem, anexar PDF manualmente)");
   }
@@ -168,8 +176,10 @@ export function EnviarOsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Enviar Ordem de Serviço</DialogTitle>
-          <DialogDescription>{os ? `OS Nº ${os.numero}` : ""}</DialogDescription>
+          <DialogTitle>Enviar {rotulo}</DialogTitle>
+          <DialogDescription>
+            {os ? `${modo === "orcamento" ? "Orçamento" : "OS"} Nº ${os.numero}` : ""}
+          </DialogDescription>
         </DialogHeader>
 
         {os && (
@@ -193,7 +203,8 @@ export function EnviarOsModal({
 
         {gerar.isPending && (
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Gerando PDF da OS...
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Gerando PDF {modo === "orcamento" ? "do orçamento" : "da OS"}...
           </div>
         )}
 
