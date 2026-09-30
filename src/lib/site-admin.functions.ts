@@ -358,6 +358,8 @@ export const listarPlanosDoSite = createServerFn({ method: "GET" })
     const { data: plans, error } = await supabaseAdmin
       .from("plans")
       .select("id, slug, name, description, monthly_price, annual_price, annual_discount_pct")
+      // Planos desativados (ex.: Profissional) somem do painel também.
+      .eq("active", true)
       .order("sort_order");
     if (error) throw error;
 

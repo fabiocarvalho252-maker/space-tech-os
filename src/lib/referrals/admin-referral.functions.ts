@@ -115,7 +115,7 @@ export const listarRegrasIndicacaoPorPlanoFn = createServerFn({ method: "GET" })
 
     const [{ data: plans, error: plansErro }, { data: regras, error: regrasErro }] =
       await Promise.all([
-        supabaseAdmin.from("plans").select("id, name").order("sort_order"),
+        supabaseAdmin.from("plans").select("id, name").eq("active", true).order("sort_order"),
         supabaseAdmin
           .from("referral_plan_rules")
           .select("id, plan_id, commission_type, commission_value, active"),
