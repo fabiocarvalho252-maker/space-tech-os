@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { differenceInCalendarDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { prazoAcesso } from "@/lib/acesso";
 
-export const DIAS_TESTE = 7;
+export { DIAS_TESTE } from "@/lib/acesso";
 
 export function useCurrentUser() {
   return useQuery({
@@ -121,21 +121,14 @@ export function useTrialStatus() {
         .eq("id", minhaEmpresa!.empresa_id)
         .maybeSingle();
       if (error) throw error;
-      const plano = data?.plano ?? "trial";
-      const acessoAte = data?.acesso_ate;
-
-      if (plano === "vitalicio") return { diasRestantes: Infinity, expirado: false };
-      if (plano === "suspenso") return { diasRestantes: -1, expirado: true };
-      if (["mensal", "anual"].includes(plano)) {
-        if (!acessoAte) return { diasRestantes: Infinity, expirado: false };
-        const diasRestantes = differenceInCalendarDays(new Date(acessoAte), new Date());
-        return { diasRestantes, expirado: diasRestantes < 0 };
-      }
-
-      if (!data?.created_at) return { diasRestantes: DIAS_TESTE, expirado: false };
-      const diasDecorridos = differenceInCalendarDays(new Date(), new Date(data.created_at));
-      const diasRestantes = DIAS_TESTE - diasDecorridos;
-      return { diasRestantes, expirado: diasRestantes < 0 };
+      const prazo = prazoAcesso({
+        plano: data?.plano,
+        acessoAte: data?.acesso_ate,
+        criadoEm: data?.created_at,
+      });
+      if (prazo.tipo === "sem_vencimento") return { diasRestantes: Infinity, expirado: false };
+      if (prazo.tipo === "suspenso") return { diasRestantes: -1, expirado: true };
+      return { diasRestantes: prazo.diasRestantes, expirado: prazo.expirado };
     },
   });
 }

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { redirect } from "@tanstack/react-router";
-import { DIAS_TESTE } from "@/hooks/useCurrentUser";
+import { prazoAcesso } from "@/lib/acesso";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -31,24 +31,14 @@ export const Route = createFileRoute("/_authenticated")({
 
     // plano is set by the site admin (/admin) — defaults to "trial" for
     // every signup, so nothing changes here unless explicitly granted.
-    const plano = empresaProfile?.plano ?? "trial";
-    const acessoAte = empresaProfile?.acesso_ate;
-
-    const PLANOS_COM_VALIDADE = ["mensal", "anual"];
-
-    if (plano === "suspenso") {
+    // Regra de prazo em lib/acesso.ts (mesma do painel /admin).
+    const prazo = prazoAcesso({
+      plano: empresaProfile?.plano,
+      acessoAte: empresaProfile?.acesso_ate,
+      criadoEm: empresaProfile?.created_at,
+    });
+    if (prazo.tipo === "suspenso" || (prazo.tipo !== "sem_vencimento" && prazo.expirado)) {
       throw redirect({ to: "/assinatura" });
-    } else if (plano === "vitalicio") {
-      // never expires
-    } else if (PLANOS_COM_VALIDADE.includes(plano)) {
-      if (acessoAte && new Date(acessoAte) < new Date(new Date().toDateString())) {
-        throw redirect({ to: "/assinatura" });
-      }
-    } else if (empresaProfile?.created_at) {
-      const diasDecorridos = Math.floor(
-        (Date.now() - new Date(empresaProfile.created_at).getTime()) / 86_400_000,
-      );
-      if (diasDecorridos > DIAS_TESTE) throw redirect({ to: "/assinatura" });
     }
 
     return { user };

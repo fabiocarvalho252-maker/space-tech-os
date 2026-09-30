@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { addMonths, format, formatDistanceToNow } from "date-fns";
+import { addDays, addMonths, format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Ban,
   Building2,
+  CalendarClock,
   Check,
   Copy,
   Gift,
@@ -24,6 +25,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  TimerOff,
   TimerReset,
   Trash2,
   Users,
@@ -59,7 +61,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DIAS_TESTE, useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  DIAS_TESTE,
+  PLANOS_COM_VALIDADE,
+  parseDataLocal,
+  prazoAcesso,
+  textoPrazo,
+} from "@/lib/acesso";
 import { dataBR } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
@@ -112,8 +121,6 @@ const PLANOS = [
   { value: "suspenso", label: "Suspenso", meses: null },
 ] as const;
 
-const PLANOS_COM_VALIDADE = ["mensal", "anual"];
-
 const TONE_POR_PLANO: Record<string, StatusTone> = {
   trial: "neutral",
   mensal: "success",
@@ -131,35 +138,79 @@ function planoLabel(plano: string) {
   return PLANOS.find((p) => p.value === plano)?.label ?? plano;
 }
 
-type StatusAcesso = "ativa" | "teste" | "expirada" | "suspensa";
+type StatusAcesso = "ativa" | "teste" | "teste_expirado" | "expirada" | "suspensa";
 
 const STATUS_LABEL: Record<StatusAcesso, string> = {
   ativa: "Ativa",
   teste: "Em teste",
-  expirada: "Expirada",
+  teste_expirado: "Teste expirado",
+  expirada: "Plano vencido",
   suspensa: "Suspensa",
 };
 
 const STATUS_TONE: Record<StatusAcesso, StatusTone> = {
   ativa: "success",
   teste: "warning",
+  teste_expirado: "danger",
   expirada: "danger",
   suspensa: "neutral",
 };
 
-// Mirrors the trial/plano gate in src/routes/_authenticated/route.tsx exactly,
+// Mesma regra (lib/acesso.ts) do bloqueio em src/routes/_authenticated/route.tsx,
 // so the badge shown here always matches whether the empresa can actually log in.
+function prazoDe(e: EmpresaDoSite) {
+  return prazoAcesso({ plano: e.plano, acessoAte: e.acessoAte, criadoEm: e.criadoEm });
+}
+
 function statusAcesso(e: EmpresaDoSite): StatusAcesso {
-  if (e.plano === "suspenso") return "suspensa";
-  if (e.plano === "vitalicio") return "ativa";
-  if (PLANOS_COM_VALIDADE.includes(e.plano)) {
-    if (e.acessoAte && new Date(e.acessoAte) < new Date(new Date().toDateString())) {
-      return "expirada";
-    }
-    return "ativa";
-  }
-  const diasDecorridos = Math.floor((Date.now() - new Date(e.criadoEm).getTime()) / 86_400_000);
-  return diasDecorridos > DIAS_TESTE ? "expirada" : "teste";
+  const p = prazoDe(e);
+  if (p.tipo === "suspenso") return "suspensa";
+  if (p.tipo === "sem_vencimento") return "ativa";
+  if (p.expirado) return p.tipo === "teste" ? "teste_expirado" : "expirada";
+  return p.tipo === "teste" ? "teste" : "ativa";
+}
+
+// Plano pago (mensal/anual) que vence nos próximos 7 dias — os testes
+// grátis ficam de fora, senão todo teste apareceria aqui.
+const DIAS_AVISO_VENCIMENTO = 7;
+function venceEmBreve(e: EmpresaDoSite) {
+  const p = prazoDe(e);
+  return p.tipo === "pago" && !p.expirado && p.diasRestantes <= DIAS_AVISO_VENCIMENTO;
+}
+
+// Ordena quem vence antes primeiro; sem vencimento/suspensas vão para o fim.
+function diasParaOrdenar(e: EmpresaDoSite) {
+  const p = prazoDe(e);
+  return p.tipo === "pago" || p.tipo === "teste" ? p.diasRestantes : Number.POSITIVE_INFINITY;
+}
+
+type FiltroStatus = "todos" | StatusAcesso | "bloqueada" | "vencendo";
+
+// Contagem de dias restantes + data do último dia de acesso.
+function PrazoAcessoInfo({ empresa }: { empresa: EmpresaDoSite }) {
+  const p = prazoDe(empresa);
+  const tone: StatusTone =
+    p.tipo === "suspenso"
+      ? "neutral"
+      : p.tipo === "sem_vencimento"
+        ? "purple"
+        : p.expirado || p.diasRestantes <= 2
+          ? "danger"
+          : p.diasRestantes <= DIAS_AVISO_VENCIMENTO
+            ? "warning"
+            : "success";
+  const ultimoDia = p.tipo === "pago" || p.tipo === "teste" ? addDays(p.fim, -1) : null;
+  return (
+    <div>
+      <StatusBadge label={textoPrazo(p)} tone={tone} />
+      {ultimoDia && (
+        <div className="mt-1 text-xs text-muted-foreground">
+          {p.tipo === "teste" ? "Teste até " : "Até "}
+          {format(ultimoDia, "dd/MM/yyyy")}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AdminDoSite() {
@@ -168,7 +219,7 @@ function AdminDoSite() {
   const [empresaSelecionada, setEmpresaSelecionada] = useState<EmpresaDoSite | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroPlano, setFiltroPlano] = useState<string>("todos");
-  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["site-admin-empresas"],
@@ -196,25 +247,40 @@ function AdminDoSite() {
     : null;
   const pedidosPendentes = empresas.filter((e) => e.planoSolicitado);
 
-  const contagem = { total: 0, ativa: 0, teste: 0, bloqueada: 0 };
+  // "Bloqueadas" = plano pago vencido + suspensas; teste expirado tem card próprio.
+  const contagem = { total: 0, ativa: 0, teste: 0, testeExpirado: 0, bloqueada: 0, vencendo: 0 };
   for (const e of empresas) {
     contagem.total++;
     const s = statusAcesso(e);
     if (s === "ativa") contagem.ativa++;
     else if (s === "teste") contagem.teste++;
+    else if (s === "teste_expirado") contagem.testeExpirado++;
     else contagem.bloqueada++;
+    if (venceEmBreve(e)) contagem.vencendo++;
   }
 
   const termo = busca.trim().toLowerCase();
   const empresasFiltradas = empresas.filter((e) => {
     if (filtroPlano !== "todos" && e.plano !== filtroPlano) return false;
-    if (filtroStatus !== "todos" && statusAcesso(e) !== filtroStatus) return false;
+    if (filtroStatus === "vencendo") {
+      if (!venceEmBreve(e)) return false;
+    } else if (filtroStatus === "bloqueada") {
+      const s = statusAcesso(e);
+      if (s !== "expirada" && s !== "suspensa") return false;
+    } else if (filtroStatus !== "todos" && statusAcesso(e) !== filtroStatus) return false;
     if (termo) {
       const alvo = `${e.loja ?? ""} ${e.nome ?? ""} ${e.email ?? ""}`.toLowerCase();
       if (!alvo.includes(termo)) return false;
     }
     return true;
   });
+  // Nos filtros de prazo, quem vence antes aparece primeiro.
+  if (filtroStatus === "vencendo" || filtroStatus === "teste" || filtroStatus === "ativa") {
+    empresasFiltradas.sort((a, b) => diasParaOrdenar(a) - diasParaOrdenar(b));
+  } else if (filtroStatus === "teste_expirado") {
+    // Quem acabou de expirar primeiro — são os contatos mais quentes.
+    empresasFiltradas.sort((a, b) => diasParaOrdenar(b) - diasParaOrdenar(a));
+  }
 
   return (
     <div>
@@ -223,31 +289,64 @@ function AdminDoSite() {
         subtitle="Controle geral das empresas cadastradas no SpaceTech e da ativação da plataforma."
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          icon={Building2}
-          label="Empresas"
-          valor={contagem.total}
-          cor="text-primary bg-primary/10"
-        />
-        <StatTile
-          icon={ShieldCheck}
-          label="Ativas"
-          valor={contagem.ativa}
-          cor="text-emerald-600 bg-emerald-500/10"
-        />
-        <StatTile
-          icon={TimerReset}
-          label="Em teste"
-          valor={contagem.teste}
-          cor="text-amber-600 bg-amber-500/10"
-        />
-        <StatTile
-          icon={Ban}
-          label="Bloqueadas"
-          valor={contagem.bloqueada}
-          cor="text-red-600 bg-red-500/10"
-        />
+      {/* Os cards também filtram a lista de empresas (clique de novo para limpar). */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {(
+          [
+            {
+              filtro: "todos",
+              icon: Building2,
+              label: "Empresas",
+              valor: contagem.total,
+              cor: "text-primary bg-primary/10",
+            },
+            {
+              filtro: "ativa",
+              icon: ShieldCheck,
+              label: "Ativas",
+              valor: contagem.ativa,
+              cor: "text-emerald-600 bg-emerald-500/10",
+            },
+            {
+              filtro: "teste",
+              icon: TimerReset,
+              label: "Em teste",
+              valor: contagem.teste,
+              cor: "text-amber-600 bg-amber-500/10",
+            },
+            {
+              filtro: "teste_expirado",
+              icon: TimerOff,
+              label: "Teste expirado",
+              valor: contagem.testeExpirado,
+              cor: "text-rose-600 bg-rose-500/10",
+            },
+            {
+              filtro: "vencendo",
+              icon: CalendarClock,
+              label: `Vencem em ${DIAS_AVISO_VENCIMENTO} dias`,
+              valor: contagem.vencendo,
+              cor: "text-orange-600 bg-orange-500/10",
+            },
+            {
+              filtro: "bloqueada",
+              icon: Ban,
+              label: "Bloqueadas",
+              valor: contagem.bloqueada,
+              cor: "text-red-600 bg-red-500/10",
+            },
+          ] as const
+        ).map((t) => (
+          <StatTile
+            key={t.filtro}
+            icon={t.icon}
+            label={t.label}
+            valor={t.valor}
+            cor={t.cor}
+            ativo={filtroStatus === t.filtro}
+            onClick={() => setFiltroStatus(filtroStatus === t.filtro ? "todos" : t.filtro)}
+          />
+        ))}
       </div>
 
       {pedidosPendentes.length > 0 && (
@@ -315,8 +414,8 @@ function AdminDoSite() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-            <SelectTrigger className="w-[150px]">
+          <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}>
+            <SelectTrigger className="w-[190px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -326,6 +425,8 @@ function AdminDoSite() {
                   {STATUS_LABEL[s]}
                 </SelectItem>
               ))}
+              <SelectItem value="bloqueada">Bloqueadas (plano vencido + suspensas)</SelectItem>
+              <SelectItem value="vencendo">Vencem em {DIAS_AVISO_VENCIMENTO} dias</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -342,13 +443,14 @@ function AdminDoSite() {
           <EmptyState icon={Search} title="Nenhuma empresa encontrada com esses filtros" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
+            <table className="w-full min-w-[1040px] text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Empresa</th>
                   <th className="px-3 py-2">E-mail</th>
                   <th className="px-3 py-2">Plano</th>
                   <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Dias restantes</th>
                   <th className="px-3 py-2">Cadastro</th>
                   <th className="px-3 py-2">Último acesso</th>
                   <th className="px-3 py-2 text-center">Equipe</th>
@@ -377,6 +479,9 @@ function AdminDoSite() {
                         label={STATUS_LABEL[statusAcesso(e)]}
                         tone={STATUS_TONE[statusAcesso(e)]}
                       />
+                    </td>
+                    <td className="px-3 py-3">
+                      <PrazoAcessoInfo empresa={e} />
                     </td>
                     <td className="px-3 py-3">
                       <div>{dataBR(e.criadoEm)}</div>
@@ -413,20 +518,31 @@ function StatTile({
   label,
   valor,
   cor,
+  ativo,
+  onClick,
 }: {
   icon: typeof Building2;
   label: string;
   valor: number;
   cor: string;
+  ativo?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      className={`rounded-2xl border bg-card p-4 text-left shadow-soft transition hover:border-primary/50 ${
+        ativo ? "border-primary ring-2 ring-primary/30" : "border-border"
+      }`}
+    >
       <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${cor}`}>
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <p className="mt-2 text-2xl font-extrabold tracking-tight">{valor}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
+    </button>
   );
 }
 
@@ -1496,7 +1612,9 @@ function calcularAcessoAte(planoValue: string, acessoAteAtual: string): string {
   const definicao = PLANOS.find((p) => p.value === planoValue);
   if (!definicao?.meses) return acessoAteAtual;
   const baseAtual =
-    acessoAteAtual && new Date(acessoAteAtual) > new Date() ? new Date(acessoAteAtual) : new Date();
+    acessoAteAtual && parseDataLocal(acessoAteAtual) > new Date()
+      ? parseDataLocal(acessoAteAtual)
+      : new Date();
   return format(addMonths(baseAtual, definicao.meses), "yyyy-MM-dd");
 }
 
@@ -1635,6 +1753,10 @@ function EmpresaDetalheDialog({
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Plano de acesso
           </Label>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Situação atual</span>
+            <PrazoAcessoInfo empresa={empresa} />
+          </div>
           <Select
             value={plano}
             onValueChange={(v) => {
@@ -1658,6 +1780,33 @@ function EmpresaDetalheDialog({
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Acesso válido até</Label>
               <Input type="date" value={acessoAte} onChange={(e) => setAcessoAte(e.target.value)} />
+              {/* Estende a partir da data atual de vencimento (ou de hoje, se já venceu). */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "+7 dias", dias: 7 },
+                  { label: "+30 dias", dias: 30 },
+                  { label: "+1 mês", meses: 1 },
+                  { label: "+1 ano", meses: 12 },
+                ].map((op) => (
+                  <Button
+                    key={op.label}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const base =
+                        acessoAte &&
+                        parseDataLocal(acessoAte) >= new Date(new Date().toDateString())
+                          ? parseDataLocal(acessoAte)
+                          : new Date();
+                      const nova = op.meses ? addMonths(base, op.meses) : addDays(base, op.dias!);
+                      setAcessoAte(format(nova, "yyyy-MM-dd"));
+                    }}
+                  >
+                    {op.label}
+                  </Button>
+                ))}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Preenchido automaticamente pela duração do plano — ajuste se precisar.
               </p>
@@ -1665,7 +1814,8 @@ function EmpresaDetalheDialog({
           )}
           {plano === "trial" && (
             <p className="text-xs text-muted-foreground">
-              Segue a regra padrão: 7 dias a partir do cadastro ({dataBR(empresa.criadoEm)}).
+              Segue a regra padrão: {DIAS_TESTE} dias a partir do cadastro (
+              {dataBR(empresa.criadoEm)}).
             </p>
           )}
 
