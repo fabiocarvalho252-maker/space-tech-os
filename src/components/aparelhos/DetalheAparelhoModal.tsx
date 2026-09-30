@@ -7,7 +7,8 @@
 // 'aparelhos'/'gerenciar' de todo o resto do módulo.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MessageCircle, ShieldCheck } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ExternalLink, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { dataBR, statusLabel } from "@/lib/format";
@@ -188,6 +189,8 @@ export function DetalheAparelhoModal({
 
   function invalidarTudo() {
     qc.invalidateQueries({ queryKey: ["aparelhos"] });
+    // Aparelhos vindos de Compra de Seminovos espelham lá (trigger no banco).
+    qc.invalidateQueries({ queryKey: ["seminovos"] });
     qc.invalidateQueries({ queryKey: ["aparelho-atual", aparelho?.id] });
     qc.invalidateQueries({ queryKey: ["aparelho-historico", aparelho?.id] });
     qc.invalidateQueries({ queryKey: ["aparelho-garantia", aparelho?.id] });
@@ -541,6 +544,23 @@ export function DetalheAparelhoModal({
                 </div>
               )}
             </div>
+
+            {aparelho.seminovo_id && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+                <div>
+                  <p className="font-semibold text-foreground">Veio da Compra de Seminovos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Custo, dados e status ficam sincronizados com a compra. Lance consertos e custos
+                    por lá.
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline" className="gap-2">
+                  <Link to="/seminovos" search={{ abrir: aparelho.seminovo_id }}>
+                    <ExternalLink className="h-4 w-4" /> Ver compra de origem
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             {venda?.vendas && (
               <div className="rounded-xl border border-border bg-card p-4 text-sm">

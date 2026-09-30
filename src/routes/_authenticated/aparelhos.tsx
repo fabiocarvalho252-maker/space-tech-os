@@ -3,9 +3,9 @@
 // seminovos.tsx/compras.tsx (createFileRoute + TanStack Query + tabela
 // crua + Dialogs do shadcn) — as partes pesadas (cadastro, venda, detalhe)
 // ficam em componentes próprios sob src/components/aparelhos/.
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   Package,
@@ -48,6 +48,12 @@ export const Route = createFileRoute("/_authenticated/aparelhos")({
       },
     ],
   }),
+  // ?abrir=<aparelho_id> abre o detalhe direto — usado pelo link "Ver no
+  // estoque" no detalhe de uma compra em Compra de Seminovos.
+  validateSearch: (search: Record<string, unknown>): { abrir?: string } => {
+    const abrir = search["abrir"];
+    return typeof abrir === "string" ? { abrir } : {};
+  },
   component: Aparelhos,
 });
 
@@ -111,6 +117,18 @@ function Aparelhos() {
   });
   const aparelhos = data?.aparelhos ?? APARELHOS_VAZIO;
   const podeVerCusto = data?.podeVerCusto ?? false;
+
+  const { abrir } = Route.useSearch();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!abrir || isLoading) return;
+    const alvo = aparelhos.find((a) => a.id === abrir);
+    if (alvo) {
+      setAparelhoDetalhe(alvo);
+      setModalDetalhe(true);
+    }
+    navigate({ to: "/aparelhos", search: {}, replace: true });
+  }, [abrir, isLoading, aparelhos, navigate]);
 
   const { data: garantias = [], isLoading: carregandoGarantias } = useQuery({
     queryKey: ["aparelho-garantias-lista"],
@@ -392,6 +410,11 @@ function Aparelhos() {
                         </td>
                         <td className="px-3 py-3">
                           {a.tipo === "lacrado" ? "Lacrado" : "Seminovo"}
+                          {a.seminovo_id && (
+                            <span className="block text-[11px] text-muted-foreground">
+                              via Compra de Seminovos
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-3 font-medium">
                           {a.marca} {a.modelo}

@@ -274,6 +274,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string
@@ -304,6 +305,7 @@ export type Database = {
           reservado_cliente_id?: string | null
           reservado_observacao?: string | null
           saude_bateria?: number | null
+          seminovo_id?: string | null
           sold_at?: string | null
           status?: string
           tipo: string
@@ -334,6 +336,7 @@ export type Database = {
           reservado_cliente_id?: string | null
           reservado_observacao?: string | null
           saude_bateria?: number | null
+          seminovo_id?: string | null
           sold_at?: string | null
           status?: string
           tipo?: string
@@ -347,6 +350,13 @@ export type Database = {
             columns: ["reservado_cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aparelhos_seminovo_id_fkey"
+            columns: ["seminovo_id"]
+            isOneToOne: true
+            referencedRelation: "seminovos"
             referencedColumns: ["id"]
           },
         ]
@@ -3527,6 +3537,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string
@@ -3566,6 +3577,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string
@@ -3633,6 +3645,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string
@@ -3766,6 +3779,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string
@@ -3814,6 +3828,7 @@ export type Database = {
           reservado_cliente_id: string | null
           reservado_observacao: string | null
           saude_bateria: number | null
+          seminovo_id: string | null
           sold_at: string | null
           status: string
           tipo: string

@@ -77,6 +77,8 @@ export function ConsertoCustosSection({
       toast.success("Custo removido");
       qc.invalidateQueries({ queryKey: ["seminovo-conserto-itens", seminovoId] });
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       qc.invalidateQueries({ queryKey: ["seminovo-atual", seminovoId] });
       qc.invalidateQueries({ queryKey: ["seminovo-historico", seminovoId] });
       setItemParaExcluir(null);

@@ -362,6 +362,8 @@ export function CadastroSeminovoModal({
     onSuccess: () => {
       toast.success(seminovo ? "Aparelho atualizado" : "Compra registrada");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),

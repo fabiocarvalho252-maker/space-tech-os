@@ -131,6 +131,8 @@ export function VenderAparelhoModal({
     onSuccess: (r) => {
       toast.success("Venda realizada com sucesso!");
       qc.invalidateQueries({ queryKey: ["aparelhos"] });
+      // Aparelhos vindos de Compra de Seminovos espelham lá (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["seminovos"] });
       qc.invalidateQueries({ queryKey: ["aparelho-historico"] });
       setResultado({ vendaId: r.vendaId, clienteNome: r.clienteNome });
     },

@@ -67,6 +67,8 @@ export function DevolverSeminovoDialog({
     onSuccess: () => {
       toast.success("Aparelho devolvido");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       setMotivo("");
       onOpenChange(false);
     },

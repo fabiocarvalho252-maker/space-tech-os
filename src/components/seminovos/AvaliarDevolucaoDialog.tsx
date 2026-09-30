@@ -118,6 +118,8 @@ export function AvaliarDevolucaoDialog({
         destino === "disponivel" ? "Aparelho disponível para venda novamente" : "Avaliação registrada",
       );
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       qc.invalidateQueries({ queryKey: ["seminovo-atual"] });
       qc.invalidateQueries({ queryKey: ["seminovo-historico"] });
       onOpenChange(false);

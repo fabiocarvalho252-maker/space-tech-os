@@ -4,7 +4,8 @@
 // DetalheAparelhoModal mas sem garantia/PDF (não pedidos para este módulo).
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, PenTool } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ExternalLink, Loader2, PenTool } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { dataBR, statusLabel } from "@/lib/format";
@@ -99,6 +100,24 @@ export function DetalheSeminovoModal({
     },
   });
 
+  // Espelho no estoque de Aparelhos (criado pelo trigger quando a compra
+  // fica "disponivel"). Chave sob ["aparelhos"] para ser recarregada junto
+  // com a lista de aparelhos. Sem permissão em Aparelhos a RLS devolve
+  // vazio e o bloco simplesmente não aparece.
+  const { data: aparelhoVinculado } = useQuery({
+    queryKey: ["aparelhos", "por-seminovo", seminovo?.id],
+    enabled: open && !!seminovo,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("aparelhos")
+        .select("id, numero, status")
+        .eq("seminovo_id", seminovo!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const remover = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("seminovos").delete().eq("id", seminovo!.id);
@@ -107,6 +126,8 @@ export function DetalheSeminovoModal({
     onSuccess: () => {
       toast.success("Registro removido");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       setConfirmExcluir(false);
       onOpenChange(false);
     },
@@ -309,6 +330,25 @@ export function DetalheSeminovoModal({
                 </p>
               </div>
             </div>
+
+            {aparelhoVinculado && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+                <div>
+                  <p className="font-semibold text-foreground">
+                    No estoque de Aparelhos — AP-{String(aparelhoVinculado.numero).padStart(6, "0")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Status lá: {statusLabel(aparelhoVinculado.status)}. Venda, devolução e preço
+                    ficam sincronizados entre as duas telas.
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline" className="gap-2">
+                  <Link to="/aparelhos" search={{ abrir: aparelhoVinculado.id }}>
+                    <ExternalLink className="h-4 w-4" /> Ver no estoque
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             <ConsertoCustosSection
               seminovoId={seminovo.id}

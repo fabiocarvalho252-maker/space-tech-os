@@ -6,9 +6,9 @@
 // arquivo fora daqui (e dos dois ajustes mínimos e necessários em
 // lib/format.ts e relatorios.tsx para não quebrar com o novo vocabulário de
 // status) foi tocado.
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Boxes,
@@ -56,6 +56,12 @@ export const Route = createFileRoute("/_authenticated/seminovos")({
       },
     ],
   }),
+  // ?abrir=<seminovo_id> abre o detalhe direto — usado pelo link "Ver compra
+  // de origem" no detalhe de um aparelho em Aparelhos.
+  validateSearch: (search: Record<string, unknown>): { abrir?: string } => {
+    const abrir = search["abrir"];
+    return typeof abrir === "string" ? { abrir } : {};
+  },
   component: Seminovos,
 });
 
@@ -153,6 +159,18 @@ function Seminovos() {
       return (data ?? []) as SeminovoRow[];
     },
   });
+
+  const { abrir } = Route.useSearch();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!abrir || isLoading) return;
+    const alvo = itens.find((i) => i.id === abrir);
+    if (alvo) {
+      setDetalheAtual(alvo);
+      setModalDetalhe(true);
+    }
+    navigate({ to: "/seminovos", search: {}, replace: true });
+  }, [abrir, isLoading, itens, navigate]);
 
   const marcas = useMemo(
     () => Array.from(new Set(itens.map((i) => i.marca).filter(Boolean))).sort(),
@@ -275,6 +293,8 @@ function Seminovos() {
     onSuccess: () => {
       toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       setStatusPendente(null);
     },
     onError: (e: Error) => toast.error(e.message),

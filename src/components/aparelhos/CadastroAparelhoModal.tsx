@@ -166,7 +166,10 @@ export function CadastroAparelhoModal({
         // envia esse campo no payload (fica escondido no formulário), então
         // uma edição feita por um atendente simplesmente não altera o custo
         // já existente.
-        ...(podeVerCusto ? { preco_custo: form.preco_custo } : {}),
+        // Vindo de Compra de Seminovos: o custo é sempre o total gasto lá
+        // (pago + conserto + outros) e o trigger o sobrescreveria, então não
+        // é enviado.
+        ...(podeVerCusto && !aparelho?.seminovo_id ? { preco_custo: form.preco_custo } : {}),
         preco_venda: form.preco_venda,
         observacoes: form.observacoes.trim() || null,
         checklist: form.tipo === "seminovo" ? form.checklist : {},
@@ -185,6 +188,8 @@ export function CadastroAparelhoModal({
     onSuccess: () => {
       toast.success(aparelho ? "Aparelho atualizado" : "Aparelho cadastrado");
       qc.invalidateQueries({ queryKey: ["aparelhos"] });
+      // Aparelhos vindos de Compra de Seminovos espelham lá (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["seminovos"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -370,7 +375,13 @@ export function CadastroAparelhoModal({
                 <MoneyInput
                   value={form.preco_custo}
                   onChange={(v) => setForm((f) => ({ ...f, preco_custo: v }))}
+                  disabled={!!aparelho?.seminovo_id}
                 />
+                {aparelho?.seminovo_id && (
+                  <p className="text-xs text-muted-foreground">
+                    Calculado pela Compra de Seminovos (pago + conserto + outros custos).
+                  </p>
+                )}
               </div>
             )}
             <div className="space-y-1.5">

@@ -126,6 +126,8 @@ export function VenderSeminovoModal({
     onSuccess: () => {
       toast.success("Venda realizada com sucesso!");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),

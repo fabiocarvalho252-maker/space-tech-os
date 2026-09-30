@@ -61,6 +61,8 @@ export function SubstituirAssinaturaModal({
     onSuccess: () => {
       toast.success(jaTemAssinatura ? "Assinatura substituída" : "Assinatura coletada");
       qc.invalidateQueries({ queryKey: ["seminovos"] });
+      // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
       qc.invalidateQueries({ queryKey: ["seminovo-atual", seminovoId] });
       qc.invalidateQueries({ queryKey: ["seminovo-historico", seminovoId] });
       onOpenChange(false);
