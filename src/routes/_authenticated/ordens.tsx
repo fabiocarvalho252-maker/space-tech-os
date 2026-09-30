@@ -944,7 +944,23 @@ function Ordens() {
         title="Ordens de serviço"
         subtitle="Do orçamento à entrega, com impressão profissional"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(v) => {
+              setOpen(v);
+              // "Nova OS" reutiliza o mesmo estado `form` da edição — sem
+              // isso, se o usuário abrir a edição de uma OS (ex.: da cliente
+              // Agda), cancelar sem salvar e então clicar em "Nova OS", os
+              // campos (incluindo Valor Total) vinham pré-preenchidos com os
+              // dados da última OS editada, criando uma OS nova com o valor
+              // de outro cliente.
+              if (v) {
+                setForm(vazio);
+                setNovoProduto(itemVazio);
+                setNovoServico(itemVazio);
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4" /> Nova OS
