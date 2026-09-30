@@ -44,6 +44,7 @@ export function DetalheSeminovoModal({
   onEditar,
   onVender,
   onDevolver,
+  onAvaliarRetorno,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +54,7 @@ export function DetalheSeminovoModal({
   onEditar: () => void;
   onVender: () => void;
   onDevolver: () => void;
+  onAvaliarRetorno: () => void;
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
@@ -167,6 +169,9 @@ export function DetalheSeminovoModal({
             {podeGerenciarModulo && (
               <div className="flex flex-wrap gap-2">
                 {seminovo.status === "disponivel" && <Button onClick={onVender}>Vender</Button>}
+                {seminovo.status === "devolvido" && (
+                  <Button onClick={onAvaliarRetorno}>Avaliar retorno</Button>
+                )}
                 <Button variant="outline" onClick={onEditar}>
                   Editar
                 </Button>

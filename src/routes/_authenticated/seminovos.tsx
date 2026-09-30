@@ -32,6 +32,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CadastroSeminovoModal } from "@/components/seminovos/CadastroSeminovoModal";
 import { VenderSeminovoModal } from "@/components/seminovos/VenderSeminovoModal";
 import { DevolverSeminovoDialog } from "@/components/seminovos/DevolverSeminovoDialog";
+import { AvaliarDevolucaoDialog } from "@/components/seminovos/AvaliarDevolucaoDialog";
 import { DetalheSeminovoModal } from "@/components/seminovos/DetalheSeminovoModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,8 @@ function Seminovos() {
   const [paraVender, setParaVender] = useState<SeminovoRow | null>(null);
   const [modalDevolucao, setModalDevolucao] = useState(false);
   const [paraDevolucao, setParaDevolucao] = useState<SeminovoRow | null>(null);
+  const [modalAvaliacao, setModalAvaliacao] = useState(false);
+  const [paraAvaliacao, setParaAvaliacao] = useState<SeminovoRow | null>(null);
   const [statusPendente, setStatusPendente] = useState<{
     item: SeminovoRow;
     status: string;
@@ -295,6 +298,12 @@ function Seminovos() {
     setParaDevolucao(s);
     setModalDetalhe(false);
     setModalDevolucao(true);
+  }
+
+  function abrirAvaliacao(s: SeminovoRow) {
+    setParaAvaliacao(s);
+    setModalDetalhe(false);
+    setModalAvaliacao(true);
   }
 
   const STATUS_RAPIDOS = STATUS_SEMINOVOS.filter(
@@ -568,6 +577,11 @@ function Seminovos() {
                             Vender
                           </Button>
                         )}
+                        {gerenciar && s.status === "devolvido" && (
+                          <Button size="sm" onClick={() => abrirAvaliacao(s)}>
+                            Avaliar retorno
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -659,6 +673,11 @@ function Seminovos() {
                       Vender
                     </Button>
                   )}
+                  {gerenciar && s.status === "devolvido" && (
+                    <Button size="sm" className="h-10 flex-1" onClick={() => abrirAvaliacao(s)}>
+                      Avaliar retorno
+                    </Button>
+                  )}
                 </div>
                 {gerenciar && s.status !== "vendido" && s.status !== "devolvido" && (
                   <div className="mt-2" onClick={(e) => e.stopPropagation()}>
@@ -737,6 +756,7 @@ function Seminovos() {
             onEditar={() => detalheAtual && abrirEdicao(detalheAtual)}
             onVender={() => detalheAtual && abrirVenda(detalheAtual)}
             onDevolver={() => detalheAtual && abrirDevolucao(detalheAtual)}
+            onAvaliarRetorno={() => detalheAtual && abrirAvaliacao(detalheAtual)}
           />
           <VenderSeminovoModal
             open={modalVenda}
@@ -748,6 +768,12 @@ function Seminovos() {
             open={modalDevolucao}
             onOpenChange={setModalDevolucao}
             seminovo={paraDevolucao}
+            empresaId={empresaId}
+          />
+          <AvaliarDevolucaoDialog
+            open={modalAvaliacao}
+            onOpenChange={setModalAvaliacao}
+            seminovo={paraAvaliacao}
             empresaId={empresaId}
           />
         </>
