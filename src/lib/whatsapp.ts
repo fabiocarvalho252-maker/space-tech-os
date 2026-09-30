@@ -1,8 +1,8 @@
-// Shared helpers for the WhatsApp modals (reconexão + envio de notificação).
-// There is no real WhatsApp session/QR backend in this project yet — see
-// WhatsAppConnectModal — so these helpers only cover what's genuinely usable
-// today: formatting/validating a BR phone number, building a wa.me link (the
-// same mechanism ordens.tsx already used before the modals existed), and
+// Shared, client-safe helpers for the WhatsApp UI (envio de notificação,
+// templates). The live session/QR backend is the Evolution API integration
+// under src/lib/whatsapp/ (server-only); this file only covers what runs in
+// the browser: formatting/validating a BR phone number, building a wa.me link
+// (the same mechanism ordens.tsx already used before the modals existed), and
 // substituting {variavel}/{{variavel}} placeholders in message templates.
 
 export function digitsOnlyBR(value: string): string {
@@ -94,25 +94,6 @@ export function preencherVariaveisWhatsApp(template: string, vars: VariaveisWhat
 
 export function possuiVariaveisNaoPreenchidas(texto: string): boolean {
   return /\{\{?\w+\}?\}/.test(texto);
-}
-
-export class WhatsAppNaoConfiguradoError extends Error {
-  constructor() {
-    super(
-      "Integração com um provedor de WhatsApp (Evolution API, Baileys, WPPConnect, Z-API, Twilio etc.) ainda não foi configurada para este projeto.",
-    );
-    this.name = "WhatsAppNaoConfiguradoError";
-  }
-}
-
-// Placeholder for the real WhatsApp session/QR provider. No provider is
-// wired up yet — see the research that went into WhatsAppConnectModal — so
-// this always rejects, letting the modal show an honest "não configurado"
-// state instead of a fake QR code. Swap the body for a real call (e.g. a
-// Supabase Edge Function that talks to a self-hosted Evolution API/Baileys
-// instance) once a provider is chosen; the modal itself won't need to change.
-export async function solicitarQrCodeWhatsApp(): Promise<{ qr: string }> {
-  throw new WhatsAppNaoConfiguradoError();
 }
 
 export type WhatsAppMessageTemplate = {

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { WhatsAppConnectModal } from "@/components/WhatsAppConnectModal";
+import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -81,7 +81,6 @@ function Configuracoes() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showToken, setShowToken] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [whatsappConnectOpen, setWhatsappConnectOpen] = useState(false);
 
   // States for forms
   const [mpForm, setMpForm] = useState({ access_token: "", public_key: "", webhook_secret: "" });
@@ -476,25 +475,19 @@ function Configuracoes() {
     enabled: !!user,
   });
 
-  const salvarWhatsapp = useMutation({
-    mutationFn: async (formData: any) => {
-      if (!user) return;
-      const { error } = await supabase.from("whatsapp_config" as any).upsert(
-        {
-          user_id: empresaId!,
-          ...formData,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Configurações de WhatsApp atualizadas!");
-      refetchWhatsapp();
-    },
-    onError: (e: Error) => toast.error("Erro ao salvar WhatsApp: " + e.message),
+  // Estado real da instância da Evolution API (a mesma que a tela WhatsApp usa).
+  // A conexão/QR Code fica só naquela tela; aqui é apenas leitura + atalho.
+  const whatsappConexaoQuery = useQuery({
+    queryKey: ["whatsapp-status"],
+    queryFn: () => statusWhatsapp(),
+    retry: false,
+    enabled: !!user,
   });
+  const whatsappNaoConfigurado =
+    whatsappConexaoQuery.error instanceof Error &&
+    /não foi configurada/i.test(whatsappConexaoQuery.error.message);
+  const whatsappStatus = whatsappConexaoQuery.data?.status ?? "desconectado";
+
 
   const { data: catalogoConfig, refetch: refetchCatalogo } = useQuery({
     queryKey: ["catalogo-config"],
@@ -2164,46 +2157,53 @@ function Configuracoes() {
                     Conexão da instância
                   </h3>
                   <div className="rounded-xl border border-border p-4 space-y-4 bg-muted/30">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs uppercase font-bold text-muted-foreground">
                           Status
                         </Label>
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2.5 w-2.5 rounded-full ${whatsappConfig?.status === "Conectado" ? "bg-success" : "bg-destructive"} animate-pulse`}
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              whatsappStatus === "conectado"
+                                ? "bg-success animate-pulse"
+                                : whatsappStatus === "conectando"
+                                  ? "bg-amber-500 animate-pulse"
+                                  : "bg-destructive"
+                            }`}
                           />
                           <span className="font-bold">
-                            {whatsappConfig?.status || "Desconectado"}
+                            {whatsappNaoConfigurado
+                              ? "Não configurado no servidor"
+                              : whatsappStatus === "conectado"
+                                ? "Conectado"
+                                : whatsappStatus === "conectando"
+                                  ? "Conectando…"
+                                  : whatsappStatus === "erro"
+                                    ? "Erro na conexão"
+                                    : "Desconectado"}
                           </span>
                         </div>
+                        {whatsappConexaoQuery.data?.status === "conectado" &&
+                          whatsappConexaoQuery.data?.phone_number && (
+                            <p className="text-xs text-muted-foreground">
+                              Número: <strong>{whatsappConexaoQuery.data.phone_number}</strong>
+                            </p>
+                          )}
                       </div>
-                      <div className="flex gap-2">
-                        {whatsappConfig?.status === "Conectado" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={salvarWhatsapp.isPending}
-                            onClick={() =>
-                              salvarWhatsapp.mutate({ status: "Desconectado", instancia_id: null })
-                            }
-                          >
-                            Desconectar
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 gap-2"
-                          onClick={() => setWhatsappConnectOpen(true)}
-                        >
+                      <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 gap-2">
+                        <Link to="/whatsapp">
                           <QrCode className="h-4 w-4" />
-                          Conectar / nova instância
-                        </Button>
-                      </div>
+                          {whatsappStatus === "conectado"
+                            ? "Gerenciar conexão"
+                            : "Conectar via QR Code"}
+                        </Link>
+                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Vincule o número da empresa para enviar notificações automáticas. Use os
-                      botões ao lado para conectar via QR Code ou desconectar a instância atual.
+                      A conexão do número da empresa (leitura do QR Code, troca de número e
+                      desconexão) é feita na tela <strong>WhatsApp</strong> do menu lateral. Os
+                      ajustes de mensagens automáticas abaixo continuam sendo salvos aqui.
                     </p>
                   </div>
                 </div>
@@ -2703,8 +2703,6 @@ function Configuracoes() {
             </TabsContent>
           ))}
       </Tabs>
-
-      <WhatsAppConnectModal open={whatsappConnectOpen} onOpenChange={setWhatsappConnectOpen} />
     </div>
   );
 }
