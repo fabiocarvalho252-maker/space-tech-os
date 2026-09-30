@@ -1,12 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { differenceInCalendarDays } from "date-fns";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { enviarEmail } from "@/lib/email";
+import { prazoAcesso } from "@/lib/acesso";
 
-// Kept in sync with DIAS_TESTE / AVISAR_A_PARTIR_DE in src/hooks/useCurrentUser.ts
-// and src/components/TrialBanner.tsx — duplicated rather than imported because
-// those are client hook modules and this runs server-only.
-const DIAS_TESTE = 7;
+// Kept in sync with AVISAR_A_PARTIR_DE in src/components/TrialBanner.tsx.
+// O prazo do teste vem de lib/acesso.ts (sem dependência de cliente).
 const AVISAR_A_PARTIR_DE = 3;
 
 /**
@@ -35,8 +33,9 @@ export const avisarTrialPorEmail = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!profile?.created_at || profile.trial_aviso_enviado_em) return { enviado: false };
 
-    const diasDecorridos = differenceInCalendarDays(new Date(), new Date(profile.created_at));
-    const diasRestantes = DIAS_TESTE - diasDecorridos;
+    const prazo = prazoAcesso({ plano: "trial", acessoAte: null, criadoEm: profile.created_at });
+    if (prazo.tipo !== "teste") return { enviado: false };
+    const { diasRestantes } = prazo;
     if (diasRestantes > AVISAR_A_PARTIR_DE) return { enviado: false };
 
     const { data: userData, error: userError } =
@@ -44,7 +43,7 @@ export const avisarTrialPorEmail = createServerFn({ method: "POST" })
     const email = userData?.user?.email;
     if (userError || !email) return { enviado: false };
 
-    const expirado = diasRestantes < 0;
+    const expirado = prazo.expirado;
     const mensagem = expirado
       ? "Seu período de teste grátis do SpaceTech expirou. Fale com a gente para continuar usando o sistema."
       : `Seu período de teste grátis do SpaceTech termina em ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}. Ative um plano para não perder o acesso.`;

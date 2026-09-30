@@ -1,7 +1,7 @@
 // Prazo de acesso de uma empresa (plano + acesso_ate + data de cadastro).
 // Usado pelo bloqueio em routes/_authenticated/route.tsx, pelo aviso de dias
 // restantes do próprio cliente (useStatusTrial) e pelo painel /admin — um só
-// lugar para as três telas nunca discordarem.
+// lugar para as três telas (e o e-mail de aviso do teste) nunca discordarem.
 import { differenceInCalendarDays } from "date-fns";
 
 export const DIAS_TESTE = 7;
@@ -49,17 +49,16 @@ export function prazoAcesso(
     return { tipo: "pago", fim, diasRestantes, expirado: diasRestantes < 0 };
   }
 
-  // Teste grátis: bloqueia quando passam mais de DIAS_TESTE dias completos
-  // desde o cadastro — mesma regra que o bloqueio sempre usou.
+  // Teste grátis: exatamente DIAS_TESTE × 24h a partir do cadastro.
   if (!e.criadoEm) {
     return {
       tipo: "teste",
-      fim: new Date(agora.getTime() + (DIAS_TESTE + 1) * DIA_MS),
+      fim: new Date(agora.getTime() + DIAS_TESTE * DIA_MS),
       diasRestantes: DIAS_TESTE,
       expirado: false,
     };
   }
-  const fim = new Date(new Date(e.criadoEm).getTime() + (DIAS_TESTE + 1) * DIA_MS);
+  const fim = new Date(new Date(e.criadoEm).getTime() + DIAS_TESTE * DIA_MS);
   const expirado = agora >= fim;
   // Com expirado, 0 = "Venceu hoje" (ver textoPrazo).
   const diasRestantes = differenceInCalendarDays(new Date(fim.getTime() - 1), agora);
