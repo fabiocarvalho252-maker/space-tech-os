@@ -1,13 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Check, Clock, Copy, Gift, Send, Users, UserCheck } from "lucide-react";
+import {
+  BadgePercent,
+  Check,
+  Clock,
+  Copy,
+  Gift,
+  Send,
+  Users,
+  UserCheck,
+  Wallet,
+} from "lucide-react";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
 import { Button } from "@/components/ui/button";
 import { useEmpresaId } from "@/hooks/useCurrentUser";
 import { supabase } from "@/integrations/supabase/client";
-import { meuPerfilIndicacaoFn } from "@/lib/referrals/referral.functions";
+import { meuDescontoIndicacaoFn, meuPerfilIndicacaoFn } from "@/lib/referrals/referral.functions";
+import { brl, dataBR } from "@/lib/format";
 import { getReferralLink } from "@/lib/referrals/link";
 
 export const Route = createFileRoute("/_authenticated/indicacoes")({
@@ -30,6 +41,11 @@ function Indicacoes() {
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["meu-perfil-indicacao"],
     queryFn: () => meuPerfilIndicacaoFn(),
+  });
+
+  const { data: recompensa } = useQuery({
+    queryKey: ["meu-desconto-indicacao"],
+    queryFn: () => meuDescontoIndicacaoFn(),
   });
 
   const { data: referrals = [] } = useQuery({
@@ -101,6 +117,72 @@ function Indicacoes() {
             <StatTile icon={UserCheck} label="Convertidas" valor={convertidas} />
             <StatTile icon={Clock} label="Pendentes" valor={pendentes} />
           </div>
+
+          {recompensa && (
+            <SectionCard
+              title="Sua recompensa"
+              subtitle={
+                recompensa.valorPorIndicacao
+                  ? `${brl(recompensa.valorPorIndicacao)} de desconto na sua próxima mensalidade para cada assistência indicada que assinar.`
+                  : "Desconto na sua próxima mensalidade para cada assistência indicada que assinar."
+              }
+              icon={BadgePercent}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                  <p className="text-xs text-muted-foreground">Desconto disponível</p>
+                  <p className="mt-1 text-2xl font-extrabold text-primary">
+                    {brl(recompensa.disponivel)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {recompensa.creditos
+                      ? "Vale para a sua próxima mensalidade (até o valor dela — o que sobrar fica para o mês seguinte)."
+                      : "Indique assistências: quando uma delas assinar, o desconto aparece aqui."}
+                  </p>
+                </div>
+                {recompensa.bonificacoes.length > 0 && (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Wallet className="h-3.5 w-3.5" /> Bonificações recebidas em Pix
+                    </p>
+                    <p className="mt-1 text-2xl font-extrabold text-emerald-600">
+                      {brl(recompensa.bonificacoes.reduce((s, b) => s + b.valor, 0))}
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {recompensa.bonificacoes.map((b, i) => (
+                        <li key={i}>
+                          {brl(b.valor)} {b.pagoEm ? `em ${dataBR(b.pagoEm)}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {recompensa.historico.length > 0 && (
+                <ul className="mt-4 divide-y divide-border rounded-xl border border-border text-sm">
+                  {recompensa.historico.map((h, i) => (
+                    <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                      <span>
+                        {h.status === "used" ? "Desconto usado" : "Desconto ganho"}
+                        <span className="block text-xs text-muted-foreground">
+                          {dataBR(h.data)}
+                        </span>
+                      </span>
+                      <span
+                        className={
+                          h.status === "used"
+                            ? "text-muted-foreground line-through"
+                            : "font-semibold text-primary"
+                        }
+                      >
+                        {brl(h.valor)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          )}
 
           <SectionCard title="Seu link de indicação" icon={Gift}>
             <div className="space-y-4">

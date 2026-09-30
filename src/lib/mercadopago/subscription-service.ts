@@ -9,7 +9,9 @@ import type { Json } from "@/integrations/supabase/types";
 import { MercadoPagoProvider, type PaymentGateway } from "./payment-gateway";
 import { comTaxaRepassada } from "./fees";
 import {
+  aplicarDescontoIndicacao,
   marcarReferralComoPendente,
+  previaDescontoIndicacao,
   processarComissaoIndicacao,
 } from "@/lib/referrals/commission-service";
 import {
@@ -103,7 +105,21 @@ export async function iniciarAssinatura(
   // Referência externa única por tentativa de cobrança — nunca reaproveita
   // o id interno "cru" como se fosse suficiente sozinho (ver Fase 40).
   const externalReference = `ST-${input.empresaId}-${subscription.id}-${randomUUID()}`;
-  const valorCobrado = comTaxaRepassada(preco, input.paymentMethod);
+  // Desconto de indicação (R$ 10 por indicação convertida) só vale para a
+  // próxima mensalidade paga em Pix — o cartão é uma assinatura recorrente
+  // de valor fixo no Mercado Pago, não dá para descontar um mês só. Sempre
+  // sobra ao menos R$ 1 para cobrar; os créditos são consumidos só quando o
+  // pagamento é confirmado (ativarAssinatura).
+  const descontoIndicacao =
+    input.billingCycle === "monthly" && input.paymentMethod === "pix"
+      ? await previaDescontoIndicacao(input.empresaId, preco - 1)
+      : 0;
+  if (descontoIndicacao > 0) {
+    await registrarEvento(subscription.id, "REFERRAL_DISCOUNT_RESERVED", {
+      valor: descontoIndicacao,
+    });
+  }
+  const valorCobrado = comTaxaRepassada(preco - descontoIndicacao, input.paymentMethod);
 
   if (input.paymentMethod === "credit_card") {
     const resultado = await gateway.createCardSubscription({
@@ -173,6 +189,27 @@ async function ativarAssinatura(subscriptionId: string, planId: string, empresaI
   await supabaseAdmin.from("profiles").update({ plan_id: planId }).eq("id", empresaId);
   await registrarEvento(subscriptionId, "SUBSCRIPTION_ACTIVATED");
   await processarComissaoIndicacao(subscriptionId, planId, empresaId);
+
+  // Consome os créditos de desconto de indicação reservados na cobrança.
+  const { data: reserva } = await supabaseAdmin
+    .from("subscription_events")
+    .select("payload")
+    .eq("subscription_id", subscriptionId)
+    .eq("type", "REFERRAL_DISCOUNT_RESERVED")
+    .maybeSingle();
+  const valorReservado = Number((reserva?.payload as { valor?: number } | null)?.valor ?? 0);
+  const nota = `Mensalidade Pix — assinatura ${subscriptionId}`;
+  const { count: jaAplicado } = await supabaseAdmin
+    .from("referral_commissions")
+    .select("id", { count: "exact", head: true })
+    .eq("used_note", nota);
+  if (valorReservado > 0 && !jaAplicado) {
+    try {
+      await aplicarDescontoIndicacao(empresaId, valorReservado, nota);
+    } catch (erro) {
+      console.error("[Referrals] Falha ao consumir desconto de indicação:", erro);
+    }
+  }
 }
 
 /** Re-consulta o Mercado Pago pelo preapproval id — nunca confia no status

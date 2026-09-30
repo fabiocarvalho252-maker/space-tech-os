@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
+import { IndicadoresCard } from "@/components/admin/IndicadoresCard";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
@@ -70,7 +71,7 @@ import {
   prazoAcesso,
   textoPrazo,
 } from "@/lib/acesso";
-import { dataBR } from "@/lib/format";
+import { brl, dataBR } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
 import {
@@ -79,6 +80,7 @@ import {
   alterarPlanoEmpresa,
   atualizarPlano,
   atualizarPlanoEmpresa,
+  obterDescontoIndicacaoEmpresa,
   atualizarPlanoFeature,
   conectarWhatsappSistema,
   desconectarWhatsappSistema,
@@ -391,6 +393,8 @@ function AdminDoSite() {
       <PlanosCard souAdmin={souAdmin} />
 
       <ReferralProgramCard souAdmin={souAdmin} />
+
+      <IndicadoresCard souAdmin={souAdmin} />
 
       <IndicacoesCard souAdmin={souAdmin} />
 
@@ -1096,8 +1100,8 @@ function PlanosCard({ souAdmin }: { souAdmin: boolean }) {
 
 const TIPO_COMISSAO_LABEL: Record<string, string> = {
   none: "Não definido",
-  FIXED: "Valor fixo",
-  PERCENTAGE: "Percentual",
+  FIXED: "Valor fixo (R$)",
+  PERCENTAGE: "Percentual da mensalidade",
   PER_PLAN: "Por plano",
 };
 
@@ -1251,7 +1255,7 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
   return (
     <SectionCard
       title="Programa de Indicações"
-      subtitle="Comissão, prazo e mínimo de saque — em branco/desligado = ainda não configurado, nunca um valor inventado."
+      subtitle="Recompensa de quem indica: desconto na próxima mensalidade por indicação que assina."
       icon={Gift}
       className="mb-6"
     >
@@ -1263,7 +1267,7 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
             <div>
               <p className="font-bold">Programa ativo</p>
               <p className="text-xs text-muted-foreground">
-                Desligado: nenhuma indicação nova é convertida em comissão.
+                Desligado: nenhuma indicação nova gera desconto.
               </p>
             </div>
             <Switch
@@ -1281,7 +1285,7 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
               />
             </div>
             <div>
-              <Label className="text-xs">Modelo de comissão</Label>
+              <Label className="text-xs">Tipo do desconto</Label>
               <Select
                 value={valor("commissionType")}
                 onValueChange={(v) => setForm((s) => ({ ...s, commissionType: v }))}
@@ -1313,7 +1317,8 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label className="text-xs">
-                  Comissão {valor("commissionType") === "PERCENTAGE" ? "(%)" : "(R$)"}
+                  Desconto na próxima mensalidade{" "}
+                  {valor("commissionType") === "PERCENTAGE" ? "(%)" : "(R$)"}
                 </Label>
                 <Input
                   value={valor("commissionValue")}
@@ -1324,47 +1329,10 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label className="text-xs">Prazo de liberação (dias)</Label>
-              <Input
-                value={valor("pendingDays")}
-                placeholder="A definir"
-                onChange={(e) => setForm((s) => ({ ...s, pendingDays: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Mínimo para saque (R$)</Label>
-              <Input
-                value={valor("minimumWithdrawal")}
-                placeholder="A definir"
-                onChange={(e) => setForm((s) => ({ ...s, minimumWithdrawal: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex items-center justify-between rounded-xl border border-border p-3">
-              <div>
-                <p className="text-sm font-semibold">Comissão recorrente</p>
-                <p className="text-xs text-muted-foreground">Gera em cobranças futuras também.</p>
-              </div>
-              <Switch
-                checked={valor("recurringCommission")}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, recurringCommission: v }))}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-border p-3">
-              <div>
-                <p className="text-sm font-semibold">Somente primeira cobrança</p>
-                <p className="text-xs text-muted-foreground">Ignora renovações do indicado.</p>
-              </div>
-              <Switch
-                checked={valor("firstPaymentOnly")}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, firstPaymentOnly: v }))}
-              />
-            </div>
-          </div>
+          {/* Prazo de liberação, mínimo de saque e comissão recorrente não
+              se aplicam mais: a recompensa é um desconto único na próxima
+              mensalidade por indicação que assina (bonificações extras em
+              Pix são registradas em "Quem mais indica"). */}
 
           <div>
             <Label className="text-xs">Mensagem de compartilhamento (WhatsApp)</Label>
@@ -1659,14 +1627,35 @@ function EmpresaDetalheDialog({
     setNovoEmail(empresa.email ?? "");
   }
 
+  // Desconto de indicação (R$ 10 por indicação convertida) que esta
+  // empresa tem para abater na próxima mensalidade.
+  const [usarDesconto, setUsarDesconto] = useState(true);
+  const { data: descontoIndicacao } = useQuery({
+    queryKey: ["site-admin-desconto-indicacao", empresa?.id],
+    queryFn: () => obterDescontoIndicacaoEmpresa({ data: { empresaId: empresa!.id } }),
+    enabled: open && !!empresa,
+  });
+  const aplicaDesconto = plano === "mensal" && usarDesconto && (descontoIndicacao?.previa ?? 0) > 0;
+
   const salvarPlano = useMutation({
     mutationFn: () =>
       atualizarPlanoEmpresa({
-        data: { empresaId: empresa!.id, plano: plano as any, acessoAte: acessoAte || null },
+        data: {
+          empresaId: empresa!.id,
+          plano: plano as (typeof PLANOS)[number]["value"],
+          acessoAte: acessoAte || null,
+          usarDescontoIndicacao: aplicaDesconto,
+        },
       }),
-    onSuccess: () => {
-      toast.success("Plano atualizado.");
+    onSuccess: (res) => {
+      toast.success(
+        res.descontoIndicacao > 0
+          ? `Plano atualizado. Desconto de indicação usado: ${brl(res.descontoIndicacao)}.`
+          : "Plano atualizado.",
+      );
       qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
+      qc.invalidateQueries({ queryKey: ["site-admin-desconto-indicacao"] });
+      qc.invalidateQueries({ queryKey: ["site-admin-indicadores"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1825,6 +1814,39 @@ function EmpresaDetalheDialog({
               Segue a regra padrão: {DIAS_TESTE} dias a partir do cadastro (
               {dataBR(empresa.criadoEm)}).
             </p>
+          )}
+
+          {plano === "mensal" && descontoIndicacao && descontoIndicacao.disponivel > 0 && (
+            <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+              <p className="font-semibold text-foreground">
+                Desconto de indicação disponível: {brl(descontoIndicacao.disponivel)} (
+                {descontoIndicacao.creditos} indicaç
+                {descontoIndicacao.creditos === 1 ? "ão" : "ões"})
+              </p>
+              {descontoIndicacao.previa > 0 && descontoIndicacao.mensalidade ? (
+                <>
+                  <label className="flex items-center gap-2">
+                    <Switch checked={usarDesconto} onCheckedChange={setUsarDesconto} />
+                    Usar nesta renovação
+                  </label>
+                  {usarDesconto && (
+                    <p className="text-muted-foreground">
+                      Cobrar do cliente{" "}
+                      <strong className="text-foreground">
+                        {brl(descontoIndicacao.mensalidade - descontoIndicacao.previa)}
+                      </strong>{" "}
+                      em vez de {brl(descontoIndicacao.mensalidade)}.
+                      {descontoIndicacao.disponivel > descontoIndicacao.previa &&
+                        ` O restante (${brl(descontoIndicacao.disponivel - descontoIndicacao.previa)}) fica para o mês seguinte.`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  O preço mensal do plano não está configurado — o desconto não pode ser aplicado.
+                </p>
+              )}
+            </div>
           )}
 
           <Button

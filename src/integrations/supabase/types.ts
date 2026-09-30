@@ -1916,6 +1916,8 @@ export type Database = {
           subscription_id: string | null
           subscription_payment_id: string | null
           updated_at: string
+          used_at: string | null
+          used_note: string | null
         }
         Insert: {
           amount: number
@@ -1933,6 +1935,8 @@ export type Database = {
           subscription_id?: string | null
           subscription_payment_id?: string | null
           updated_at?: string
+          used_at?: string | null
+          used_note?: string | null
         }
         Update: {
           amount?: number
@@ -1950,6 +1954,8 @@ export type Database = {
           subscription_id?: string | null
           subscription_payment_id?: string | null
           updated_at?: string
+          used_at?: string | null
+          used_note?: string | null
         }
         Relationships: [
           {

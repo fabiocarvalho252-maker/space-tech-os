@@ -206,16 +206,19 @@ export const listarIndicacoesFn = createServerFn({ method: "GET" })
     ) as string[];
     const referralIds = referrals.map((r) => r.id);
 
-    const [{ data: perfis, error: perfisErro }, { data: usersPage, error: usersErro }, { data: comissoes, error: comissoesErro }] =
-      await Promise.all([
-        supabaseAdmin.from("profiles").select("id, nome, loja").in("id", empresaIds),
-        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-        supabaseAdmin
-          .from("referral_commissions")
-          .select("referral_id, amount")
-          .in("referral_id", referralIds)
-          .not("status", "in", "(rejected,canceled)"),
-      ]);
+    const [
+      { data: perfis, error: perfisErro },
+      { data: usersPage, error: usersErro },
+      { data: comissoes, error: comissoesErro },
+    ] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, nome, loja").in("id", empresaIds),
+      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+      supabaseAdmin
+        .from("referral_commissions")
+        .select("referral_id, amount")
+        .in("referral_id", referralIds)
+        .not("status", "in", "(rejected,canceled)"),
+    ]);
     if (perfisErro) throw perfisErro;
     if (usersErro) throw usersErro;
     if (comissoesErro) throw comissoesErro;
@@ -248,4 +251,125 @@ export const listarIndicacoesFn = createServerFn({ method: "GET" })
         comissaoTotal: comissaoPorReferral.get(r.id) ?? 0,
       })),
     };
+  });
+
+export type Indicador = {
+  empresaId: string;
+  nome: string | null;
+  loja: string | null;
+  email: string | null;
+  referralCode: string;
+  totalIndicacoes: number;
+  convertidas: number;
+  descontoDisponivel: number;
+  descontoUsado: number;
+  bonificacoesPix: { id: string; valor: number; pagoEm: string | null; nota: string | null }[];
+};
+
+// Quem indica: quantas empresas trouxe, quantas viraram pagantes, quanto
+// desconto de mensalidade tem para usar/já usou e as bonificações em Pix
+// já registradas — base para o admin decidir quem merece uma bonificação.
+export const listarIndicadoresFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Indicador[]> => {
+    checarSiteAdmin(context.claims);
+
+    const { data: referrals, error } = await supabaseAdmin
+      .from("referrals")
+      .select("referrer_empresa_id, referral_code, status");
+    if (error) throw error;
+    if (!referrals?.length) return [];
+
+    const ids = Array.from(new Set(referrals.map((r) => r.referrer_empresa_id)));
+    const [perfis, usuarios, comissoes, bonus] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, nome, loja").in("id", ids),
+      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+      supabaseAdmin
+        .from("referral_commissions")
+        .select("referrer_empresa_id, amount, status")
+        .in("referrer_empresa_id", ids)
+        .in("status", ["available", "used"]),
+      supabaseAdmin
+        .from("referral_withdrawals")
+        .select("id, referrer_empresa_id, amount, paid_at, notes")
+        .in("referrer_empresa_id", ids)
+        .eq("status", "paid")
+        .order("paid_at", { ascending: false }),
+    ]);
+    for (const r of [perfis, usuarios, comissoes, bonus]) if (r.error) throw r.error;
+
+    const perfilPorId = new Map((perfis.data ?? []).map((p) => [p.id, p]));
+    const emailPorId = new Map((usuarios.data?.users ?? []).map((u) => [u.id, u.email ?? null]));
+
+    const lista = ids.map((id): Indicador => {
+      const minhas = referrals.filter((r) => r.referrer_empresa_id === id);
+      const minhasComissoes = (comissoes.data ?? []).filter((c) => c.referrer_empresa_id === id);
+      const soma = (status: string) =>
+        Math.round(
+          minhasComissoes
+            .filter((c) => c.status === status)
+            .reduce((s, c) => s + Number(c.amount), 0) * 100,
+        ) / 100;
+      return {
+        empresaId: id,
+        nome: perfilPorId.get(id)?.nome ?? null,
+        loja: perfilPorId.get(id)?.loja ?? null,
+        email: emailPorId.get(id) ?? null,
+        referralCode: minhas[0]?.referral_code ?? "",
+        totalIndicacoes: minhas.length,
+        convertidas: minhas.filter((r) => r.status === "converted").length,
+        descontoDisponivel: soma("available"),
+        descontoUsado: soma("used"),
+        bonificacoesPix: (bonus.data ?? [])
+          .filter((b) => b.referrer_empresa_id === id)
+          .map((b) => ({ id: b.id, valor: Number(b.amount), pagoEm: b.paid_at, nota: b.notes })),
+      };
+    });
+    return lista.sort(
+      (a, b) => b.convertidas - a.convertidas || b.totalIndicacoes - a.totalIndicacoes,
+    );
+  });
+
+const bonificacaoSchema = z.object({
+  empresaId: z.string().uuid(),
+  valor: z.number().positive().max(100000),
+  chavePix: z.string().trim().max(140).optional(),
+  nota: z.string().trim().max(500).optional(),
+});
+
+// Registra uma bonificação em Pix que o admin já pagou (pelo banco, fora do
+// sistema) a quem indica muitas empresas. Fica em referral_withdrawals
+// (payment_method = 'pix', status 'paid') e aparece para a empresa em
+// /indicacoes.
+export const registrarBonificacaoPixFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => bonificacaoSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    checarSiteAdmin(context.claims);
+    const agora = new Date().toISOString();
+    const { data: bonus, error } = await supabaseAdmin
+      .from("referral_withdrawals")
+      .insert({
+        referrer_empresa_id: data.empresaId,
+        amount: Math.round(data.valor * 100) / 100,
+        status: "paid",
+        payment_method: "pix",
+        pix_key: data.chavePix || null,
+        notes: data.nota
+          ? `Bonificação por indicações — ${data.nota}`
+          : "Bonificação por indicações",
+        requested_at: agora,
+        approved_at: agora,
+        paid_at: agora,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await supabaseAdmin.from("referral_events").insert({
+      type: "BONUS_PIX_PAID",
+      withdrawal_id: bonus.id,
+      actor_empresa_id: data.empresaId,
+      payload: { valor: data.valor },
+    });
+    return { ok: true };
   });

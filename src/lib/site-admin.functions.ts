@@ -125,12 +125,15 @@ const planoSchema = z.object({
   empresaId: z.string().uuid(),
   plano: z.enum(["trial", "mensal", "anual", "vitalicio", "suspenso"]),
   acessoAte: z.string().nullable(),
+  // Renovação mensal: descontar os créditos de indicação disponíveis
+  // (R$ 10 por indicação convertida) desta mensalidade.
+  usarDescontoIndicacao: z.boolean().optional(),
 });
 
 export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => planoSchema.parse(data))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<{ descontoIndicacao: number }> => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -162,6 +165,50 @@ export const atualizarPlanoEmpresa = createServerFn({ method: "POST" })
       })
       .eq("id", data.empresaId);
     if (error) throw error;
+
+    const indicacoes = await import("@/lib/referrals/commission-service");
+    // Empresa virou pagante: se ela foi indicada, quem indicou ganha o
+    // crédito de desconto (só na primeira ativação paga).
+    if (data.plano === "mensal" || data.plano === "anual" || data.plano === "vitalicio") {
+      await indicacoes.processarIndicacaoAtivacaoManual(data.empresaId, data.plano);
+    }
+
+    let descontoIndicacao = 0;
+    if (data.plano === "mensal" && data.usarDescontoIndicacao) {
+      const mensalidade = await indicacoes.mensalidadeDaEmpresa(data.empresaId);
+      if (mensalidade) {
+        descontoIndicacao = await indicacoes.aplicarDescontoIndicacao(
+          data.empresaId,
+          mensalidade,
+          `Renovação mensal pelo admin${data.acessoAte ? ` (acesso até ${data.acessoAte})` : ""}`,
+        );
+      }
+    }
+    return { descontoIndicacao };
+  });
+
+export type DescontoIndicacaoEmpresa = {
+  disponivel: number;
+  creditos: number;
+  mensalidade: number | null;
+  /** Quanto seria descontado agora numa renovação mensal. */
+  previa: number;
+};
+
+export const obterDescontoIndicacaoEmpresa = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }): Promise<DescontoIndicacaoEmpresa> => {
+    checarSiteAdmin(context.claims);
+    const indicacoes = await import("@/lib/referrals/commission-service");
+    const [saldo, mensalidade] = await Promise.all([
+      indicacoes.saldoDescontoIndicacao(data.empresaId),
+      indicacoes.mensalidadeDaEmpresa(data.empresaId),
+    ]);
+    const previa = mensalidade
+      ? await indicacoes.previaDescontoIndicacao(data.empresaId, mensalidade)
+      : 0;
+    return { ...saldo, mensalidade, previa };
   });
 
 const creditosIASchema = z.object({

@@ -170,8 +170,12 @@ export async function processarComissaoIndicacao(
           plan_id: planId,
           commission_type: calculo.type,
           amount: calculo.amount,
-          status: "pending",
-          description: `Assinatura confirmada — plano ${planId}`,
+          // Recompensa = desconto na próxima mensalidade de quem indicou
+          // (ver aplicarDescontoIndicacao) — já nasce disponível, pois só
+          // é criada depois de um pagamento confirmado.
+          status: "available",
+          available_at: new Date().toISOString(),
+          description: "Desconto na próxima mensalidade — indicação convertida",
         })
         .select("id")
         .single();
@@ -218,4 +222,180 @@ export async function cancelarComissaoPorAssinatura(subscriptionId: string): Pro
     .update({ status: "canceled", canceled_at: new Date().toISOString() })
     .eq("id", comissao.id);
   await registrarEvento("COMMISSION_CANCELED", { commissionId: comissao.id });
+}
+
+/** Ativação manual pelo administrador do site (/admin → plano pago), que é
+ * como as empresas viram clientes pagantes hoje — sem passar pelo Mercado
+ * Pago, processarComissaoIndicacao nunca rodaria e quem indicou nunca
+ * ganharia o desconto. Mesma regra (calcularComissaoIndicacao), sem
+ * assinatura vinculada. Só a primeira ativação paga conta (a indicação
+ * vira "converted"). Nunca lança. */
+export async function processarIndicacaoAtivacaoManual(
+  referredEmpresaId: string,
+  plano: "mensal" | "anual" | "vitalicio",
+): Promise<void> {
+  try {
+    const { data: referral } = await supabaseAdmin
+      .from("referrals")
+      .select("id, status, referrer_empresa_id")
+      .eq("referred_empresa_id", referredEmpresaId)
+      .maybeSingle();
+    if (!referral || referral.status === "converted" || referral.status === "canceled") return;
+
+    const planoInfo = await planoDaEmpresa(referredEmpresaId);
+    const [{ data: program }, { data: planRule }] = await Promise.all([
+      supabaseAdmin
+        .from("referral_program_config")
+        .select("active, commission_type, commission_value")
+        .limit(1)
+        .maybeSingle(),
+      planoInfo
+        ? supabaseAdmin
+            .from("referral_plan_rules")
+            .select("commission_type, commission_value, active")
+            .eq("plan_id", planoInfo.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    if (!program) return;
+
+    const calculo = calcularComissaoIndicacao({
+      program,
+      planRule: planRule ?? null,
+      plano: planoInfo ?? { monthly_price: null, annual_price: null },
+      billingCycle: plano === "anual" ? "yearly" : "monthly",
+    });
+
+    // Marca como convertida antes de creditar: se duas ativações chegarem
+    // juntas, só a que virar o status gera o crédito.
+    const { data: virou } = await supabaseAdmin
+      .from("referrals")
+      .update({ status: "converted", converted_at: new Date().toISOString() })
+      .eq("id", referral.id)
+      .neq("status", "converted")
+      .select("id");
+    if (!virou?.length) return;
+    await registrarEvento("REFERRAL_CONVERTED", {
+      referralId: referral.id,
+      payload: { comissaoGerada: !!calculo, origem: "ativacao_manual" },
+    });
+
+    if (!calculo) return;
+    const { data: comissao, error } = await supabaseAdmin
+      .from("referral_commissions")
+      .insert({
+        referral_id: referral.id,
+        referrer_empresa_id: referral.referrer_empresa_id,
+        plan_id: planoInfo?.id ?? null,
+        commission_type: calculo.type,
+        amount: calculo.amount,
+        status: "available",
+        available_at: new Date().toISOString(),
+        description: "Desconto na próxima mensalidade — indicação convertida",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await registrarEvento("COMMISSION_CREATED", {
+      referralId: referral.id,
+      commissionId: comissao.id,
+    });
+  } catch (erro) {
+    console.error("[Referrals] Falha ao processar indicação (ativação manual):", erro);
+  }
+}
+
+async function planoDaEmpresa(
+  empresaId: string,
+): Promise<{ id: string; monthly_price: number | null; annual_price: number | null } | null> {
+  const { data: perfil } = await supabaseAdmin
+    .from("profiles")
+    .select("plan_id")
+    .eq("id", empresaId)
+    .maybeSingle();
+  const query = supabaseAdmin.from("plans").select("id, monthly_price, annual_price");
+  const { data } = perfil?.plan_id
+    ? await query.eq("id", perfil.plan_id).maybeSingle()
+    : await query.eq("slug", "basico").maybeSingle();
+  return data ?? null;
+}
+
+/** Mensalidade (preço mensal do plano da empresa), base do desconto. */
+export async function mensalidadeDaEmpresa(empresaId: string): Promise<number | null> {
+  const plano = await planoDaEmpresa(empresaId);
+  return plano?.monthly_price != null ? Number(plano.monthly_price) : null;
+}
+
+type CreditoDesconto = { id: string; amount: number };
+
+async function creditosDisponiveis(empresaId: string): Promise<CreditoDesconto[]> {
+  const { data, error } = await supabaseAdmin
+    .from("referral_commissions")
+    .select("id, amount")
+    .eq("referrer_empresa_id", empresaId)
+    .eq("status", "available")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((c) => ({ id: c.id, amount: Number(c.amount) }));
+}
+
+/** Escolhe os créditos (mais antigos primeiro) que cabem em `limite` —
+ * o desconto vale só para a próxima mensalidade e nunca passa do valor
+ * dela; o que sobrar fica para os meses seguintes. */
+function escolherCreditos(creditos: CreditoDesconto[], limite: number) {
+  const escolhidos: CreditoDesconto[] = [];
+  let total = 0;
+  for (const c of creditos) {
+    if (total + c.amount > limite + 0.001) continue;
+    escolhidos.push(c);
+    total = Math.round((total + c.amount) * 100) / 100;
+  }
+  return { escolhidos, total };
+}
+
+export async function saldoDescontoIndicacao(
+  empresaId: string,
+): Promise<{ disponivel: number; creditos: number }> {
+  const creditos = await creditosDisponiveis(empresaId);
+  return {
+    disponivel: Math.round(creditos.reduce((s, c) => s + c.amount, 0) * 100) / 100,
+    creditos: creditos.length,
+  };
+}
+
+/** Quanto de desconto caberia agora numa mensalidade de `limite` reais,
+ * sem consumir nada (prévia para o admin / valor da cobrança Pix). */
+export async function previaDescontoIndicacao(empresaId: string, limite: number): Promise<number> {
+  if (limite <= 0) return 0;
+  return escolherCreditos(await creditosDisponiveis(empresaId), limite).total;
+}
+
+/** Consome créditos de desconto (até `limite`) marcando-os como usados.
+ * Cada crédito só vira "used" se ainda estiver "available" — duas
+ * renovações simultâneas nunca usam o mesmo crédito duas vezes. */
+export async function aplicarDescontoIndicacao(
+  empresaId: string,
+  limite: number,
+  nota: string,
+): Promise<number> {
+  if (limite <= 0) return 0;
+  const { escolhidos } = escolherCreditos(await creditosDisponiveis(empresaId), limite);
+  let aplicado = 0;
+  for (const c of escolhidos) {
+    const { data } = await supabaseAdmin
+      .from("referral_commissions")
+      .update({ status: "used", used_at: new Date().toISOString(), used_note: nota })
+      .eq("id", c.id)
+      .eq("status", "available")
+      .select("id");
+    if (data?.length) {
+      aplicado = Math.round((aplicado + c.amount) * 100) / 100;
+      await registrarEvento("COMMISSION_USED_AS_DISCOUNT", {
+        commissionId: c.id,
+        actorEmpresaId: empresaId,
+        payload: { nota },
+      });
+    }
+  }
+  return aplicado;
 }

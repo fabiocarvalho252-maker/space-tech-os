@@ -8,6 +8,7 @@ import { LogoMark, LogoWord } from "@/components/Logo";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FEATURES_EXIBICAO } from "@/lib/planos/features";
 import { iniciarAssinaturaFn } from "@/lib/mercadopago/subscription.functions";
+import { meuDescontoIndicacaoFn } from "@/lib/referrals/referral.functions";
 import { comTaxaRepassada } from "@/lib/mercadopago/fees";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -202,6 +203,12 @@ function ContratarDialog({
     null,
   );
 
+  const { data: recompensa } = useQuery({
+    queryKey: ["meu-desconto-indicacao"],
+    queryFn: () => meuDescontoIndicacaoFn(),
+    enabled: !!plano,
+  });
+
   const contratar = useMutation({
     mutationFn: () =>
       iniciarAssinaturaFn({ data: { planId: plano!.id, billingCycle, paymentMethod } }),
@@ -286,6 +293,13 @@ function ContratarDialog({
                 <SelectItem value="credit_card">Cartão de crédito</SelectItem>
               </SelectContent>
             </Select>
+            {!!recompensa?.disponivel && billingCycle === "monthly" && (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+                {paymentMethod === "pix"
+                  ? `Você tem ${brl(recompensa.disponivel)} de desconto por indicações — ele é abatido desta mensalidade no Pix (o valor final aparece no QR code).`
+                  : `Você tem ${brl(recompensa.disponivel)} de desconto por indicações — escolha Pix para usá-lo nesta mensalidade.`}
+              </p>
+            )}
             {precoDisponivel ? (
               <p className="text-xs text-muted-foreground">
                 Total a pagar:{" "}

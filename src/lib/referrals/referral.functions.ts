@@ -114,3 +114,58 @@ export const meuPerfilIndicacaoFn = createServerFn({ method: "GET" })
       whatsappShareMessage: program?.whatsapp_share_message ?? null,
     };
   });
+
+export type MeuDescontoIndicacao = {
+  valorPorIndicacao: number | null;
+  disponivel: number;
+  creditos: number;
+  historico: { valor: number; status: "available" | "used"; data: string; nota: string | null }[];
+  bonificacoes: { valor: number; pagoEm: string | null }[];
+};
+
+/** Recompensa da própria empresa no programa: desconto na próxima
+ * mensalidade (R$ por indicação convertida) e bonificações em Pix que o
+ * admin registrou. Só dados da empresa de quem chama. */
+export const meuDescontoIndicacaoFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<MeuDescontoIndicacao> => {
+    const empresaId = await resolverEmpresaId(context.userId, context.supabase);
+    const [program, comissoes, bonus] = await Promise.all([
+      supabaseAdmin
+        .from("referral_program_config")
+        .select("commission_type, commission_value")
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("referral_commissions")
+        .select("amount, status, created_at, used_at, used_note")
+        .eq("referrer_empresa_id", empresaId)
+        .in("status", ["available", "used"])
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("referral_withdrawals")
+        .select("amount, paid_at")
+        .eq("referrer_empresa_id", empresaId)
+        .eq("status", "paid")
+        .order("paid_at", { ascending: false }),
+    ]);
+    if (comissoes.error) throw comissoes.error;
+    if (bonus.error) throw bonus.error;
+
+    const disponiveis = (comissoes.data ?? []).filter((c) => c.status === "available");
+    return {
+      valorPorIndicacao:
+        program.data?.commission_type === "FIXED" && program.data.commission_value != null
+          ? Number(program.data.commission_value)
+          : null,
+      disponivel: Math.round(disponiveis.reduce((s, c) => s + Number(c.amount), 0) * 100) / 100,
+      creditos: disponiveis.length,
+      historico: (comissoes.data ?? []).map((c) => ({
+        valor: Number(c.amount),
+        status: c.status as "available" | "used",
+        data: (c.status === "used" ? c.used_at : c.created_at) ?? c.created_at,
+        nota: c.status === "used" ? c.used_note : null,
+      })),
+      bonificacoes: (bonus.data ?? []).map((b) => ({ valor: Number(b.amount), pagoEm: b.paid_at })),
+    };
+  });
