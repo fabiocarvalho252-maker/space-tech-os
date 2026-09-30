@@ -48,6 +48,35 @@ type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"] & {
   vendas: { total: number; created_at: string; status: string } | null;
 };
 
+// Despesas de um aparelho comprado (compra + conserto + outros custos =
+// valor_total_gasto) e o lucro da venda, quando já vendido. O valor de venda
+// vem da venda vinculada (vendas.total); venda cancelada não conta.
+function detalharSeminovo(s: SeminovoRow) {
+  const compra = Number(s.valor_pago ?? 0);
+  const conserto = Number(s.valor_conserto ?? 0);
+  const outros = Number(s.outros_custos ?? 0);
+  const totalGasto = compra + conserto + outros;
+  const vendaValida = s.vendas && s.vendas.status !== "cancelado" ? s.vendas : null;
+  const vendido = s.status === "vendido" || !!vendaValida;
+  const valorVenda = vendido ? Number(vendaValida?.total ?? s.preco_venda ?? 0) : null;
+  return {
+    id: s.id,
+    data: s.data_avaliacao,
+    aparelho: [s.marca, s.modelo].filter(Boolean).join(" "),
+    imei: s.imei,
+    vendedor: s.clientes?.nome ?? s.vendedor_nome ?? "—",
+    status: s.status,
+    compra,
+    conserto,
+    outros,
+    totalGasto,
+    itensConserto: s.seminovos_conserto_itens ?? [],
+    dataVenda: vendaValida?.created_at ?? null,
+    valorVenda,
+    lucro: valorVenda !== null ? valorVenda - totalGasto : null,
+  };
+}
+
 function hojeStr() {
   return format(new Date(), "yyyy-MM-dd");
 }
@@ -78,6 +107,7 @@ function Relatorios() {
         produtos,
         comprasAparelhos,
         seminovos,
+        seminovosVendidos,
         termos,
         faturamentosOs,
       ] = await Promise.all([
@@ -117,6 +147,16 @@ function Relatorios() {
           .gte("data_avaliacao", inicioISO)
           .lte("data_avaliacao", fimISO)
           .order("data_avaliacao", { ascending: false }),
+        // Seminovos vendidos no período (pela data da venda), independente de
+        // quando foram comprados — base do lucro pelas vendas do período.
+        supabase
+          .from("seminovos")
+          .select(
+            "*, clientes(nome), seminovos_conserto_itens(categoria, descricao, valor), vendas!inner(total, created_at, status)",
+          )
+          .neq("vendas.status", "cancelado")
+          .gte("vendas.created_at", inicioISO)
+          .lte("vendas.created_at", fimISO),
         supabase.from("termos_garantia").select("*"),
         // Faturamentos de OS do período (data do faturamento, não da abertura
         // da OS), com os itens da OS para calcular o custo das peças.
@@ -141,6 +181,7 @@ function Relatorios() {
         produtos: produtos.data ?? [],
         comprasAparelhos: comprasAparelhos.data ?? [],
         seminovos: (seminovos.data ?? []) as unknown as SeminovoRow[],
+        seminovosVendidos: (seminovosVendidos.data ?? []) as unknown as SeminovoRow[],
         termos: termos.data ?? [],
         faturamentosOs: (faturamentosOs.data ?? []) as unknown as FaturamentoOsRow[],
       };
@@ -278,35 +319,7 @@ function Relatorios() {
     const seminovosComprados = d.seminovos;
     const valorSeminovos = seminovosComprados.reduce((s, i) => s + Number(i.valor_pago ?? 0), 0);
 
-    // Detalhe das despesas por aparelho comprado (compra + conserto + outros
-    // custos = valor_total_gasto) e o lucro da venda, quando já vendido. O
-    // valor de venda vem da venda vinculada (vendas.total); venda cancelada
-    // não conta como vendido.
-    const aparelhosComprados = seminovosComprados.map((s) => {
-      const compra = Number(s.valor_pago ?? 0);
-      const conserto = Number(s.valor_conserto ?? 0);
-      const outros = Number(s.outros_custos ?? 0);
-      const totalGasto = compra + conserto + outros;
-      const vendaValida = s.vendas && s.vendas.status !== "cancelado" ? s.vendas : null;
-      const vendido = s.status === "vendido" || !!vendaValida;
-      const valorVenda = vendido ? Number(vendaValida?.total ?? s.preco_venda ?? 0) : null;
-      return {
-        id: s.id,
-        data: s.data_avaliacao,
-        aparelho: [s.marca, s.modelo].filter(Boolean).join(" "),
-        imei: s.imei,
-        vendedor: s.clientes?.nome ?? s.vendedor_nome ?? "—",
-        status: s.status,
-        compra,
-        conserto,
-        outros,
-        totalGasto,
-        itensConserto: s.seminovos_conserto_itens ?? [],
-        dataVenda: vendaValida?.created_at ?? null,
-        valorVenda,
-        lucro: valorVenda !== null ? valorVenda - totalGasto : null,
-      };
-    });
+    const aparelhosComprados = seminovosComprados.map(detalharSeminovo);
     const aparelhosVendidos = aparelhosComprados.filter((a) => a.valorVenda !== null);
     const aparelhosTotais = {
       compra: aparelhosComprados.reduce((s, a) => s + a.compra, 0),
@@ -317,6 +330,15 @@ function Relatorios() {
       custoVendidos: aparelhosVendidos.reduce((s, a) => s + a.totalGasto, 0),
       valorVendido: aparelhosVendidos.reduce((s, a) => s + (a.valorVenda ?? 0), 0),
       lucro: aparelhosVendidos.reduce((s, a) => s + (a.lucro ?? 0), 0),
+    };
+    const vendasAparelhos = d.seminovosVendidos
+      .map(detalharSeminovo)
+      .sort((a, b) => (b.dataVenda ?? "").localeCompare(a.dataVenda ?? ""));
+    const vendasAparelhosTotais = {
+      qtd: vendasAparelhos.length,
+      faturado: vendasAparelhos.reduce((s, a) => s + (a.valorVenda ?? 0), 0),
+      custo: vendasAparelhos.reduce((s, a) => s + a.totalGasto, 0),
+      lucro: vendasAparelhos.reduce((s, a) => s + (a.lucro ?? 0), 0),
     };
     const consertoPorCategoria = new Map<string, number>();
     for (const a of aparelhosComprados)
@@ -379,6 +401,8 @@ function Relatorios() {
       valorSeminovos,
       aparelhosComprados,
       aparelhosTotais,
+      vendasAparelhos,
+      vendasAparelhosTotais,
       consertoPorCategoria: Array.from(consertoPorCategoria.entries()).sort((a, b) => b[1] - a[1]),
     };
   }, [data]);
@@ -819,6 +843,99 @@ function Relatorios() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum aparelho comprado no período.</p>
+            )}
+          </Secao>
+
+          <Secao
+            id="aparelhos-vendidos"
+            titulo="Lucro com vendas de aparelhos no período"
+            onExportar={() =>
+              exportToCSV(
+                resumo.vendasAparelhos.map((a) => ({
+                  data_venda: a.dataVenda ? dataBR(a.dataVenda) : "",
+                  aparelho: a.aparelho,
+                  imei: a.imei ?? "",
+                  data_compra: dataBR(a.data),
+                  valor_compra: a.compra.toFixed(2),
+                  conserto: a.conserto.toFixed(2),
+                  outros_custos: a.outros.toFixed(2),
+                  total_gasto: a.totalGasto.toFixed(2),
+                  valor_venda: (a.valorVenda ?? 0).toFixed(2),
+                  lucro: (a.lucro ?? 0).toFixed(2),
+                })),
+                "relatorio-lucro-vendas-aparelhos",
+              )
+            }
+          >
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat label="Aparelhos vendidos" value={String(resumo.vendasAparelhosTotais.qtd)} />
+              <Stat
+                label="Valor das vendas"
+                value={brl(resumo.vendasAparelhosTotais.faturado)}
+                tone="success"
+              />
+              <Stat
+                label="Custo dos aparelhos"
+                value={brl(resumo.vendasAparelhosTotais.custo)}
+                sub="Compra + conserto + outros"
+                tone="danger"
+              />
+              <Stat
+                label="Lucro"
+                value={brl(resumo.vendasAparelhosTotais.lucro)}
+                sub={
+                  resumo.vendasAparelhosTotais.faturado > 0
+                    ? `Margem ${((resumo.vendasAparelhosTotais.lucro / resumo.vendasAparelhosTotais.faturado) * 100).toFixed(1)}%`
+                    : "Sem vendas no período"
+                }
+              />
+            </div>
+            {resumo.vendasAparelhos.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="pb-2">Venda</th>
+                      <th className="pb-2">Aparelho</th>
+                      <th className="pb-2">Compra</th>
+                      <th className="pb-2 text-right">Valor pago</th>
+                      <th className="pb-2 text-right">Conserto</th>
+                      <th className="pb-2 text-right">Outros</th>
+                      <th className="pb-2 text-right">Total gasto</th>
+                      <th className="pb-2 text-right">Vendido por</th>
+                      <th className="pb-2 text-right">Lucro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {resumo.vendasAparelhos.map((a) => (
+                      <tr key={a.id}>
+                        <td className="py-2">{a.dataVenda ? dataBR(a.dataVenda) : "—"}</td>
+                        <td className="py-2">
+                          <p className="font-semibold">{a.aparelho}</p>
+                          {a.imei && <p className="text-xs text-muted-foreground">IMEI {a.imei}</p>}
+                        </td>
+                        <td className="py-2">{dataBR(a.data)}</td>
+                        <td className="py-2 text-right text-destructive">{brl(a.compra)}</td>
+                        <td className="py-2 text-right text-destructive">{brl(a.conserto)}</td>
+                        <td className="py-2 text-right text-destructive">{brl(a.outros)}</td>
+                        <td className="py-2 text-right font-semibold text-destructive">
+                          {brl(a.totalGasto)}
+                        </td>
+                        <td className="py-2 text-right text-emerald-600">
+                          {brl(a.valorVenda ?? 0)}
+                        </td>
+                        <td
+                          className={`py-2 text-right font-semibold ${(a.lucro ?? 0) < 0 ? "text-destructive" : ""}`}
+                        >
+                          {brl(a.lucro ?? 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum aparelho vendido no período.</p>
             )}
           </Secao>
 
