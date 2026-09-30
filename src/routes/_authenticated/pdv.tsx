@@ -28,6 +28,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/pdv")({
   head: () => ({
@@ -39,6 +46,8 @@ export const Route = createFileRoute("/_authenticated/pdv")({
   }),
   component: PDV,
 });
+
+const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Débito", "Crédito", "Transferência", "Outros"];
 
 type Item = {
   id: string;
@@ -74,6 +83,9 @@ function PDV() {
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [descontoTipo, setDescontoTipo] = useState<'valor' | 'percentual'>('valor');
   const [descontoInput, setDescontoInput] = useState("");
+  const [finalizarAberto, setFinalizarAberto] = useState(false);
+  const [formaPagamento, setFormaPagamento] = useState("PIX");
+  const [valorRecebidoInput, setValorRecebidoInput] = useState("");
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["pdv-itens"],
@@ -102,6 +114,8 @@ function PDV() {
     Math.round((descontoTipo === 'percentual' ? subtotal * Math.min(descontoBruto, 100) / 100 : descontoBruto) * 100) / 100,
   );
   const total = Math.max(0, subtotal - desconto);
+  const valorRecebido = Math.max(0, Number(valorRecebidoInput.replace(",", ".")) || 0);
+  const troco = Math.max(0, Math.round((valorRecebido - total) * 100) / 100);
 
   const agora = new Date();
   const dataFormatada = agora.toLocaleDateString('pt-BR');
@@ -137,6 +151,9 @@ function PDV() {
     mutationFn: async () => {
       if (!carrinho.length) throw new Error("Carrinho vazio");
       if (!user) throw new Error("Usuário não autenticado");
+      if (formaPagamento === "Dinheiro" && valorRecebidoInput && valorRecebido < total) {
+        throw new Error("Valor recebido é menor que o total");
+      }
       
       const { data: venda, error: vendaErro } = await supabase
         .from("vendas")
@@ -146,7 +163,7 @@ function PDV() {
           total,
           desconto,
           observacoes: observacoes.trim() || null,
-          forma_pagamento: "pix",
+          forma_pagamento: formaPagamento,
         })
         .select()
         .single();
@@ -191,6 +208,9 @@ function PDV() {
       setObservacoes("");
       setClienteId(null);
       setDescontoInput("");
+      setValorRecebidoInput("");
+      setFormaPagamento("PIX");
+      setFinalizarAberto(false);
       qc.invalidateQueries();
     },
     onError: (e: any) => toast.error(e.message),
@@ -205,6 +225,54 @@ function PDV() {
       (p.sku && p.sku.toLowerCase().includes(termoBusca.toLowerCase()))
     );
   });
+
+  const descontoCampo = (
+    <div className="space-y-1.5">
+      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Desconto</Label>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
+          {(['valor', 'percentual'] as const).map(t => (
+            <Button
+              key={t}
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setDescontoTipo(t)}
+              className={`h-8 w-10 rounded-lg ${
+                descontoTipo === t ? 'bg-background shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              {t === 'valor' ? 'R$' : '%'}
+            </Button>
+          ))}
+        </div>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          max={descontoTipo === 'percentual' ? 100 : undefined}
+          step="0.01"
+          value={descontoInput}
+          onChange={e => setDescontoInput(e.target.value)}
+          className="h-10 flex-1 rounded-xl border-border/50 bg-background"
+          placeholder={descontoTipo === 'valor' ? '0,00' : '0'}
+        />
+      </div>
+    </div>
+  );
+
+  const resumoDesconto = desconto > 0 && (
+    <div className="space-y-1 text-sm">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span>Subtotal</span>
+        <span>{brl(subtotal)}</span>
+      </div>
+      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+        <span>Desconto{descontoTipo === 'percentual' ? ` (${Math.min(descontoBruto, 100)}%)` : ''}</span>
+        <span>− {brl(desconto)}</span>
+      </div>
+    </div>
+  );
 
   const userName = user?.email?.split('@')?.[0]?.replace(/\./g, ' ') || 'Usuário';
 
@@ -421,51 +489,9 @@ function PDV() {
                </DropdownMenu>
              </div>
 
-             <div className="space-y-1.5">
-               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Desconto</Label>
-               <div className="flex items-center gap-2">
-                 <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-                   {(['valor', 'percentual'] as const).map(t => (
-                     <Button
-                       key={t}
-                       type="button"
-                       size="sm"
-                       variant="ghost"
-                       onClick={() => setDescontoTipo(t)}
-                       className={`h-8 w-10 rounded-lg ${
-                         descontoTipo === t ? 'bg-background shadow-sm' : 'text-muted-foreground'
-                       }`}
-                     >
-                       {t === 'valor' ? 'R$' : '%'}
-                     </Button>
-                   ))}
-                 </div>
-                 <Input
-                   type="number"
-                   inputMode="decimal"
-                   min={0}
-                   max={descontoTipo === 'percentual' ? 100 : undefined}
-                   step="0.01"
-                   value={descontoInput}
-                   onChange={e => setDescontoInput(e.target.value)}
-                   className="h-10 flex-1 rounded-xl border-border/50 bg-background"
-                   placeholder={descontoTipo === 'valor' ? '0,00' : '0'}
-                 />
-               </div>
-             </div>
+             {descontoCampo}
 
-             {desconto > 0 && (
-               <div className="space-y-1 text-sm">
-                 <div className="flex items-center justify-between text-muted-foreground">
-                   <span>Subtotal</span>
-                   <span>{brl(subtotal)}</span>
-                 </div>
-                 <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                   <span>Desconto{descontoTipo === 'percentual' ? ` (${Math.min(descontoBruto, 100)}%)` : ''}</span>
-                   <span>− {brl(desconto)}</span>
-                 </div>
-               </div>
-             )}
+             {resumoDesconto}
 
              <div className="flex items-center justify-between pt-2">
                <span className="text-sm font-medium text-muted-foreground">Total</span>
@@ -473,7 +499,7 @@ function PDV() {
              </div>
 
              <Button 
-               onClick={() => finalizar.mutate()}
+               onClick={() => setFinalizarAberto(true)}
                disabled={finalizar.isPending || !carrinho.length}
                className="h-12 w-full rounded-2xl text-base font-bold shadow-lg shadow-primary/20"
              >
@@ -482,6 +508,80 @@ function PDV() {
           </div>
         </div>
       </div>
+
+      <Dialog open={finalizarAberto} onOpenChange={o => !finalizar.isPending && setFinalizarAberto(o)}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Finalizar venda</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Cliente</span>
+              <span className="font-medium">{selectedCliente}</span>
+            </div>
+
+            {descontoCampo}
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Forma de pagamento</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {FORMAS_PAGAMENTO.map(f => (
+                  <Button
+                    key={f}
+                    type="button"
+                    size="sm"
+                    variant={formaPagamento === f ? 'default' : 'outline'}
+                    onClick={() => setFormaPagamento(f)}
+                    className="h-9 rounded-xl"
+                  >
+                    {f}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {formaPagamento === 'Dinheiro' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Valor recebido</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  value={valorRecebidoInput}
+                  onChange={e => setValorRecebidoInput(e.target.value)}
+                  className="h-10 rounded-xl"
+                  placeholder="0,00"
+                />
+                {valorRecebido > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Troco</span>
+                    <span className="font-bold">{brl(troco)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-1 border-t border-border pt-3">
+              {resumoDesconto}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm font-medium text-muted-foreground">Total</span>
+                <span className="text-2xl font-black text-primary">{brl(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setFinalizarAberto(false)} disabled={finalizar.isPending}>
+              Voltar
+            </Button>
+            <Button onClick={() => finalizar.mutate()} disabled={finalizar.isPending || !carrinho.length}>
+              {finalizar.isPending ? 'Finalizando...' : 'Confirmar venda'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
