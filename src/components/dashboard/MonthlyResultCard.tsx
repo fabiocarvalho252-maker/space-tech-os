@@ -37,7 +37,14 @@ export function MonthlyResultCard({
   dataFim: string;
   onDataInicioChange: (v: string) => void;
   onDataFimChange: (v: string) => void;
-  metrics: { lucroLiquido: number; margem: number; receita: number; cmv: number; despesas: number };
+  metrics: {
+    lucroLiquido: number;
+    margem: number;
+    receita: number;
+    cmv: number;
+    custoServicos: number;
+    despesas: number;
+  };
   pontos: PontoResultado[];
   carregando: boolean;
 }) {

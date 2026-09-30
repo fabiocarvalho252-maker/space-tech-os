@@ -168,24 +168,34 @@ function Dashboard() {
   // Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
   // nenhuma, então o custo deles também não pode ser descontado do lucro.
   const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
+  // O custo dos serviços (produtos com categoria "Serviço") fica separado do
+  // CMV das peças/produtos para aparecer no próprio card — é o mesmo valor
+  // que o Financeiro mostra como saída automática "Custo dos serviços".
+  // `custoPorDia` alimenta o gráfico, que também desconta esses custos.
   let cmv = 0;
+  let custoServicos = 0;
+  const custoPorDia = new Map<string, number>();
+  function somarCusto(produtoId: string | null, quantidade: number, criadoEm: string) {
+    const produto = produtoId ? produtosById.get(produtoId) : null;
+    if (!produto) return;
+    const custo = Number(quantidade) * Number(produto.preco_custo ?? 0);
+    if (produto.categoria === "Serviço") custoServicos += custo;
+    else cmv += custo;
+    const dia = format(new Date(criadoEm), "yyyy-MM-dd");
+    custoPorDia.set(dia, (custoPorDia.get(dia) ?? 0) + custo);
+  }
   for (const i of data?.osItens ?? []) {
     const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
       .ordens_servico?.status;
     if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
-    if (i.produto_id) {
-      cmv += Number(i.quantidade) * Number(produtosById.get(i.produto_id)?.preco_custo ?? 0);
-    }
+    somarCusto(i.produto_id, i.quantidade, i.created_at);
   }
   for (const i of data?.vendaItens ?? []) {
     const statusVenda = (i as unknown as { vendas?: { status?: string } | null }).vendas?.status;
     if (statusVenda === "cancelado") continue;
-    const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
-    if (produto) {
-      cmv += Number(i.quantidade) * Number(produto.preco_custo ?? 0);
-    }
+    somarCusto(i.produto_id, i.quantidade, i.created_at);
   }
-  const lucroLiquido = receita - cmv - despesas;
+  const lucroLiquido = receita - cmv - custoServicos - despesas;
   const margem = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
 
   const pontos = useMemo(() => {
@@ -195,10 +205,11 @@ function Dashboard() {
       const doDia = lancamentosPagos.filter((l) => l.data === diaStr);
       const valor =
         doDia.filter((l) => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0) -
-        doDia.filter((l) => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+        doDia.filter((l) => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0) -
+        (custoPorDia.get(diaStr) ?? 0);
       return { data: diaStr, label: format(dia, "dd/MM", { locale: ptBR }), valor };
     });
-  }, [lancamentosPagos, inicio, fim]);
+  }, [lancamentosPagos, custoPorDia, inicio, fim]);
 
   const { topProdutos, topServicos } = useMemo(() => {
     const produtosMap = new Map<string, number>();
@@ -258,7 +269,7 @@ function Dashboard() {
             dataFim={dataFim}
             onDataInicioChange={setDataInicio}
             onDataFimChange={setDataFim}
-            metrics={{ lucroLiquido, margem, receita, cmv, despesas }}
+            metrics={{ lucroLiquido, margem, receita, cmv, custoServicos, despesas }}
             pontos={pontos}
             carregando={carregando}
           />
