@@ -89,6 +89,87 @@ function Financeiro() {
     },
   });
 
+  // Custo dos serviços: o "Custo adicional" de cada serviço do cadastro
+  // usado em OS ou venda vira uma saída automática, agrupada por OS/venda e
+  // dia. Não é gravado em `lancamentos` — é calculado dos itens, então some
+  // sozinho quando a OS/venda é cancelada e não conta em dobro no Dashboard
+  // (CMV) nem nos Relatórios, que já somam esse custo à parte.
+  const { data: custosServicos = [] } = useQuery({
+    queryKey: ["financeiro-custos-servicos"],
+    queryFn: async () => {
+      const [osItens, vendaItens] = await Promise.all([
+        supabase
+          .from("os_itens")
+          .select(
+            "os_id, quantidade, created_at, produtos!inner(categoria, preco_custo), ordens_servico(numero, status)",
+          )
+          .eq("produtos.categoria", "Serviço"),
+        supabase
+          .from("venda_itens")
+          .select(
+            "venda_id, quantidade, created_at, produtos!inner(categoria, preco_custo), vendas(numero, status)",
+          )
+          .eq("produtos.categoria", "Serviço"),
+      ]);
+      if (osItens.error) throw osItens.error;
+      if (vendaItens.error) throw vendaItens.error;
+
+      type Item = {
+        quantidade: number;
+        created_at: string;
+        produtos: { preco_custo: number } | null;
+      };
+      const grupos = new Map<string, any>();
+      function somar(chave: string, descricao: string, item: Item, referencia: string) {
+        const custo = Number(item.quantidade) * Number(item.produtos?.preco_custo ?? 0);
+        if (custo <= 0) return;
+        const data = format(new Date(item.created_at), "yyyy-MM-dd");
+        const id = `custo-${chave}-${data}`;
+        const atual = grupos.get(id) ?? {
+          id,
+          automatico: true,
+          referencia,
+          tipo: "saida",
+          categoria: "Custo dos serviços",
+          descricao,
+          valor: 0,
+          data,
+          vencimento: data,
+          created_at: item.created_at,
+          status: "pago",
+          bank_account_id: null,
+        };
+        atual.valor += custo;
+        if (item.created_at > atual.created_at) atual.created_at = item.created_at;
+        grupos.set(id, atual);
+      }
+      for (const i of (osItens.data ?? []) as any[]) {
+        const os = i.ordens_servico;
+        if (os && ["cancelado", "reprovado"].includes(os.status)) continue;
+        somar(`os-${i.os_id}`, `Custo dos serviços — OS Nº ${os?.numero ?? "?"}`, i, "OS");
+      }
+      for (const i of (vendaItens.data ?? []) as any[]) {
+        const venda = i.vendas;
+        if (venda?.status === "cancelado") continue;
+        somar(
+          `venda-${i.venda_id}`,
+          `Custo dos serviços — Venda #${venda?.numero ?? "?"}`,
+          i,
+          "Venda",
+        );
+      }
+      return Array.from(grupos.values());
+    },
+  });
+
+  const todosLancamentos = useMemo(
+    () =>
+      [...lancamentos, ...custosServicos].sort((a: any, b: any) =>
+        b.created_at.localeCompare(a.created_at),
+      ),
+    [lancamentos, custosServicos],
+  );
+
   const { data: categories = [] } = useQuery({
     queryKey: ["finance-categories"],
     queryFn: async () => {
@@ -151,7 +232,7 @@ function Financeiro() {
   });
 
   const listaFiltrada = useMemo(() => {
-    return lancamentos.filter((l: any) => {
+    return todosLancamentos.filter((l: any) => {
       const matchTipo = filtros.tipo === "todos" || l.tipo === filtros.tipo;
       const matchStatus = filtros.status === "todos" || l.status === filtros.status;
       const matchCategoria = filtros.categoria === "todas" || l.categoria === filtros.categoria;
@@ -173,7 +254,7 @@ function Financeiro() {
 
       return matchTipo && matchStatus && matchCategoria && matchConta && matchPeriodo;
     });
-  }, [lancamentos, filtros]);
+  }, [todosLancamentos, filtros]);
 
   // Um lançamento cancelado (ex: venda cancelada em Vendas) continua na
   // lista para consulta/auditoria, mas nunca é dinheiro que entrou ou saiu
@@ -402,11 +483,13 @@ function Financeiro() {
               onChange={(e) => setFiltros((prev) => ({ ...prev, categoria: e.target.value }))}
             >
               <option value="todas">Todas</option>
-              {[...new Set(lancamentos.map((l) => l.categoria))].filter(Boolean).map((c) => (
-                <option key={String(c)} value={String(c)}>
-                  {String(c)}
-                </option>
-              ))}
+              {[...new Set(todosLancamentos.map((l: any) => l.categoria))]
+                .filter(Boolean)
+                .map((c) => (
+                  <option key={String(c)} value={String(c)}>
+                    {String(c)}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -486,13 +569,22 @@ function Financeiro() {
                     {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => remover.mutate(l.id)}
-                      className="text-muted-foreground transition hover:text-destructive"
-                      aria-label="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {(l as any).automatico ? (
+                      <span
+                        className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+                        title={`Calculado do custo dos serviços usados na ${(l as any).referencia}`}
+                      >
+                        Automático
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => remover.mutate(l.id)}
+                        className="text-muted-foreground transition hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
