@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   Users,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -288,6 +289,8 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [tecnicos, setTecnicos] = useState<TecnicoLinha[]>([]);
   const [observacoes, setObservacoes] = useState("");
+  const [custoTecnico, setCustoTecnico] = useState(0);
+  const [custoTecnicoNome, setCustoTecnicoNome] = useState("");
   const [inicializado, setInicializado] = useState(false);
   const [sujo, setSujo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -328,6 +331,8 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         : [],
     );
     setObservacoes("");
+    setCustoTecnico(0);
+    setCustoTecnicoNome(os.responsavel ?? "");
     setErro(null);
     setSujo(false);
     setInicializado(true);
@@ -393,7 +398,9 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
     (Math.abs(diferencaTecnicos) <= 0.01 &&
       tecnicos.every((t) => t.membro_user_id || t.nome_livre.trim()));
   const identificacaoValida = !!descricao.trim() && !!clienteId && !!categoriaId;
-  const podeSubmeter = identificacaoValida && totalOs > 0 && parcelasValidas && tecnicosValidos;
+  const custoTecnicoValido = custoTecnico >= 0;
+  const podeSubmeter =
+    identificacaoValida && totalOs > 0 && parcelasValidas && tecnicosValidos && custoTecnicoValido;
 
   const clienteSelecionado = clientesLista.find((c) => c.id === clienteId);
 
@@ -430,6 +437,8 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         })),
         p_observacoes: observacoes || null,
         p_descricao: descricao || null,
+        p_custo_tecnico: custoTecnico > 0 ? custoTecnico : 0,
+        p_custo_tecnico_nome: custoTecnico > 0 ? custoTecnicoNome.trim() || null : null,
       });
       if (error) throw error;
       return data;
@@ -1130,6 +1139,49 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                   )}
                 </section>
 
+                <section>
+                  <h3 className="mb-1 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                    <Wrench className="h-4 w-4 text-primary" /> Pagamento do técnico (custo)
+                  </h3>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Valor pago ao técnico que fez o reparo. Entra como despesa no Financeiro
+                    (categoria "Pagamento de técnico") e é descontado do lucro da OS.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Técnico</Label>
+                      <Input
+                        placeholder="Nome do técnico"
+                        value={custoTecnicoNome}
+                        onChange={(e) => {
+                          setCustoTecnicoNome(e.target.value);
+                          setSujo(true);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Valor pago ao técnico (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={custoTecnico || ""}
+                        placeholder="0,00"
+                        onChange={(e) => {
+                          setCustoTecnico(Math.max(Number(e.target.value) || 0, 0));
+                          setSujo(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {custoTecnico > 0 && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Lucro da OS após o técnico: <strong>{fmt(totalOs - custoTecnico)}</strong>{" "}
+                      (sem contar o custo das peças)
+                    </p>
+                  )}
+                </section>
+
                 <section className="space-y-1.5">
                   <Label>Observações</Label>
                   <Textarea
@@ -1341,6 +1393,18 @@ function FaturamentoDetalhe({
           ))}
         </div>
       </section>
+
+      {Number(faturamento.custo_tecnico ?? 0) > 0 && (
+        <section className="flex items-center justify-between rounded-xl border border-border bg-card p-4 text-sm">
+          <span className="flex items-center gap-2 font-bold">
+            <Wrench className="h-4 w-4 text-primary" /> Pagamento do técnico
+            {faturamento.custo_tecnico_nome ? ` — ${faturamento.custo_tecnico_nome}` : ""}
+          </span>
+          <span className="font-semibold text-destructive">
+            {fmt(Number(faturamento.custo_tecnico))}
+          </span>
+        </section>
+      )}
 
       {faturamento.tecnicos.length > 0 && (
         <section className="rounded-xl border border-border bg-card p-4">

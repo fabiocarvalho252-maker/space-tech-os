@@ -179,9 +179,9 @@ function Financeiro() {
     },
   });
 
-  // Liga cada lançamento gerado pelo faturamento de OS (parcelas e estornos)
-  // à sua OS, para a lista mostrar uma linha só por OS com receita, custo e
-  // lucro em vez de uma linha por parcela/custo.
+  // Liga cada lançamento gerado pelo faturamento de OS (parcelas, estornos e
+  // pagamento do técnico) à sua OS, para a lista mostrar uma linha só por OS
+  // com receita, custo e lucro em vez de uma linha por parcela/custo.
   const { data: vinculosOs = new Map<string, { osId: string; numero: number | null }>() } =
     useQuery({
       queryKey: ["financeiro-vinculos-os"],
@@ -199,6 +199,18 @@ function Financeiro() {
           const vinculo = { osId: fat.os_id, numero: fat.ordens_servico?.numero ?? null };
           if (p.lancamento_id) mapa.set(p.lancamento_id, vinculo);
           if (p.lancamento_estorno_id) mapa.set(p.lancamento_estorno_id, vinculo);
+        }
+        // Pagamento do técnico lançado no faturamento — despesa da mesma OS.
+        const { data: fats, error: erroFats } = await supabase
+          .from("os_faturamentos" as any)
+          .select("lancamento_custo_tecnico_id, os_id, ordens_servico(numero)")
+          .not("lancamento_custo_tecnico_id", "is", null);
+        if (erroFats) throw erroFats;
+        for (const f of (fats ?? []) as any[]) {
+          mapa.set(f.lancamento_custo_tecnico_id, {
+            osId: f.os_id,
+            numero: f.ordens_servico?.numero ?? null,
+          });
         }
         return mapa;
       },

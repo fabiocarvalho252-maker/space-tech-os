@@ -1413,9 +1413,12 @@ export type Database = {
           cancelado_por: string | null
           categoria_id: string | null
           created_at: string
+          custo_tecnico: number
+          custo_tecnico_nome: string | null
           created_by: string
           descricao: string | null
           id: string
+          lancamento_custo_tecnico_id: string | null
           motivo_cancelamento: string | null
           numero: number
           observacoes: string | null
@@ -1429,9 +1432,12 @@ export type Database = {
           cancelado_por?: string | null
           categoria_id?: string | null
           created_at?: string
+          custo_tecnico?: number
+          custo_tecnico_nome?: string | null
           created_by: string
           descricao?: string | null
           id?: string
+          lancamento_custo_tecnico_id?: string | null
           motivo_cancelamento?: string | null
           numero?: number
           observacoes?: string | null
@@ -1445,9 +1451,12 @@ export type Database = {
           cancelado_por?: string | null
           categoria_id?: string | null
           created_at?: string
+          custo_tecnico?: number
+          custo_tecnico_nome?: string | null
           created_by?: string
           descricao?: string | null
           id?: string
+          lancamento_custo_tecnico_id?: string | null
           motivo_cancelamento?: string | null
           numero?: number
           observacoes?: string | null

@@ -31,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 type FaturamentoOsRow = {
   id: string;
   valor_total: number;
+  custo_tecnico: number;
   created_at: string;
   ordens_servico: {
     numero: number;
@@ -163,7 +164,7 @@ function Relatorios() {
         supabase
           .from("os_faturamentos")
           .select(
-            "id, valor_total, created_at, ordens_servico(numero, aparelho, marca, modelo, clientes(nome), os_itens(produto_id, quantidade))",
+            "id, valor_total, custo_tecnico, created_at, ordens_servico(numero, aparelho, marca, modelo, clientes(nome), os_itens(produto_id, quantidade))",
           )
           .neq("status", "cancelado")
           .gte("created_at", inicioISO)
@@ -353,7 +354,7 @@ function Relatorios() {
     // CMV no Dashboard.
     const faturamentoOs = d.faturamentosOs.map((f) => {
       const os = f.ordens_servico;
-      const custo = (os?.os_itens ?? []).reduce(
+      const custoPecas = (os?.os_itens ?? []).reduce(
         (s, i) =>
           s +
           (i.produto_id
@@ -361,6 +362,9 @@ function Relatorios() {
             : 0),
         0,
       );
+      // Pagamento do técnico informado no faturamento também é custo da OS.
+      const custoTecnico = Number(f.custo_tecnico ?? 0);
+      const custo = custoPecas + custoTecnico;
       const faturado = Number(f.valor_total);
       return {
         id: f.id,
@@ -369,6 +373,8 @@ function Relatorios() {
         cliente: os?.clientes?.nome ?? "Sem cliente",
         aparelho: [os?.marca, os?.modelo].filter(Boolean).join(" ") || os?.aparelho || "—",
         faturado,
+        custoPecas,
+        custoTecnico,
         custo,
         lucro: faturado - custo,
       };
@@ -503,7 +509,9 @@ function Relatorios() {
                   cliente: f.cliente,
                   aparelho: f.aparelho,
                   faturado: f.faturado.toFixed(2),
-                  custo_pecas: f.custo.toFixed(2),
+                  custo_pecas: f.custoPecas.toFixed(2),
+                  pagamento_tecnico: f.custoTecnico.toFixed(2),
+                  despesas_total: f.custo.toFixed(2),
                   lucro: f.lucro.toFixed(2),
                 })),
                 "relatorio-faturamento-os",
@@ -515,7 +523,7 @@ function Relatorios() {
               <Stat
                 label="Despesas das OS"
                 value={brl(resumo.osCusto)}
-                sub="Custo das peças e serviços"
+                sub="Peças, serviços e pagamento do técnico"
                 tone="danger"
               />
               <Stat label="Lucro das OS" value={brl(resumo.osLucro)} />
@@ -549,7 +557,14 @@ function Relatorios() {
                         <td className="py-2">{f.cliente}</td>
                         <td className="py-2">{f.aparelho}</td>
                         <td className="py-2 text-right text-emerald-600">{brl(f.faturado)}</td>
-                        <td className="py-2 text-right text-destructive">{brl(f.custo)}</td>
+                        <td className="py-2 text-right text-destructive">
+                          {brl(f.custo)}
+                          {f.custoTecnico > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Técnico: {brl(f.custoTecnico)}
+                            </p>
+                          )}
+                        </td>
                         <td
                           className={`py-2 text-right font-semibold ${f.lucro < 0 ? "text-destructive" : ""}`}
                         >
