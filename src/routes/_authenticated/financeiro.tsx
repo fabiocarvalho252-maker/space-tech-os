@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
   Plus,
   Trash2,
   Download,
@@ -138,6 +140,7 @@ function Financeiro() {
         const atual = grupos.get(id) ?? {
           id,
           automatico: true,
+          os_id: null as string | null,
           referencia,
           tipo: "saida",
           categoria: "Custo dos serviços",
@@ -157,6 +160,10 @@ function Financeiro() {
         const os = i.ordens_servico;
         if (os && ["cancelado", "reprovado"].includes(os.status)) continue;
         somar(`os-${i.os_id}`, `Custo dos serviços — OS Nº ${os?.numero ?? "?"}`, i, "OS");
+        const grupo = grupos.get(
+          `custo-os-${i.os_id}-${format(new Date(i.created_at), "yyyy-MM-dd")}`,
+        );
+        if (grupo) grupo.os_id = i.os_id;
       }
       for (const i of (vendaItens.data ?? []) as any[]) {
         const venda = i.vendas;
@@ -171,6 +178,31 @@ function Financeiro() {
       return Array.from(grupos.values());
     },
   });
+
+  // Liga cada lançamento gerado pelo faturamento de OS (parcelas e estornos)
+  // à sua OS, para a lista mostrar uma linha só por OS com receita, custo e
+  // lucro em vez de uma linha por parcela/custo.
+  const { data: vinculosOs = new Map<string, { osId: string; numero: number | null }>() } =
+    useQuery({
+      queryKey: ["financeiro-vinculos-os"],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("os_faturamento_parcelas" as any)
+          .select(
+            "lancamento_id, lancamento_estorno_id, os_faturamentos(os_id, ordens_servico(numero))",
+          );
+        if (error) throw error;
+        const mapa = new Map<string, { osId: string; numero: number | null }>();
+        for (const p of (data ?? []) as any[]) {
+          const fat = p.os_faturamentos;
+          if (!fat?.os_id) continue;
+          const vinculo = { osId: fat.os_id, numero: fat.ordens_servico?.numero ?? null };
+          if (p.lancamento_id) mapa.set(p.lancamento_id, vinculo);
+          if (p.lancamento_estorno_id) mapa.set(p.lancamento_estorno_id, vinculo);
+        }
+        return mapa;
+      },
+    });
 
   const todosLancamentos = useMemo(
     () =>
@@ -269,6 +301,52 @@ function Financeiro() {
     });
   }, [todosLancamentos, filtros]);
 
+  // Linhas da tabela: tudo que pertence a uma mesma OS (parcelas recebidas,
+  // estornos e custo dos serviços) vira uma linha só, com receita, despesa e
+  // lucro da OS. Os filtros acima continuam valendo por lançamento — a linha
+  // da OS soma só os lançamentos que passaram no filtro.
+  const [osAbertas, setOsAbertas] = useState<Set<string>>(new Set());
+  const linhas = useMemo(() => {
+    const porOs = new Map<string, any>();
+    const resultado: any[] = [];
+    for (const l of listaFiltrada as any[]) {
+      const vinculo = vinculosOs.get(l.id);
+      const osId = l.os_id ?? vinculo?.osId;
+      if (!osId) {
+        resultado.push(l);
+        continue;
+      }
+      let grupo = porOs.get(osId);
+      if (!grupo) {
+        grupo = {
+          id: `os-${osId}`,
+          grupoOs: true,
+          numero: vinculo?.numero ?? null,
+          receita: 0,
+          despesa: 0,
+          itens: [] as any[],
+          created_at: l.created_at,
+          data: l.data,
+          vencimento: l.vencimento ?? l.data,
+        };
+        porOs.set(osId, grupo);
+        resultado.push(grupo);
+      }
+      if (grupo.numero == null) {
+        grupo.numero = vinculo?.numero ?? l.descricao?.match(/OS Nº (\d+)/)?.[1] ?? null;
+      }
+      grupo.itens.push(l);
+      if (l.status !== "cancelado") {
+        if (l.tipo === "entrada") grupo.receita += Number(l.valor);
+        else grupo.despesa += Number(l.valor);
+      }
+      if (l.created_at > grupo.created_at) grupo.created_at = l.created_at;
+      const venc = l.vencimento ?? l.data;
+      if (venc && (!grupo.vencimento || venc > grupo.vencimento)) grupo.vencimento = venc;
+    }
+    return resultado.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [listaFiltrada, vinculosOs]);
+
   // Opções do filtro: as categorias cadastradas em Configurações mais as que
   // aparecem nos lançamentos — antes só as usadas apareciam, e cada empresa
   // via "Faturamento de OS" ou "Serviços" dependendo de onde faturou.
@@ -296,6 +374,8 @@ function Financeiro() {
   const saidas = listaFiltrada
     .filter((l) => l.tipo === "saida" && l.status !== "cancelado")
     .reduce((s, l) => s + Number(l.valor), 0);
+  const lucro = entradas - saidas;
+  const margem = entradas > 0 ? (lucro / entradas) * 100 : 0;
 
   return (
     <div>
@@ -539,9 +619,14 @@ function Financeiro() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Resumo label="Entradas" valor={brl(entradas)} tone="success" />
-        <Resumo label="Saídas" valor={brl(saidas)} tone="destructive" />
-        <Resumo label="Saldo" valor={brl(entradas - saidas)} tone="primary" />
+        <Resumo label="Receita (entradas)" valor={brl(entradas)} tone="success" />
+        <Resumo label="Despesas (saídas)" valor={brl(saidas)} tone="destructive" />
+        <Resumo
+          label={lucro >= 0 ? "Lucro" : "Prejuízo"}
+          valor={brl(lucro)}
+          tone={lucro >= 0 ? "primary" : "destructive"}
+          detalhe={entradas > 0 ? `Margem de ${margem.toFixed(1).replace(".", ",")}%` : undefined}
+        />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
@@ -558,67 +643,85 @@ function Financeiro() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {listaFiltrada.map((l) => (
-                <tr key={l.id}>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-2 font-medium">
-                      {l.tipo === "entrada" ? (
-                        <ArrowUpRight className="h-4 w-4 text-success" />
-                      ) : (
-                        <ArrowDownRight className="h-4 w-4 text-destructive" />
+              {linhas.map((l) =>
+                l.grupoOs ? (
+                  <LinhaOs
+                    key={l.id}
+                    grupo={l}
+                    aberta={osAbertas.has(l.id)}
+                    alternar={() =>
+                      setOsAbertas((prev) => {
+                        const nova = new Set(prev);
+                        if (nova.has(l.id)) nova.delete(l.id);
+                        else nova.add(l.id);
+                        return nova;
+                      })
+                    }
+                    brl={brl}
+                    remover={(id) => remover.mutate(id)}
+                  />
+                ) : (
+                  <tr key={l.id}>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-2 font-medium">
+                        {l.tipo === "entrada" ? (
+                          <ArrowUpRight className="h-4 w-4 text-success" />
+                        ) : (
+                          <ArrowDownRight className="h-4 w-4 text-destructive" />
+                        )}
+                        {l.descricao || "Lançamento"}
+                      </span>
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                      {l.categoria || "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                      {(l as any).bank_accounts?.banco || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {dataBR((l as any).vencimento || l.created_at)}
+                      {(l as any).status === "pendente" && (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          Pendente
+                        </span>
                       )}
-                      {l.descricao || "Lançamento"}
-                    </span>
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                    {l.categoria || "—"}
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                    {(l as any).bank_accounts?.banco || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {dataBR((l as any).vencimento || l.created_at)}
-                    {(l as any).status === "pendente" && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        Pendente
-                      </span>
-                    )}
-                    {(l as any).status === "cancelado" && (
-                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        Cancelado
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right font-bold ${
-                      l.tipo === "entrada" ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {(l as any).automatico ? (
-                      <span
-                        className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
-                        title={`Calculado do custo dos serviços usados na ${(l as any).referencia}`}
-                      >
-                        Automático
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => remover.mutate(l.id)}
-                        className="text-muted-foreground transition hover:text-destructive"
-                        aria-label="Remover"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!listaFiltrada.length && (
+                      {(l as any).status === "cancelado" && (
+                        <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          Cancelado
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-bold ${
+                        l.tipo === "entrada" ? "text-success" : "text-destructive"
+                      }`}
+                    >
+                      {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {(l as any).automatico ? (
+                        <span
+                          className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+                          title={`Calculado do custo dos serviços usados na ${(l as any).referencia}`}
+                        >
+                          Automático
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => remover.mutate(l.id)}
+                          className="text-muted-foreground transition hover:text-destructive"
+                          aria-label="Remover"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ),
+              )}
+              {!linhas.length && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                     Nenhum lançamento registrado.
                   </td>
                 </tr>
@@ -631,14 +734,130 @@ function Financeiro() {
   );
 }
 
+function LinhaOs({
+  grupo,
+  aberta,
+  alternar,
+  brl,
+  remover,
+}: {
+  grupo: any;
+  aberta: boolean;
+  alternar: () => void;
+  brl: (v: number) => string;
+  remover: (id: string) => void;
+}) {
+  const lucro = grupo.receita - grupo.despesa;
+  const pendente = grupo.itens.some((i: any) => i.status === "pendente");
+  const cancelado = grupo.itens.every((i: any) => i.status === "cancelado");
+  return (
+    <>
+      <tr className="cursor-pointer hover:bg-secondary/40" onClick={alternar}>
+        <td className="px-4 py-3">
+          <span className="flex items-center gap-2 font-medium">
+            {aberta ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            OS Nº {grupo.numero ?? "?"}
+          </span>
+          <span className="mt-0.5 block pl-6 text-xs text-muted-foreground">
+            Receita <span className="font-semibold text-success">{brl(grupo.receita)}</span>
+            {" · "}
+            Despesa <span className="font-semibold text-destructive">{brl(grupo.despesa)}</span>
+          </span>
+        </td>
+        <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">Ordem de serviço</td>
+        <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">—</td>
+        <td className="px-4 py-3 text-muted-foreground">
+          {dataBR(grupo.vencimento || grupo.created_at)}
+          {cancelado ? (
+            <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              Cancelado
+            </span>
+          ) : (
+            pendente && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                Pendente
+              </span>
+            )
+          )}
+        </td>
+        <td
+          className={`px-4 py-3 text-right font-bold ${lucro >= 0 ? "text-primary" : "text-destructive"}`}
+        >
+          <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {lucro >= 0 ? "Lucro" : "Prejuízo"}
+          </span>
+          {brl(lucro)}
+        </td>
+        <td className="px-4 py-3 text-right">
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+            {grupo.itens.length} {grupo.itens.length === 1 ? "item" : "itens"}
+          </span>
+        </td>
+      </tr>
+      {aberta &&
+        grupo.itens.map((i: any) => (
+          <tr key={i.id} className="bg-secondary/30 text-xs">
+            <td className="py-2 pl-12 pr-4">
+              <span className="flex items-center gap-2">
+                {i.tipo === "entrada" ? (
+                  <ArrowUpRight className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+                )}
+                {i.descricao || "Lançamento"}
+              </span>
+            </td>
+            <td className="hidden px-4 py-2 text-muted-foreground sm:table-cell">
+              {i.categoria || "—"}
+            </td>
+            <td className="hidden px-4 py-2 text-muted-foreground md:table-cell">
+              {i.bank_accounts?.banco || "—"}
+            </td>
+            <td className="px-4 py-2 text-muted-foreground">
+              {dataBR(i.vencimento || i.created_at)}
+              {i.status === "pendente" && " · Pendente"}
+              {i.status === "cancelado" && " · Cancelado"}
+            </td>
+            <td
+              className={`px-4 py-2 text-right font-semibold ${
+                i.tipo === "entrada" ? "text-success" : "text-destructive"
+              }`}
+            >
+              {i.tipo === "entrada" ? "+" : "−"} {brl(i.valor)}
+            </td>
+            <td className="px-4 py-2 text-right">
+              {i.automatico ? (
+                <span className="text-[10px] font-bold text-muted-foreground">Automático</span>
+              ) : (
+                <button
+                  onClick={() => remover(i.id)}
+                  className="text-muted-foreground transition hover:text-destructive"
+                  aria-label="Remover"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
 function Resumo({
   label,
   valor,
   tone,
+  detalhe,
 }: {
   label: string;
   valor: string;
   tone: "success" | "destructive" | "primary";
+  detalhe?: string | undefined;
 }) {
   const tones = {
     success: "text-success",
@@ -649,6 +868,7 @@ function Resumo({
     <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className={`mt-1 text-2xl font-extrabold tracking-tight ${tones[tone]}`}>{valor}</p>
+      {detalhe && <p className="mt-1 text-xs text-muted-foreground">{detalhe}</p>}
     </div>
   );
 }
