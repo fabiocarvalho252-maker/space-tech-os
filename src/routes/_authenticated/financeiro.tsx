@@ -43,6 +43,16 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
   component: Financeiro,
 });
 
+const CATEGORIA_FATURAMENTO_OS = "Faturamento de OS";
+
+// O faturamento de OS (RPC faturar_os) grava o lançamento na categoria que o
+// usuário escolher — muitas empresas usam "Serviços" —, mas a descrição
+// sempre termina em "— parcela N/M". Assim o filtro "Faturamento de OS"
+// encontra as faturas de OS em qualquer categoria.
+function ehFaturamentoOs(l: { tipo?: string; descricao?: string | null }) {
+  return l.tipo === "entrada" && /— parcela \d+\/\d+$/.test(l.descricao ?? "");
+}
+
 const vazio = {
   tipo: "entrada",
   categoria: "",
@@ -235,7 +245,10 @@ function Financeiro() {
     return todosLancamentos.filter((l: any) => {
       const matchTipo = filtros.tipo === "todos" || l.tipo === filtros.tipo;
       const matchStatus = filtros.status === "todos" || l.status === filtros.status;
-      const matchCategoria = filtros.categoria === "todas" || l.categoria === filtros.categoria;
+      const matchCategoria =
+        filtros.categoria === "todas" ||
+        l.categoria === filtros.categoria ||
+        (filtros.categoria === CATEGORIA_FATURAMENTO_OS && ehFaturamentoOs(l));
       const matchConta = filtros.conta === "todas" || l.bank_account_id === filtros.conta;
 
       // Usa a coluna `data` (a data de negócio do lançamento, que pode ter
@@ -255,6 +268,23 @@ function Financeiro() {
       return matchTipo && matchStatus && matchCategoria && matchConta && matchPeriodo;
     });
   }, [todosLancamentos, filtros]);
+
+  // Opções do filtro: as categorias cadastradas em Configurações mais as que
+  // aparecem nos lançamentos — antes só as usadas apareciam, e cada empresa
+  // via "Faturamento de OS" ou "Serviços" dependendo de onde faturou.
+  const opcoesCategoria = useMemo(
+    () =>
+      [
+        ...new Set([
+          CATEGORIA_FATURAMENTO_OS,
+          ...categories.map((c) => c.nome),
+          ...todosLancamentos.map((l: any) => l.categoria),
+        ]),
+      ]
+        .filter(Boolean)
+        .sort((a, b) => String(a).localeCompare(String(b), "pt-BR")),
+    [categories, todosLancamentos],
+  );
 
   // Um lançamento cancelado (ex: venda cancelada em Vendas) continua na
   // lista para consulta/auditoria, mas nunca é dinheiro que entrou ou saiu
@@ -483,13 +513,11 @@ function Financeiro() {
               onChange={(e) => setFiltros((prev) => ({ ...prev, categoria: e.target.value }))}
             >
               <option value="todas">Todas</option>
-              {[...new Set(todosLancamentos.map((l: any) => l.categoria))]
-                .filter(Boolean)
-                .map((c) => (
-                  <option key={String(c)} value={String(c)}>
-                    {String(c)}
-                  </option>
-                ))}
+              {opcoesCategoria.map((c) => (
+                <option key={String(c)} value={String(c)}>
+                  {String(c)}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1.5">
