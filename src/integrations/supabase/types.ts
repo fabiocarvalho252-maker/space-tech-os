@@ -2749,9 +2749,11 @@ export type Database = {
           modelo: string
           observacoes: string | null
           outros_custos: number
+          padrao_desbloqueio: string | null
           preco_lojista: number | null
           preco_venda: number | null
           ram: string | null
+          senha_dispositivo: string | null
           status: string
           updated_at: string
           user_id: string
@@ -2784,9 +2786,11 @@ export type Database = {
           modelo: string
           observacoes?: string | null
           outros_custos?: number
+          padrao_desbloqueio?: string | null
           preco_lojista?: number | null
           preco_venda?: number | null
           ram?: string | null
+          senha_dispositivo?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -2818,9 +2822,11 @@ export type Database = {
           modelo?: string
           observacoes?: string | null
           outros_custos?: number
+          padrao_desbloqueio?: string | null
           preco_lojista?: number | null
           preco_venda?: number | null
           ram?: string | null
+          senha_dispositivo?: string | null
           status?: string
           updated_at?: string
           user_id?: string

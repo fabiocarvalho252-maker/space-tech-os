@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/MoneyInput";
+import { PatternLock } from "@/components/PatternLock";
+import { Eye, EyeOff } from "lucide-react";
 import { ConsertoCustosSection } from "./ConsertoCustosSection";
 import { AssinaturaCanvas, type AssinaturaCanvasHandle } from "./AssinaturaCanvas";
 import {
@@ -67,6 +69,8 @@ type FormState = {
   estado: string;
   bateria_percentual: string;
   acessorios: string;
+  senha_dispositivo: string;
+  padrao_desbloqueio: string;
   observacoes: string;
   data_avaliacao: string;
   valor_pago: string;
@@ -94,6 +98,8 @@ const formVazio: FormState = {
   estado: "Bom",
   bateria_percentual: "",
   acessorios: "",
+  senha_dispositivo: "",
+  padrao_desbloqueio: "",
   observacoes: "",
   data_avaliacao: hoje(),
   valor_pago: "0",
@@ -121,6 +127,7 @@ export function CadastroSeminovoModal({
   // um seminovo_id para anexar os itens) — nula ao criar, atualizada pela
   // própria ConsertoCustosSection quando editando um aparelho existente.
   const [totalConserto, setTotalConserto] = useState(0);
+  const [verSenha, setVerSenha] = useState(false);
 
   // CPF + assinatura só fazem parte do momento da compra (pedido, seção 1:
   // "somente no processo de compra do aparelho do cliente") — só existem
@@ -141,6 +148,7 @@ export function CadastroSeminovoModal({
   useEffect(() => {
     if (!open) {
       setFase("formulario");
+      setVerSenha(false);
       setCpfSugestao(null);
       setAssinaturaBlob(null);
       setAssinaturaPreviewUrl((url) => {
@@ -170,6 +178,8 @@ export function CadastroSeminovoModal({
         bateria_percentual:
           seminovo.bateria_percentual != null ? String(seminovo.bateria_percentual) : "",
         acessorios: seminovo.acessorios ?? "",
+        senha_dispositivo: seminovo.senha_dispositivo ?? "",
+        padrao_desbloqueio: seminovo.padrao_desbloqueio ?? "",
         observacoes: seminovo.observacoes ?? "",
         data_avaliacao: seminovo.data_avaliacao ? seminovo.data_avaliacao.slice(0, 10) : hoje(),
         valor_pago: String(seminovo.valor_pago ?? 0),
@@ -309,6 +319,8 @@ export function CadastroSeminovoModal({
         estado: form.estado || null,
         bateria_percentual: form.bateria_percentual ? Number(form.bateria_percentual) : null,
         acessorios: form.acessorios.trim() || null,
+        senha_dispositivo: form.senha_dispositivo.trim() || null,
+        padrao_desbloqueio: form.padrao_desbloqueio || null,
         observacoes: form.observacoes.trim() || null,
         data_avaliacao: new Date(form.data_avaliacao + "T12:00:00").toISOString(),
         valor_pago: valorPago,
@@ -457,6 +469,37 @@ export function CadastroSeminovoModal({
                 {...campo("acessorios")}
                 placeholder="Carregador, caixa, fone..."
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Senha do aparelho (PIN)</Label>
+                <div className="relative">
+                  <Input
+                    className="h-11 pr-11"
+                    type={verSenha ? "text" : "password"}
+                    autoComplete="off"
+                    {...campo("senha_dispositivo")}
+                    placeholder="Senha ou PIN do cliente"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
+                    onClick={() => setVerSenha((v) => !v)}
+                    title={verSenha ? "Ocultar senha" : "Ver senha"}
+                  >
+                    {verSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Padrão de desbloqueio</Label>
+                <PatternLock
+                  value={form.padrao_desbloqueio}
+                  onChange={(val) => setForm((f) => ({ ...f, padrao_desbloqueio: val }))}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Observações</Label>

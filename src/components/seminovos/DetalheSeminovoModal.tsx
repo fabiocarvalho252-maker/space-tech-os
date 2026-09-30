@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Loader2, PenTool } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, Loader2, PenTool } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { dataBR, statusLabel } from "@/lib/format";
@@ -61,6 +61,7 @@ export function DetalheSeminovoModal({
   const qc = useQueryClient();
   const [confirmExcluir, setConfirmExcluir] = useState(false);
   const [modalAssinatura, setModalAssinatura] = useState(false);
+  const [verSenha, setVerSenha] = useState(false);
   const [pdfDialogAberto, setPdfDialogAberto] = useState(false);
   const [pdf, setPdf] = useState<PdfGerado | null>(null);
 
@@ -255,6 +256,36 @@ export function DetalheSeminovoModal({
               <div>
                 <p className="text-xs text-muted-foreground">Acessórios</p>
                 <p className="font-medium">{seminovo.acessorios || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Senha / padrão de desbloqueio</p>
+                {seminovo.senha_dispositivo || seminovo.padrao_desbloqueio ? (
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">
+                      {verSenha
+                        ? [
+                            seminovo.senha_dispositivo && `PIN: ${seminovo.senha_dispositivo}`,
+                            seminovo.padrao_desbloqueio &&
+                              `Padrão: ${seminovo.padrao_desbloqueio.split("").join("-")}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : "••••••"}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setVerSenha((v) => !v)}
+                      title={verSenha ? "Ocultar" : "Ver senha"}
+                    >
+                      {verSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="font-medium">—</p>
+                )}
               </div>
             </div>
 
