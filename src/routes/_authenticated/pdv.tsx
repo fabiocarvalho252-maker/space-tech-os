@@ -72,6 +72,8 @@ function PDV() {
   const [filtroTipo, setFiltroTipo] = useState<'Tudo' | 'Produto' | 'Serviço'>('Tudo');
   const [observacoes, setObservacoes] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
+  const [descontoTipo, setDescontoTipo] = useState<'valor' | 'percentual'>('valor');
+  const [descontoInput, setDescontoInput] = useState("");
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["pdv-itens"],
@@ -94,7 +96,12 @@ function PDV() {
   [clientes, clienteId]);
 
   const subtotal = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-  const total = subtotal;
+  const descontoBruto = Math.max(0, Number(descontoInput.replace(",", ".")) || 0);
+  const desconto = Math.min(
+    subtotal,
+    Math.round((descontoTipo === 'percentual' ? subtotal * Math.min(descontoBruto, 100) / 100 : descontoBruto) * 100) / 100,
+  );
+  const total = Math.max(0, subtotal - desconto);
 
   const agora = new Date();
   const dataFormatada = agora.toLocaleDateString('pt-BR');
@@ -137,6 +144,8 @@ function PDV() {
           user_id: empresaId!,
           cliente_id: clienteId,
           total,
+          desconto,
+          observacoes: observacoes.trim() || null,
           forma_pagamento: "pix",
         })
         .select()
@@ -181,6 +190,7 @@ function PDV() {
       setCarrinho([]);
       setObservacoes("");
       setClienteId(null);
+      setDescontoInput("");
       qc.invalidateQueries();
     },
     onError: (e: any) => toast.error(e.message),
@@ -229,10 +239,11 @@ function PDV() {
               variant="ghost"
               className="h-10 gap-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10"
               onClick={() => {
-                if (!carrinho.length && !observacoes && !clienteId) return;
+                if (!carrinho.length && !observacoes && !clienteId && !descontoInput) return;
                 setCarrinho([]);
                 setObservacoes("");
                 setClienteId(null);
+                setDescontoInput("");
                 setBusca("");
                 toast.success("Nova venda iniciada");
               }}
@@ -409,6 +420,52 @@ function PDV() {
                  </DropdownMenuContent>
                </DropdownMenu>
              </div>
+
+             <div className="space-y-1.5">
+               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Desconto</Label>
+               <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
+                   {(['valor', 'percentual'] as const).map(t => (
+                     <Button
+                       key={t}
+                       type="button"
+                       size="sm"
+                       variant="ghost"
+                       onClick={() => setDescontoTipo(t)}
+                       className={`h-8 w-10 rounded-lg ${
+                         descontoTipo === t ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                       }`}
+                     >
+                       {t === 'valor' ? 'R$' : '%'}
+                     </Button>
+                   ))}
+                 </div>
+                 <Input
+                   type="number"
+                   inputMode="decimal"
+                   min={0}
+                   max={descontoTipo === 'percentual' ? 100 : undefined}
+                   step="0.01"
+                   value={descontoInput}
+                   onChange={e => setDescontoInput(e.target.value)}
+                   className="h-10 flex-1 rounded-xl border-border/50 bg-background"
+                   placeholder={descontoTipo === 'valor' ? '0,00' : '0'}
+                 />
+               </div>
+             </div>
+
+             {desconto > 0 && (
+               <div className="space-y-1 text-sm">
+                 <div className="flex items-center justify-between text-muted-foreground">
+                   <span>Subtotal</span>
+                   <span>{brl(subtotal)}</span>
+                 </div>
+                 <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                   <span>Desconto{descontoTipo === 'percentual' ? ` (${Math.min(descontoBruto, 100)}%)` : ''}</span>
+                   <span>− {brl(desconto)}</span>
+                 </div>
+               </div>
+             )}
 
              <div className="flex items-center justify-between pt-2">
                <span className="text-sm font-medium text-muted-foreground">Total</span>
