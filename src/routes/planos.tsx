@@ -37,7 +37,7 @@ export const Route = createFileRoute("/planos")({
   head: () => ({
     meta: [
       { title: "Planos — SpaceTech" },
-      { name: "description", content: "Compare os planos Básico e Profissional do SpaceTech OS." },
+      { name: "description", content: "Conheça o plano do SpaceTech OS." },
     ],
   }),
   component: Planos,
@@ -94,9 +94,12 @@ function Planos() {
         </p>
       </div>
 
-      <div className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
+      <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-4">
         {(planos ?? []).map((p) => (
-          <div key={p.id} className="flex flex-col rounded-3xl border border-border bg-card p-6">
+          <div
+            key={p.id}
+            className="flex w-full max-w-sm flex-col rounded-3xl border border-border bg-card p-6"
+          >
             <p className="text-lg font-extrabold">{p.name}</p>
             <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
             <div className="mt-4">
