@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { dataBR } from "@/lib/format";
 
 export async function exportToCSV(data: any[], filename: string) {
   if (!data || !data.length) return;
@@ -28,7 +29,6 @@ export async function generateFinancePDF(lancamentos: any[], profile: any, resum
   if (!janela) return;
   
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-  const dataBR = (v: string) => new Date(v).toLocaleDateString("pt-BR");
 
   janela.document.write(`
     <!doctype html>
@@ -88,7 +88,7 @@ export async function generateFinancePDF(lancamentos: any[], profile: any, resum
         <tbody>
           ${lancamentos.map(l => `
             <tr>
-              <td>${dataBR(l.created_at)}</td>
+              <td>${dataBR(l.data)}</td>
               <td>${l.descricao}</td>
               <td>${l.categoria || '—'}</td>
               <td class="${l.tipo}">${l.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>

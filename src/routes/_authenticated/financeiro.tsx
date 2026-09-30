@@ -11,6 +11,7 @@ import {
   Filter,
   X,
 } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -156,15 +157,17 @@ function Financeiro() {
       const matchCategoria = filtros.categoria === "todas" || l.categoria === filtros.categoria;
       const matchConta = filtros.conta === "todas" || l.bank_account_id === filtros.conta;
 
+      // Usa a coluna `data` (a data de negócio do lançamento, que pode ter
+      // sido retroagida na Nova Venda/Nova OS) em vez de `created_at` (o
+      // instante em que a linha foi gravada) — do contrário um lançamento
+      // lançado hoje com data de ontem aparecia em "Hoje" em vez de "ontem".
       let matchPeriodo = true;
-      if (filtros.periodo !== "todos") {
-        const data = new Date(l.created_at);
+      if (filtros.periodo !== "todos" && l.data) {
         const hoje = new Date();
         if (filtros.periodo === "hoje") {
-          matchPeriodo = data.toDateString() === hoje.toDateString();
+          matchPeriodo = l.data === format(hoje, "yyyy-MM-dd");
         } else if (filtros.periodo === "mes") {
-          matchPeriodo =
-            data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
+          matchPeriodo = l.data.slice(0, 7) === format(hoje, "yyyy-MM");
         }
       }
 
@@ -205,7 +208,7 @@ function Financeiro() {
               onClick={() =>
                 exportToCSV(
                   listaFiltrada.map((l) => ({
-                    Data: dataBR(l.created_at),
+                    Data: dataBR(l.data),
                     Descricao: l.descricao,
                     Categoria: l.categoria,
                     Tipo: l.tipo,
