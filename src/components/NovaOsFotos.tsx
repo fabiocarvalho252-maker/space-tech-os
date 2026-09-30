@@ -8,12 +8,16 @@ import { Label } from "@/components/ui/label";
 // Fotos de entrada escolhidas na criação da OS. Ficam só em memória até a
 // OS ser criada — aí `enviarFotosEntrada` sobe para o bucket "os-fotos" com
 // o mesmo caminho/categoria que a galeria da OS (OsFotos) usa.
+// Também reaproveitada na compra de seminovo (CadastroSeminovoModal), que
+// sobe os arquivos no próprio bucket depois de criar o aparelho.
 export function NovaOsFotos({
   fotos,
   onChange,
+  titulo = "Fotos de entrada",
 }: {
   fotos: File[];
   onChange: (fotos: File[]) => void;
+  titulo?: string;
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galeriaRef = useRef<HTMLInputElement>(null);
@@ -32,7 +36,7 @@ export function NovaOsFotos({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="flex items-center gap-2">
-          <Camera className="h-4 w-4 text-primary" /> Fotos de entrada
+          <Camera className="h-4 w-4 text-primary" /> {titulo}
         </Label>
         <div className="flex gap-2">
           <input

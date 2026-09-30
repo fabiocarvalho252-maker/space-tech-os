@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PatternLock } from "@/components/PatternLock";
+import { NovaOsFotos } from "@/components/NovaOsFotos";
 import { Eye, EyeOff } from "lucide-react";
 import { ConsertoCustosSection } from "./ConsertoCustosSection";
 import { AssinaturaCanvas, type AssinaturaCanvasHandle } from "./AssinaturaCanvas";
@@ -140,6 +141,8 @@ export function CadastroSeminovoModal({
   const canvasRef = useRef<AssinaturaCanvasHandle>(null);
   const [assinaturaBlob, setAssinaturaBlob] = useState<Blob | null>(null);
   const [assinaturaPreviewUrl, setAssinaturaPreviewUrl] = useState<string | null>(null);
+  // Fotos tiradas na compra — só em memória até o aparelho ser criado.
+  const [fotosCompra, setFotosCompra] = useState<File[]>([]);
 
   useEffect(() => {
     if (!seminovo) setTotalConserto(0);
@@ -151,6 +154,7 @@ export function CadastroSeminovoModal({
       setVerSenha(false);
       setCpfSugestao(null);
       setAssinaturaBlob(null);
+      setFotosCompra([]);
       setAssinaturaPreviewUrl((url) => {
         if (url) URL.revokeObjectURL(url);
         return null;
@@ -356,6 +360,31 @@ export function CadastroSeminovoModal({
           if (assErro) throw assErro;
         }
 
+        // A compra já existe neste ponto — falha nas fotos não deve fazer o
+        // usuário registrar a compra de novo; avisa e deixa enviar pelo
+        // botão de fotos do aparelho (SeminovosFotos, mesmo path).
+        if (fotosCompra.length > 0) {
+          try {
+            const paths: string[] = [];
+            for (const file of fotosCompra) {
+              const ext = file.name.split(".").pop() || "jpg";
+              const path = `${empresaId}/${criado.id}/${randomId()}.${ext}`;
+              const { error: upErr } = await supabase.storage.from(BUCKET_FOTOS).upload(path, file);
+              if (upErr) throw upErr;
+              paths.push(path);
+            }
+            const { error: fotosErro } = await supabase
+              .from("seminovos")
+              .update({ fotos: paths })
+              .eq("id", criado.id);
+            if (fotosErro) throw fotosErro;
+          } catch (e) {
+            toast.warning(
+              `Compra registrada, mas as fotos não foram enviadas: ${(e as Error).message}. Envie pelo botão de fotos do aparelho.`,
+            );
+          }
+        }
+
         // Lançamento de despesa só na criação — editar depois (corrigir um
         // valor digitado errado, por exemplo) não deve gerar uma segunda
         // saída duplicada no financeiro.
@@ -510,6 +539,18 @@ export function CadastroSeminovoModal({
               />
             </div>
           </section>
+
+          {/* FOTOS — só na compra; depois de registrado, as fotos são
+              gerenciadas pelo botão de câmera da listagem (SeminovosFotos). */}
+          {!seminovo && (
+            <section className="rounded-2xl border border-border bg-card p-4">
+              <NovaOsFotos
+                fotos={fotosCompra}
+                onChange={setFotosCompra}
+                titulo="Fotos do aparelho"
+              />
+            </section>
+          )}
 
           {/* SEÇÃO 2 — COMPRADO DE */}
           <section className="space-y-4 rounded-2xl border border-border bg-secondary/20 p-4">
@@ -747,6 +788,7 @@ export function CadastroSeminovoModal({
                 {[form.armazenamento, form.cor].filter(Boolean).join(" · ") || "—"}
                 {form.bateria_percentual ? ` · Bateria: ${form.bateria_percentual}%` : ""}
               </p>
+              <p>Fotos: {fotosCompra.length ? `${fotosCompra.length} anexada(s)` : "nenhuma"}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-4 text-sm sm:grid-cols-4">
