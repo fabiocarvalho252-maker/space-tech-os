@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { endOfMonth, endOfYear, format, startOfMonth, startOfYear, subDays } from "date-fns";
 import { Download, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { useProfile } from "@/hooks/useCurrentUser";
-import { statusLabel } from "@/lib/format";
+import { dataBR, statusLabel } from "@/lib/format";
+import { categoriaConsertoInfo } from "@/lib/seminovos-conserto";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,12 @@ type FaturamentoOsRow = {
     clientes: { nome: string } | null;
     os_itens: { produto_id: string | null; quantidade: number }[];
   } | null;
+};
+
+type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"] & {
+  clientes: { nome: string } | null;
+  seminovos_conserto_itens: { categoria: string; descricao: string | null; valor: number }[];
+  vendas: { total: number; created_at: string; status: string } | null;
 };
 
 function hojeStr() {
@@ -98,11 +106,17 @@ function Relatorios() {
           .select("*")
           .gte("data_compra", dataInicio)
           .lte("data_compra", dataFim),
+        // Seminovos comprados no período (data da compra = data_avaliacao,
+        // a mesma exibida na tela Compra de Seminovos), com o detalhe do
+        // conserto e a venda vinculada para calcular o lucro de cada aparelho.
         supabase
           .from("seminovos")
-          .select("*")
-          .gte("created_at", inicioISO)
-          .lte("created_at", fimISO),
+          .select(
+            "*, clientes(nome), seminovos_conserto_itens(categoria, descricao, valor), vendas(total, created_at, status)",
+          )
+          .gte("data_avaliacao", inicioISO)
+          .lte("data_avaliacao", fimISO)
+          .order("data_avaliacao", { ascending: false }),
         supabase.from("termos_garantia").select("*"),
         // Faturamentos de OS do período (data do faturamento, não da abertura
         // da OS), com os itens da OS para calcular o custo das peças.
@@ -126,7 +140,7 @@ function Relatorios() {
         clientesTotal: clientesTotal.count ?? 0,
         produtos: produtos.data ?? [],
         comprasAparelhos: comprasAparelhos.data ?? [],
-        seminovos: seminovos.data ?? [],
+        seminovos: (seminovos.data ?? []) as unknown as SeminovoRow[],
         termos: termos.data ?? [],
         faturamentosOs: (faturamentosOs.data ?? []) as unknown as FaturamentoOsRow[],
       };
@@ -264,6 +278,54 @@ function Relatorios() {
     const seminovosComprados = d.seminovos;
     const valorSeminovos = seminovosComprados.reduce((s, i) => s + Number(i.valor_pago ?? 0), 0);
 
+    // Detalhe das despesas por aparelho comprado (compra + conserto + outros
+    // custos = valor_total_gasto) e o lucro da venda, quando já vendido. O
+    // valor de venda vem da venda vinculada (vendas.total); venda cancelada
+    // não conta como vendido.
+    const aparelhosComprados = seminovosComprados.map((s) => {
+      const compra = Number(s.valor_pago ?? 0);
+      const conserto = Number(s.valor_conserto ?? 0);
+      const outros = Number(s.outros_custos ?? 0);
+      const totalGasto = compra + conserto + outros;
+      const vendaValida = s.vendas && s.vendas.status !== "cancelado" ? s.vendas : null;
+      const vendido = s.status === "vendido" || !!vendaValida;
+      const valorVenda = vendido ? Number(vendaValida?.total ?? s.preco_venda ?? 0) : null;
+      return {
+        id: s.id,
+        data: s.data_avaliacao,
+        aparelho: [s.marca, s.modelo].filter(Boolean).join(" "),
+        imei: s.imei,
+        vendedor: s.clientes?.nome ?? s.vendedor_nome ?? "—",
+        status: s.status,
+        compra,
+        conserto,
+        outros,
+        totalGasto,
+        itensConserto: s.seminovos_conserto_itens ?? [],
+        dataVenda: vendaValida?.created_at ?? null,
+        valorVenda,
+        lucro: valorVenda !== null ? valorVenda - totalGasto : null,
+      };
+    });
+    const aparelhosVendidos = aparelhosComprados.filter((a) => a.valorVenda !== null);
+    const aparelhosTotais = {
+      compra: aparelhosComprados.reduce((s, a) => s + a.compra, 0),
+      conserto: aparelhosComprados.reduce((s, a) => s + a.conserto, 0),
+      outros: aparelhosComprados.reduce((s, a) => s + a.outros, 0),
+      totalGasto: aparelhosComprados.reduce((s, a) => s + a.totalGasto, 0),
+      vendidos: aparelhosVendidos.length,
+      custoVendidos: aparelhosVendidos.reduce((s, a) => s + a.totalGasto, 0),
+      valorVendido: aparelhosVendidos.reduce((s, a) => s + (a.valorVenda ?? 0), 0),
+      lucro: aparelhosVendidos.reduce((s, a) => s + (a.lucro ?? 0), 0),
+    };
+    const consertoPorCategoria = new Map<string, number>();
+    for (const a of aparelhosComprados)
+      for (const i of a.itensConserto)
+        consertoPorCategoria.set(
+          i.categoria,
+          (consertoPorCategoria.get(i.categoria) ?? 0) + Number(i.valor),
+        );
+
     // Faturamento de OS: o custo (despesa direta) de cada OS é o custo das
     // peças/serviços usados, pelo preco_custo do cadastro — mesma regra do
     // CMV no Dashboard.
@@ -315,6 +377,9 @@ function Relatorios() {
       valorComprasAparelhos,
       seminovosComprados,
       valorSeminovos,
+      aparelhosComprados,
+      aparelhosTotais,
+      consertoPorCategoria: Array.from(consertoPorCategoria.entries()).sort((a, b) => b[1] - a[1]),
     };
   }, [data]);
 
@@ -615,6 +680,146 @@ function Relatorios() {
                 </p>
               )}
             </div>
+          </Secao>
+
+          <Secao
+            id="aparelhos-comprados"
+            titulo="Despesas com aparelhos comprados"
+            onExportar={() =>
+              exportToCSV(
+                resumo.aparelhosComprados.map((a) => ({
+                  data_compra: dataBR(a.data),
+                  aparelho: a.aparelho,
+                  imei: a.imei ?? "",
+                  vendedor: a.vendedor,
+                  status: statusLabel(a.status),
+                  valor_compra: a.compra.toFixed(2),
+                  conserto: a.conserto.toFixed(2),
+                  detalhe_conserto: a.itensConserto
+                    .map(
+                      (i) =>
+                        `${categoriaConsertoInfo(i.categoria).label}${i.descricao ? ` (${i.descricao})` : ""}: ${Number(i.valor).toFixed(2)}`,
+                    )
+                    .join("; "),
+                  outros_custos: a.outros.toFixed(2),
+                  total_gasto: a.totalGasto.toFixed(2),
+                  data_venda: a.dataVenda ? dataBR(a.dataVenda) : "",
+                  valor_venda: a.valorVenda !== null ? a.valorVenda.toFixed(2) : "",
+                  lucro: a.lucro !== null ? a.lucro.toFixed(2) : "",
+                })),
+                "relatorio-despesas-aparelhos-comprados",
+              )
+            }
+          >
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat
+                label="Aparelhos comprados"
+                value={String(resumo.aparelhosComprados.length)}
+                sub={`Pago na compra ${brl(resumo.aparelhosTotais.compra)}`}
+              />
+              <Stat
+                label="Despesas totais"
+                value={brl(resumo.aparelhosTotais.totalGasto)}
+                sub={`Conserto ${brl(resumo.aparelhosTotais.conserto)} · outros ${brl(resumo.aparelhosTotais.outros)}`}
+                tone="danger"
+              />
+              <Stat
+                label="Vendidos"
+                value={String(resumo.aparelhosTotais.vendidos)}
+                sub={`Vendidos por ${brl(resumo.aparelhosTotais.valorVendido)} · custo ${brl(resumo.aparelhosTotais.custoVendidos)}`}
+                tone="success"
+              />
+              <Stat
+                label="Lucro com as vendas"
+                value={brl(resumo.aparelhosTotais.lucro)}
+                sub={
+                  resumo.aparelhosTotais.valorVendido > 0
+                    ? `Margem ${((resumo.aparelhosTotais.lucro / resumo.aparelhosTotais.valorVendido) * 100).toFixed(1)}%`
+                    : "Nenhum vendido ainda"
+                }
+              />
+            </div>
+            {resumo.consertoPorCategoria.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {resumo.consertoPorCategoria.map(([categoria, valor]) => (
+                  <span
+                    key={categoria}
+                    className="rounded-full bg-secondary/60 px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    {categoriaConsertoInfo(categoria).label}:{" "}
+                    <b className="text-foreground">{brl(valor)}</b>
+                  </span>
+                ))}
+              </div>
+            )}
+            {resumo.aparelhosComprados.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-sm">
+                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="pb-2">Compra</th>
+                      <th className="pb-2">Aparelho</th>
+                      <th className="pb-2">Vendedor</th>
+                      <th className="pb-2">Status</th>
+                      <th className="pb-2 text-right">Valor pago</th>
+                      <th className="pb-2 text-right">Conserto</th>
+                      <th className="pb-2 text-right">Outros</th>
+                      <th className="pb-2 text-right">Total gasto</th>
+                      <th className="pb-2 text-right">Venda</th>
+                      <th className="pb-2 text-right">Lucro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {resumo.aparelhosComprados.map((a) => (
+                      <tr key={a.id} className="align-top">
+                        <td className="py-2">{dataBR(a.data)}</td>
+                        <td className="py-2">
+                          <p className="font-semibold">{a.aparelho}</p>
+                          {a.imei && <p className="text-xs text-muted-foreground">IMEI {a.imei}</p>}
+                        </td>
+                        <td className="py-2">{a.vendedor}</td>
+                        <td className="py-2">{statusLabel(a.status)}</td>
+                        <td className="py-2 text-right text-destructive">{brl(a.compra)}</td>
+                        <td className="py-2 text-right">
+                          <span className="text-destructive">{brl(a.conserto)}</span>
+                          {a.itensConserto.map((i, idx) => (
+                            <p key={idx} className="text-xs text-muted-foreground">
+                              {categoriaConsertoInfo(i.categoria).label}
+                              {i.descricao ? ` (${i.descricao})` : ""}: {brl(Number(i.valor))}
+                            </p>
+                          ))}
+                        </td>
+                        <td className="py-2 text-right text-destructive">{brl(a.outros)}</td>
+                        <td className="py-2 text-right font-semibold text-destructive">
+                          {brl(a.totalGasto)}
+                        </td>
+                        <td className="py-2 text-right">
+                          {a.valorVenda !== null ? (
+                            <>
+                              <span className="text-emerald-600">{brl(a.valorVenda)}</span>
+                              {a.dataVenda && (
+                                <p className="text-xs text-muted-foreground">
+                                  {dataBR(a.dataVenda)}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td
+                          className={`py-2 text-right font-semibold ${a.lucro !== null && a.lucro < 0 ? "text-destructive" : ""}`}
+                        >
+                          {a.lucro !== null ? brl(a.lucro) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum aparelho comprado no período.</p>
+            )}
           </Secao>
 
           <div className="grid gap-6 lg:grid-cols-2">
