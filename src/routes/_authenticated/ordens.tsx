@@ -1054,15 +1054,6 @@ function Ordens() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Valor Total (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.valor}
-                    onChange={(e) => setForm({ ...form, valor: e.target.value })}
-                  />
-                </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <div className="flex items-center justify-between">
                     <Label>Defeito relatado</Label>
