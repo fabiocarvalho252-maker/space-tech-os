@@ -750,6 +750,17 @@ function LinhaOs({
   const lucro = grupo.receita - grupo.despesa;
   const pendente = grupo.itens.some((i: any) => i.status === "pendente");
   const cancelado = grupo.itens.every((i: any) => i.status === "cancelado");
+  // OS com custo de serviço lançado mas sem faturamento ativo ainda não teve
+  // receita — mostrar "Não faturada" em vez de um prejuízo que não existe.
+  const naoFaturada = !grupo.itens.some(
+    (i: any) => i.tipo === "entrada" && i.status !== "cancelado",
+  );
+  const rotulo = naoFaturada ? "Não faturada" : lucro >= 0 ? "Lucro" : "Prejuízo";
+  const corValor = naoFaturada
+    ? "text-amber-600 dark:text-amber-400"
+    : lucro >= 0
+      ? "text-primary"
+      : "text-destructive";
   return (
     <>
       <tr className="cursor-pointer hover:bg-secondary/40" onClick={alternar}>
@@ -784,13 +795,11 @@ function LinhaOs({
             )
           )}
         </td>
-        <td
-          className={`px-4 py-3 text-right font-bold ${lucro >= 0 ? "text-primary" : "text-destructive"}`}
-        >
+        <td className={`px-4 py-3 text-right font-bold ${corValor}`}>
           <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {lucro >= 0 ? "Lucro" : "Prejuízo"}
+            {rotulo}
           </span>
-          {brl(lucro)}
+          {naoFaturada ? `Custo ${brl(grupo.despesa)}` : brl(lucro)}
         </td>
         <td className="px-4 py-3 text-right">
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
