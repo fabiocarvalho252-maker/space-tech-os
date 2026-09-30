@@ -558,11 +558,28 @@ function Relatorios() {
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  generateFinancePDF(data.lancamentos, profile, {
-                    entradas: resumo.entradas,
-                    saidas: resumo.despesaTotal,
-                    saldo: resumo.resultado,
-                  })
+                  generateFinancePDF(
+                    // O custo dos serviços entra no total de Saídas, então
+                    // aparece também como uma linha da tabela para o PDF fechar.
+                    resumo.custoServicos > 0
+                      ? [
+                          ...data.lancamentos,
+                          {
+                            data: dataFim,
+                            descricao: "Custo dos serviços usados no período",
+                            categoria: "Custo dos serviços",
+                            tipo: "saida",
+                            valor: resumo.custoServicos,
+                          },
+                        ]
+                      : data.lancamentos,
+                    profile,
+                    {
+                      entradas: resumo.entradas,
+                      saidas: resumo.despesaTotal,
+                      saldo: resumo.resultado,
+                    },
+                  )
                 }
               >
                 <FileText className="h-4 w-4" /> PDF
