@@ -236,6 +236,40 @@ export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
     return { senha };
   });
 
+const alterarEmailEmpresaSchema = z.object({
+  empresaId: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email("Informe um e-mail válido."),
+});
+
+// email_confirm: true skips Supabase's "confirm your new address" email —
+// the site admin is changing this on the empresa's behalf (e.g. they lost
+// access to the old inbox), so the new address must work immediately,
+// mirroring resetarSenhaEmpresa above (also an instant, admin-driven change).
+export const alterarEmailEmpresa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => alterarEmailEmpresaSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ email: string }> => {
+    checarSiteAdmin(context.claims);
+    // SITE_ADMIN_EMAIL is a hardcoded literal (see checarSiteAdmin above), not
+    // a role — changing it here would lock the operator out of /admin
+    // immediately, since the code would no longer recognize the new address.
+    if (data.empresaId === context.userId) {
+      throw new Error(
+        "Este é o e-mail fixo do administrador do site — não pode ser trocado por aqui.",
+      );
+    }
+    if (data.email === SITE_ADMIN_EMAIL) {
+      throw new Error("Este e-mail é reservado para o administrador do site.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.empresaId, {
+      email: data.email,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    return { email: data.email };
+  });
+
 // "Entrar no painel" from /admin — reuses the exact same passwordless
 // mechanism as gerarAcessoCliente (src/lib/cliente-conta/cliente-conta.functions.ts):
 // an admin-generated Supabase magic link, never emailed, just handed back to

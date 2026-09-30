@@ -10,8 +10,10 @@ import {
   Copy,
   Gift,
   KeyRound,
+  Link2,
   Loader2,
   LogIn,
+  Mail,
   MessageSquare,
   MoreVertical,
   QrCode,
@@ -63,6 +65,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
 import {
   ajustarCreditosIA,
+  alterarEmailEmpresa,
   alterarPlanoEmpresa,
   atualizarPlano,
   atualizarPlanoEmpresa,
@@ -82,11 +85,14 @@ import { FEATURES_EXIBICAO } from "@/lib/planos/features";
 import {
   atualizarConfiguracaoIndicacoesFn,
   atualizarRegraIndicacaoPorPlanoFn,
+  listarIndicacoesFn,
   listarRegrasIndicacaoPorPlanoFn,
   obterConfiguracaoIndicacoesFn,
   type ConfiguracaoIndicacoes,
+  type Indicacao,
   type RegraIndicacaoPorPlano,
 } from "@/lib/referrals/admin-referral.functions";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import type { WhatsappSistemaConexao } from "@/lib/whatsapp/system-instance";
 
 const SITE_ADMIN_EMAIL = "admin@spacetech.app";
@@ -278,6 +284,8 @@ function AdminDoSite() {
       <PlanosCard souAdmin={souAdmin} />
 
       <ReferralProgramCard souAdmin={souAdmin} />
+
+      <IndicacoesCard souAdmin={souAdmin} />
 
       <SectionCard
         title="Empresas cadastradas"
@@ -1227,6 +1235,159 @@ function ReferralProgramCard({ souAdmin }: { souAdmin: boolean }) {
   );
 }
 
+const STATUS_INDICACAO_LABEL: Record<string, string> = {
+  clicked: "Clique registrado",
+  registered: "Cadastrado",
+  pending: "Pagamento pendente",
+  converted: "Convertido",
+  rejected: "Rejeitado",
+  canceled: "Cancelado",
+};
+
+const STATUS_INDICACAO_TONE: Record<string, StatusTone> = {
+  clicked: "neutral",
+  registered: "info",
+  pending: "warning",
+  converted: "success",
+  rejected: "danger",
+  canceled: "danger",
+};
+
+function nomeEmpresaIndicacao(e: Indicacao["indicador"] | null): string {
+  if (!e) return "—";
+  return e.loja || e.nome || e.email || "Sem nome";
+}
+
+// Continuação operacional do "Programa de Indicações" acima: quem indicou
+// quem, com qual código, para o admin acompanhar a origem de cada
+// cadastro. Somente leitura — toda mudança de status/comissão acontece
+// automaticamente em referral.functions.ts/commission-service.ts.
+function IndicacoesCard({ souAdmin }: { souAdmin: boolean }) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["site-admin-indicacoes"],
+    queryFn: () => listarIndicacoesFn(),
+    enabled: souAdmin,
+  });
+
+  if (!souAdmin) return null;
+
+  const indicacoes = data?.indicacoes ?? [];
+  const termo = busca.trim().toLowerCase();
+  const filtradas = indicacoes.filter((i) => {
+    if (filtroStatus !== "todos" && i.status !== filtroStatus) return false;
+    if (termo) {
+      const alvo = `${nomeEmpresaIndicacao(i.indicador)} ${i.indicador.email ?? ""} ${nomeEmpresaIndicacao(
+        i.indicado,
+      )} ${i.indicado?.email ?? ""} ${i.referralCode}`.toLowerCase();
+      if (!alvo.includes(termo)) return false;
+    }
+    return true;
+  });
+
+  return (
+    <SectionCard
+      title="Indicações"
+      subtitle={`${filtradas.length} de ${indicacoes.length} — quem indicou o SPACE TECH usando o próprio código`}
+      icon={Link2}
+      className="mb-6"
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por empresa, e-mail ou código..."
+            className="pl-9"
+          />
+        </div>
+        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+          <SelectTrigger className="w-[190px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            {Object.entries(STATUS_INDICACAO_LABEL).map(([v, label]) => (
+              <SelectItem key={v} value={v}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <TableSkeleton />
+      ) : isError ? (
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : "Erro ao carregar indicações."}
+        </p>
+      ) : !indicacoes.length ? (
+        <EmptyState icon={Link2} title="Nenhuma indicação registrada ainda" />
+      ) : !filtradas.length ? (
+        <EmptyState icon={Search} title="Nenhuma indicação encontrada com esses filtros" />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Indicador</th>
+                <th className="px-3 py-2">Indicado</th>
+                <th className="px-3 py-2">Código</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Data</th>
+                <th className="px-3 py-2 text-right">Comissão gerada</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtradas.map((i) => (
+                <tr key={i.id} className="hover:bg-secondary/30">
+                  <td className="px-3 py-3">
+                    <div className="font-medium">{nomeEmpresaIndicacao(i.indicador)}</div>
+                    {i.indicador.email && (
+                      <div className="text-xs text-muted-foreground">{i.indicador.email}</div>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    {i.indicado ? (
+                      <>
+                        <div className="font-medium">{nomeEmpresaIndicacao(i.indicado)}</div>
+                        {i.indicado.email && (
+                          <div className="text-xs text-muted-foreground">{i.indicado.email}</div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Ainda não cadastrou</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 font-mono text-xs">{i.referralCode}</td>
+                  <td className="px-3 py-3">
+                    <StatusBadge
+                      label={STATUS_INDICACAO_LABEL[i.status] ?? i.status}
+                      tone={STATUS_INDICACAO_TONE[i.status] ?? "neutral"}
+                    />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div>{dataBR(i.registradoEm)}</div>
+                    <div className="text-xs text-muted-foreground">{haQuanto(i.registradoEm)}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {i.comissaoTotal > 0 ? brl(i.comissaoTotal) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 // Renewing the same kind of plan while it's still valid stacks on top of the
 // current expiry instead of shortening it.
 function calcularAcessoAte(planoValue: string, acessoAteAtual: string): string {
@@ -1252,6 +1413,7 @@ function EmpresaDetalheDialog({
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [novoEmail, setNovoEmail] = useState("");
   const [quantidadeCreditos, setQuantidadeCreditos] = useState("10");
   const [confirmExcluirOpen, setConfirmExcluirOpen] = useState(false);
   const [textoConfirmacaoExcluir, setTextoConfirmacaoExcluir] = useState("");
@@ -1267,6 +1429,7 @@ function EmpresaDetalheDialog({
     setAcessoAte(calcularAcessoAte(planoInicial, empresa.acessoAte ?? ""));
     setSenhaGerada(null);
     setCopiado(false);
+    setNovoEmail(empresa.email ?? "");
     setTextoConfirmacaoExcluir("");
   }
 
@@ -1297,6 +1460,16 @@ function EmpresaDetalheDialog({
       setSenhaGerada(res.senha);
       setConfirmResetOpen(false);
       toast.success("Senha redefinida. Copie e repasse para o cliente.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const alterarEmail = useMutation({
+    mutationFn: () => alterarEmailEmpresa({ data: { empresaId: empresa!.id, email: novoEmail } }),
+    onSuccess: (res) => {
+      toast.success("E-mail de login atualizado.");
+      setNovoEmail(res.email);
+      qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1476,6 +1649,49 @@ function EmpresaDetalheDialog({
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Acesso da conta
           </Label>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">E-mail de login</Label>
+            {empresa.email === SITE_ADMIN_EMAIL ? (
+              <p className="text-xs text-muted-foreground">
+                Esta é a sua própria conta de administrador — o e-mail é fixo no código e não pode
+                ser alterado por aqui.
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="email"
+                    value={novoEmail}
+                    onChange={(e) => setNovoEmail(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    aria-label="Salvar novo e-mail"
+                    disabled={
+                      alterarEmail.isPending ||
+                      !novoEmail.trim() ||
+                      novoEmail.trim() === (empresa.email ?? "")
+                    }
+                    onClick={() => alterarEmail.mutate()}
+                  >
+                    {alterarEmail.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  A alteração já vale para o próximo login — sem e-mail de confirmação.
+                </p>
+              </>
+            )}
+          </div>
+
           {senhaGerada ? (
             <div className="space-y-2">
               <p className="text-xs text-amber-600">

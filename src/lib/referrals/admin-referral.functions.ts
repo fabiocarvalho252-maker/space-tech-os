@@ -161,3 +161,91 @@ export const atualizarRegraIndicacaoPorPlanoFn = createServerFn({ method: "POST"
     if (error) throw error;
     return { ok: true };
   });
+
+export type EmpresaIndicacao = {
+  nome: string | null;
+  loja: string | null;
+  email: string | null;
+};
+
+export type Indicacao = {
+  id: string;
+  referralCode: string;
+  status: string;
+  registradoEm: string | null;
+  convertidoEm: string | null;
+  indicador: EmpresaIndicacao;
+  indicado: EmpresaIndicacao | null;
+  comissaoTotal: number;
+};
+
+// Painel operacional do programa de indicações (continuação da fundação
+// acima): quem indicou quem, com qual código, e o total de comissão já
+// gerada por essa indicação. Somente leitura — nenhuma escrita acontece
+// aqui, os status/comissões são derivados de registrarReferralFn e
+// processarComissaoIndicacao (commission-service.ts).
+export const listarIndicacoesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ indicacoes: Indicacao[] }> => {
+    checarSiteAdmin(context.claims);
+
+    const { data: referrals, error: referralsErro } = await supabaseAdmin
+      .from("referrals")
+      .select(
+        "id, referrer_empresa_id, referred_empresa_id, referral_code, status, registered_at, converted_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (referralsErro) throw referralsErro;
+    if (!referrals?.length) return { indicacoes: [] };
+
+    const empresaIds = Array.from(
+      new Set(
+        referrals.flatMap((r) => [r.referrer_empresa_id, r.referred_empresa_id]).filter(Boolean),
+      ),
+    ) as string[];
+    const referralIds = referrals.map((r) => r.id);
+
+    const [{ data: perfis, error: perfisErro }, { data: usersPage, error: usersErro }, { data: comissoes, error: comissoesErro }] =
+      await Promise.all([
+        supabaseAdmin.from("profiles").select("id, nome, loja").in("id", empresaIds),
+        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+        supabaseAdmin
+          .from("referral_commissions")
+          .select("referral_id, amount")
+          .in("referral_id", referralIds)
+          .not("status", "in", "(rejected,canceled)"),
+      ]);
+    if (perfisErro) throw perfisErro;
+    if (usersErro) throw usersErro;
+    if (comissoesErro) throw comissoesErro;
+
+    const perfilPorId = new Map((perfis ?? []).map((p) => [p.id, p]));
+    const emailPorId = new Map(usersPage.users.map((u) => [u.id, u.email ?? null]));
+    const comissaoPorReferral = new Map<string, number>();
+    for (const c of comissoes ?? []) {
+      comissaoPorReferral.set(
+        c.referral_id,
+        (comissaoPorReferral.get(c.referral_id) ?? 0) + Number(c.amount),
+      );
+    }
+
+    function empresaInfo(id: string | null): EmpresaIndicacao | null {
+      if (!id) return null;
+      const p = perfilPorId.get(id);
+      return { nome: p?.nome ?? null, loja: p?.loja ?? null, email: emailPorId.get(id) ?? null };
+    }
+
+    return {
+      indicacoes: referrals.map((r) => ({
+        id: r.id,
+        referralCode: r.referral_code,
+        status: r.status,
+        registradoEm: r.registered_at,
+        convertidoEm: r.converted_at,
+        indicador: empresaInfo(r.referrer_empresa_id) ?? { nome: null, loja: null, email: null },
+        indicado: empresaInfo(r.referred_empresa_id),
+        comissaoTotal: comissaoPorReferral.get(r.id) ?? 0,
+      })),
+    };
+  });
