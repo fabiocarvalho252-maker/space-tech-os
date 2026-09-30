@@ -42,6 +42,7 @@ import { FinancialVisibilityToggle } from "@/components/FinancialVisibilityToggl
 import { TrialBanner } from "@/components/TrialBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
+import { SuporteWhatsapp } from "@/components/SuporteWhatsapp";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
 import { ATALHOS, estaDigitando } from "@/lib/atalhos";
 import { cn } from "@/lib/utils";
@@ -292,6 +293,7 @@ export function AppShell() {
       </div>
 
       <SpaceTechAI />
+      <SuporteWhatsapp />
     </div>
   );
 }
