@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
+import { NovaOsFotos, enviarFotosEntrada } from "@/components/NovaOsFotos";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
@@ -230,6 +231,7 @@ function Ordens() {
   const [previsaoData, setPrevisaoData] = useState("");
   const itemVazio = { descricao: "", observacao: "", preco_unitario: "", quantidade: "1" };
   const [novoProduto, setNovoProduto] = useState(itemVazio);
+  const [fotosNovaOs, setFotosNovaOs] = useState<File[]>([]);
   const [novoServico, setNovoServico] = useState(itemVazio);
 
   const totalProdutos = useMemo(
@@ -511,10 +513,23 @@ function Ordens() {
         );
         if (itensError) throw itensError;
       }
+
+      // A OS já existe neste ponto — falha nas fotos não deve fazer o
+      // usuário criar a OS de novo; avisa e deixa enviar pela galeria.
+      if (fotosNovaOs.length > 0) {
+        try {
+          await enviarFotosEntrada(empresaId!, os.id, fotosNovaOs);
+        } catch (e) {
+          toast.warning(
+            `OS criada, mas as fotos não foram enviadas: ${(e as Error).message}. Envie pela galeria da OS.`,
+          );
+        }
+      }
     },
     onSuccess: () => {
       toast.success("OS criada");
       setForm(vazio);
+      setFotosNovaOs([]);
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["ordens"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -956,6 +971,7 @@ function Ordens() {
               // de outro cliente.
               if (v) {
                 setForm(vazio);
+                setFotosNovaOs([]);
                 setNovoProduto(itemVazio);
                 setNovoServico(itemVazio);
               }
@@ -1081,6 +1097,9 @@ function Ordens() {
                     value={form.diagnostico}
                     onChange={(e) => setForm({ ...form, diagnostico: e.target.value })}
                   />
+                </div>
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <NovaOsFotos fotos={fotosNovaOs} onChange={setFotosNovaOs} />
                 </div>
               </div>
               <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
