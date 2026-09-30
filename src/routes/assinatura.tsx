@@ -160,7 +160,7 @@ function Assinatura() {
             <p className="text-lg font-bold">{planoTier?.name ?? "Básico"}</p>
           </div>
           <Link to="/planos" className="text-xs font-semibold text-primary hover:underline">
-            Ver Plano Profissional
+            Ver planos
           </Link>
         </div>
 

@@ -81,6 +81,13 @@ function Planos() {
     },
   });
 
+  // Só lista recursos que algum plano ativo oferece — com o Profissional
+  // desativado, as linhas exclusivas dele (IA avançada, Nota Fiscal...)
+  // apareceriam só como "X" no Básico.
+  const featuresVisiveis = FEATURES_EXIBICAO.filter((f) =>
+    (planos ?? []).some((p) => p.features.has(f.feature)),
+  );
+
   if (!user) return null;
 
   return (
@@ -90,7 +97,7 @@ function Planos() {
         <LogoWord className="mt-3 text-lg" />
         <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Planos SpaceTech OS</h1>
         <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-          Compare os recursos de cada plano. Os valores comerciais ainda estão sendo definidos.
+          Veja os recursos incluídos no plano.
         </p>
       </div>
 
@@ -141,7 +148,9 @@ function Planos() {
         <table className="w-full min-w-[420px] text-sm">
           <thead className="border-b border-border text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="p-4">Compare os recursos</th>
+              <th className="p-4">
+                {(planos ?? []).length > 1 ? "Compare os recursos" : "Recursos incluídos"}
+              </th>
               {(planos ?? []).map((p) => (
                 <th key={p.id} className="p-4 text-center">
                   {p.name}
@@ -150,7 +159,7 @@ function Planos() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {FEATURES_EXIBICAO.map((f) => (
+            {featuresVisiveis.map((f) => (
               <tr key={f.feature}>
                 <td className="p-4">{f.label}</td>
                 {(planos ?? []).map((p) => (
