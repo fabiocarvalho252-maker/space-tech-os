@@ -27,9 +27,9 @@ function origemPublicaServer(): string {
 // company admin can be granted — there is no "site owner" role/flag in the
 // schema, and adding one just for a single person isn't worth the surface
 // area. Authorization is enforced here, server-side, not by hiding a link.
-const SITE_ADMIN_EMAIL = "admin@spacetech.app";
+export const SITE_ADMIN_EMAIL = "admin@spacetech.app";
 
-function checarSiteAdmin(claims: Record<string, unknown>) {
+export function checarSiteAdmin(claims: Record<string, unknown>) {
   if (claims["email"] !== SITE_ADMIN_EMAIL) {
     throw new Error("Acesso restrito ao administrador do site.");
   }

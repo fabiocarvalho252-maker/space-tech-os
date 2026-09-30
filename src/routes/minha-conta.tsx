@@ -26,7 +26,7 @@ export const Route = createFileRoute("/minha-conta")({
   }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/" });
+    if (!data.session) throw redirect({ to: "/login" });
 
     const buscarCliente = () =>
       supabase
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/minha-conta")({
         // fall through to the redirect below
       }
     }
-    if (!cliente) throw redirect({ to: "/" });
+    if (!cliente) throw redirect({ to: "/login" });
   },
   component: MinhaConta,
 });

@@ -171,7 +171,7 @@ function Cadastro() {
 
         <p className="mt-7 text-center text-sm text-muted-foreground">
           Já tem conta?{" "}
-          <Link to="/" className="font-semibold text-primary underline">
+          <Link to="/login" className="font-semibold text-primary underline">
             Entrar
           </Link>
         </p>

@@ -1,0 +1,52 @@
+import {
+  BarChart3,
+  CalendarDays,
+  MessageCircle,
+  Package,
+  Printer,
+  QrCode,
+  Receipt,
+  ShieldCheck,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Users,
+  Wallet,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+import type { IconeLanding } from "@/lib/landing/conteudo";
+
+export const ICONE_LANDING: Record<IconeLanding, LucideIcon> = {
+  wrench: Wrench,
+  package: Package,
+  users: Users,
+  cart: ShoppingCart,
+  smartphone: Smartphone,
+  wallet: Wallet,
+  receipt: Receipt,
+  sparkles: Sparkles,
+  shield: ShieldCheck,
+  calendar: CalendarDays,
+  chart: BarChart3,
+  printer: Printer,
+  message: MessageCircle,
+  qrcode: QrCode,
+};
+
+export const ROTULO_ICONE: Record<IconeLanding, string> = {
+  wrench: "Ferramenta",
+  package: "Caixa",
+  users: "Pessoas",
+  cart: "Carrinho",
+  smartphone: "Celular",
+  wallet: "Carteira",
+  receipt: "Nota",
+  sparkles: "IA / brilho",
+  shield: "Garantia",
+  calendar: "Agenda",
+  chart: "Gráfico",
+  printer: "Impressora",
+  message: "Mensagem",
+  qrcode: "QR code",
+};

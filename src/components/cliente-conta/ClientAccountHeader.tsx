@@ -8,7 +8,7 @@ export function ClientAccountHeader({ nome }: { nome: string }) {
 
   async function sair() {
     await supabase.auth.signOut();
-    navigate({ to: "/" });
+    navigate({ to: "/login" });
   }
 
   return (

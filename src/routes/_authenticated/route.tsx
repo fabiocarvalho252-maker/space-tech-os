@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session) throw redirect({ to: "/" });
+    if (error || !data.session) throw redirect({ to: "/login" });
     const user = data.session.user;
 
     // Trial gate: the company's own profile.created_at is the trial's start,

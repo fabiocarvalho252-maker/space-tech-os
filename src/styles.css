@@ -174,3 +174,90 @@
     linear-gradient(to bottom, oklch(1 0 0 / 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+/* ---------- Landing page pública (/) ---------- */
+@keyframes lp-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lp-surgir-escala {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lp-flutuar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes lp-menu {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-entrar {
+  animation: lp-entrar 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.lp-entrar-escala {
+  animation: lp-surgir-escala 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.lp-flutuar {
+  animation: lp-flutuar 7s ease-in-out infinite;
+}
+.lp-menu {
+  animation: lp-menu 0.2s ease-out both;
+}
+
+/* Surgir ao rolar (Reveal adiciona .lp-visivel via IntersectionObserver). */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-reveal.lp-visivel {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-entrar,
+  .lp-entrar-escala,
+  .lp-flutuar,
+  .lp-menu {
+    animation: none;
+  }
+  .lp-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.lp-raiz) {
+    scroll-behavior: smooth;
+  }
+}

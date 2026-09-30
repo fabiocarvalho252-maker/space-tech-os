@@ -146,7 +146,7 @@ export function AppShell() {
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/", replace: true });
+    navigate({ to: "/login", replace: true });
   }
 
   const nomeExibicao = profile?.nome || user?.email?.split("@")[0] || "Usuário";

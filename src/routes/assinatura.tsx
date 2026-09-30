@@ -85,7 +85,7 @@ function Assinatura() {
 
   useEffect(() => {
     if (carregandoUser) return;
-    if (!user) navigate({ to: "/", replace: true });
+    if (!user) navigate({ to: "/login", replace: true });
   }, [carregandoUser, user, navigate]);
 
   const solicitar = useMutation({
@@ -100,7 +100,7 @@ function Assinatura() {
 
   async function sair() {
     await supabase.auth.signOut();
-    navigate({ to: "/", replace: true });
+    navigate({ to: "/login", replace: true });
   }
 
   if (!user || !trial) return null;

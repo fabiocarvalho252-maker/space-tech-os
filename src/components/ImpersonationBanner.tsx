@@ -20,7 +20,7 @@ export function ImpersonationBanner() {
     // ended up in localStorage instead of trusting stale in-memory/query state.
     if (error) {
       await supabase.auth.signOut();
-      window.location.href = "/";
+      window.location.href = "/login";
       return;
     }
     window.location.href = "/admin";

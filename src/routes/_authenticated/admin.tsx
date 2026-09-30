@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { addDays, addMonths, format, formatDistanceToNow } from "date-fns";
@@ -11,6 +11,7 @@ import {
   Copy,
   Gift,
   KeyRound,
+  LayoutTemplate,
   Link2,
   Loader2,
   LogIn,
@@ -287,6 +288,13 @@ function AdminDoSite() {
       <PageHeader
         title="Administração do site"
         subtitle="Controle geral das empresas cadastradas no SpaceTech e da ativação da plataforma."
+        action={
+          <Button asChild variant="outline">
+            <Link to="/admin/landing">
+              <LayoutTemplate className="h-4 w-4" /> Editar página inicial
+            </Link>
+          </Button>
+        }
       />
 
       {/* Os cards também filtram a lista de empresas (clique de novo para limpar). */}

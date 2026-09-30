@@ -89,7 +89,7 @@ function RedefinirSenha() {
 
         {concluido ? (
           <button
-            onClick={() => navigate({ to: "/" })}
+            onClick={() => navigate({ to: "/login" })}
             className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-95"
           >
             Ir para o login <ArrowRight className="h-4 w-4" />
@@ -109,7 +109,7 @@ function RedefinirSenha() {
         ) : (
           <p className="mt-7 text-center text-sm text-muted-foreground">
             Link inválido ou expirado.{" "}
-            <Link to="/" className="font-semibold text-primary underline">
+            <Link to="/login" className="font-semibold text-primary underline">
               Voltar para o login
             </Link>{" "}
             e solicite um novo.

@@ -10,12 +10,14 @@ const STORAGE_KEY = "space-tech-referral-code";
 // to the "never invent a value" rule that applies to money.
 const VALIDADE_MS = 30 * 24 * 60 * 60 * 1000;
 
+// O link abre a landing page (/), que guarda o código e o repassa ao
+// /cadastro. Links antigos (/cadastro?ref=) continuam funcionando.
 export function getReferralLink(referralCode: string): string {
-  return `${origemPublica()}/cadastro?ref=${encodeURIComponent(referralCode)}`;
+  return `${origemPublica()}/?ref=${encodeURIComponent(referralCode)}`;
 }
 
 /** Always keeps the most recently seen code (Fase 10: "last valid
- * referral wins") — called every time /cadastro loads with a ?ref= param,
+ * referral wins") — called every time / or /cadastro loads with a ?ref= param,
  * so a newer link always overwrites an older captured attribution. */
 export function salvarCodigoIndicacao(codigo: string): void {
   try {

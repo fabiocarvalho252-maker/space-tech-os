@@ -54,7 +54,7 @@ function Planos() {
 
   useEffect(() => {
     if (carregandoUser) return;
-    if (!user) navigate({ to: "/", replace: true });
+    if (!user) navigate({ to: "/login", replace: true });
   }, [carregandoUser, user, navigate]);
 
   const { data: planos } = useQuery({

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
@@ -42,6 +43,7 @@ import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
+import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
 import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
 import { Route as AuthenticatedOrdensFaturarOsIdRouteImport } from './routes/_authenticated/ordens_.faturar.$osId'
 
@@ -62,6 +64,11 @@ const AssinaturaRoute = AssinaturaRouteImport.update({
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MinhaContaRoute = MinhaContaRouteImport.update({
@@ -214,6 +221,12 @@ const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   path: '/consulta/$osId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminLandingRoute =
+  AuthenticatedAdminLandingRouteImport.update({
+    id: '/admin_/landing',
+    path: '/admin/landing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedServicosAdicionarRoute =
   AuthenticatedServicosAdicionarRouteImport.update({
     id: '/servicos_/adicionar',
@@ -231,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
@@ -260,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/vendas': typeof AuthenticatedVendasRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
@@ -267,6 +282,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
@@ -296,6 +312,7 @@ export interface FileRoutesByTo {
   '/vendas': typeof AuthenticatedVendasRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
@@ -305,6 +322,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/assinatura': typeof AssinaturaRoute
   '/cadastro': typeof CadastroRoute
+  '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
@@ -334,6 +352,7 @@ export interface FileRoutesById {
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
   '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
   '/_authenticated/ordens_/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
@@ -343,6 +362,7 @@ export interface FileRouteTypes {
     | '/'
     | '/assinatura'
     | '/cadastro'
+    | '/login'
     | '/minha-conta'
     | '/planos'
     | '/redefinir-senha'
@@ -372,6 +392,7 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/whatsapp'
     | '/consulta/$osId'
+    | '/admin/landing'
     | '/servicos/adicionar'
     | '/ordens/faturar/$osId'
   fileRoutesByTo: FileRoutesByTo
@@ -379,6 +400,7 @@ export interface FileRouteTypes {
     | '/'
     | '/assinatura'
     | '/cadastro'
+    | '/login'
     | '/minha-conta'
     | '/planos'
     | '/redefinir-senha'
@@ -408,6 +430,7 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/whatsapp'
     | '/consulta/$osId'
+    | '/admin/landing'
     | '/servicos/adicionar'
     | '/ordens/faturar/$osId'
   id:
@@ -416,6 +439,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/assinatura'
     | '/cadastro'
+    | '/login'
     | '/minha-conta'
     | '/planos'
     | '/redefinir-senha'
@@ -445,6 +469,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vendas'
     | '/_authenticated/whatsapp'
     | '/consulta/$osId'
+    | '/_authenticated/admin_/landing'
     | '/_authenticated/servicos_/adicionar'
     | '/_authenticated/ordens_/faturar/$osId'
   fileRoutesById: FileRoutesById
@@ -454,6 +479,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AssinaturaRoute: typeof AssinaturaRoute
   CadastroRoute: typeof CadastroRoute
+  LoginRoute: typeof LoginRoute
   MinhaContaRoute: typeof MinhaContaRoute
   PlanosRoute: typeof PlanosRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
@@ -488,6 +514,13 @@ declare module '@tanstack/react-router' {
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/minha-conta': {
@@ -693,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsultaOsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin_/landing': {
+      id: '/_authenticated/admin_/landing'
+      path: '/admin/landing'
+      fullPath: '/admin/landing'
+      preLoaderRoute: typeof AuthenticatedAdminLandingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/servicos_/adicionar': {
       id: '/_authenticated/servicos_/adicionar'
       path: '/servicos/adicionar'
@@ -736,6 +776,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+  AuthenticatedAdminLandingRoute: typeof AuthenticatedAdminLandingRoute
   AuthenticatedServicosAdicionarRoute: typeof AuthenticatedServicosAdicionarRoute
   AuthenticatedOrdensFaturarOsIdRoute: typeof AuthenticatedOrdensFaturarOsIdRoute
 }
@@ -766,6 +807,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+  AuthenticatedAdminLandingRoute: AuthenticatedAdminLandingRoute,
   AuthenticatedServicosAdicionarRoute: AuthenticatedServicosAdicionarRoute,
   AuthenticatedOrdensFaturarOsIdRoute: AuthenticatedOrdensFaturarOsIdRoute,
 }
@@ -778,6 +820,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AssinaturaRoute: AssinaturaRoute,
   CadastroRoute: CadastroRoute,
+  LoginRoute: LoginRoute,
   MinhaContaRoute: MinhaContaRoute,
   PlanosRoute: PlanosRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
