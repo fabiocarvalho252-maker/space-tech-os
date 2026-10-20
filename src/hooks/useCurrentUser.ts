@@ -245,11 +245,11 @@ export function podeGerenciar(
 }
 
 /** Quem pode finalizar a avaliação de um seminovo e liberá-lo para venda:
- * o dono da empresa ou um membro com papel admin. Espelha
+ * o dono da empresa ou um membro com papel admin ou gerente. Espelha
  * pode_finalizar_seminovo() no banco, que é quem de fato barra o resto. */
 export function usePodeFinalizarSeminovo() {
   const { data: user } = useCurrentUser();
   const { data: empresa } = useMinhaEmpresa();
   if (!user || !empresa) return false;
-  return empresa.empresa_id === user.id || empresa.role === "admin";
+  return empresa.empresa_id === user.id || empresa.role === "admin" || empresa.role === "gerente";
 }

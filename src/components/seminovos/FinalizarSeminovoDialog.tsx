@@ -1,5 +1,5 @@
 // "Finalizar avaliação": depois que o técnico conserta o aparelho, o dono da
-// empresa (ou um admin) confere se está tudo OK antes de liberar para venda.
+// empresa (ou um admin/gerente) confere se está tudo OK antes de liberar para venda.
 // Aprovado -> Disponível (só com o checklist todo marcado e preço de venda);
 // Reprovado -> volta para Pendente com o motivo no histórico.
 // Quem pode aprovar é garantido no banco (trigger seminovos_exigir_finalizacao),
