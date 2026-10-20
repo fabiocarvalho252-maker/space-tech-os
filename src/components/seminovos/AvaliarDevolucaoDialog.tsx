@@ -231,8 +231,8 @@ export function AvaliarDevolucaoDialog({
           )}
           {destino === "pendente" && (
             <p className="text-xs text-muted-foreground">
-              Registre as peças/serviços do conserto no detalhe do aparelho e depois mude o status
-              para Disponível.
+              Registre as peças/serviços do conserto no detalhe do aparelho e depois marque
+              "Conserto concluído" para a avaliação final.
             </p>
           )}
         </div>

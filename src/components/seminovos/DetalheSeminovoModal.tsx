@@ -29,6 +29,7 @@ type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"] & {
 
 const TONE_POR_STATUS_SEMINOVO: Record<string, StatusTone> = {
   pendente: "warning",
+  aguardando_finalizacao: "purple",
   disponivel: "success",
   vendido: "info",
   devolvido: "purple",
@@ -42,20 +43,26 @@ export function DetalheSeminovoModal({
   seminovo: seminovoProp,
   empresaId,
   podeGerenciarModulo,
+  podeFinalizar,
   onEditar,
   onVender,
   onDevolver,
   onAvaliarRetorno,
+  onConsertoConcluido,
+  onFinalizar,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   seminovo: SeminovoRow | null;
   empresaId: string;
   podeGerenciarModulo: boolean;
+  podeFinalizar: boolean;
   onEditar: () => void;
   onVender: () => void;
   onDevolver: () => void;
   onAvaliarRetorno: () => void;
+  onConsertoConcluido: () => void;
+  onFinalizar: () => void;
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
@@ -190,6 +197,14 @@ export function DetalheSeminovoModal({
           <div className="space-y-5">
             {podeGerenciarModulo && (
               <div className="flex flex-wrap gap-2">
+                {seminovo.status === "pendente" && (
+                  <Button variant="outline" onClick={onConsertoConcluido}>
+                    Conserto concluído
+                  </Button>
+                )}
+                {podeFinalizar && seminovo.status === "aguardando_finalizacao" && (
+                  <Button onClick={onFinalizar}>Finalizar avaliação</Button>
+                )}
                 {seminovo.status === "disponivel" && <Button onClick={onVender}>Vender</Button>}
                 {seminovo.status === "devolvido" && (
                   <Button onClick={onAvaliarRetorno}>Avaliar retorno</Button>
@@ -392,6 +407,16 @@ export function DetalheSeminovoModal({
                 <p className="mb-1 font-semibold text-foreground">Devolução</p>
                 <p className="text-muted-foreground">{dataBR(seminovo.devolucao_data)}</p>
                 <p>{seminovo.devolucao_motivo}</p>
+              </div>
+            )}
+
+            {seminovo.finalizado_em && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+                <p className="mb-1 font-semibold text-foreground">Avaliação final aprovada</p>
+                <p className="text-muted-foreground">
+                  {new Date(seminovo.finalizado_em).toLocaleString("pt-BR")}
+                </p>
+                {seminovo.finalizacao_observacao && <p>{seminovo.finalizacao_observacao}</p>}
               </div>
             )}
 

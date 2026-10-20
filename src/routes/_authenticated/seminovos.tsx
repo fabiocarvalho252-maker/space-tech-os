@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Boxes,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Plus,
   Smartphone,
@@ -22,7 +23,12 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
+import {
+  useEmpresaId,
+  usePermissoes,
+  podeGerenciar,
+  usePodeFinalizarSeminovo,
+} from "@/hooks/useCurrentUser";
 import { dataBR, statusLabel, STATUS_SEMINOVOS } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -34,6 +40,7 @@ import { VenderSeminovoModal } from "@/components/seminovos/VenderSeminovoModal"
 import { DevolverSeminovoDialog } from "@/components/seminovos/DevolverSeminovoDialog";
 import { AvaliarDevolucaoDialog } from "@/components/seminovos/AvaliarDevolucaoDialog";
 import { DetalheSeminovoModal } from "@/components/seminovos/DetalheSeminovoModal";
+import { FinalizarSeminovoDialog } from "@/components/seminovos/FinalizarSeminovoDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -74,6 +81,7 @@ const SEMINOVOS_VAZIO: SeminovoRow[] = [];
 
 const TONE_POR_STATUS_SEMINOVO: Record<string, StatusTone> = {
   pendente: "warning",
+  aguardando_finalizacao: "purple",
   disponivel: "success",
   vendido: "info",
   devolvido: "purple",
@@ -122,6 +130,7 @@ function Seminovos() {
   const empresaId = useEmpresaId();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "seminovos");
+  const podeFinalizar = usePodeFinalizarSeminovo();
 
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
@@ -143,6 +152,8 @@ function Seminovos() {
   const [paraDevolucao, setParaDevolucao] = useState<SeminovoRow | null>(null);
   const [modalAvaliacao, setModalAvaliacao] = useState(false);
   const [paraAvaliacao, setParaAvaliacao] = useState<SeminovoRow | null>(null);
+  const [modalFinalizar, setModalFinalizar] = useState(false);
+  const [paraFinalizar, setParaFinalizar] = useState<SeminovoRow | null>(null);
   const [statusPendente, setStatusPendente] = useState<{
     item: SeminovoRow;
     status: string;
@@ -263,8 +274,14 @@ function Seminovos() {
   const resumo = useMemo(() => {
     const disponiveis = itens.filter((i) => i.status === "disponivel");
     const pendentes = itens.filter((i) => i.status === "pendente");
+    const aguardando = itens.filter((i) => i.status === "aguardando_finalizacao");
     const vendidos = itens.filter((i) => i.status === "vendido");
-    const emEstoque = itens.filter((i) => i.status === "pendente" || i.status === "disponivel");
+    const emEstoque = itens.filter(
+      (i) =>
+        i.status === "pendente" ||
+        i.status === "aguardando_finalizacao" ||
+        i.status === "disponivel",
+    );
     const investido = emEstoque.reduce((s, i) => s + Number(i.valor_total_gasto ?? 0), 0);
     const lucroPrevisto = disponiveis.reduce((s, i) => s + Number(i.lucro_previsto ?? 0), 0);
     const atencao = emEstoque.filter((i) => {
@@ -278,6 +295,7 @@ function Seminovos() {
       total: itens.length,
       disponiveis: disponiveis.length,
       pendentes: pendentes.length,
+      aguardando: aguardando.length,
       vendidos: vendidos.length,
       investido,
       lucroPrevisto,
@@ -326,9 +344,28 @@ function Seminovos() {
     setModalAvaliacao(true);
   }
 
-  const STATUS_RAPIDOS = STATUS_SEMINOVOS.filter(
-    (s) => s.value !== "vendido" && s.value !== "devolvido",
-  );
+  function abrirFinalizacao(s: SeminovoRow) {
+    setParaFinalizar(s);
+    setModalFinalizar(true);
+    setModalDetalhe(false);
+  }
+
+  // "Disponível" só aparece para quem pode finalizar (ou se já está
+  // disponível); escolher essa opção abre a avaliação final em vez de
+  // trocar o status direto — o banco recusaria mesmo assim.
+  function statusRapidos(s: SeminovoRow) {
+    return STATUS_SEMINOVOS.filter(
+      (st) =>
+        st.value !== "vendido" &&
+        st.value !== "devolvido" &&
+        (st.value !== "disponivel" || podeFinalizar || s.status === "disponivel"),
+    );
+  }
+  function escolherStatus(s: SeminovoRow, status: string) {
+    if (status === s.status) return;
+    if (status === "disponivel") abrirFinalizacao(s);
+    else setStatusPendente({ item: s, status });
+  }
 
   return (
     <div>
@@ -352,7 +389,7 @@ function Seminovos() {
       />
 
       {/* CARDS DE RESUMO */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
         <CardResumo
           icon={Smartphone}
           cor="text-indigo-600 bg-indigo-500/10"
@@ -370,6 +407,12 @@ function Seminovos() {
           cor="text-amber-600 bg-amber-500/10"
           label="Pendentes"
           valor={String(resumo.pendentes)}
+        />
+        <CardResumo
+          icon={ClipboardCheck}
+          cor="text-violet-600 bg-violet-500/10"
+          label="Aguardando finalização"
+          valor={String(resumo.aguardando)}
         />
         <CardResumo
           icon={Boxes}
@@ -576,21 +619,34 @@ function Seminovos() {
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         {gerenciar && s.status !== "vendido" && s.status !== "devolvido" && (
-                          <Select
-                            value={s.status}
-                            onValueChange={(v) => setStatusPendente({ item: s, status: v })}
-                          >
+                          <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
                             <SelectTrigger className="h-9 w-36 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {STATUS_RAPIDOS.map((st) => (
+                              {statusRapidos(s).map((st) => (
                                 <SelectItem key={st.value} value={st.value}>
                                   {st.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                        )}
+                        {gerenciar && s.status === "pendente" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setStatusPendente({ item: s, status: "aguardando_finalizacao" })
+                            }
+                          >
+                            Conserto concluído
+                          </Button>
+                        )}
+                        {podeFinalizar && s.status === "aguardando_finalizacao" && (
+                          <Button size="sm" onClick={() => abrirFinalizacao(s)}>
+                            Finalizar
+                          </Button>
                         )}
                         {gerenciar && s.status === "disponivel" && (
                           <Button size="sm" onClick={() => abrirVenda(s)}>
@@ -688,6 +744,23 @@ function Seminovos() {
                       Editar
                     </Button>
                   )}
+                  {gerenciar && s.status === "pendente" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-10 flex-1"
+                      onClick={() =>
+                        setStatusPendente({ item: s, status: "aguardando_finalizacao" })
+                      }
+                    >
+                      Conserto concluído
+                    </Button>
+                  )}
+                  {podeFinalizar && s.status === "aguardando_finalizacao" && (
+                    <Button size="sm" className="h-10 flex-1" onClick={() => abrirFinalizacao(s)}>
+                      Finalizar
+                    </Button>
+                  )}
                   {gerenciar && s.status === "disponivel" && (
                     <Button size="sm" className="h-10 flex-1" onClick={() => abrirVenda(s)}>
                       Vender
@@ -701,15 +774,12 @@ function Seminovos() {
                 </div>
                 {gerenciar && s.status !== "vendido" && s.status !== "devolvido" && (
                   <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={s.status}
-                      onValueChange={(v) => setStatusPendente({ item: s, status: v })}
-                    >
+                    <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
                       <SelectTrigger className="h-10 w-full text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STATUS_RAPIDOS.map((st) => (
+                        {statusRapidos(s).map((st) => (
                           <SelectItem key={st.value} value={st.value}>
                             {st.label}
                           </SelectItem>
@@ -773,10 +843,17 @@ function Seminovos() {
             seminovo={detalheAtual}
             empresaId={empresaId}
             podeGerenciarModulo={gerenciar}
+            podeFinalizar={podeFinalizar}
             onEditar={() => detalheAtual && abrirEdicao(detalheAtual)}
             onVender={() => detalheAtual && abrirVenda(detalheAtual)}
             onDevolver={() => detalheAtual && abrirDevolucao(detalheAtual)}
             onAvaliarRetorno={() => detalheAtual && abrirAvaliacao(detalheAtual)}
+            onConsertoConcluido={() => {
+              if (!detalheAtual) return;
+              setModalDetalhe(false);
+              setStatusPendente({ item: detalheAtual, status: "aguardando_finalizacao" });
+            }}
+            onFinalizar={() => detalheAtual && abrirFinalizacao(detalheAtual)}
           />
           <VenderSeminovoModal
             open={modalVenda}
@@ -794,6 +871,12 @@ function Seminovos() {
             open={modalAvaliacao}
             onOpenChange={setModalAvaliacao}
             seminovo={paraAvaliacao}
+            empresaId={empresaId}
+          />
+          <FinalizarSeminovoDialog
+            open={modalFinalizar}
+            onOpenChange={setModalFinalizar}
+            seminovo={paraFinalizar}
             empresaId={empresaId}
           />
         </>

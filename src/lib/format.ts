@@ -82,6 +82,7 @@ export const STATUS_APARELHOS = [
 
 export const STATUS_SEMINOVOS = [
   { value: "pendente", label: "Pendente" },
+  { value: "aguardando_finalizacao", label: "Aguardando finalização" },
   { value: "disponivel", label: "Disponível" },
   { value: "vendido", label: "Vendido" },
   { value: "devolvido", label: "Devolvido" },

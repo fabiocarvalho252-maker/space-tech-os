@@ -2755,6 +2755,10 @@ export type Database = {
           devolucao_data: string | null
           devolucao_motivo: string | null
           estado: string | null
+          finalizacao_checklist: Json | null
+          finalizacao_observacao: string | null
+          finalizado_em: string | null
+          finalizado_por: string | null
           fotos: string[]
           id: string
           imei: string | null
@@ -2794,6 +2798,10 @@ export type Database = {
           devolucao_data?: string | null
           devolucao_motivo?: string | null
           estado?: string | null
+          finalizacao_checklist?: Json | null
+          finalizacao_observacao?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
           fotos?: string[]
           id?: string
           imei?: string | null
@@ -2830,6 +2838,10 @@ export type Database = {
           devolucao_data?: string | null
           devolucao_motivo?: string | null
           estado?: string | null
+          finalizacao_checklist?: Json | null
+          finalizacao_observacao?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
           fotos?: string[]
           id?: string
           imei?: string | null
@@ -3728,6 +3740,10 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      pode_finalizar_seminovo: {
+        Args: { p_empresa_id: string }
+        Returns: boolean
       }
       has_permission: {
         Args: { p_acao: string; p_empresa_id: string; p_modulo: string }

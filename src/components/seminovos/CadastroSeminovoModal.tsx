@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
+import { usePodeFinalizarSeminovo } from "@/hooks/useCurrentUser";
 import { formatarCpf, limparCpf, validarCpf } from "@/lib/cpf";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const ESTADOS = ["Excelente", "Bom", "Regular", "Ruim"];
 // esses status manualmente destruiria essa integração.
 const STATUS_CADASTRO = [
   { value: "pendente", label: "Pendente" },
+  { value: "aguardando_finalizacao", label: "Aguardando finalização" },
   { value: "disponivel", label: "Disponível para venda" },
   { value: "sucata", label: "Sucata" },
   { value: "sem_solucao", label: "Sem solução" },
@@ -122,6 +124,7 @@ export function CadastroSeminovoModal({
   empresaId: string;
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
+  const podeFinalizar = usePodeFinalizarSeminovo();
   const qc = useQueryClient();
   const [form, setForm] = useState<FormState>(formVazio);
   // Só existe uma vez que o aparelho já foi salvo (o detalhamento precisa de
@@ -755,7 +758,13 @@ export function CadastroSeminovoModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUS_CADASTRO.map((s) => (
+                  {STATUS_CADASTRO.filter(
+                    // Liberar para venda é da avaliação final (dono/admin).
+                    (s) =>
+                      s.value !== "disponivel" ||
+                      podeFinalizar ||
+                      seminovo?.status === "disponivel",
+                  ).map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>
