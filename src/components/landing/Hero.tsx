@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, MonitorDown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LandingConteudo } from "@/lib/landing/conteudo";
 import { DashboardMockup } from "./DashboardMockup";
 import { CTA_PRIMARIO, CTA_SECUNDARIO } from "./botoes";
 import { LinkCadastro } from "./LinkCadastro";
+import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 
 export function Hero({ hero }: { hero: LandingConteudo["hero"] }) {
   return (
@@ -53,6 +54,15 @@ export function Hero({ hero }: { hero: LandingConteudo["hero"] }) {
             >
               {hero.ctaSecundario}
             </Link>
+          </div>
+          <div className="lp-entrar mt-4 flex justify-center" style={{ animationDelay: "300ms" }}>
+            <a
+              href={APP_DESKTOP_WINDOWS_URL}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+            >
+              <MonitorDown className="h-4 w-4" aria-hidden="true" />
+              Baixar app para Windows
+            </a>
           </div>
           {hero.nota && (
             <p className="lp-entrar mt-4 text-sm text-zinc-500" style={{ animationDelay: "320ms" }}>

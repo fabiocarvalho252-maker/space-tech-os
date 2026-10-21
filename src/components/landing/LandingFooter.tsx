@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
+import { MonitorDown } from "lucide-react";
 import { LandingLogo } from "./LandingLogo";
 import { LinkCadastro } from "./LinkCadastro";
+import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 
 const link =
   "rounded text-sm text-zinc-400 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400";
@@ -39,6 +41,15 @@ export function LandingFooter() {
             </li>
             <li>
               <LinkCadastro className={link}>Criar conta</LinkCadastro>
+            </li>
+            <li>
+              <a
+                href={APP_DESKTOP_WINDOWS_URL}
+                className={`inline-flex items-center gap-1.5 ${link}`}
+              >
+                <MonitorDown className="h-3.5 w-3.5" aria-hidden="true" />
+                Baixar para Windows
+              </a>
             </li>
           </ul>
         </nav>

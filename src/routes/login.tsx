@@ -14,11 +14,13 @@ import {
   Search,
   User,
   Phone,
+  MonitorDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
+import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { useRedirecionarSeLogado } from "@/hooks/useRedirecionarSeLogado";
@@ -227,6 +229,16 @@ function PainelEmpresa() {
           Criar conta grátis
         </Link>
       </p>
+
+      <div className="mt-5 border-t border-border pt-4 text-center">
+        <a
+          href={APP_DESKTOP_WINDOWS_URL}
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-primary"
+        >
+          <MonitorDown className="h-4 w-4" aria-hidden="true" />
+          Baixar app para Windows
+        </a>
+      </div>
     </div>
   );
 }
