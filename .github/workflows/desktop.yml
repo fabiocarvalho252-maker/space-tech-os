@@ -1,11 +1,14 @@
 # Gera o instalador Windows (.exe) do SPACE TECH OS desktop em um runner
 # Windows do GitHub Actions, sem precisar de máquina Windows local.
 #
-# Como usar: aba Actions -> "Build desktop (Windows)" -> Run workflow.
-# Ao terminar, baixe o .exe em "Artifacts". Dispara só manualmente (ou ao
-# criar uma tag v*), nunca a cada push — não interfere no projeto web.
+# Dois modos:
+#  - aba Actions -> "Build desktop (Windows)" -> Run workflow: só compila e
+#    sobe o .exe como artefato (baixe em Artifacts, exige login no GitHub).
+#  - push de uma tag "desktop-v*" (ex.: git tag desktop-v1.0.0 && git push
+#    origin desktop-v1.0.0): compila E publica o .exe numa GitHub Release,
+#    gerando um link de download direto.
 #
-# Ver DESKTOP-WINDOWS.md.
+# Não interfere no projeto web. Ver DESKTOP-WINDOWS.md.
 name: Build desktop (Windows)
 
 on:
@@ -15,7 +18,7 @@ on:
       - "desktop-v*"
 
 permissions:
-  contents: read
+  contents: write # necessário para criar a Release
 
 jobs:
   build:
@@ -50,3 +53,16 @@ jobs:
           name: SPACE-TECH-OS-Setup
           path: desktop/dist/*.exe
           if-no-files-found: error
+
+      # Só quando o gatilho é uma tag desktop-v*: cria a Release com o .exe
+      # anexado, que vira um link de download direto.
+      - name: Publicar na Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SPACE TECH OS ${{ github.ref_name }}
+          files: desktop/dist/*.exe
+          body: |
+            Instalador do SPACE TECH OS para Windows.
+
+            Baixe o arquivo `SPACE-TECH-OS-Setup-*.exe` abaixo e execute para instalar.

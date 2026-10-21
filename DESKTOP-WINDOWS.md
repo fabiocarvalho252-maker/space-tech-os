@@ -104,9 +104,24 @@ Se não tiver uma máquina Windows, o repositório já inclui um workflow que
 gera o instalador num runner `windows-latest`:
 [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml).
 
-Dispare pela aba **Actions → Build desktop (Windows) → Run workflow** e baixe o
-`.exe` em **Artifacts** ao terminar. O workflow também roda ao criar uma tag
-`desktop-v*` (ex.: `git tag desktop-v1.0.0 && git push origin desktop-v1.0.0`).
+Dois jeitos de usar:
+
+- **Só compilar:** aba **Actions → Build desktop (Windows) → Run workflow**.
+  Baixe o `.exe` em **Artifacts** (exige estar logado no GitHub).
+- **Publicar numa Release (link de download direto):** crie uma tag
+  `desktop-v*`:
+  ```bash
+  git tag desktop-v1.0.0
+  git push origin desktop-v1.0.0
+  ```
+  O workflow compila e **anexa o `.exe` a uma GitHub Release**. O link fica em
+  `https://github.com/<owner>/<repo>/releases/latest`.
+
+> **Link público:** o download direto da Release só é público se o
+> **repositório for público**. Num repositório privado, o link exige login com
+> acesso ao repositório. Para distribuir aos funcionários sem conta no GitHub,
+> deixe o repositório público **ou** hospede o `.exe` baixado em outro lugar
+> (site da loja, Google Drive, etc.).
 
 ---
 
