@@ -718,6 +718,271 @@ export type Database = {
           },
         ]
       }
+      crediario_comandos: {
+        Row: {
+          confirmado_em: string | null
+          contrato_id: string
+          created_at: string
+          criado_por: string | null
+          enviado_em: string | null
+          id: string
+          motivo: string | null
+          payload: Json
+          status: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          confirmado_em?: string | null
+          contrato_id: string
+          created_at?: string
+          criado_por?: string | null
+          enviado_em?: string | null
+          id?: string
+          motivo?: string | null
+          payload?: Json
+          status?: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          confirmado_em?: string | null
+          contrato_id?: string
+          created_at?: string
+          criado_por?: string | null
+          enviado_em?: string | null
+          id?: string
+          motivo?: string | null
+          payload?: Json
+          status?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_comandos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_comandos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "vw_crediario_contratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crediario_contratos: {
+        Row: {
+          bloqueio_manual: boolean
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          dias_tolerancia: number
+          entrada: number
+          id: string
+          imei: string
+          juros_mes_pct: number
+          liberado_ate: string | null
+          marca: string
+          modelo: string
+          multa_pct: number
+          num_parcelas: number
+          numero: number
+          observacoes: string | null
+          primeiro_vencimento: string
+          provisionado_em: string | null
+          status: string
+          status_aparelho: string
+          termo_aceito_em: string
+          ultimo_contato: string | null
+          updated_at: string
+          user_id: string
+          valor_aparelho: number
+          valor_parcela: number
+        }
+        Insert: {
+          bloqueio_manual?: boolean
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          dias_tolerancia?: number
+          entrada?: number
+          id?: string
+          imei: string
+          juros_mes_pct?: number
+          liberado_ate?: string | null
+          marca: string
+          modelo: string
+          multa_pct?: number
+          num_parcelas: number
+          numero: number
+          observacoes?: string | null
+          primeiro_vencimento: string
+          provisionado_em?: string | null
+          status?: string
+          status_aparelho?: string
+          termo_aceito_em: string
+          ultimo_contato?: string | null
+          updated_at?: string
+          user_id: string
+          valor_aparelho: number
+          valor_parcela: number
+        }
+        Update: {
+          bloqueio_manual?: boolean
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          dias_tolerancia?: number
+          entrada?: number
+          id?: string
+          imei?: string
+          juros_mes_pct?: number
+          liberado_ate?: string | null
+          marca?: string
+          modelo?: string
+          multa_pct?: number
+          num_parcelas?: number
+          numero?: number
+          observacoes?: string | null
+          primeiro_vencimento?: string
+          provisionado_em?: string | null
+          status?: string
+          status_aparelho?: string
+          termo_aceito_em?: string
+          ultimo_contato?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_aparelho?: number
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_contratos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crediario_eventos: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          created_by: string | null
+          descricao: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_eventos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_eventos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "vw_crediario_contratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crediario_parcelas: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          id: string
+          lancamento_id: string | null
+          numero: number
+          pago_em: string | null
+          payment_method_id: string | null
+          pix_txid: string | null
+          recebido_por: string | null
+          status: string
+          user_id: string
+          valor: number
+          valor_pago: number | null
+          vencimento: string
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          id?: string
+          lancamento_id?: string | null
+          numero: number
+          pago_em?: string | null
+          payment_method_id?: string | null
+          pix_txid?: string | null
+          recebido_por?: string | null
+          status?: string
+          user_id: string
+          valor: number
+          valor_pago?: number | null
+          vencimento: string
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          id?: string
+          lancamento_id?: string | null
+          numero?: number
+          pago_em?: string | null
+          payment_method_id?: string | null
+          pix_txid?: string | null
+          recebido_por?: string | null
+          status?: string
+          user_id?: string
+          valor?: number
+          valor_pago?: number | null
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_parcelas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "vw_crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devices: {
         Row: {
           cor: string | null
@@ -3501,7 +3766,97 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_crediario_contratos: {
+        Row: {
+          bloqueio_manual: boolean | null
+          cliente_id: string | null
+          cliente_nome: string | null
+          cliente_telefone: string | null
+          created_at: string | null
+          created_by: string | null
+          dias_atraso: number | null
+          dias_tolerancia: number | null
+          entrada: number | null
+          id: string | null
+          imei: string | null
+          juros_mes_pct: number | null
+          liberado_ate: string | null
+          marca: string | null
+          modelo: string | null
+          multa_pct: number | null
+          num_parcelas: number | null
+          numero: number | null
+          observacoes: string | null
+          parcelas_pagas: number | null
+          primeiro_vencimento: string | null
+          provisionado_em: string | null
+          proximo_vencimento: string | null
+          saldo_devedor: number | null
+          status: string | null
+          status_aparelho: string | null
+          termo_aceito_em: string | null
+          total_recebido: number | null
+          ultimo_contato: string | null
+          updated_at: string | null
+          user_id: string | null
+          valor_aparelho: number | null
+          valor_parcela: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_contratos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_crediario_parcelas: {
+        Row: {
+          contrato_id: string | null
+          created_at: string | null
+          dias_atraso: number | null
+          id: string | null
+          lancamento_id: string | null
+          numero: number | null
+          pago_em: string | null
+          payment_method_id: string | null
+          pix_txid: string | null
+          recebido_por: string | null
+          status: string | null
+          user_id: string | null
+          valor: number | null
+          valor_atualizado: number | null
+          valor_pago: number | null
+          vencimento: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_parcelas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "vw_crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_parcelas_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       aceitar_convite: {
@@ -3519,6 +3874,19 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      alterar_bloqueio_crediario: {
+        Args: {
+          p_bloquear: boolean
+          p_contrato_id: string
+          p_liberar_ate?: string
+          p_motivo: string
+        }
+        Returns: undefined
+      }
+      cancelar_contrato_crediario: {
+        Args: { p_contrato_id: string; p_motivo: string }
+        Returns: undefined
       }
       cancelar_faturamento_os: {
         Args: { p_faturamento_id: string; p_motivo?: string }
@@ -3645,6 +4013,84 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      crediario_enfileirar: {
+        Args: {
+          p_contrato: string
+          p_motivo: string
+          p_payload?: Json
+          p_tipo: string
+        }
+        Returns: undefined
+      }
+      crediario_hoje: { Args: never; Returns: string }
+      crediario_log: {
+        Args: { p_contrato: string; p_descricao: string }
+        Returns: undefined
+      }
+      crediario_recalcular: { Args: { p_contrato: string }; Returns: undefined }
+      crediario_valor_atualizado: {
+        Args: {
+          p_em: string
+          p_juros_mes_pct: number
+          p_multa_pct: number
+          p_valor: number
+          p_vencimento: string
+        }
+        Returns: number
+      }
+      criar_contrato_crediario: {
+        Args: {
+          p_cliente_id: string
+          p_dias_tolerancia?: number
+          p_entrada: number
+          p_forma_entrada_id?: string
+          p_imei: string
+          p_juros_mes_pct?: number
+          p_marca: string
+          p_modelo: string
+          p_multa_pct?: number
+          p_num_parcelas: number
+          p_observacoes?: string
+          p_primeiro_vencimento: string
+          p_termo_aceito: boolean
+          p_valor_aparelho: number
+          p_valor_parcela?: number
+        }
+        Returns: {
+          bloqueio_manual: boolean
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          dias_tolerancia: number
+          entrada: number
+          id: string
+          imei: string
+          juros_mes_pct: number
+          liberado_ate: string | null
+          marca: string
+          modelo: string
+          multa_pct: number
+          num_parcelas: number
+          numero: number
+          observacoes: string | null
+          primeiro_vencimento: string
+          provisionado_em: string | null
+          status: string
+          status_aparelho: string
+          termo_aceito_em: string
+          ultimo_contato: string | null
+          updated_at: string
+          user_id: string
+          valor_aparelho: number
+          valor_parcela: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crediario_contratos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       definir_template_padrao: {
         Args: { p_template_id: string }
         Returns: undefined
@@ -3754,6 +4200,10 @@ export type Database = {
         Args: { p_empresa_id: string }
         Returns: boolean
       }
+      processar_inadimplencia_crediario: {
+        Args: { p_empresa_id?: string }
+        Returns: number
+      }
       recalcular_status_pagamento_os: {
         Args: { p_os_id: string }
         Returns: undefined
@@ -3782,6 +4232,38 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "os_faturamento_parcelas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      registrar_pagamento_crediario: {
+        Args: {
+          p_data?: string
+          p_dispensar_encargos?: boolean
+          p_parcela_id: string
+          p_payment_method_id?: string
+          p_pix_txid?: string
+          p_valor: number
+        }
+        Returns: {
+          contrato_id: string
+          created_at: string
+          id: string
+          lancamento_id: string | null
+          numero: number
+          pago_em: string | null
+          payment_method_id: string | null
+          pix_txid: string | null
+          recebido_por: string | null
+          status: string
+          user_id: string
+          valor: number
+          valor_pago: number | null
+          vencimento: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crediario_parcelas"
           isOneToOne: true
           isSetofReturn: false
         }

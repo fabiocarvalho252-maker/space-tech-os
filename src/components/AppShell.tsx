@@ -34,6 +34,7 @@ import {
   Calculator,
   Boxes,
   Gift,
+  HandCoins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -98,6 +99,7 @@ const NAV = [
   { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
   { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "configuracoes" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
+  { to: "/crediario", label: "Crediário", icon: HandCoins, modulo: "crediario" },
   { to: "/notas", label: "Notas Fiscais", icon: FileCheck, modulo: "notas" },
   { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, modulo: "relatorios" },

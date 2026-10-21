@@ -64,6 +64,7 @@ const MODULOS = [
   { value: "seminovos", label: "Compra de Seminovos" },
   { value: "financeiro", label: "Financeiro" },
   { value: "cobrancas", label: "Cobranças" },
+  { value: "crediario", label: "Crediário" },
   { value: "garantia", label: "Garantias" },
   { value: "notas", label: "Notas Fiscais" },
   { value: "relatorios", label: "Relatórios" },
