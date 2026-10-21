@@ -35,6 +35,7 @@ import {
   Boxes,
   Gift,
   HandCoins,
+  MonitorDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -46,6 +47,7 @@ import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { SuporteWhatsapp } from "@/components/SuporteWhatsapp";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
 import { ATALHOS, estaDigitando } from "@/lib/atalhos";
+import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -200,6 +202,12 @@ export function AppShell() {
             </p>
             <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
           </div>
+          <a
+            href={APP_DESKTOP_WINDOWS_URL}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+          >
+            <MonitorDown className="h-4 w-4" /> Baixar app (Windows)
+          </a>
           <button
             onClick={sair}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
@@ -244,6 +252,13 @@ export function AppShell() {
               >
                 <CreditCard className="h-5 w-5" /> Meu Plano
               </Link>
+              <a
+                href={APP_DESKTOP_WINDOWS_URL}
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+              >
+                <MonitorDown className="h-5 w-5" /> Baixar app (Windows)
+              </a>
               <button
                 onClick={sair}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
