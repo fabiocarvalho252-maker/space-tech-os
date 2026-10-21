@@ -491,6 +491,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           created_at: string
+          crediario_parcela_id: string | null
           expires_at: string | null
           id: string
           lancamento_id: string | null
@@ -507,6 +508,7 @@ export type Database = {
         Insert: {
           cliente_id?: string | null
           created_at?: string
+          crediario_parcela_id?: string | null
           expires_at?: string | null
           id?: string
           lancamento_id?: string | null
@@ -523,6 +525,7 @@ export type Database = {
         Update: {
           cliente_id?: string | null
           created_at?: string
+          crediario_parcela_id?: string | null
           expires_at?: string | null
           id?: string
           lancamento_id?: string | null
@@ -542,6 +545,18 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cobrancas_crediario_parcela_id_fkey"
+            columns: ["crediario_parcela_id"]
+            referencedRelation: "crediario_parcelas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cobrancas_crediario_parcela_id_fkey"
+            columns: ["crediario_parcela_id"]
+            referencedRelation: "vw_crediario_parcelas"
             referencedColumns: ["id"]
           },
           {
@@ -714,6 +729,73 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crediario_avisos: {
+        Row: {
+          com_pix: boolean
+          contrato_id: string
+          created_at: string
+          enviado_por: string | null
+          erro: string | null
+          id: string
+          parcela_id: string | null
+          status: string
+          telefone: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          com_pix?: boolean
+          contrato_id: string
+          created_at?: string
+          enviado_por?: string | null
+          erro?: string | null
+          id?: string
+          parcela_id?: string | null
+          status: string
+          telefone?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          com_pix?: boolean
+          contrato_id?: string
+          created_at?: string
+          enviado_por?: string | null
+          erro?: string | null
+          id?: string
+          parcela_id?: string | null
+          status?: string
+          telefone?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crediario_avisos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_avisos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            referencedRelation: "vw_crediario_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_avisos_parcela_id_fkey"
+            columns: ["parcela_id"]
+            referencedRelation: "crediario_parcelas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crediario_avisos_parcela_id_fkey"
+            columns: ["parcela_id"]
+            referencedRelation: "vw_crediario_parcelas"
             referencedColumns: ["id"]
           },
         ]

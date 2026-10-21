@@ -5,11 +5,30 @@
 // só conveniência.
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Loader2, Lock, LockOpen, Smartphone, Wallet } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Copy,
+  FileText,
+  Loader2,
+  Lock,
+  LockOpen,
+  MessageCircle,
+  QrCode,
+  Smartphone,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { dataBR } from "@/lib/format";
+import { base64ParaBytes, sanitizarNomeArquivo } from "@/lib/pdf-share";
+import {
+  enviarCobrancaWhatsappCrediarioFn,
+  gerarContratoCrediarioPdfFn,
+  gerarPixParcelaCrediarioFn,
+} from "@/lib/crediario/crediario.functions";
+import { PdfPreviewDialog, type PdfGerado } from "@/components/aparelhos/PdfPreviewDialog";
 import {
   TIPO_COMANDO,
   hojeISO,
@@ -65,6 +84,9 @@ export function DetalheContratoModal({
   const open = !!contratoId;
   const [parcelaReceber, setParcelaReceber] = useState<Parcela | null>(null);
   const [acao, setAcao] = useState<Acao | null>(null);
+  const [pixParcela, setPixParcela] = useState<Parcela | null>(null);
+  const [pdfAberto, setPdfAberto] = useState(false);
+  const [pdf, setPdf] = useState<PdfGerado | null>(null);
 
   const { data: contrato } = useQuery({
     queryKey: ["crediario", "contrato", contratoId],
@@ -123,6 +145,53 @@ export function DetalheContratoModal({
     },
   });
 
+  const { data: avisos = [] } = useQuery({
+    queryKey: ["crediario", "avisos", contratoId],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("crediario_avisos")
+        .select("id, tipo, status, erro, com_pix, created_at, parcela_id")
+        .eq("contrato_id", contratoId!)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const enviarWhatsapp = useMutation({
+    mutationFn: (parcelaId: string) => enviarCobrancaWhatsappCrediarioFn({ data: { parcelaId } }),
+    onSuccess: (r) => {
+      toast.success(
+        r.comPix ? "Cobrança com Pix enviada pelo WhatsApp." : "Cobrança enviada pelo WhatsApp.",
+      );
+      qc.invalidateQueries({ queryKey: ["crediario", "avisos", contratoId] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      qc.invalidateQueries({ queryKey: ["crediario", "avisos", contratoId] });
+    },
+  });
+
+  const gerarPdf = useMutation({
+    mutationFn: async () => {
+      const { base64 } = await gerarContratoCrediarioPdfFn({ data: { contratoId: contratoId! } });
+      const nome = `CONTRATO-${numeroContrato(contrato?.numero)}-${sanitizarNomeArquivo(
+        contrato?.cliente_nome ?? "",
+      )}.pdf`;
+      return new File([base64ParaBytes(base64)], nome, { type: "application/pdf" });
+    },
+    onSuccess: (file) => setPdf({ file, url: URL.createObjectURL(file) }),
+    onError: (e: Error) => toast.error("Erro ao gerar o contrato: " + e.message),
+  });
+
+  function abrirPdf() {
+    setPdf(null);
+    setPdfAberto(true);
+    gerarPdf.mutate();
+  }
+
   const encerrado = contrato?.status === "quitado" || contrato?.status === "cancelado";
   const status = statusContrato(contrato?.status);
   const statusAparelho = infoAparelho(contrato?.status_aparelho);
@@ -146,6 +215,11 @@ export function DetalheContratoModal({
             <TableSkeleton linhas={4} />
           ) : (
             <div className="space-y-5">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={abrirPdf}>
+                  <FileText className="h-4 w-4" /> Contrato e termo (PDF)
+                </Button>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <section className="rounded-xl border border-border p-4">
                   <h3 className="mb-2 flex items-center gap-2 text-sm font-bold">
@@ -277,10 +351,38 @@ export function DetalheContratoModal({
                                 />
                               </td>
                               <td className="px-3 py-2 text-right">
-                                {gerenciar && emAberto && contrato.status !== "cancelado" && (
-                                  <Button size="sm" onClick={() => setParcelaReceber(p)}>
-                                    Receber
-                                  </Button>
+                                {emAberto && !encerrado && (
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      title="Gerar Pix"
+                                      aria-label="Gerar Pix"
+                                      onClick={() => setPixParcela(p)}
+                                    >
+                                      <QrCode className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      title="Enviar cobrança pelo WhatsApp"
+                                      aria-label="Enviar cobrança pelo WhatsApp"
+                                      disabled={enviarWhatsapp.isPending}
+                                      onClick={() => enviarWhatsapp.mutate(p.id!)}
+                                    >
+                                      {enviarWhatsapp.isPending &&
+                                      enviarWhatsapp.variables === p.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <MessageCircle className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    {gerenciar && (
+                                      <Button size="sm" onClick={() => setParcelaReceber(p)}>
+                                        Receber
+                                      </Button>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -331,6 +433,42 @@ export function DetalheContratoModal({
                   ) : (
                     <p className="text-sm text-muted-foreground">Nenhum comando ainda.</p>
                   )}
+
+                  <h3 className="mb-2 mt-5 text-sm font-bold">Avisos por WhatsApp</h3>
+                  {avisos.length ? (
+                    <ul className="space-y-2 text-sm">
+                      {avisos.map((a) => {
+                        const n = parcelas.find((p) => p.id === a.parcela_id)?.numero;
+                        return (
+                          <li
+                            key={a.id}
+                            className="flex flex-wrap items-center justify-between gap-2"
+                          >
+                            <span>
+                              <span className="font-medium">
+                                {TIPO_AVISO[a.tipo] ?? a.tipo}
+                                {n ? ` · parcela ${n}` : ""}
+                                {a.com_pix ? " · com Pix" : ""}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {new Date(a.created_at).toLocaleString("pt-BR")}
+                                {a.erro ? ` · ${a.erro}` : ""}
+                              </span>
+                            </span>
+                            <StatusBadge
+                              label={a.status === "enviado" ? "Enviado" : "Falhou"}
+                              tone={a.status === "enviado" ? "success" : "danger"}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum aviso ainda. Os avisos de vencimento e de bloqueio saem sozinhos entre
+                      9h e 20h, se o WhatsApp da loja estiver conectado.
+                    </p>
+                  )}
                 </section>
               </div>
 
@@ -367,6 +505,26 @@ export function DetalheContratoModal({
         onFeito={() => qc.invalidateQueries({ queryKey: ["crediario"] })}
       />
 
+      <PixParcelaDialog
+        parcela={pixParcela}
+        numParcelas={contrato?.num_parcelas ?? 0}
+        onClose={() => setPixParcela(null)}
+        onPago={() => qc.invalidateQueries({ queryKey: ["crediario"] })}
+      />
+
+      <PdfPreviewDialog
+        open={pdfAberto}
+        onOpenChange={(v) => {
+          setPdfAberto(v);
+          if (!v && pdf) URL.revokeObjectURL(pdf.url);
+        }}
+        titulo="Contrato de crediário"
+        gerando={gerarPdf.isPending}
+        pdf={pdf}
+        telefoneCliente={contrato?.cliente_telefone}
+        mensagemWhatsapp={`Olá${contrato?.cliente_nome ? `, ${contrato.cliente_nome.split(" ")[0]}` : ""}! Segue o seu contrato de crediário ${numeroContrato(contrato?.numero)}.`}
+      />
+
       <AcaoContratoDialog
         acao={acao}
         contratoId={contratoId}
@@ -375,6 +533,118 @@ export function DetalheContratoModal({
         onFeito={() => qc.invalidateQueries({ queryKey: ["crediario"] })}
       />
     </>
+  );
+}
+
+const TIPO_AVISO: Record<string, string> = {
+  vencimento: "Aviso de vencimento",
+  bloqueio: "Aviso de bloqueio",
+  manual: "Cobrança enviada",
+};
+
+// Pix da parcela (valor com multa/juros de hoje, válido até o fim do dia).
+// Enquanto aberto, consulta a parcela a cada 5s: o webhook do Mercado Pago
+// baixa a parcela sozinho, e a tela fecha com a confirmação.
+function PixParcelaDialog({
+  parcela,
+  numParcelas,
+  onClose,
+  onPago,
+}: {
+  parcela: Parcela | null;
+  numParcelas: number;
+  onClose: () => void;
+  onPago: () => void;
+}) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
+  const parcelaId = parcela?.id ?? null;
+
+  const {
+    data: pix,
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["crediario", "pix", parcelaId],
+    enabled: !!parcelaId,
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    queryFn: () => gerarPixParcelaCrediarioFn({ data: { parcelaId: parcelaId! } }),
+  });
+
+  const { data: paga } = useQuery({
+    queryKey: ["crediario", "pix-status", parcelaId],
+    enabled: !!parcelaId && !!pix,
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("crediario_parcelas")
+        .select("status")
+        .eq("id", parcelaId!)
+        .maybeSingle();
+      return data?.status === "paga";
+    },
+  });
+
+  useEffect(() => {
+    if (paga) {
+      toast.success(`Parcela ${parcela?.numero}/${numParcelas} paga via Pix.`);
+      onPago();
+      onClose();
+    }
+  }, [paga, parcela?.numero, numParcelas, onPago, onClose]);
+
+  return (
+    <Dialog open={!!parcela} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle className="text-center">
+            Pix da parcela {parcela?.numero}/{numParcelas}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          {isLoading ? (
+            <Loader2 className="my-16 h-8 w-8 animate-spin text-muted-foreground" />
+          ) : error ? (
+            <p className="py-8 text-center text-sm text-destructive">{(error as Error).message}</p>
+          ) : pix ? (
+            <>
+              {pix.qr_code && (
+                <img
+                  src={`data:image/png;base64,${pix.qr_code}`}
+                  alt="QR Code Pix"
+                  className="aspect-square w-48 rounded-xl border border-border bg-white object-contain"
+                />
+              )}
+              <div className="text-center">
+                <p className="text-lg font-bold">{brl(pix.valor)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Válido até{" "}
+                  {pix.expires_at
+                    ? new Date(pix.expires_at).toLocaleString("pt-BR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })
+                    : "—"}
+                </p>
+              </div>
+              <Button
+                className="w-full gap-2"
+                onClick={() => {
+                  navigator.clipboard.writeText(pix.qr_code_copy_paste ?? "");
+                  toast.success("Pix copia e cola copiado!");
+                }}
+              >
+                <Copy className="h-4 w-4" /> Copiar código
+              </Button>
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3 w-3" /> A baixa da parcela é automática.
+              </p>
+            </>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

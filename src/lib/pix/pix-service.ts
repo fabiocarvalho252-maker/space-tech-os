@@ -43,6 +43,11 @@ export type NovaCobrancaInput = {
   osId: string | null;
   vendaId: string | null;
   origin: string;
+  /** Parcela do crediário que este Pix quita (baixa automática na confirmação). */
+  crediarioParcelaId?: string;
+  /** Padrão: 30 minutos. */
+  expiraEm?: Date;
+  descricao?: string;
 };
 
 export type Cobranca = {
@@ -76,6 +81,7 @@ export async function criarCobrancaPix(input: NovaCobrancaInput): Promise<Cobran
       cliente_id: input.clienteId,
       os_id: input.osId,
       venda_id: input.vendaId,
+      crediario_parcela_id: input.crediarioParcelaId ?? null,
       valor: input.valor,
       status: "pendente",
     })
@@ -83,12 +89,14 @@ export async function criarCobrancaPix(input: NovaCobrancaInput): Promise<Cobran
     .single();
   if (error) throw error;
 
-  const expiraEm = new Date(Date.now() + 30 * 60_000);
+  const expiraEm = input.expiraEm ?? new Date(Date.now() + 30 * 60_000);
   try {
     const pagamento = await criarPagamentoPix({
       accessToken: config.accessToken,
       valor: input.valor,
-      descricao: cliente?.nome ? `Cobrança SpaceTech — ${cliente.nome}` : "Cobrança SpaceTech",
+      descricao:
+        input.descricao ??
+        (cliente?.nome ? `Cobrança SpaceTech — ${cliente.nome}` : "Cobrança SpaceTech"),
       externalReference: cobranca.id,
       notificationUrl: `${input.origin}/api/pix/webhook`,
       payerEmail: cliente?.email || "cliente@spacetech.app",
@@ -138,7 +146,7 @@ export async function reconciliarPagamento(mpId: string): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lancamento_id not in the generated Database type yet
     .from("cobrancas" as any)
     .select(
-      "id, user_id, valor, status, lancamento_id, cliente_id, os_id, venda_id, clientes(nome)",
+      "id, user_id, valor, status, lancamento_id, cliente_id, os_id, venda_id, crediario_parcela_id, created_at, clientes(nome)",
     )
     .eq("mp_id", mpId)
     .maybeSingle();
@@ -149,6 +157,8 @@ export async function reconciliarPagamento(mpId: string): Promise<void> {
     valor: number;
     status: string;
     lancamento_id: string | null;
+    crediario_parcela_id: string | null;
+    created_at: string;
     clientes: { nome: string } | null;
   } | null;
   if (!cobranca) return; // not one of ours — nothing to do
@@ -161,6 +171,9 @@ export async function reconciliarPagamento(mpId: string): Promise<void> {
   if (novoStatus === cobranca.status && cobranca.lancamento_id) return; // already reconciled
 
   let lancamentoId = cobranca.lancamento_id;
+  if (novoStatus === "paga" && !lancamentoId && cobranca.crediario_parcela_id) {
+    lancamentoId = await baixarParcelaCrediario(cobranca, mpId);
+  }
   if (novoStatus === "paga" && !lancamentoId) {
     const nomeCliente = cobranca.clientes?.nome;
     const { data: lancamento, error: erroLanc } = await supabaseAdmin
@@ -185,6 +198,35 @@ export async function reconciliarPagamento(mpId: string): Promise<void> {
     .update({ status: novoStatus, lancamento_id: lancamentoId })
     .eq("id", cobranca.id);
   if (erroUpdate) throw erroUpdate;
+}
+
+// Pix de parcela do crediário: em vez de um lançamento avulso "Cobrança
+// Pix", baixa a própria parcela (que já tem seu lançamento pendente no
+// Financeiro e pode liberar o aparelho). A data do pagamento é a da criação
+// do Pix: o valor foi calculado com multa/juros daquele dia e o Pix expira
+// no fim dele, mesmo que a confirmação chegue depois da meia-noite.
+// Se a parcela já foi baixada à mão nesse meio-tempo, devolve null e o
+// chamador registra o dinheiro como "Cobrança Pix" avulsa, para não sumir.
+async function baixarParcelaCrediario(
+  cobranca: { valor: number; crediario_parcela_id: string | null; created_at: string },
+  mpId: string,
+): Promise<string | null> {
+  const dataPagamento = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(
+    new Date(cobranca.created_at),
+  );
+  const { data: parcela, error } = await supabaseAdmin.rpc("registrar_pagamento_crediario", {
+    p_parcela_id: cobranca.crediario_parcela_id!,
+    p_valor: Number(cobranca.valor),
+    p_data: dataPagamento,
+    p_pix_txid: mpId,
+  });
+  if (error) {
+    console.warn(
+      `[Pix] Pagamento ${mpId} confirmado, mas a parcela do crediário não pôde ser baixada: ${error.message}`,
+    );
+    return null;
+  }
+  return parcela.lancamento_id;
 }
 
 /**

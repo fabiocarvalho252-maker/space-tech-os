@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { handleWhatsappWebhook } from "./lib/whatsapp/webhook-handler.server";
 import { handlePixWebhook } from "./lib/pix/webhook-handler.server";
 import { handleMercadoPagoSubscriptionWebhook } from "./lib/mercadopago/webhook-handler.server";
+import { handleCrediarioCron } from "./lib/crediario/cron-handler.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -78,6 +79,14 @@ function isMercadoPagoSubscriptionWebhookRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/subscriptions/mercadopago/webhook";
 }
 
+// Chamado pelo pg_cron (via pg_net) de hora em hora — também não tem
+// sessão nem mesma origem. Autenticado por token; ver
+// src/lib/crediario/cron-handler.server.ts.
+function isCrediarioCronRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/crediario/cron";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -89,6 +98,9 @@ export default {
       }
       if (isMercadoPagoSubscriptionWebhookRequest(request)) {
         return await handleMercadoPagoSubscriptionWebhook(request);
+      }
+      if (isCrediarioCronRequest(request)) {
+        return await handleCrediarioCron(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
