@@ -1,0 +1,40 @@
+# Empacotamento do SPACE TECH OS desktop. Ver DESKTOP-WINDOWS.md.
+# O app só carrega a URL remota, então nada do sistema web (src/, supabase/,
+# .env, chaves) é incluído no pacote — apenas os arquivos do Electron.
+appId: online.srmpretech.spacetechos
+productName: SPACE TECH OS
+copyright: © SPACE TECH
+
+directories:
+  output: dist
+  buildResources: build
+
+# Lista explícita: só o invólucro Electron entra no pacote.
+files:
+  - main.cjs
+  - preload.cjs
+  - package.json
+
+win:
+  target:
+    - nsis
+  icon: build/icon.png
+  artifactName: SPACE-TECH-OS-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SPACE TECH OS
+  # Preserva dados do usuário (sessão, cache) ao desinstalar.
+  deleteAppDataOnUninstall: false
+
+# Alvo usado só para validar o empacotamento neste servidor Linux
+# (não é o instalador final; o instalador é o NSIS do Windows acima).
+linux:
+  target:
+    - dir
+  icon: build/icon.png
+  category: Office

@@ -1,0 +1,18 @@
+{
+  "name": "space-tech-os-desktop",
+  "version": "1.0.0",
+  "description": "SPACE TECH OS — invólucro desktop (Windows) para https://srmpretech.online",
+  "author": "SPACE TECH",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "pack": "electron-builder --dir --config electron-builder.yml",
+    "build:win": "electron-builder --win nsis --config electron-builder.yml",
+    "build:linux": "electron-builder --linux dir --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  }
+}

@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "desktop:dev": "npm --prefix desktop run dev",
+    "desktop:pack": "npm --prefix desktop run pack",
+    "desktop:build:win": "npm --prefix desktop run build:win",
+    "desktop:build:linux": "npm --prefix desktop run build:linux"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
