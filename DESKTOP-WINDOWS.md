@@ -100,32 +100,13 @@ npm run desktop:build:linux
 
 ## Gerar o `.exe` por CI (GitHub Actions)
 
-Se não tiver uma máquina Windows, um workflow em um runner `windows-latest`
-gera o instalador. Exemplo (`.github/workflows/desktop.yml`):
-
-```yaml
-name: Build desktop (Windows)
-on:
-  workflow_dispatch:
-jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-        working-directory: desktop
-      - run: npm run build:win
-        working-directory: desktop
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SPACE-TECH-OS-Setup
-          path: desktop/dist/*.exe
-```
+Se não tiver uma máquina Windows, o repositório já inclui um workflow que
+gera o instalador num runner `windows-latest`:
+[`.github/workflows/desktop.yml`](.github/workflows/desktop.yml).
 
 Dispare pela aba **Actions → Build desktop (Windows) → Run workflow** e baixe o
-`.exe` dos artefatos.
+`.exe` em **Artifacts** ao terminar. O workflow também roda ao criar uma tag
+`desktop-v*` (ex.: `git tag desktop-v1.0.0 && git push origin desktop-v1.0.0`).
 
 ---
 

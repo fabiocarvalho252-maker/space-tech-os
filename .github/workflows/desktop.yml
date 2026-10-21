@@ -1,0 +1,52 @@
+# Gera o instalador Windows (.exe) do SPACE TECH OS desktop em um runner
+# Windows do GitHub Actions, sem precisar de máquina Windows local.
+#
+# Como usar: aba Actions -> "Build desktop (Windows)" -> Run workflow.
+# Ao terminar, baixe o .exe em "Artifacts". Dispara só manualmente (ou ao
+# criar uma tag v*), nunca a cada push — não interfere no projeto web.
+#
+# Ver DESKTOP-WINDOWS.md.
+name: Build desktop (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # No Windows o binário do Electron é baixado no postinstall; se o npm
+      # tiver bloqueado o script, garante o download.
+      - name: Garantir runtime do Electron
+        run: node node_modules/electron/install.js
+
+      - name: Gerar instalador Windows (NSIS)
+        run: npm run build:win
+
+      - name: Publicar o instalador como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPACE-TECH-OS-Setup
+          path: desktop/dist/*.exe
+          if-no-files-found: error
