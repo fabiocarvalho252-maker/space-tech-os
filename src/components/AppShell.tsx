@@ -134,14 +134,20 @@ export function AppShell() {
 
   useEffect(() => {
     function aoTeclar(e: KeyboardEvent) {
-      if (estaDigitando(e.target)) return;
       const atalho = ATALHOS.find((a) => a.tecla === e.key);
       if (!atalho) return;
+      // Fora de um campo de digitação, assumimos a tecla F para o atalho —
+      // inclusive F1/F3/F5 etc., que o navegador reservaria (ajuda, busca,
+      // recarregar). preventDefault + stopImmediatePropagation na fase de
+      // captura impede que o navegador/host aja antes da navegação.
+      if (estaDigitando(e.target)) return;
       e.preventDefault();
+      e.stopImmediatePropagation();
       navigate({ to: atalho.to });
     }
-    window.addEventListener("keydown", aoTeclar);
-    return () => window.removeEventListener("keydown", aoTeclar);
+    // Captura: roda antes de outros listeners e do comportamento padrão.
+    window.addEventListener("keydown", aoTeclar, { capture: true });
+    return () => window.removeEventListener("keydown", aoTeclar, { capture: true });
   }, [navigate]);
 
   async function sair() {
