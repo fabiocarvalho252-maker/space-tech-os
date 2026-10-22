@@ -1,0 +1,26 @@
+# Standalone OmniRoute AI gateway (OpenAI-compatible endpoint in front of
+# many AI providers), used by src/lib/ai/provider.server.ts when
+# AI_PROVIDER=omniroute. Fully isolated from infra/supabase — own network,
+# own volume. Bound to localhost only: the SPACE TECH OS app runs directly
+# on the host, and the dashboard is reached via SSH tunnel, never exposed.
+services:
+  omniroute:
+    container_name: omniroute
+    image: diegosouzapw/omniroute:latest
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:20128:20128"
+    volumes:
+      - omniroute_data:/app/data
+    networks:
+      - omniroute-net
+
+volumes:
+  omniroute_data:
+
+networks:
+  omniroute-net:
+    name: omniroute-net
+    driver: bridge
