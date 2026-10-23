@@ -91,6 +91,9 @@ const FERRAMENTAS: {
 function IaSpaceTech() {
   const navigate = useNavigate();
   const { data: features } = usePlanoFeatures();
+  // Each card follows the same feature its server function checks: the
+  // película search needs only IA_BASICA, the OS assistants need IA_OS.
+  const temIaBasica = temFeature(features, "IA_BASICA");
   const temIaOs = temFeature(features, "IA_OS");
 
   return (
@@ -99,19 +102,17 @@ function IaSpaceTech() {
         title="IA SPACE TECH"
         subtitle="Assistentes de inteligência artificial para agilizar o dia a dia da bancada"
       />
-      {temIaOs ? (
+      {temIaBasica || temIaOs ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <BuscadorPeliculaIA />
-          {FERRAMENTAS.map((f) => (
-            <FerramentaIA key={f.tipo} {...f} />
-          ))}
+          {temIaBasica && <BuscadorPeliculaIA />}
+          {temIaOs && FERRAMENTAS.map((f) => <FerramentaIA key={f.tipo} {...f} />)}
         </div>
       ) : (
         <EmptyState
           icon={Sparkles}
-          title="Recurso exclusivo do Plano Profissional"
-          description="Os assistentes de diagnóstico, orçamento e atendimento por IA estão disponíveis no Plano Profissional."
-          actionLabel="Ver Plano Profissional"
+          title="IA não disponível no seu plano"
+          description="Os assistentes de IA não estão liberados no plano atual da sua empresa."
+          actionLabel="Ver planos"
           onAction={() => navigate({ to: "/planos" })}
         />
       )}
