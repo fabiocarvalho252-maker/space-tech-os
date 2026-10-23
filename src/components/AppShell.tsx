@@ -245,6 +245,18 @@ export function AppShell() {
                 </p>
                 <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
               </div>
+              {/* Mesma conta única do PerfilMenu (o painel /admin ainda checa no
+                  servidor) — no celular o PerfilMenu não aparece, então o
+                  acesso ao admin ficava escondido. */}
+              {user?.email === "admin@spacetech.app" && (
+                <Link
+                  to="/admin"
+                  onClick={() => setOpen(false)}
+                  className="mb-1 flex w-full items-center gap-3 rounded-xl bg-primary/10 px-3 py-3 text-sm font-semibold text-primary active:bg-primary/20"
+                >
+                  <ShieldCheck className="h-5 w-5" /> Administração do site
+                </Link>
+              )}
               <Link
                 to="/assinatura"
                 onClick={() => setOpen(false)}
@@ -283,6 +295,16 @@ export function AppShell() {
             <LogoWord className="text-base" />
           </div>
           <div className="flex items-center gap-1">
+            {user?.email === "admin@spacetech.app" && (
+              <Link
+                to="/admin"
+                aria-label="Administração do site"
+                title="Administração do site"
+                className="rounded-lg p-2 text-primary active:bg-accent/60"
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </Link>
+            )}
             <FinancialVisibilityToggle />
             <ThemeToggle />
           </div>

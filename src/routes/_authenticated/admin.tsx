@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, addMonths, format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -74,6 +74,7 @@ import {
 import { brl, dataBR } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
+import { buildWaMeLink } from "@/lib/whatsapp";
 import {
   ajustarCreditosIA,
   alterarEmailEmpresa,
@@ -85,7 +86,9 @@ import {
   conectarWhatsappSistema,
   desconectarWhatsappSistema,
   entrarComoEmpresa,
+  enviarMensagemReativacaoFn,
   excluirEmpresa,
+  gerarMensagemReativacaoFn,
   listarEmpresasDoSite,
   listarPlanosDoSite,
   resetarSenhaEmpresa,
@@ -223,6 +226,7 @@ function AdminDoSite() {
   const [busca, setBusca] = useState("");
   const [filtroPlano, setFiltroPlano] = useState<string>("todos");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [conviteMassaAberto, setConviteMassaAberto] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["site-admin-empresas"],
@@ -291,13 +295,26 @@ function AdminDoSite() {
         title="Administração do site"
         subtitle="Controle geral das empresas cadastradas no SpaceTech e da ativação da plataforma."
         action={
-          <Button asChild variant="outline">
-            <Link to="/admin/landing">
-              <LayoutTemplate className="h-4 w-4" /> Editar página inicial
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConviteMassaAberto(true)}
+              disabled={!empresas.length}
+            >
+              <MessageSquare className="h-4 w-4" /> Convidar inativas
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/landing">
+                <LayoutTemplate className="h-4 w-4" /> Editar página inicial
+              </Link>
+            </Button>
+          </div>
         }
       />
+
+      {conviteMassaAberto && (
+        <ConviteEmMassaDialog empresas={empresas} onClose={() => setConviteMassaAberto(false)} />
+      )}
 
       {/* Os cards também filtram a lista de empresas (clique de novo para limpar). */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -473,7 +490,12 @@ function AdminDoSite() {
               <tbody className="divide-y divide-border">
                 {empresasFiltradas.map((e) => (
                   <tr key={e.id} className="hover:bg-secondary/30">
-                    <td className="px-3 py-3 font-medium">{e.loja || e.nome || "Sem nome"}</td>
+                    <td className="px-3 py-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{e.loja || e.nome || "Sem nome"}</span>
+                        <BotaoConviteReativacao empresa={e} />
+                      </div>
+                    </td>
                     <td className="px-3 py-3 text-muted-foreground">{e.email || "—"}</td>
                     <td className="px-3 py-3">
                       <StatusBadge
@@ -573,6 +595,7 @@ function EmpresaAcoesMenu({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmEntrarOpen, setConfirmEntrarOpen] = useState(false);
   const [confirmExcluirOpen, setConfirmExcluirOpen] = useState(false);
+  const [reativacaoOpen, setReativacaoOpen] = useState(false);
   const suspensa = empresa.plano === "suspenso";
 
   const alternarSuspensao = useMutation({
@@ -627,6 +650,9 @@ function EmpresaAcoesMenu({
           <DropdownMenuItem onClick={() => setConfirmEntrarOpen(true)}>
             <LogIn className="mr-2 h-4 w-4" /> Entrar no painel
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setReativacaoOpen(true)}>
+            <MessageSquare className="mr-2 h-4 w-4" /> Convidar a reativar o plano (WhatsApp)
+          </DropdownMenuItem>
           <DropdownMenuItem
             className={suspensa ? "" : "text-destructive focus:text-destructive"}
             onClick={() => setConfirmOpen(true)}
@@ -656,6 +682,10 @@ function EmpresaAcoesMenu({
         onOpenChange={setConfirmExcluirOpen}
       />
 
+      {reativacaoOpen && (
+        <ReativacaoWhatsappDialog empresa={empresa} onClose={() => setReativacaoOpen(false)} />
+      )}
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -680,6 +710,371 @@ function EmpresaAcoesMenu({
         loading={entrar.isPending}
         onConfirm={() => entrar.mutate()}
       />
+    </>
+  );
+}
+
+// Convite para reativar a conta (pedido do usuário): a IA da plataforma
+// escreve a mensagem a partir da situação da empresa, o operador revisa/edita
+// e envia pelo WhatsApp do sistema — ou abre no próprio WhatsApp se o do
+// sistema estiver desconectado.
+function modeloReativacao(empresa: EmpresaDoSite) {
+  const nome = (empresa.nome || "").split(" ")[0] || empresa.loja || "tudo bem";
+  const link = typeof window !== "undefined" ? `${window.location.origin}/assinatura` : "";
+  return `Olá, ${nome}! Aqui é da equipe SPACE TECH 👋\n\nVimos que o plano da ${empresa.loja || "sua loja"} no SPACE TECH não está ativo e queríamos saber se você gostaria de voltar a usar o sistema. ${empresa.totalOrdens > 0 ? "Seus dados e ordens de serviço continuam salvos. " : ""}${link ? `\n\nPara reativar: ${link}` : ""}\n\nQuer reativar seu plano?\n\nEquipe SPACE TECH`;
+}
+
+function ReativacaoWhatsappDialog({
+  empresa,
+  onClose,
+}: {
+  empresa: EmpresaDoSite;
+  onClose: () => void;
+}) {
+  const [texto, setTexto] = useState("");
+  const nomeEmpresa = empresa.loja || empresa.nome || "esta empresa";
+
+  const gerar = useMutation({
+    mutationFn: () => gerarMensagemReativacaoFn({ data: { empresaId: empresa.id } }),
+    onSuccess: ({ texto }) => setTexto(texto),
+    onError: (e: Error) => {
+      toast.error(`${e.message} Usando o modelo padrão.`);
+      setTexto((t) => t || modeloReativacao(empresa));
+    },
+  });
+
+  const enviar = useMutation({
+    mutationFn: () =>
+      enviarMensagemReativacaoFn({ data: { empresaId: empresa.id, texto: texto.trim() } }),
+    onSuccess: ({ via }) => {
+      toast.success(
+        `Mensagem enviada para ${nomeEmpresa}${via === "loja" ? " (pelo WhatsApp da sua loja)" : ""}.`,
+      );
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Gera a primeira versão assim que a janela abre.
+  useEffect(() => {
+    if (empresa.whatsapp) gerar.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir
+  }, []);
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && !enviar.isPending && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Convidar a reativar o plano</DialogTitle>
+          <DialogDescription>
+            {nomeEmpresa}
+            {empresa.whatsapp ? ` · WhatsApp ${empresa.whatsapp}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!empresa.whatsapp ? (
+          <p className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-700">
+            Esta empresa não tem WhatsApp cadastrado no perfil.
+            {empresa.email ? ` E-mail para contato: ${empresa.email}` : ""}
+          </p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label>Mensagem</Label>
+              <div className="relative">
+                <Textarea
+                  rows={9}
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                  disabled={gerar.isPending}
+                  placeholder={gerar.isPending ? "" : "Escreva a mensagem..."}
+                />
+                {gerar.isPending && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> A IA está escrevendo...
+                  </div>
+                )}
+              </div>
+              <p className="text-right text-xs text-muted-foreground">{texto.length} caracteres</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => gerar.mutate()}
+                disabled={gerar.isPending || enviar.isPending}
+              >
+                <Sparkles className="mr-1.5 h-4 w-4" /> Gerar outra com IA
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTexto(modeloReativacao(empresa))}
+                disabled={gerar.isPending || enviar.isPending}
+              >
+                Usar modelo padrão
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+              <Button variant="outline" asChild disabled={!texto.trim()}>
+                <a href={buildWaMeLink(empresa.whatsapp, texto)} target="_blank" rel="noreferrer">
+                  Abrir no meu WhatsApp
+                </a>
+              </Button>
+              <Button
+                onClick={() => enviar.mutate()}
+                disabled={!texto.trim() || gerar.isPending || enviar.isPending}
+              >
+                {enviar.isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-1.5 h-4 w-4" />
+                )}
+                Enviar pelo WhatsApp
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Convite em massa (pedido do usuário): todas as empresas com teste
+// expirado, plano vencido ou suspensas que têm WhatsApp. O próprio operador
+// revisa a lista e dispara; o envio é um por vez, com 30–60 s entre cada
+// mensagem — disparo em rajada é o que mais faz o WhatsApp bloquear o número.
+const MODELO_CONVITE_MASSA = `Oi, {nome}! Tudo bem? 😊 Vi aqui que o acesso da {loja} ao SPACE TECH não está mais ativo. Seus dados continuam salvos e voltam a ficar disponíveis assim que o plano estiver ativo novamente.
+
+Quer reativar o seu plano? É só acessar: {link}
+
+Qualquer dúvida, estou por aqui! 🙌
+
+Equipe SPACE TECH`;
+
+function primeiroNome(e: EmpresaDoSite) {
+  const n = (e.nome || "").trim().split(/\s+/)[0] || "";
+  return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : "tudo bem";
+}
+
+function personalizarConvite(modelo: string, e: EmpresaDoSite) {
+  return modelo
+    .replaceAll("{nome}", primeiroNome(e))
+    .replaceAll("{loja}", (e.loja || e.nome || "sua loja").replace(/\s+/g, " ").trim())
+    .replaceAll("{link}", `${window.location.origin}/assinatura`);
+}
+
+type StatusEnvio = "pendente" | "enviando" | "ok" | "falhou";
+
+function ConviteEmMassaDialog({
+  empresas,
+  onClose,
+}: {
+  empresas: EmpresaDoSite[];
+  onClose: () => void;
+}) {
+  const inativas = empresas
+    .filter((e) => {
+      const s = statusAcesso(e);
+      return (
+        (s === "teste_expirado" || s === "expirada" || s === "suspensa") &&
+        (e.whatsapp ?? "").replace(/\D/g, "").length >= 10 &&
+        e.email !== "admin@spacetech.app"
+      );
+    })
+    .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+
+  // Pré-seleção: suspensas ficam de fora (foram suspensas por algum motivo) e,
+  // se o mesmo responsável tem mais de uma conta, só a mais recente entra.
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => {
+    const vistos = new Set<string>();
+    const ids = new Set<string>();
+    for (const e of inativas) {
+      const dono = (e.nome || "").trim().toLowerCase();
+      if (statusAcesso(e) === "suspensa") continue;
+      if (dono && vistos.has(dono)) continue;
+      if (dono) vistos.add(dono);
+      ids.add(e.id);
+    }
+    return ids;
+  });
+  const [modelo, setModelo] = useState(MODELO_CONVITE_MASSA);
+  const [status, setStatus] = useState<Record<string, StatusEnvio>>({});
+  const [erros, setErros] = useState<Record<string, string>>({});
+  const [enviando, setEnviando] = useState(false);
+  const [espera, setEspera] = useState(0);
+  const cancelar = useRef(false);
+
+  const alvo = inativas.filter((e) => selecionados.has(e.id));
+  const concluidos = Object.values(status).filter((s) => s === "ok" || s === "falhou").length;
+
+  function alternar(id: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
+
+  async function enviarTodos() {
+    cancelar.current = false;
+    setEnviando(true);
+    setStatus(Object.fromEntries(alvo.map((e) => [e.id, "pendente" as StatusEnvio])));
+    setErros({});
+    for (const [i, e] of alvo.entries()) {
+      if (cancelar.current) break;
+      setStatus((s) => ({ ...s, [e.id]: "enviando" }));
+      try {
+        await enviarMensagemReativacaoFn({
+          data: { empresaId: e.id, texto: personalizarConvite(modelo, e) },
+        });
+        setStatus((s) => ({ ...s, [e.id]: "ok" }));
+      } catch (err) {
+        setStatus((s) => ({ ...s, [e.id]: "falhou" }));
+        setErros((x) => ({ ...x, [e.id]: (err as Error).message }));
+      }
+      if (i < alvo.length - 1 && !cancelar.current) {
+        const segundos = 30 + Math.floor(Math.random() * 31);
+        for (let t = segundos; t > 0 && !cancelar.current; t--) {
+          setEspera(t);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        setEspera(0);
+      }
+    }
+    setEnviando(false);
+    toast.success(cancelar.current ? "Envio interrompido." : "Envio concluído.");
+  }
+
+  const exemplo = alvo[0] ?? inativas[0];
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && !enviando && onClose()}>
+      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Convidar empresas inativas a reativar o plano</DialogTitle>
+          <DialogDescription>
+            Teste expirado, plano vencido ou suspensas, com WhatsApp cadastrado. Envio um por vez,
+            com 30–60 s entre as mensagens — mantenha esta página aberta até terminar.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-1.5">
+          <Label>
+            Mensagem ({"{nome}"}, {"{loja}"} e {"{link}"} são preenchidos para cada empresa)
+          </Label>
+          <Textarea
+            rows={8}
+            value={modelo}
+            onChange={(e) => setModelo(e.target.value)}
+            disabled={enviando}
+          />
+          {exemplo && (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">
+                Ver como fica para {exemplo.loja || exemplo.nome}
+              </summary>
+              <p className="mt-2 whitespace-pre-line rounded-lg bg-muted/50 p-3">
+                {personalizarConvite(modelo, exemplo)}
+              </p>
+            </details>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label>
+              Destinatários: {alvo.length} de {inativas.length}
+            </Label>
+            {enviando || concluidos > 0 ? (
+              <span className="text-xs font-semibold text-primary">
+                {concluidos}/{alvo.length} {espera > 0 ? `· próxima em ${espera}s` : ""}
+              </span>
+            ) : null}
+          </div>
+          <div className="max-h-72 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+            {inativas.map((e) => {
+              const st = status[e.id];
+              return (
+                <label
+                  key={e.id}
+                  className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-secondary/30"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selecionados.has(e.id)}
+                    onChange={() => alternar(e.id)}
+                    disabled={enviando}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {e.loja || e.nome || "Sem nome"}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {e.nome} · {e.whatsapp} · {STATUS_LABEL[statusAcesso(e)]}
+                    </span>
+                    {erros[e.id] && (
+                      <span className="block text-xs text-destructive">{erros[e.id]}</span>
+                    )}
+                  </span>
+                  {st === "enviando" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                  {st === "ok" && <Check className="h-4 w-4 text-emerald-600" />}
+                  {st === "falhou" && <ShieldAlert className="h-4 w-4 text-destructive" />}
+                </label>
+              );
+            })}
+            {!inativas.length && (
+              <p className="p-4 text-center text-sm text-muted-foreground">
+                Nenhuma empresa inativa com WhatsApp cadastrado.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+          {enviando ? (
+            <Button variant="outline" onClick={() => (cancelar.current = true)}>
+              Parar envio
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
+          )}
+          <Button onClick={enviarTodos} disabled={enviando || !alvo.length || !modelo.trim()}>
+            {enviando ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-1.5 h-4 w-4" />
+            )}
+            {enviando ? "Enviando..." : `Enviar para ${alvo.length}`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Atalho visível ao lado do nome: no celular a tabela é larga e o menu ⋮
+// (onde o convite também está) fica fora da tela.
+function BotaoConviteReativacao({ empresa }: { empresa: EmpresaDoSite }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        title="Convidar a reativar o plano (WhatsApp)"
+        aria-label="Convidar a reativar o plano pelo WhatsApp"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-500/20"
+      >
+        <MessageSquare className="h-3 w-3" /> Convidar
+      </button>
+      {aberto && <ReativacaoWhatsappDialog empresa={empresa} onClose={() => setAberto(false)} />}
     </>
   );
 }

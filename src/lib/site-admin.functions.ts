@@ -503,3 +503,144 @@ export const alterarPlanoEmpresa = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+// ============================================================
+// Convite para reativar a conta, pelo WhatsApp do sistema
+// ============================================================
+// Mensagem escrita pela IA da plataforma (não gasta créditos de IA da
+// empresa — quem pede é o operador da SPACE TECH), revisada/editada pelo
+// admin na tela e só então enviada pelo número do sistema.
+
+const reativacaoSchema = z.object({ empresaId: z.string().uuid() });
+
+async function carregarEmpresaParaReativacao(empresaId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: perfil, error }, { count: totalOrdens }, { data: usuario }] = await Promise.all([
+    supabaseAdmin
+      .from("profiles")
+      .select("nome, loja, whatsapp, plano, acesso_ate")
+      .eq("id", empresaId)
+      .single(),
+    supabaseAdmin
+      .from("ordens_servico")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", empresaId),
+    supabaseAdmin.auth.admin.getUserById(empresaId),
+  ]);
+  if (error || !perfil) throw new Error("Empresa não encontrada.");
+  return {
+    ...perfil,
+    totalOrdens: totalOrdens ?? 0,
+    ultimoLogin: usuario?.user?.last_sign_in_at ?? null,
+  };
+}
+
+export const gerarMensagemReativacaoFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => reativacaoSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ texto: string }> => {
+    checarSiteAdmin(context.claims);
+    const empresa = await carregarEmpresaParaReativacao(data.empresaId);
+    const { chamarProvedorIA, IAIndisponivelError } = await import("@/lib/ai/provider.server");
+
+    const agora = Date.now();
+    const vencido = empresa.acesso_ate && new Date(empresa.acesso_ate).getTime() < agora;
+    const situacao =
+      empresa.plano === "suspenso"
+        ? "conta suspensa"
+        : empresa.plano === "trial"
+          ? vencido
+            ? "período de teste grátis terminou"
+            : "em período de teste"
+          : vencido
+            ? "plano venceu"
+            : "plano ativo";
+    const diasSemAcesso = empresa.ultimoLogin
+      ? Math.floor((agora - new Date(empresa.ultimoLogin).getTime()) / 86_400_000)
+      : null;
+
+    const contexto = [
+      `Nome do responsável: ${empresa.nome || "não informado"}`,
+      `Nome da loja: ${empresa.loja || "não informado"}`,
+      `Situação da conta: ${situacao}`,
+      diasSemAcesso !== null
+        ? `Dias desde o último acesso: ${diasSemAcesso}`
+        : "Nunca acessou depois do cadastro",
+      `Ordens de serviço já cadastradas no sistema: ${empresa.totalOrdens}`,
+      origemPublicaServer()
+        ? `Link para reativar o plano: ${origemPublicaServer()}/assinatura`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      const resposta = await chamarProvedorIA({
+        systemPrompt: `Você escreve mensagens de WhatsApp em nome da equipe SPACE TECH, um sistema de gestão (ordens de serviço, PDV, estoque, financeiro) para assistências técnicas de celular.
+Escreva UMA mensagem curta perguntando se a empresa abaixo quer reativar o plano (a assinatura) do SPACE TECH.
+Regras:
+- Português do Brasil, tom cordial e próximo, como uma pessoa real escrevendo — nada de texto de propaganda.
+- Use o primeiro nome do responsável se houver; senão, o nome da loja.
+- No máximo 450 caracteres e 2 emojis. Pode usar *negrito* do WhatsApp em no máximo uma expressão.
+- Se a empresa já tem ordens de serviço cadastradas, lembre que os dados continuam salvos e voltam a ficar disponíveis com o plano ativo.
+- Se houver link para reativar o plano, inclua o link exatamente como foi dado.
+- NÃO invente preços, descontos, prazos, brindes nem funcionalidades que não foram citadas.
+- Antes da assinatura, faça uma pergunta direta e leve de sim/não, por exemplo "Quer reativar o seu plano?" — sem pressionar.
+- A última linha deve ser exatamente: Equipe SPACE TECH
+Responda apenas com o texto da mensagem, sem aspas e sem comentários.`,
+        mensagens: [{ role: "user", content: contexto }],
+        tools: [],
+      });
+      if (resposta.kind !== "text" || !resposta.text.trim()) {
+        throw new Error("A IA não retornou nenhuma mensagem.");
+      }
+      return { texto: resposta.text.trim() };
+    } catch (e) {
+      if (e instanceof IAIndisponivelError) throw new Error(e.message);
+      throw e;
+    }
+  });
+
+const enviarReativacaoSchema = z.object({
+  empresaId: z.string().uuid(),
+  texto: z.string().trim().min(1).max(2000),
+});
+
+export const enviarMensagemReativacaoFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => enviarReativacaoSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true; via: "sistema" | "loja" }> => {
+    checarSiteAdmin(context.claims);
+    const empresa = await carregarEmpresaParaReativacao(data.empresaId);
+    const numero = (empresa.whatsapp ?? "").replace(/\D/g, "");
+    if (numero.length < 10) throw new Error("Esta empresa não tem um WhatsApp válido cadastrado.");
+
+    // 1º: número do sistema. Se estiver desconectado, usa o WhatsApp da
+    // própria loja do admin (a conta admin é a empresa SPACE TECH, conectada
+    // em /whatsapp — hoje é o mesmo número do sistema), para o convite não
+    // depender de reparear o QR do sistema.
+    const { obterStatusSistemaSalvo, enviarMensagemSistema } =
+      await import("@/lib/whatsapp/system-instance");
+    const sistema = await obterStatusSistemaSalvo().catch(() => null);
+    if (sistema?.status === "conectado") {
+      await enviarMensagemSistema(numero, data.texto);
+      return { ok: true, via: "sistema" };
+    }
+
+    const { enviarMensagem } = await import("@/lib/whatsapp/whatsapp-service");
+    try {
+      const msg = await enviarMensagem(context.userId, numero, data.texto);
+      if ((msg as { status?: string }).status === "falhou") {
+        throw new Error("O WhatsApp recusou o envio. Confira o número da empresa.");
+      }
+    } catch (e) {
+      const motivo = e instanceof Error ? e.message : "";
+      if (motivo.includes("não está conectado")) {
+        throw new Error(
+          'Nenhum WhatsApp conectado: conecte o WhatsApp do sistema (Administração do site) ou o da sua loja (menu WhatsApp), ou use "Abrir no meu WhatsApp".',
+        );
+      }
+      throw e;
+    }
+    return { ok: true, via: "loja" };
+  });
