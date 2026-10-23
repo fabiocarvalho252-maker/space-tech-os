@@ -16,22 +16,126 @@ const QUALIDADE_JPEG = 72;
 const LIMITE_REDUZIR_BYTES = 300 * 1024;
 
 export function reduzirJpeg(bytes: Uint8Array): Uint8Array {
-  if (bytes.length < LIMITE_REDUZIR_BYTES) return bytes;
+  const orientacao = lerOrientacaoExif(bytes);
+  if (bytes.length < LIMITE_REDUZIR_BYTES && orientacao === 1) return bytes;
   try {
     const img = jpeg.decode(bytes, { useTArray: true, maxMemoryUsageInMB: 1024 });
     const escala = Math.min(1, LADO_MAX_PX / Math.max(img.width, img.height));
     const largura = Math.max(1, Math.round(img.width * escala));
     const altura = Math.max(1, Math.round(img.height * escala));
-    const destino =
+    const reduzida =
       escala < 1 ? reduzirPixels(img.data, img.width, img.height, largura, altura) : img.data;
-    const saida = jpeg.encode(
-      { data: destino, width: largura, height: altura },
-      QUALIDADE_JPEG,
-    ).data;
-    return saida.length < bytes.length ? new Uint8Array(saida) : bytes;
+    const girada = aplicarOrientacao(reduzida, largura, altura, orientacao);
+    const saida = jpeg.encode(girada, QUALIDADE_JPEG).data;
+    // Foto girada sempre usa a recomprimida (a original sairia deitada no PDF).
+    return orientacao !== 1 || saida.length < bytes.length ? new Uint8Array(saida) : bytes;
   } catch {
     return bytes;
   }
+}
+
+// Celular grava a foto "deitada" e anota no EXIF quanto girar (tag 0x0112).
+// Galeria e navegador respeitam isso; pdf-lib e jpeg-js não — sem aplicar
+// aqui, foto tirada em pé saía deitada no PDF. 1 = já está em pé.
+export function lerOrientacaoExif(bytes: Uint8Array): number {
+  try {
+    if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return 1;
+    let i = 2;
+    while (i + 4 < bytes.length && bytes[i] === 0xff) {
+      const marcador = bytes[i + 1]!;
+      const tamanho = (bytes[i + 2]! << 8) | bytes[i + 3]!;
+      // APP1 com cabeçalho "Exif\0\0".
+      if (
+        marcador === 0xe1 &&
+        bytes[i + 4] === 0x45 &&
+        bytes[i + 5] === 0x78 &&
+        bytes[i + 6] === 0x69 &&
+        bytes[i + 7] === 0x66
+      ) {
+        const tiff = i + 10;
+        const le = bytes[tiff] === 0x49; // "II" = little-endian, "MM" = big-endian
+        const u16 = (o: number) =>
+          le ? bytes[o]! | (bytes[o + 1]! << 8) : (bytes[o]! << 8) | bytes[o + 1]!;
+        const u32 = (o: number) =>
+          le
+            ? (bytes[o]! | (bytes[o + 1]! << 8) | (bytes[o + 2]! << 16) | (bytes[o + 3]! << 24)) >>>
+              0
+            : ((bytes[o]! << 24) | (bytes[o + 1]! << 16) | (bytes[o + 2]! << 8) | bytes[o + 3]!) >>>
+              0;
+        const ifd = tiff + u32(tiff + 4);
+        const entradas = u16(ifd);
+        for (let e = 0; e < entradas; e++) {
+          const entrada = ifd + 2 + e * 12;
+          if (u16(entrada) === 0x0112) {
+            const valor = u16(entrada + 8);
+            return valor >= 1 && valor <= 8 ? valor : 1;
+          }
+        }
+        return 1;
+      }
+      if (marcador === 0xda) break; // início dos dados da imagem: não há mais metadados
+      i += 2 + tamanho;
+    }
+  } catch {
+    // EXIF malformado — trata como sem rotação.
+  }
+  return 1;
+}
+
+function aplicarOrientacao(
+  origem: Uint8Array,
+  larg: number,
+  alt: number,
+  orientacao: number,
+): { data: Uint8Array; width: number; height: number } {
+  if (orientacao === 1) return { data: origem, width: larg, height: alt };
+  const troca = orientacao >= 5; // 5–8 giram 90°: largura e altura se invertem
+  const largDest = troca ? alt : larg;
+  const altDest = troca ? larg : alt;
+  const destino = new Uint8Array(largDest * altDest * 4);
+  for (let dy = 0; dy < altDest; dy++) {
+    for (let dx = 0; dx < largDest; dx++) {
+      let sx: number;
+      let sy: number;
+      switch (orientacao) {
+        case 2:
+          sx = larg - 1 - dx;
+          sy = dy;
+          break; // espelhada
+        case 3:
+          sx = larg - 1 - dx;
+          sy = alt - 1 - dy;
+          break; // 180°
+        case 4:
+          sx = dx;
+          sy = alt - 1 - dy;
+          break; // espelhada na vertical
+        case 5:
+          sx = dy;
+          sy = dx;
+          break; // transposta
+        case 6:
+          sx = dy;
+          sy = alt - 1 - dx;
+          break; // 90° horário
+        case 7:
+          sx = larg - 1 - dy;
+          sy = alt - 1 - dx;
+          break; // transversa
+        default:
+          sx = larg - 1 - dy;
+          sy = dx;
+          break; // 8: 90° anti-horário
+      }
+      const o = (sy * larg + sx) * 4;
+      const d = (dy * largDest + dx) * 4;
+      destino[d] = origem[o]!;
+      destino[d + 1] = origem[o + 1]!;
+      destino[d + 2] = origem[o + 2]!;
+      destino[d + 3] = 255;
+    }
+  }
+  return { data: destino, width: largDest, height: altDest };
 }
 
 // Redução por média de área (box filter): cada pixel de destino é a média do
