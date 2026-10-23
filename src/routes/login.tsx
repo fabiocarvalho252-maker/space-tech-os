@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.functions";
+import { emailDeLogin } from "@/lib/cliente-conta/usuario";
 import { useRedirecionarSeLogado } from "@/hooks/useRedirecionarSeLogado";
 
 export const Route = createFileRoute("/login")({
@@ -39,6 +40,10 @@ export const Route = createFileRoute("/login")({
       },
     ],
   }),
+  // ?area=cliente opens straight on the Área do Cliente tab — it's the link
+  // staff send customers over WhatsApp along with their username/password.
+  validateSearch: (search: Record<string, unknown>): { area?: "cliente" } =>
+    search["area"] === "cliente" ? { area: "cliente" } : {},
   component: Login,
 });
 
@@ -50,7 +55,8 @@ const BENEFICIOS = [
 ];
 
 function Login() {
-  const [modo, setModo] = useState<"empresa" | "cliente">("empresa");
+  const { area } = Route.useSearch();
+  const [modo, setModo] = useState<"empresa" | "cliente">(area ?? "empresa");
 
   useRedirecionarSeLogado();
 
@@ -232,7 +238,7 @@ function PainelEmpresa() {
 }
 
 const clienteEntrarSchema = z.object({
-  email: z.string().trim().email("Email inválido"),
+  email: z.string().trim().min(2, "Informe seu usuário ou email"),
   senha: z.string().min(1, "Informe sua senha"),
 });
 
@@ -275,12 +281,17 @@ function PainelCliente() {
     }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: parsed.data.email,
+      email: emailDeLogin(parsed.data.email),
       password: parsed.data.senha,
     });
     if (error) {
       setLoading(false);
-      toast.error("Não foi possível entrar", { description: error.message });
+      toast.error("Não foi possível entrar", {
+        description:
+          error.message === "Invalid login credentials"
+            ? "Usuário/email ou senha incorretos."
+            : error.message,
+      });
       return;
     }
     await finalizarEntrada();
@@ -370,9 +381,9 @@ function PainelCliente() {
       ) : subModo === "entrar" ? (
         <form onSubmit={entrar} className="mt-7 space-y-4">
           <Campo
-            icon={Mail}
-            label="Email"
-            type="email"
+            icon={User}
+            label="Usuário ou email"
+            autoCapitalize="none"
             value={form.email}
             onChange={campo("email")}
           />
@@ -473,6 +484,7 @@ function Campo({
   onChange,
   placeholder,
   required = true,
+  autoCapitalize,
 }: {
   icon: React.ElementType;
   label: string;
@@ -481,6 +493,7 @@ function Campo({
   onChange: (value: string) => void;
   placeholder?: string;
   required?: boolean;
+  autoCapitalize?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -493,6 +506,7 @@ function Campo({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          autoCapitalize={autoCapitalize}
           className="h-12 w-full rounded-xl border border-input bg-card pl-10 pr-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
         />
       </div>

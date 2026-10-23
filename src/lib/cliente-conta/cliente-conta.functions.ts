@@ -16,6 +16,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { emailDoUsuario, gerarSenhaCliente, usuarioBaseDoNome, usuarioDoEmail } from "./usuario";
 
 // getRequest().url reflects the internal host/port this Node process is
 // bound to behind the reverse proxy, not the public https:// domain — using
@@ -154,53 +155,139 @@ export const atualizarMeusDados = createServerFn({ method: "POST" })
 
 const gerarAcessoSchema = z.object({ clienteId: z.string().uuid() });
 
-export type AcessoClienteResultado = { link: string; nome: string; telefone: string | null };
+export type AcessoClienteResultado = {
+  link: string;
+  nome: string;
+  telefone: string | null;
+  usuario: string;
+  senha: string;
+  // true when the customer already had a login and this call issued a new password.
+  redefinida: boolean;
+};
 
-// Staff-side "quick login" — from a Ordem de Serviço, generate a one-click
-// link into the Área do Cliente for that OS's client, skipping the normal
-// self-signup/email-confirmation flow entirely. Deliberately takes a bare
-// clienteId from the client, unlike every other write in this file: it's
-// staff (not the customer) calling this, and the very first query below is
-// run through context.supabase (RLS-scoped, not supabaseAdmin) — RLS's
-// existing has_permission() staff policy on `clientes` is what actually
-// authorizes this, so a clienteId belonging to a different empresa (or a
-// caller with no staff permission at all) resolves to nothing and gets
-// rejected below, same as it would anywhere else in the app.
+// True only for accounts that are nothing but an Área do Cliente login: no
+// empresa profile, no staff membership. Guards the password reset below —
+// clientes.auth_user_id is writable by staff through RLS, so without this a
+// staff member could point a client row at the empresa owner's auth user
+// and have this function hand them a fresh password for it.
+async function ehContaSomenteCliente(userId: string): Promise<boolean> {
+  const [{ data: user }, perfil, empresa, papel] = await Promise.all([
+    supabaseAdmin.auth.admin.getUserById(userId),
+    supabaseAdmin.from("profiles").select("id").eq("id", userId).maybeSingle(),
+    supabaseAdmin.from("user_empresas").select("id").eq("user_id", userId).limit(1).maybeSingle(),
+    supabaseAdmin.from("user_roles").select("id").eq("user_id", userId).limit(1).maybeSingle(),
+  ]);
+  return (
+    user?.user?.user_metadata?.["account_type"] === "cliente" &&
+    !perfil.data &&
+    !empresa.data &&
+    !papel.data
+  );
+}
+
+// Staff-side: from a Ordem de Serviço, give the OS's client a username +
+// password for the Área do Cliente, to be sent over WhatsApp. The username
+// is derived from the registered name ("joao.silva", "joao.silva2" on
+// collision). If the client already has a login, its password is replaced
+// with a new one (the username/e-mail stays the same).
+//
+// Deliberately takes a bare clienteId from the client, unlike every other
+// write in this file: it's staff (not the customer) calling this, and the
+// very first query below is run through context.supabase (RLS-scoped, not
+// supabaseAdmin) — RLS's existing has_permission() staff policy on
+// `clientes` is what actually authorizes this, so a clienteId belonging to
+// a different empresa (or a caller with no staff permission at all)
+// resolves to nothing and gets rejected below, same as it would anywhere
+// else in the app.
 export const gerarAcessoCliente = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => gerarAcessoSchema.parse(data))
   .handler(async ({ data, context }): Promise<AcessoClienteResultado> => {
-    const { data: cliente, error } = await context.supabase
-      .from("clientes")
-      .select("id, nome, email, telefone")
+    const { data: clienteRaw, error } = await context.supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
+      .from("clientes" as any)
+      .select("id, nome, telefone, auth_user_id")
       .eq("id", data.clienteId)
       .single();
+    const cliente = clienteRaw as unknown as {
+      id: string;
+      nome: string;
+      telefone: string | null;
+      auth_user_id: string | null;
+    } | null;
     if (error || !cliente) {
       throw new Error("Cliente não encontrado ou você não tem permissão para acessá-lo.");
     }
-    if (!cliente.email) {
-      throw new Error("Cadastre um e-mail para este cliente antes de gerar o acesso.");
-    }
 
     const origin = origemPublicaServer() || new URL(getRequest().url).origin;
-    const { data: gerado, error: erroLink } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: cliente.email,
-      options: {
-        redirectTo: `${origin}/minha-conta`,
-        data: { account_type: "cliente", nome: cliente.nome },
-      },
-    });
-    if (erroLink || !gerado?.user) {
-      throw new Error(erroLink?.message ?? "Não foi possível gerar o acesso do cliente.");
+    const link = `${origin}/login?area=cliente`;
+    const senha = gerarSenhaCliente();
+
+    if (cliente.auth_user_id) {
+      if (!(await ehContaSomenteCliente(cliente.auth_user_id))) {
+        throw new Error("O acesso vinculado a este cliente não pode ser redefinido por aqui.");
+      }
+      const { data: atualizado, error: erroSenha } = await supabaseAdmin.auth.admin.updateUserById(
+        cliente.auth_user_id,
+        {
+          password: senha,
+          email_confirm: true,
+        },
+      );
+      if (erroSenha || !atualizado?.user?.email) {
+        throw new Error(erroSenha?.message ?? "Não foi possível redefinir a senha do cliente.");
+      }
+      const email = atualizado.user.email;
+      return {
+        link,
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        usuario: usuarioDoEmail(email) ?? email,
+        senha,
+        redefinida: true,
+      };
     }
 
-    await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
-      .update({ auth_user_id: gerado.user.id })
-      .eq("id", cliente.id)
-      .is("auth_user_id", null); // don't clobber an account the customer already controls
+    const base = usuarioBaseDoNome(cliente.nome);
+    for (let n = 1; n <= 50; n++) {
+      const usuario = n === 1 ? base : `${base}${n}`;
+      const { data: criado, error: erroCriar } = await supabaseAdmin.auth.admin.createUser({
+        email: emailDoUsuario(usuario),
+        password: senha,
+        email_confirm: true,
+        user_metadata: {
+          account_type: "cliente",
+          nome: cliente.nome,
+          telefone: cliente.telefone,
+          usuario,
+        },
+      });
+      if (erroCriar) {
+        if (erroCriar.code === "email_exists" || /already|registered/i.test(erroCriar.message)) {
+          continue;
+        }
+        throw new Error(erroCriar.message);
+      }
 
-    return { link: gerado.properties.action_link, nome: cliente.nome, telefone: cliente.telefone };
+      const { data: vinculado } = await supabaseAdmin
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
+        .from("clientes" as any)
+        .update({ auth_user_id: criado.user.id })
+        .eq("id", cliente.id)
+        .is("auth_user_id", null) // lost a race with another "gerar acesso" click
+        .select("id");
+      if (!vinculado?.length) {
+        await supabaseAdmin.auth.admin.deleteUser(criado.user.id);
+        throw new Error("Este cliente acabou de receber um acesso. Tente novamente.");
+      }
+      return {
+        link,
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        usuario,
+        senha,
+        redefinida: false,
+      };
+    }
+    throw new Error("Não foi possível gerar um nome de usuário livre para este cliente.");
   });

@@ -13,8 +13,25 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildWaMeLink, digitsOnlyBR } from "@/lib/whatsapp";
 import { enviarMensagemWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
+import type { AcessoClienteResultado } from "@/lib/cliente-conta/cliente-conta.functions";
 
-export type ClienteAcesso = { link: string; nome: string; telefone: string | null };
+export type ClienteAcesso = AcessoClienteResultado & { osNumero?: number | null };
+
+function montarMensagem(a: ClienteAcesso): string {
+  const primeiroNome = a.nome.trim().split(/\s+/)[0] || a.nome;
+  const os = a.osNumero ? ` a sua Ordem de Serviço nº ${a.osNumero}` : " suas Ordens de Serviço";
+  return [
+    `Olá ${primeiroNome}! 👋`,
+    "",
+    `Acompanhe${os} pela nossa Área do Cliente:`,
+    a.link,
+    "",
+    `👤 Usuário: ${a.usuario}`,
+    `🔑 Senha: ${a.senha}`,
+    "",
+    "Guarde esses dados para os próximos acessos.",
+  ].join("\n");
+}
 
 export function ClienteAcessoModal({
   acesso,
@@ -25,12 +42,10 @@ export function ClienteAcessoModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [copiado, setCopiado] = useState(false);
+  const [copiado, setCopiado] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  const mensagem = acesso
-    ? `Olá ${acesso.nome}! Acompanhe sua Ordem de Serviço na sua Área do Cliente: ${acesso.link}`
-    : "";
+  const mensagem = acesso ? montarMensagem(acesso) : "";
 
   const enviarPelaConexao = useMutation({
     mutationFn: () =>
@@ -40,16 +55,15 @@ export function ClienteAcessoModal({
         toast.error("Evolution API não confirmou o envio — verifique a conexão em WhatsApp.");
         return;
       }
-      toast.success("Link enviado pelo WhatsApp da empresa!");
+      toast.success("Acesso enviado pelo WhatsApp da empresa!");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function copiar() {
-    if (!acesso) return;
-    navigator.clipboard.writeText(acesso.link);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
+  function copiar(chave: string, texto: string) {
+    navigator.clipboard.writeText(texto);
+    setCopiado(chave);
+    setTimeout(() => setCopiado(null), 2000);
   }
 
   function enviarWhatsapp() {
@@ -61,6 +75,32 @@ export function ClienteAcessoModal({
     enviarPelaConexao.mutate();
   }
 
+  function linha(chave: string, rotulo: string, valor: string) {
+    return (
+      <div key={chave} className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 rounded-lg border border-input bg-muted/30 px-3 py-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {rotulo}
+          </p>
+          <p className="truncate font-mono text-sm">{valor}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={() => copiar(chave, valor)}
+          title={`Copiar ${rotulo.toLowerCase()}`}
+        >
+          {copiado === chave ? (
+            <Check className="h-4 w-4 text-success" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -70,28 +110,31 @@ export function ClienteAcessoModal({
           </DialogTitle>
           <DialogDescription>
             {acesso
-              ? `Link de login imediato para ${acesso.nome} acompanhar esta OS — funciona uma única vez e expira em algumas horas.`
+              ? acesso.redefinida
+                ? `${acesso.nome} já tinha acesso — foi gerada uma nova senha. A senha anterior deixou de valer.`
+                : `Acesso criado para ${acesso.nome}. Envie os dados abaixo para o cliente acompanhar a OS.`
               : ""}
           </DialogDescription>
         </DialogHeader>
 
         {acesso && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <input
-                readOnly
-                value={acesso.link}
-                onFocus={(e) => e.currentTarget.select()}
-                className="h-10 flex-1 truncate rounded-lg border border-input bg-muted/30 px-3 text-xs text-muted-foreground"
-              />
-              <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={copiar}>
-                {copiado ? (
-                  <Check className="h-4 w-4 text-success" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+          <div className="space-y-3">
+            {linha("usuario", "Usuário", acesso.usuario)}
+            {linha("senha", "Senha", acesso.senha)}
+            {linha("link", "Link da Área do Cliente", acesso.link)}
+
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => copiar("mensagem", mensagem)}
+            >
+              {copiado === "mensagem" ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              Copiar mensagem completa
+            </Button>
 
             {acesso.telefone ? (
               <Button
@@ -99,11 +142,12 @@ export function ClienteAcessoModal({
                 disabled={enviarPelaConexao.isPending}
                 onClick={enviarWhatsapp}
               >
-                <Send className="h-4 w-4" /> Enviar por WhatsApp
+                <Send className="h-4 w-4" />
+                {enviarPelaConexao.isPending ? "Enviando..." : "Enviar acesso por WhatsApp"}
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Cliente sem telefone cadastrado — copie o link acima para compartilhar.
+                Cliente sem telefone cadastrado — copie a mensagem acima para compartilhar.
               </p>
             )}
           </div>

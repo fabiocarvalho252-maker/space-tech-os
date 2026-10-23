@@ -724,9 +724,9 @@ function Ordens() {
   const [acessoOpen, setAcessoOpen] = useState(false);
 
   const gerarAcesso = useMutation({
-    mutationFn: (clienteId: string) => gerarAcessoCliente({ data: { clienteId } }),
-    onSuccess: (res) => {
-      setAcesso(res);
+    mutationFn: (os: any) => gerarAcessoCliente({ data: { clienteId: os.cliente_id } }),
+    onSuccess: (res, os) => {
+      setAcesso({ ...res, osNumero: os.numero ?? null });
       setAcessoOpen(true);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -737,7 +737,7 @@ function Ordens() {
       toast.error("Esta OS não tem um cliente vinculado.");
       return;
     }
-    gerarAcesso.mutate(os.cliente_id);
+    gerarAcesso.mutate(os);
   }
 
   const estornar = useMutation({
