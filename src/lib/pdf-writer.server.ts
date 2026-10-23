@@ -42,7 +42,9 @@ const EMOJI_SUBSTITUICOES: Record<string, string> = {
 // emoji intact, and nothing is written back to the database.
 export function sanitizePdfText(texto: string | null | undefined, fonte: PDFFont): string {
   if (texto == null) return "";
-  let resultado = String(texto);
+  // Tab vira espaço; quebras de linha são tratadas por paragrafo()/linhaCampo()
+  // antes de chegar aqui — WinAnsi não codifica "\n", que virava "?" no PDF.
+  let resultado = String(texto).replace(/\t/g, " ");
   for (const [emoji, substituto] of Object.entries(EMOJI_SUBSTITUICOES)) {
     if (resultado.includes(emoji)) resultado = resultado.split(emoji).join(substituto);
   }
@@ -74,6 +76,10 @@ export class Escritor {
   private corAccent: ReturnType<typeof rgb>;
   private pagina: PDFPage;
   private y: number;
+  // Quebra de página só é criada quando algo for desenhado depois dela —
+  // senão um "quebra_pagina" no fim do modelo (ou seguido de seções vazias)
+  // gerava uma última página em branco.
+  private quebraPendente = false;
 
   constructor(
     pdf: PDFDocument,
@@ -107,11 +113,26 @@ export class Escritor {
   }
 
   novaPagina() {
-    this.quebrarLinha();
+    if (this.y < ALTURA_PAGINA - MARGEM) this.quebraPendente = true;
   }
 
   private garantirEspaco(altura: number) {
-    if (this.y - altura < MARGEM) this.quebrarLinha();
+    if (this.quebraPendente || this.y - altura < MARGEM) {
+      this.quebraPendente = false;
+      this.quebrarLinha();
+    }
+  }
+
+  // drawText() posiciona pela linha de base; os métodos de texto tratam
+  // this.y como o topo da linha, então descem a altura das maiúsculas antes
+  // de desenhar. Sem isso o texto logo abaixo de uma imagem (ex.: o nome da
+  // loja embaixo da logo) subia por cima dela.
+  private baseline(tamanho: number) {
+    return this.y - tamanho * 0.75;
+  }
+
+  private linhasDoTexto(texto: string): string[] {
+    return String(texto ?? "").split(/\r?\n/);
   }
 
   private quebrarTexto(texto: string, fonte: PDFFont, tamanho: number, largura: number): string[] {
@@ -135,7 +156,7 @@ export class Escritor {
     this.garantirEspaco(tamanho + 8);
     this.pagina.drawText(sanitizePdfText(texto, this.fonte), {
       x: MARGEM,
-      y: this.y,
+      y: this.baseline(tamanho),
       size: tamanho,
       font: this.fonteNegrito,
       color: this.corAccent,
@@ -144,10 +165,12 @@ export class Escritor {
   }
 
   subtitulo(texto: string, cor: ReturnType<typeof rgb> = this.corAccent) {
+    // Respiro antes do título de seção (dispensado no topo da página).
+    if (this.y < ALTURA_PAGINA - MARGEM && !this.quebraPendente) this.y -= 6;
     this.garantirEspaco(16);
     this.pagina.drawText(sanitizePdfText(texto, this.fonte), {
       x: MARGEM,
-      y: this.y,
+      y: this.baseline(11),
       size: 11,
       font: this.fonteNegrito,
       color: cor,
@@ -156,22 +179,30 @@ export class Escritor {
   }
 
   paragrafo(texto: string, tamanho = 9, cor = rgb(0.2, 0.2, 0.25)) {
-    const linhas = this.quebrarTexto(
-      sanitizePdfText(texto, this.fonte),
-      this.fonte,
-      tamanho,
-      LARGURA_UTIL,
-    );
-    for (const linha of linhas) {
-      this.garantirEspaco(tamanho + 4);
-      this.pagina.drawText(linha, {
-        x: MARGEM,
-        y: this.y,
-        size: tamanho,
-        font: this.fonte,
-        color: cor,
-      });
-      this.y -= tamanho + 4;
+    // Respeita as quebras de linha digitadas (termos, observações…); linhas
+    // em branco viram meio espaço entre blocos.
+    for (const bloco of this.linhasDoTexto(texto)) {
+      if (!bloco.trim()) {
+        this.y -= (tamanho + 4) / 2;
+        continue;
+      }
+      const linhas = this.quebrarTexto(
+        sanitizePdfText(bloco, this.fonte),
+        this.fonte,
+        tamanho,
+        LARGURA_UTIL,
+      );
+      for (const linha of linhas) {
+        this.garantirEspaco(tamanho + 4);
+        this.pagina.drawText(linha, {
+          x: MARGEM,
+          y: this.baseline(tamanho),
+          size: tamanho,
+          font: this.fonte,
+          color: cor,
+        });
+        this.y -= tamanho + 4;
+      }
     }
   }
 
@@ -179,20 +210,19 @@ export class Escritor {
     this.garantirEspaco(14);
     this.pagina.drawText(sanitizePdfText(rotulo, this.fonte), {
       x: MARGEM,
-      y: this.y,
+      y: this.baseline(9),
       size: 9,
       font: this.fonteNegrito,
       color: rgb(0.45, 0.45, 0.5),
     });
-    const linhas = this.quebrarTexto(
-      sanitizePdfText(valor, this.fonte) || "—",
-      this.fonte,
-      9,
-      LARGURA_UTIL - 130,
-    );
+    const linhas = this.linhasDoTexto(valor)
+      .filter((l) => l.trim())
+      .flatMap((l) =>
+        this.quebrarTexto(sanitizePdfText(l, this.fonte), this.fonte, 9, LARGURA_UTIL - 130),
+      );
     this.pagina.drawText(linhas[0] ?? "—", {
       x: MARGEM + 130,
-      y: this.y,
+      y: this.baseline(9),
       size: 9,
       font: this.fonte,
       color: rgb(0.1, 0.1, 0.15),
@@ -202,7 +232,7 @@ export class Escritor {
       this.garantirEspaco(14);
       this.pagina.drawText(extra, {
         x: MARGEM + 130,
-        y: this.y,
+        y: this.baseline(9),
         size: 9,
         font: this.fonte,
         color: rgb(0.1, 0.1, 0.15),
