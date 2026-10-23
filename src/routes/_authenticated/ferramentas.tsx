@@ -1,23 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Search, Sparkles, Layers, Target } from "lucide-react";
+import { Trash2, Search, Sparkles, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
-import { buscarModelosCompativeis } from "@/lib/peliculas.functions";
+import { buscarModelosCompativeis, type SugestaoPelicula } from "@/lib/peliculas.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { PeliculaIAResultado } from "@/components/PeliculaIAResultado";
 
 export const Route = createFileRoute("/_authenticated/ferramentas")({
   head: () => ({
@@ -35,8 +27,6 @@ export const Route = createFileRoute("/_authenticated/ferramentas")({
   component: Ferramentas,
 });
 
-const vazio = { marca: "", modelo: "", codigo: "", pelicula_compativel: "", observacoes: "" };
-
 function Ferramentas() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
@@ -46,16 +36,11 @@ function Ferramentas() {
 
   const searchParams = Route.useSearch();
   const [busca, setBusca] = useState(searchParams.busca ?? "");
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.busca) setBusca(searchParams.busca);
   }, [searchParams.busca]);
-  const [form, setForm] = useState(vazio);
-  const [resultadoIA, setResultadoIA] = useState<{
-    modelos: string | undefined;
-    detalhes?: string | undefined;
-  } | null>(null);
+  const [resultadoIA, setResultadoIA] = useState<SugestaoPelicula | null>(null);
 
   const { data: catalogo = [] } = useQuery({
     queryKey: ["peliculas-catalogo"],
@@ -68,25 +53,6 @@ function Ferramentas() {
       if (error) throw error;
       return data;
     },
-  });
-
-  const criar = useMutation({
-    mutationFn: async () => {
-      if (!form.marca.trim() || !form.modelo.trim() || !form.pelicula_compativel.trim()) {
-        throw new Error("Informe marca, modelo e a película compatível");
-      }
-      const { error } = await supabase
-        .from("peliculas_catalogo")
-        .insert({ ...form, user_id: empresaId! });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Item cadastrado no catálogo");
-      setForm(vazio);
-      setOpen(false);
-      qc.invalidateQueries({ queryKey: ["peliculas-catalogo"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const remover = useMutation({
@@ -102,15 +68,19 @@ function Ferramentas() {
 
   const consultarIA = useMutation({
     mutationFn: async () => {
-      const res = await buscarModelosCompativeis({ data: { modelo: busca } });
-      return res;
+      return buscarModelosCompativeis({ data: { modelo: busca.trim() } });
     },
-    onSuccess: (res) => setResultadoIA(res ?? { modelos: "Nenhum modelo compatível encontrado." }),
-    onError: () => toast.error("Erro ao consultar a IA"),
+    onSuccess: (res) => setResultadoIA(res),
+    onError: (e: Error) => toast.error(e.message || "Erro ao consultar a IA"),
   });
 
+  // The película column usually lists the sibling models too ("iPhone
+  // 13/13 Pro/14"), so searching it finds a phone even without its own row.
+  const termo = busca.trim().toLowerCase();
   const filtrados = catalogo.filter((p) =>
-    `${p.marca} ${p.modelo} ${p.codigo ?? ""}`.toLowerCase().includes(busca.toLowerCase()),
+    `${p.marca} ${p.modelo} ${p.codigo ?? ""} ${p.pelicula_compativel} ${p.observacoes ?? ""}`
+      .toLowerCase()
+      .includes(termo),
   );
 
   return (
@@ -118,68 +88,38 @@ function Ferramentas() {
       <PageHeader
         title="Ferramentas Inteligentes"
         subtitle="Buscador de películas compatíveis, direto para uso na bancada"
-        action={
-          gerenciar && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4" /> Novo item
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Novo item no catálogo</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Campo
-                    label="Marca"
-                    value={form.marca}
-                    onChange={(v) => setForm({ ...form, marca: v })}
-                  />
-                  <Campo
-                    label="Modelo"
-                    value={form.modelo}
-                    onChange={(v) => setForm({ ...form, modelo: v })}
-                  />
-                  <Campo
-                    label="Código"
-                    value={form.codigo}
-                    onChange={(v) => setForm({ ...form, codigo: v })}
-                  />
-                  <Campo
-                    label="Película compatível"
-                    value={form.pelicula_compativel}
-                    onChange={(v) => setForm({ ...form, pelicula_compativel: v })}
-                  />
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <Label>Observações</Label>
-                    <Textarea
-                      value={form.observacoes}
-                      onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
-                  Salvar
-                </Button>
-              </DialogContent>
-            </Dialog>
-          )
-        }
       />
 
-      <div className="relative mb-4 max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setResultadoIA(null);
-          }}
-          placeholder="Buscar por marca, modelo ou código..."
-          className="pl-9"
-        />
-      </div>
+      <form
+        className="mb-4 flex max-w-xl gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (termo.length >= 2 && !consultarIA.isPending) consultarIA.mutate();
+        }}
+      >
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setResultadoIA(null);
+            }}
+            placeholder="Digite o celular (ex.: Galaxy A54, iPhone 13)..."
+            className="pl-9"
+          />
+        </div>
+        <Button type="submit" disabled={termo.length < 2 || consultarIA.isPending}>
+          <Sparkles className="h-4 w-4" />
+          {consultarIA.isPending ? "Consultando..." : "Consultar IA"}
+        </Button>
+      </form>
+
+      {resultadoIA && (
+        <div className="mb-4">
+          <PeliculaIAResultado key={JSON.stringify(resultadoIA)} resultado={resultadoIA} />
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
         <div className="overflow-x-auto">
@@ -233,53 +173,6 @@ function Ferramentas() {
           </table>
         </div>
       </div>
-
-      {busca && !filtrados.length && (
-        <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-bold">
-              <Sparkles className="h-4 w-4 text-primary" /> Sem cadastro? Pergunte à IA
-            </h2>
-            <Button size="sm" onClick={() => consultarIA.mutate()} disabled={consultarIA.isPending}>
-              {consultarIA.isPending ? "Consultando..." : "Consultar IA"}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            A IA pode sugerir modelos com a mesma película com base no mercado, mas não substitui a
-            conferência manual na bancada.
-          </p>
-          {resultadoIA && (
-            <div className="mt-3 space-y-2 border-t border-primary/10 pt-3">
-              <p className="flex items-center gap-1 text-xs font-bold uppercase text-primary">
-                <Target className="h-3 w-3" /> Modelos compatíveis
-              </p>
-              <p className="text-sm font-semibold leading-relaxed">{resultadoIA.modelos}</p>
-              {resultadoIA.detalhes && (
-                <p className="text-xs italic leading-relaxed text-muted-foreground">
-                  {resultadoIA.detalhes}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Campo({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

@@ -9,12 +9,16 @@ import {
   History,
   Wrench,
   Copy,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarComIA } from "@/lib/ia.functions";
+import { buscarModelosCompativeis, type SugestaoPelicula } from "@/lib/peliculas.functions";
+import { PeliculaIAResultado } from "@/components/PeliculaIAResultado";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
 import { usePlanoFeatures, temFeature } from "@/hooks/useCurrentUser";
 
@@ -97,6 +101,7 @@ function IaSpaceTech() {
       />
       {temIaOs ? (
         <div className="grid gap-4 md:grid-cols-2">
+          <BuscadorPeliculaIA />
           {FERRAMENTAS.map((f) => (
             <FerramentaIA key={f.tipo} {...f} />
           ))}
@@ -176,6 +181,51 @@ function FerramentaIA({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function BuscadorPeliculaIA() {
+  const [modelo, setModelo] = useState("");
+  const [resultado, setResultado] = useState<SugestaoPelicula | null>(null);
+
+  const consultar = useMutation({
+    mutationFn: () => buscarModelosCompativeis({ data: { modelo: modelo.trim() } }),
+    onSuccess: (res) => setResultado(res),
+    onError: (e: Error) => toast.error(e.message || "Erro ao consultar a IA"),
+  });
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-soft">
+      <div className="flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Smartphone className="h-4 w-4" />
+        </div>
+        <h2 className="text-sm font-bold">Buscador de películas</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Digite o celular para saber qual película serve e em quais outros modelos ela também
+        encaixa.
+      </p>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (modelo.trim().length >= 2 && !consultar.isPending) consultar.mutate();
+        }}
+      >
+        <Input
+          value={modelo}
+          onChange={(e) => setModelo(e.target.value)}
+          placeholder="Ex.: Galaxy A54, iPhone 13"
+          className="flex-1 text-sm"
+        />
+        <Button type="submit" disabled={modelo.trim().length < 2 || consultar.isPending}>
+          <Sparkles className="h-4 w-4" />
+          {consultar.isPending ? "Consultando..." : "Consultar IA"}
+        </Button>
+      </form>
+      {resultado && <PeliculaIAResultado key={JSON.stringify(resultado)} resultado={resultado} />}
     </div>
   );
 }
