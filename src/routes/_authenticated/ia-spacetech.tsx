@@ -1,9 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Sparkles, Cpu, Camera, Copy, X, ImagePlus } from "lucide-react";
+import {
+  Sparkles,
+  Cpu,
+  Camera,
+  Copy,
+  X,
+  ImagePlus,
+  Images,
+  PlayCircle,
+  ScanSearch,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { pesquisarTestPoint, identificarModeloPorFoto } from "@/lib/ia-spacetech.functions";
+import {
+  pesquisarTestPoint,
+  identificarModeloPorFoto,
+  prepararGoogleLens,
+} from "@/lib/ia-spacetech.functions";
 import type { Imagem, RespostaConsulta } from "@/lib/ai/consulta.server";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -83,10 +98,11 @@ function Cartao({
 
 function PesquisaTestPoint() {
   const [modelo, setModelo] = useState("");
+  const [pesquisado, setPesquisado] = useState("");
   const [resultado, setResultado] = useState<RespostaConsulta | null>(null);
 
   const pesquisar = useMutation({
-    mutationFn: () => pesquisarTestPoint({ data: { modelo: modelo.trim() } }),
+    mutationFn: (termo: string) => pesquisarTestPoint({ data: { modelo: termo } }),
     onSuccess: (res) => setResultado(res),
     onError: (e: Error) => toast.error(e.message || "Erro ao consultar a IA"),
   });
@@ -101,7 +117,11 @@ function PesquisaTestPoint() {
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (modelo.trim().length >= 2 && !pesquisar.isPending) pesquisar.mutate();
+          const termo = modelo.trim();
+          if (termo.length < 2 || pesquisar.isPending) return;
+          setPesquisado(termo);
+          setResultado(null);
+          pesquisar.mutate(termo);
         }}
       >
         <Input
@@ -115,8 +135,43 @@ function PesquisaTestPoint() {
           {pesquisar.isPending ? "Pesquisando..." : "Pesquisar"}
         </Button>
       </form>
+      {pesquisado && <FotosReaisTestPoint modelo={pesquisado} />}
       {resultado && <Resultado resultado={resultado} aviso="Confira a placa antes de jumpear." />}
     </Cartao>
+  );
+}
+
+// Real photos/videos of the board instead of an IA-drawn image: a generated
+// picture would invent where the points are, and jumping the wrong pads can
+// kill the board. Plain search links need no API key or quota.
+function FotosReaisTestPoint({ modelo }: { modelo: string }) {
+  const termo = encodeURIComponent(`${modelo} test point`);
+  const links = [
+    {
+      href: `https://www.google.com/search?tbm=isch&q=${termo}`,
+      label: "Fotos no Google Imagens",
+      icon: Images,
+    },
+    {
+      href: `https://www.youtube.com/results?search_query=${termo}`,
+      label: "Vídeos no YouTube",
+      icon: PlayCircle,
+    },
+  ];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {links.map(({ href, label, icon: Icon }) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold transition hover:border-primary hover:text-primary"
+        >
+          <Icon className="h-4 w-4" /> {label}
+        </a>
+      ))}
+    </div>
   );
 }
 
@@ -124,13 +179,30 @@ function PesquisaTestPoint() {
 // photos fit in one request; createImageBitmap applies the EXIF rotation so
 // portrait shots reach the IA upright.
 async function prepararFoto(arquivo: File): Promise<Imagem & { preview: string }> {
-  const bitmap = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
-  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height));
+  // Older mobile Safari rejects createImageBitmap's options (or the API
+  // entirely); an <img> also applies EXIF rotation in current browsers.
+  let fonte: ImageBitmap | HTMLImageElement;
+  try {
+    fonte = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
+  } catch {
+    const url = URL.createObjectURL(arquivo);
+    try {
+      fonte = await new Promise<HTMLImageElement>((ok, falha) => {
+        const img = new Image();
+        img.onload = () => ok(img);
+        img.onerror = falha;
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  const escala = Math.min(1, LADO_MAX / Math.max(fonte.width, fonte.height));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * escala);
-  canvas.height = Math.round(bitmap.height * escala);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
+  canvas.width = Math.round(fonte.width * escala);
+  canvas.height = Math.round(fonte.height * escala);
+  canvas.getContext("2d")!.drawImage(fonte, 0, 0, canvas.width, canvas.height);
+  if ("close" in fonte) fonte.close();
   const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
   return { mime: "image/jpeg", base64: dataUrl.split(",")[1]!, preview: dataUrl };
 }
@@ -140,6 +212,29 @@ function IdentificarPorFoto() {
   const [fotos, setFotos] = useState<(Imagem & { preview: string })[]>([]);
   const [observacao, setObservacao] = useState("");
   const [resultado, setResultado] = useState<RespostaConsulta | null>(null);
+  const [lensFoto, setLensFoto] = useState<number | null>(null);
+
+  // The tab is opened synchronously in the click handler — mobile browsers
+  // block window.open after an await — and pointed at Lens once the signed
+  // link is ready.
+  async function abrirNoLens(i: number) {
+    const foto = fotos[i];
+    if (!foto || lensFoto !== null) return;
+    const aba = window.open("", "_blank");
+    setLensFoto(i);
+    try {
+      const { url } = await prepararGoogleLens({
+        data: { imagem: { mime: foto.mime, base64: foto.base64 } },
+      });
+      if (aba) aba.location.href = url;
+      else window.location.href = url;
+    } catch (e) {
+      aba?.close();
+      toast.error(e instanceof Error ? e.message : "Erro ao abrir o Google Lens");
+    } finally {
+      setLensFoto(null);
+    }
+  }
 
   async function adicionar(arquivos: FileList | null) {
     if (!arquivos?.length) return;
@@ -175,7 +270,7 @@ function IdentificarPorFoto() {
     <Cartao
       icon={Camera}
       titulo="Identificar modelo por foto"
-      descricao="Envie até 4 fotos (traseira, etiqueta, tela Sobre ou placa) para a IA dizer qual é o aparelho."
+      descricao="Envie até 4 fotos (traseira, etiqueta, tela Sobre ou placa) para a IA dizer qual é o aparelho, ou toque em Lens numa foto para pesquisar no Google Lens."
     >
       <input
         ref={inputRef}
@@ -205,6 +300,20 @@ function IdentificarPorFoto() {
               aria-label="Remover foto"
             >
               <X className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => abrirNoLens(i)}
+              disabled={lensFoto !== null}
+              className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/60 py-0.5 text-[10px] font-semibold text-white"
+              aria-label="Pesquisar esta foto no Google Lens"
+            >
+              {lensFoto === i ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ScanSearch className="h-3 w-3" />
+              )}
+              Lens
             </button>
           </div>
         ))}

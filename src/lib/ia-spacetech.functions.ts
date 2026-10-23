@@ -64,5 +64,56 @@ export const identificarModeloPorFoto = createServerFn({ method: "POST" })
         ? `Identifique o aparelho das fotos. Observação do técnico: ${data.observacao}`
         : "Identifique o aparelho das fotos.",
       imagens: data.imagens,
+      pesquisar: false,
+      preferirPago: true,
     });
+  });
+
+// Google Lens has no public API, but it accepts an image URL. The photo goes
+// to a temp folder in the private bucket and Lens gets a short-lived signed
+// link; older temp photos are swept on each call so nothing piles up.
+const LENS_BUCKET = "aparelhos-fotos";
+const LENS_VALIDADE_S = 15 * 60;
+const LENS_GUARDAR_MS = 60 * 60 * 1000;
+
+export const prepararGoogleLens = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ imagem: imagemSchema }).parse(data))
+  .handler(async ({ data, context }): Promise<{ url: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const pasta = `lens-temp/${context.userId}`;
+
+    const { data: antigos } = await supabaseAdmin.storage.from(LENS_BUCKET).list(pasta);
+    const vencidos = (antigos ?? [])
+      // File names start with their upload timestamp (see `caminho` below).
+      .filter((f) => Date.now() - (parseInt(f.name, 10) || 0) > LENS_GUARDAR_MS)
+      .map((f) => `${pasta}/${f.name}`);
+    if (vencidos.length) await supabaseAdmin.storage.from(LENS_BUCKET).remove(vencidos);
+
+    const ext = data.imagem.mime.split("/")[1];
+    const caminho = `${pasta}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const { error: erroUpload } = await supabaseAdmin.storage
+      .from(LENS_BUCKET)
+      .upload(caminho, Buffer.from(data.imagem.base64, "base64"), {
+        contentType: data.imagem.mime,
+      });
+    if (erroUpload) throw new Error("Não foi possível preparar a foto para o Google Lens.");
+
+    const { data: assinado, error: erroLink } = await supabaseAdmin.storage
+      .from(LENS_BUCKET)
+      .createSignedUrl(caminho, LENS_VALIDADE_S);
+    if (erroLink || !assinado) throw new Error("Não foi possível gerar o link da foto.");
+
+    // The server talks to Supabase over localhost; Google must fetch the
+    // photo through the public domain instead.
+    const publico = process.env["SUPABASE_PUBLIC_URL"] || process.env["VITE_SUPABASE_URL"];
+    const link = new URL(assinado.signedUrl);
+    if (publico) {
+      const base = new URL(publico);
+      link.protocol = base.protocol;
+      link.host = base.host;
+    }
+    return {
+      url: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(link.toString())}`,
+    };
   });

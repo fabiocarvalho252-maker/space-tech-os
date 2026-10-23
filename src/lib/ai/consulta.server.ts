@@ -1,6 +1,6 @@
 // One-shot IA lookups (película, test point, model-from-photo). Prefers
-// Gemini with Google Search grounding — free tier, real web results, no IA
-// credit spent — when GEMINI_API_KEY is set; otherwise falls back to
+// Gemini — free tier, no IA credit spent — when GEMINI_API_KEY is set
+// (unless the caller asks for the paid provider first); otherwise uses
 // AI_PROVIDER (provider.server.ts) and charges one IA credit, refunded if
 // the call fails. Kept apart from provider.server.ts because grounding and
 // inline images are Gemini-specific and the chat there needs tool calling.
@@ -24,6 +24,9 @@ function dentroDoLimiteGemini(userId: string): boolean {
   return marcas.length <= LIMITE_GEMINI_POR_MINUTO;
 }
 
+const GEMINI_TIMEOUT_MS = 25_000;
+const GEMINI_RESERVA = "gemini-flash-lite-latest";
+
 async function chamarGemini(params: {
   apiKey: string;
   systemPrompt: string;
@@ -31,13 +34,16 @@ async function chamarGemini(params: {
   imagens: Imagem[];
   pesquisar: boolean;
 }): Promise<RespostaConsulta> {
-  const model = process.env["GEMINI_MODEL"] || "gemini-flash-latest";
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+  // Flash-Lite by default: on the free tier the full Flash model regularly
+  // takes 60s+ (measured), which left the page stuck on "Analisando...".
+  const principal = process.env["GEMINI_MODEL"] || GEMINI_RESERVA;
+  const modelos = [...new Set([principal, GEMINI_RESERVA])];
+  const tentar = (modelo: string, pesquisar: boolean) =>
+    fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         headers: { "x-goog-api-key": params.apiKey, "content-type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: params.systemPrompt }] },
@@ -52,12 +58,38 @@ async function chamarGemini(params: {
               ],
             },
           ],
-          ...(params.pesquisar ? { tools: [{ google_search: {} }] } : {}),
+          ...(pesquisar ? { tools: [{ google_search: {} }] } : {}),
         }),
       },
     );
-  } catch {
-    throw new Error("Não foi possível conectar à IA de pesquisa (Gemini).");
+
+  // Google Search grounding has no free quota on new keys (429 even on the
+  // first call), so it's opt-in via GEMINI_PESQUISA=1 and dropped on 429.
+  // A timeout or overload (5xx) moves on to the next model.
+  let res: Response | null = null;
+  let pesquisar = params.pesquisar && process.env["GEMINI_PESQUISA"] === "1";
+  for (const modelo of modelos) {
+    try {
+      res = await tentar(modelo, pesquisar);
+      if (res.status === 429 && pesquisar) {
+        pesquisar = false;
+        res = await tentar(modelo, pesquisar);
+      }
+    } catch (e) {
+      console.error(`[ia] gemini ${modelo}: sem resposta`, e instanceof Error ? e.name : e);
+      res = null;
+      continue;
+    }
+    if (res.status < 500) break;
+    console.error(`[ia] gemini ${modelo}: HTTP ${res.status}`);
+  }
+  if (!res) throw new Error("A IA demorou demais para responder. Tente de novo.");
+  if (!res.ok) {
+    const corpo = await res
+      .clone()
+      .text()
+      .catch(() => "");
+    console.error(`[ia] gemini HTTP ${res.status} (pesquisa=${pesquisar})`, corpo.slice(0, 300));
   }
   if (res.status === 401 || res.status === 403) {
     throw new Error("IA de pesquisa indisponível: GEMINI_API_KEY inválida ou sem acesso.");
@@ -76,7 +108,10 @@ async function chamarGemini(params: {
     .map((p) => p.text ?? "")
     .join("")
     .trim();
-  if (!texto) throw new Error("A IA não retornou nenhuma resposta.");
+  if (!texto) {
+    console.error("[ia] gemini sem texto", JSON.stringify(json).slice(0, 300));
+    throw new Error("A IA não retornou nenhuma resposta.");
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chunks: any[] = candidato?.groundingMetadata?.groundingChunks ?? [];
@@ -88,9 +123,60 @@ async function chamarGemini(params: {
   return { texto, fontes };
 }
 
+// Charges one IA credit and refunds it if no answer comes back — same rule
+// as ia.functions.ts.
+async function chamarProvedorPago(
+  userId: string,
+  params: { systemPrompt: string; texto: string; imagens: Imagem[] },
+): Promise<RespostaConsulta> {
+  try {
+    await verificarEDescontarCreditoIA(userId);
+  } catch (e) {
+    if (e instanceof IAIndisponivelError) throw new Error(e.message);
+    throw e;
+  }
+  try {
+    const resposta = await chamarProvedorIA({
+      systemPrompt: params.systemPrompt,
+      mensagens: [
+        {
+          role: "user",
+          content: params.imagens.length
+            ? [
+                ...params.imagens.map((i) => ({
+                  type: "image",
+                  source: { type: "base64", media_type: i.mime, data: i.base64 },
+                })),
+                { type: "text", text: params.texto },
+              ]
+            : params.texto,
+        },
+      ],
+      tools: [],
+    });
+    if (resposta.kind !== "text" || !resposta.text) {
+      throw new Error("A IA não retornou nenhuma resposta.");
+    }
+    return { texto: resposta.text, fontes: [] };
+  } catch (e) {
+    await estornarCreditoIA(userId);
+    if (e instanceof IAIndisponivelError) throw new Error(e.message);
+    throw e;
+  }
+}
+
 export async function consultarIA(
   context: { userId: string; supabase: SupabaseClient<Database> },
-  params: { systemPrompt: string; texto: string; imagens?: Imagem[]; pesquisar?: boolean },
+  params: {
+    systemPrompt: string;
+    texto: string;
+    imagens?: Imagem[];
+    pesquisar?: boolean;
+    // Use the paid AI_PROVIDER first (1 credit) when accuracy matters more
+    // than cost — e.g. identifying a phone from photos, where the free
+    // Flash-Lite often guesses wrong. Falls back to Gemini if it fails.
+    preferirPago?: boolean;
+  },
 ): Promise<RespostaConsulta> {
   const imagens = params.imagens ?? [];
   const { data: membership } = await context.supabase
@@ -109,52 +195,38 @@ export async function consultarIA(
   }
 
   const geminiKey = process.env["GEMINI_API_KEY"];
+  const inicio = Date.now();
+  const log = (via: string, r: RespostaConsulta) => {
+    console.info(
+      `[ia] ${via} ok em ${Date.now() - inicio}ms (${imagens.length} foto(s), ${r.fontes.length} fonte(s))`,
+    );
+    return r;
+  };
+
+  if (params.preferirPago && process.env["AI_API_KEY"]) {
+    try {
+      return log("pago", await chamarProvedorPago(context.userId, { ...params, imagens }));
+    } catch (e) {
+      if (!geminiKey) throw e;
+      console.error("[ia] pago falhou, usando gemini:", e instanceof Error ? e.message : e);
+    }
+  }
+
   if (geminiKey) {
     if (!dentroDoLimiteGemini(context.userId)) {
       throw new Error("Muitas consultas em pouco tempo — aguarde um instante.");
     }
-    return chamarGemini({
-      apiKey: geminiKey,
-      systemPrompt: params.systemPrompt,
-      texto: params.texto,
-      imagens,
-      pesquisar: params.pesquisar ?? true,
-    });
+    return log(
+      "gemini",
+      await chamarGemini({
+        apiKey: geminiKey,
+        systemPrompt: params.systemPrompt,
+        texto: params.texto,
+        imagens,
+        pesquisar: params.pesquisar ?? true,
+      }),
+    );
   }
 
-  try {
-    await verificarEDescontarCreditoIA(context.userId);
-  } catch (e) {
-    if (e instanceof IAIndisponivelError) throw new Error(e.message);
-    throw e;
-  }
-  try {
-    const resposta = await chamarProvedorIA({
-      systemPrompt: params.systemPrompt,
-      mensagens: [
-        {
-          role: "user",
-          content: imagens.length
-            ? [
-                ...imagens.map((i) => ({
-                  type: "image",
-                  source: { type: "base64", media_type: i.mime, data: i.base64 },
-                })),
-                { type: "text", text: params.texto },
-              ]
-            : params.texto,
-        },
-      ],
-      tools: [],
-    });
-    if (resposta.kind !== "text" || !resposta.text) {
-      throw new Error("A IA não retornou nenhuma resposta.");
-    }
-    return { texto: resposta.text, fontes: [] };
-  } catch (e) {
-    // No answer, no credit spent — same rule as ia.functions.ts.
-    await estornarCreditoIA(context.userId);
-    if (e instanceof IAIndisponivelError) throw new Error(e.message);
-    throw e;
-  }
+  return log("pago", await chamarProvedorPago(context.userId, { ...params, imagens }));
 }
