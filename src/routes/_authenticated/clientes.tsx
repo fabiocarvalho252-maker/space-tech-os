@@ -1,12 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Trash2, Search, Pencil } from "lucide-react";
+import { Plus, Trash2, Search, Pencil, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useEmpresaId } from "@/hooks/useCurrentUser";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  buscarCep,
+  buscarCnpj,
+  formatarCep,
+  formatarDocumento,
+  somenteDigitos,
+  validarCnpj,
+  validarCpf,
+} from "@/lib/documento";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +50,9 @@ function Clientes() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(vazio);
   const [confirmExcluir, setConfirmExcluir] = useState<{ id: string; nome: string } | null>(null);
+  const [cep, setCep] = useState("");
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes"],
@@ -57,6 +69,7 @@ function Clientes() {
   function abrirNovo() {
     setEditId(null);
     setForm(vazio);
+    setCep("");
     setOpen(true);
   }
 
@@ -70,7 +83,75 @@ function Clientes() {
       endereco: c.endereco ?? "",
       observacoes: c.observacoes ?? "",
     });
+    setCep("");
     setOpen(true);
+  }
+
+  const docDigitos = somenteDigitos(form.documento);
+  const docCompleto = docDigitos.length === 11 || docDigitos.length === 14;
+  const docValido =
+    docDigitos.length === 11
+      ? validarCpf(docDigitos)
+      : docDigitos.length === 14 && validarCnpj(docDigitos);
+  // Só compara com clientes já carregados na tela (a lista inteira da
+  // empresa) — o objetivo é evitar cadastro duplicado, não bloquear.
+  const clienteDuplicado = docCompleto
+    ? clientes.find((c) => c.id !== editId && somenteDigitos(c.documento) === docDigitos)
+    : undefined;
+
+  async function preencherPorCnpj(cnpj: string) {
+    setBuscandoCnpj(true);
+    try {
+      const dados = await buscarCnpj(cnpj);
+      // Não sobrescreve o que o usuário já digitou.
+      setForm((f) => ({
+        ...f,
+        nome: f.nome.trim() ? f.nome : dados.nome,
+        telefone: f.telefone.trim() ? f.telefone : dados.telefone,
+        email: f.email.trim() ? f.email : dados.email,
+        endereco: f.endereco.trim() ? f.endereco : dados.endereco,
+      }));
+      if (dados.situacao && dados.situacao !== "ATIVA") {
+        toast.warning(`Dados preenchidos. Atenção: CNPJ com situação ${dados.situacao}.`);
+      } else {
+        toast.success("Dados da empresa preenchidos pelo CNPJ");
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBuscandoCnpj(false);
+    }
+  }
+
+  function alterarDocumento(valor: string) {
+    const formatado = formatarDocumento(valor);
+    setForm((f) => ({ ...f, documento: formatado }));
+    const digitos = somenteDigitos(formatado);
+    // Dispara uma vez, quando o CNPJ acabou de ficar completo.
+    if (
+      digitos.length === 14 &&
+      somenteDigitos(form.documento).length !== 14 &&
+      validarCnpj(digitos)
+    ) {
+      preencherPorCnpj(digitos);
+    }
+  }
+
+  async function alterarCep(valor: string) {
+    const formatado = formatarCep(valor);
+    setCep(formatado);
+    const digitos = somenteDigitos(formatado);
+    if (digitos.length !== 8 || somenteDigitos(cep).length === 8) return;
+    setBuscandoCep(true);
+    try {
+      const endereco = await buscarCep(digitos);
+      setForm((f) => ({ ...f, endereco }));
+      toast.success("Endereço preenchido — complete com o número");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBuscandoCep(false);
+    }
   }
 
   const salvar = useMutation({
@@ -137,6 +218,50 @@ function Clientes() {
                 <DialogTitle>{editId ? "Editar cliente" : "Novo cliente"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>CPF / CNPJ</Label>
+                  <div className="relative">
+                    <Input
+                      value={form.documento}
+                      onChange={(e) => alterarDocumento(e.target.value)}
+                      placeholder="Digite o CPF ou CNPJ"
+                      inputMode="numeric"
+                    />
+                    {buscandoCnpj && (
+                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {docCompleto && !docValido && (
+                    <p className="text-xs text-destructive">
+                      {docDigitos.length === 11 ? "CPF inválido" : "CNPJ inválido"}
+                    </p>
+                  )}
+                  {docDigitos.length === 14 && docValido && !buscandoCnpj && (
+                    <button
+                      type="button"
+                      onClick={() => preencherPorCnpj(docDigitos)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Buscar dados do CNPJ novamente
+                    </button>
+                  )}
+                  {clienteDuplicado && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                      <span>
+                        Já existe um cliente com este documento:{" "}
+                        <strong>{clienteDuplicado.nome}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicao(clienteDuplicado)}
+                        className="ml-auto font-medium text-primary hover:underline"
+                      >
+                        Abrir cadastro
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <Campo
                   label="Nome"
                   value={form.nome}
@@ -152,11 +277,20 @@ function Clientes() {
                   value={form.email}
                   onChange={(v) => setForm({ ...form, email: v })}
                 />
-                <Campo
-                  label="CPF / CNPJ"
-                  value={form.documento}
-                  onChange={(v) => setForm({ ...form, documento: v })}
-                />
+                <div className="space-y-1.5">
+                  <Label>CEP</Label>
+                  <div className="relative">
+                    <Input
+                      value={cep}
+                      onChange={(e) => alterarCep(e.target.value)}
+                      placeholder="Preenche o endereço"
+                      inputMode="numeric"
+                    />
+                    {buscandoCep && (
+                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
                 <div className="sm:col-span-2">
                   <Campo
                     label="Endereço"
