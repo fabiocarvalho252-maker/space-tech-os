@@ -13,6 +13,8 @@ import {
   Edit,
   Filter,
   X,
+  Search,
+  ChevronDown,
   MessageCircle,
   DollarSign,
   Receipt,
@@ -47,11 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
 import { NovaOsFotos, enviarFotosEntrada, type LadoFoto } from "@/components/NovaOsFotos";
-import {
-  AparelhoCard3D,
-  useLadosAparelho,
-  useLadosAparelhos,
-} from "@/components/AparelhoCard3D";
+import { AparelhoCard3D, useLadosAparelho, useLadosAparelhos } from "@/components/AparelhoCard3D";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
@@ -183,6 +181,8 @@ const ESTADO_FISICO_ITENS = [
   { key: "outros", label: "Outros" },
 ] as const;
 
+const OS_POR_PAGINA = 20;
+
 function Ordens() {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const qc = useQueryClient();
@@ -210,6 +210,9 @@ function Ordens() {
     responsavel: "",
     busca: "",
   });
+  // Only the newest OS are listed until "Mostrar mais antigas" — a shop
+  // piles up hundreds, and the counter's daily work is the recent ones.
+  const [limiteLista, setLimiteLista] = useState(OS_POR_PAGINA);
 
   // Estados do editor completo da OS
   type ItemOs = {
@@ -480,9 +483,7 @@ function Ordens() {
     mutationFn: async () => {
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
-      const tecnicoSelecionado = tecnicos.find(
-        (m: any) => m.user_id === form.responsavel_user_id,
-      );
+      const tecnicoSelecionado = tecnicos.find((m: any) => m.user_id === form.responsavel_user_id);
 
       const { data: os, error } = await supabase
         .from("ordens_servico")
@@ -553,9 +554,7 @@ function Ordens() {
       if (!selectedOsId) return;
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
-      const tecnicoSelecionado = tecnicos.find(
-        (m: any) => m.user_id === form.responsavel_user_id,
-      );
+      const tecnicoSelecionado = tecnicos.find((m: any) => m.user_id === form.responsavel_user_id);
 
       const { error } = await supabase
         .from("ordens_servico")
@@ -944,13 +943,18 @@ function Ordens() {
         o.responsavel?.toLowerCase().includes(filtrosAvancados.responsavel.toLowerCase()),
       );
     }
-    if (filtrosAvancados.busca) {
-      const b = filtrosAvancados.busca.toLowerCase();
-      base = base.filter(
-        (o) =>
-          o.aparelho?.toLowerCase().includes(b) ||
-          o.clientes?.nome?.toLowerCase().includes(b) ||
-          o.numero?.toString().includes(b),
+    const b = filtrosAvancados.busca.trim().toLowerCase();
+    if (b) {
+      base = base.filter((o) =>
+        [
+          o.numero?.toString(),
+          o.clientes?.nome,
+          o.clientes?.telefone,
+          o.aparelho,
+          o.marca,
+          o.modelo,
+          o.imei,
+        ].some((v) => v?.toLowerCase().includes(b)),
       );
     }
 
@@ -1132,11 +1136,37 @@ function Ordens() {
         }
       />
 
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={filtrosAvancados.busca}
+          onChange={(e) => {
+            setFiltrosAvancados((prev) => ({ ...prev, busca: e.target.value }));
+            setLimiteLista(OS_POR_PAGINA);
+          }}
+          placeholder="Pesquisar OS por nº, cliente, telefone, aparelho, modelo ou IMEI..."
+          className="h-11 pl-9 pr-9"
+        />
+        {filtrosAvancados.busca && (
+          <button
+            type="button"
+            onClick={() => setFiltrosAvancados((prev) => ({ ...prev, busca: "" }))}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpar pesquisa"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {[{ value: "todas", label: "Todas" }, ...STATUS_OS].map((s) => (
           <button
             key={s.value}
-            onClick={() => setFiltro(s.value)}
+            onClick={() => {
+              setFiltro(s.value);
+              setLimiteLista(OS_POR_PAGINA);
+            }}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
               filtro === s.value
                 ? "bg-primary text-primary-foreground"
@@ -1158,7 +1188,7 @@ function Ordens() {
       </div>
 
       {showFilters && (
-        <div className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-4 animate-in fade-in slide-in-from-top-2">
+        <div className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-3 animate-in fade-in slide-in-from-top-2">
           <div className="space-y-1.5">
             <Label className="text-xs">Data Início</Label>
             <Input
@@ -1192,19 +1222,32 @@ function Ordens() {
               }
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Busca Geral</Label>
-            <Input
-              placeholder="Aparelho, Cliente, nº"
-              className="h-9 text-xs"
-              value={filtrosAvancados.busca}
-              onChange={(e) => setFiltrosAvancados((prev) => ({ ...prev, busca: e.target.value }))}
-            />
-          </div>
         </div>
       )}
 
-      <ListaOs lista={lista} acoes={acoesListaRef} navigate={navigate} />
+      <ListaOs lista={lista.slice(0, limiteLista)} acoes={acoesListaRef} navigate={navigate} />
+      {lista.length > limiteLista ? (
+        <div className="mt-4 flex flex-col items-center gap-1">
+          <Button
+            variant="outline"
+            className="gap-2 rounded-full"
+            onClick={() => setLimiteLista((n) => n + OS_POR_PAGINA)}
+          >
+            <ChevronDown className="h-4 w-4" />
+            Mostrar mais antigas ({lista.length - limiteLista})
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Mostrando as {limiteLista} mais recentes de {lista.length}
+          </p>
+        </div>
+      ) : (
+        filtrosAvancados.busca.trim() &&
+        !lista.length && (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Nenhuma OS encontrada para essa pesquisa.
+          </p>
+        )
+      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
@@ -1997,7 +2040,11 @@ const ListaOs = memo(function ListaOs({
                   <select
                     value={os.status}
                     onChange={(e) =>
-                      acoes.current.mudarStatus({ id: os.id, status: e.target.value, origem: os.status })
+                      acoes.current.mudarStatus({
+                        id: os.id,
+                        status: e.target.value,
+                        origem: os.status,
+                      })
                     }
                     className={`h-8 w-full rounded-lg border px-2 text-xs font-medium transition ${
                       STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
@@ -2267,7 +2314,6 @@ function AcoesOsMenu({
     </DropdownMenu>
   );
 }
-
 
 function Campo({
   label,
