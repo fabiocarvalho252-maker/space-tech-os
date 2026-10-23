@@ -8,8 +8,6 @@ import {
   Search, 
   Plus, 
   Minus, 
-  User, 
-  ChevronDown, 
   Clock,
   Package,
   Wrench,
@@ -22,12 +20,7 @@ import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ClienteSelect } from "@/components/ClienteSelect";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +77,9 @@ function PDV() {
   const [descontoTipo, setDescontoTipo] = useState<'valor' | 'percentual'>('valor');
   const [descontoInput, setDescontoInput] = useState("");
   const [finalizarAberto, setFinalizarAberto] = useState(false);
+  // Painel "Nova venda": cliente, produtos, desconto e pagamento num lugar só.
+  const [painelAberto, setPainelAberto] = useState(false);
+  const [buscaPainel, setBuscaPainel] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [valorRecebidoInput, setValorRecebidoInput] = useState("");
 
@@ -126,8 +122,9 @@ function PDV() {
     setCarrinho((c) => {
       const existe = c.find((i) => i.id === p.id);
       const qtdFinal = (existe?.qtd ?? 0) + qtdAdicional;
-      if (qtdFinal > (p.quantidade || 0)) {
-        toast.error("Limite de estoque atingido");
+      // Serviço não tem estoque de verdade — só produto é limitado.
+      if (tipo === 'Produto' && qtdFinal > (p.quantidade || 0)) {
+        toast.error((p.quantidade || 0) <= 0 ? `${p.nome} está sem estoque` : "Limite de estoque atingido");
         return c;
       }
       if (existe) {
@@ -188,19 +185,27 @@ function PDV() {
         if (item.tipo === 'Produto') {
           const { data: p } = await supabase.from('produtos').select('quantidade').eq('id', item.id).single();
           if (p) {
-             await supabase.from('produtos').update({ quantidade: Math.max(0, p.quantidade - item.qtd) }).eq('id', item.id);
+            const { error: estoqueErro } = await supabase
+              .from('produtos')
+              .update({ quantidade: Math.max(0, p.quantidade - item.qtd) })
+              .eq('id', item.id);
+            if (estoqueErro) throw estoqueErro;
           }
         }
       }
 
-      await supabase.from("lancamentos").insert({
+      // Sem checar o erro, uma falha aqui deixava a venda sem a receita no
+      // Financeiro/DRE, sem aviso. Descrição com o nº da venda (antes saía um
+      // pedaço do id, ex.: "Venda #ef390326"), igual à tela de Vendas.
+      const { error: lancamentoErro } = await supabase.from("lancamentos").insert({
         user_id: empresaId!,
         tipo: "entrada",
         categoria: "Venda PDV",
-        descricao: `Venda #${(venda as any).id.slice(0, 8)}`,
+        descricao: `Venda #${String((venda as any).numero ?? (venda as any).id.slice(0, 8)).padStart(4, "0")}`,
         valor: total,
         venda_id: (venda as any).id,
       });
+      if (lancamentoErro) throw lancamentoErro;
     },
     onSuccess: () => {
       toast.success("Venda finalizada com sucesso!");
@@ -211,6 +216,8 @@ function PDV() {
       setValorRecebidoInput("");
       setFormaPagamento("PIX");
       setFinalizarAberto(false);
+      setPainelAberto(false);
+      setBuscaPainel("");
       qc.invalidateQueries();
     },
     onError: (e: any) => toast.error(e.message),
@@ -225,6 +232,34 @@ function PDV() {
       (p.sku && p.sku.toLowerCase().includes(termoBusca.toLowerCase()))
     );
   });
+
+  const { termo: termoPainel, qtd: qtdPainel } = parseBusca(buscaPainel);
+  const resultadosPainel = termoPainel.trim()
+    ? produtos
+        .filter(
+          (p) =>
+            p.nome.toLowerCase().includes(termoPainel.toLowerCase()) ||
+            (p.sku && p.sku.toLowerCase().includes(termoPainel.toLowerCase())),
+        )
+        .slice(0, 8)
+    : [];
+
+  function adicionarDoPainel(p: any) {
+    adicionar(p, qtdPainel);
+    setBuscaPainel("");
+  }
+
+  function iniciarNovaVenda() {
+    setCarrinho([]);
+    setObservacoes("");
+    setClienteId(null);
+    setDescontoInput("");
+    setValorRecebidoInput("");
+    setFormaPagamento("PIX");
+    setBusca("");
+    setBuscaPainel("");
+    setPainelAberto(true);
+  }
 
   const descontoCampo = (
     <div className="space-y-1.5">
@@ -259,6 +294,50 @@ function PDV() {
         />
       </div>
     </div>
+  );
+
+  const pagamentoCampos = (
+    <>
+      <div className="space-y-1.5">
+        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Forma de pagamento</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {FORMAS_PAGAMENTO.map(f => (
+            <Button
+              key={f}
+              type="button"
+              size="sm"
+              variant={formaPagamento === f ? 'default' : 'outline'}
+              onClick={() => setFormaPagamento(f)}
+              className="h-9 rounded-xl"
+            >
+              {f}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {formaPagamento === 'Dinheiro' && (
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Valor recebido</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={valorRecebidoInput}
+            onChange={e => setValorRecebidoInput(e.target.value)}
+            className="h-10 rounded-xl"
+            placeholder="0,00"
+          />
+          {valorRecebido > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Troco</span>
+              <span className="font-bold">{brl(troco)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 
   const resumoDesconto = desconto > 0 && (
@@ -306,15 +385,7 @@ function PDV() {
             <Button
               variant="ghost"
               className="h-10 gap-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10"
-              onClick={() => {
-                if (!carrinho.length && !observacoes && !clienteId && !descontoInput) return;
-                setCarrinho([]);
-                setObservacoes("");
-                setClienteId(null);
-                setDescontoInput("");
-                setBusca("");
-                toast.success("Nova venda iniciada");
-              }}
+              onClick={iniciarNovaVenda}
             >
               <Plus className="h-4 w-4" /> Nova venda
             </Button>
@@ -465,28 +536,12 @@ function PDV() {
 
              <div className="space-y-1.5">
                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cliente</Label>
-               <DropdownMenu>
-                 <DropdownMenuTrigger asChild>
-                   <button className="flex h-11 w-full items-center justify-between rounded-xl border border-border/50 bg-background px-4 text-sm font-medium transition-colors hover:bg-muted/50">
-                     <span className="flex items-center gap-2">
-                       <User className="h-4 w-4 text-muted-foreground" />
-                       {selectedCliente}
-                     </span>
-                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                   </button>
-                 </DropdownMenuTrigger>
-                 <DropdownMenuContent
-                   align="end"
-                   className="w-[min(360px,calc(100vw-2rem))] rounded-xl"
-                 >
-                   <DropdownMenuItem onClick={() => setClienteId(null)}>Consumidor Final</DropdownMenuItem>
-                   {clientes.map(c => (
-                     <DropdownMenuItem key={c.id} onClick={() => setClienteId(c.id)}>
-                       {c.nome}
-                     </DropdownMenuItem>
-                   ))}
-                 </DropdownMenuContent>
-               </DropdownMenu>
+               <ClienteSelect
+                 clientes={clientes}
+                 value={clienteId ?? ""}
+                 onChange={(id) => setClienteId(id || null)}
+                 semClienteLabel="Consumidor Final"
+               />
              </div>
 
              {descontoCampo}
@@ -509,6 +564,174 @@ function PDV() {
         </div>
       </div>
 
+      <Dialog open={painelAberto} onOpenChange={(o) => !finalizar.isPending && setPainelAberto(o)}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-primary" /> Nova venda
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                1. Cliente
+              </Label>
+              <ClienteSelect
+                clientes={clientes}
+                value={clienteId ?? ""}
+                onChange={(id) => setClienteId(id || null)}
+                semClienteLabel="Consumidor Final"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                2. Produtos e serviços
+              </Label>
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input
+                  autoFocus
+                  value={buscaPainel}
+                  onChange={(e) => setBuscaPainel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    // Leitor de código de barras manda o código + Enter.
+                    const exato = produtos.find(
+                      (p) => p.sku && p.sku.toLowerCase() === termoPainel.trim().toLowerCase(),
+                    );
+                    const alvo = exato ?? (resultadosPainel.length === 1 ? resultadosPainel[0] : null);
+                    if (alvo) adicionarDoPainel(alvo);
+                  }}
+                  placeholder="Digite o nome ou leia o código de barras (ex.: 2*capinha)"
+                  className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                />
+              </div>
+              {termoPainel.trim() && (
+                <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
+                  {resultadosPainel.map((p) => {
+                    const tipo = tipoDoItem(p.categoria);
+                    const Icone = tipo === "Serviço" ? Wrench : Package;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => adicionarDoPainel(p)}
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-muted"
+                      >
+                        <Icone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{p.nome}</span>
+                        {tipo === "Produto" && (
+                          <span
+                            className={`shrink-0 text-xs ${p.quantidade <= 0 ? "text-destructive" : "text-muted-foreground"}`}
+                          >
+                            {p.quantidade <= 0 ? "sem estoque" : `${p.quantidade} un.`}
+                          </span>
+                        )}
+                        <span className="shrink-0 font-semibold text-primary">{brl(p.preco_venda)}</span>
+                      </button>
+                    );
+                  })}
+                  {!resultadosPainel.length && (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Nada encontrado.</p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                {carrinho.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{item.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {brl(item.preco)} · {item.tipo}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCarrinho((c) =>
+                            c.map((x) => (x.id === item.id ? { ...x, qtd: Math.max(1, x.qtd - 1) } : x)),
+                          )
+                        }
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-6 text-center text-sm font-bold">{item.qtd}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adicionar({
+                            id: item.id,
+                            nome: item.nome,
+                            preco_venda: item.preco,
+                            quantidade: item.estoque,
+                            categoria: item.tipo,
+                          })
+                        }
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <span className="w-20 text-right text-sm font-semibold">{brl(item.preco * item.qtd)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCarrinho((c) => c.filter((x) => x.id !== item.id))}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Remover item"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {!carrinho.length && (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    Busque acima para adicionar itens.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  3. Desconto
+                </p>
+                {descontoCampo}
+              </div>
+              <div className="space-y-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  4. Pagamento
+                </p>
+                {pagamentoCampos}
+              </div>
+            </div>
+
+            <div className="space-y-1 border-t border-border pt-3">
+              {resumoDesconto}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm font-medium text-muted-foreground">Total</span>
+                <span className="text-2xl font-black text-primary">{brl(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPainelAberto(false)} disabled={finalizar.isPending}>
+              Fechar
+            </Button>
+            <Button onClick={() => finalizar.mutate()} disabled={finalizar.isPending || !carrinho.length}>
+              {finalizar.isPending ? "Finalizando..." : "Finalizar venda"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={finalizarAberto} onOpenChange={o => !finalizar.isPending && setFinalizarAberto(o)}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
@@ -523,45 +746,7 @@ function PDV() {
 
             {descontoCampo}
 
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Forma de pagamento</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {FORMAS_PAGAMENTO.map(f => (
-                  <Button
-                    key={f}
-                    type="button"
-                    size="sm"
-                    variant={formaPagamento === f ? 'default' : 'outline'}
-                    onClick={() => setFormaPagamento(f)}
-                    className="h-9 rounded-xl"
-                  >
-                    {f}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {formaPagamento === 'Dinheiro' && (
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Valor recebido</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  value={valorRecebidoInput}
-                  onChange={e => setValorRecebidoInput(e.target.value)}
-                  className="h-10 rounded-xl"
-                  placeholder="0,00"
-                />
-                {valorRecebido > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Troco</span>
-                    <span className="font-bold">{brl(troco)}</span>
-                  </div>
-                )}
-              </div>
-            )}
+            {pagamentoCampos}
 
             <div className="space-y-1 border-t border-border pt-3">
               {resumoDesconto}
