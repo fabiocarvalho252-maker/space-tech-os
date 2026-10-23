@@ -5,7 +5,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { ItemRanking } from "./TopProductsChart";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { RankingLista, type ItemRanking } from "./TopProductsChart";
 
 // Fixed rotation, not one hue per distinct service — with up to 10 ranked
 // bars this reads as "a controlled set of accent colors" per the design
@@ -18,6 +19,7 @@ const config: ChartConfig = {
 };
 
 export function TopServicesChart({ itens }: { itens: ItemRanking[] }) {
+  const isMobile = useIsMobile();
   if (!itens.length) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -25,6 +27,8 @@ export function TopServicesChart({ itens }: { itens: ItemRanking[] }) {
       </p>
     );
   }
+
+  if (isMobile) return <RankingLista itens={itens} cor={CORES[0]!} />;
 
   const dados = itens.slice(0, 10).map((i, idx) => ({ ...i, rotulo: `${idx + 1}. ${i.nome}` }));
 

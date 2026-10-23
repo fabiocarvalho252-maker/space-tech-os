@@ -17,14 +17,14 @@ export function FinancialChart({ pontos }: { pontos: PontoResultado[] }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   if (!pontos.length) {
     return (
-      <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
         Sem movimentação financeira no período.
       </div>
     );
   }
 
   return (
-    <ChartContainer config={config} className="h-56 w-full">
+    <ChartContainer config={config} className="h-40 w-full sm:h-56">
       <AreaChart data={pontos} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
         <defs>
           <linearGradient id="resultadoFill" x1="0" y1="0" x2="0" y2="1">

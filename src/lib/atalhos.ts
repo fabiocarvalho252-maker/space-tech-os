@@ -1,5 +1,14 @@
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, Package, Receipt, ShoppingCart, Store, Users, Wrench } from "lucide-react";
+import {
+  ClipboardList,
+  Package,
+  Receipt,
+  ShoppingCart,
+  Smartphone,
+  Store,
+  Users,
+  Wrench,
+} from "lucide-react";
 
 // Single source of truth for the Home quick-access cards *and* the global
 // F1-F8 keyboard shortcuts — AppShell's keydown listener and
@@ -62,6 +71,14 @@ export const ATALHOS: Atalho[] = [
     to: "/pdv",
     icon: Store,
     gradiente: "from-purple-400 to-indigo-400",
+  },
+  // F5 fica livre de propósito: é o "recarregar" do navegador.
+  {
+    tecla: "F9",
+    label: "Seminovos",
+    to: "/seminovos",
+    icon: Smartphone,
+    gradiente: "from-sky-400 to-blue-500",
   },
 ];
 

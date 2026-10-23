@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, ClipboardList, Eye } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, ClipboardList, Eye } from "lucide-react";
 import { dataBR, statusLabel } from "@/lib/format";
 
 export type OsAberta = {
@@ -9,6 +10,10 @@ export type OsAberta = {
   previsao: string | null;
   status: string;
 };
+
+// O painel mostra só as mais recentes — com todas as OS abertas o quadro
+// ficava comprido demais; "Mostrar mais" expande ali mesmo.
+const QTD_INICIAL = 5;
 
 export function OpenOrdersTable({
   ordens,
@@ -21,14 +26,26 @@ export function OpenOrdersTable({
   erro: boolean;
   onTentarNovamente: () => void;
 }) {
+  const [expandido, setExpandido] = useState(false);
+  const visiveis = expandido ? ordens : ordens.slice(0, QTD_INICIAL);
+  const ocultas = ordens.length - visiveis.length;
+
   return (
-    <section className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 shadow-soft">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-3 shadow-soft sm:p-5">
+      <div className="mb-2 flex items-center justify-between gap-3 sm:mb-4">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary sm:h-9 sm:w-9 sm:rounded-xl">
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
           </span>
-          <h2 className="text-base font-bold">Ordens de Serviço em Aberto</h2>
+          <h2 className="text-sm font-bold sm:text-base">
+            <span className="sm:hidden">OS em aberto</span>
+            <span className="hidden sm:inline">Ordens de Serviço em Aberto</span>
+          </h2>
+          {!carregando && !erro && ordens.length > 0 && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+              {ordens.length}
+            </span>
+          )}
         </div>
         <Link to="/ordens" className="text-sm font-semibold text-primary hover:underline">
           Ver tudo
@@ -73,7 +90,7 @@ export function OpenOrdersTable({
                 </tr>
               </thead>
               <tbody>
-                {ordens.map((o) => (
+                {visiveis.map((o) => (
                   <tr key={o.id} className="border-t border-border/60">
                     <td className="py-2.5 pr-3 font-semibold">{o.numero}</td>
                     <td className="py-2.5 pr-3">{o.cliente}</td>
@@ -91,21 +108,38 @@ export function OpenOrdersTable({
           </div>
 
           {/* Mobile */}
-          <div className="grid gap-2 md:hidden">
-            {ordens.map((o) => (
-              <div key={o.id} className="rounded-xl border border-border bg-card p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold">#{o.numero}</p>
-                  <StatusBadge status={o.status} />
-                </div>
-                <p className="mt-1 truncate text-sm text-muted-foreground">{o.cliente}</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Previsão: {dataBR(o.previsao)}</p>
-                  <VisualizarLink id={o.id} />
-                </div>
-              </div>
+          <div className="divide-y divide-border/60 md:hidden">
+            {visiveis.map((o) => (
+              <Link
+                key={o.id}
+                to="/ordens"
+                search={{ os: o.id }}
+                className="flex items-center gap-2 py-2 text-[13px]"
+              >
+                <span className="w-9 shrink-0 font-bold">#{o.numero}</span>
+                <span className="min-w-0 flex-1 truncate">{o.cliente}</span>
+                <StatusBadge status={o.status} />
+              </Link>
             ))}
           </div>
+
+          {ordens.length > QTD_INICIAL && (
+            <button
+              type="button"
+              onClick={() => setExpandido((v) => !v)}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold text-primary hover:bg-primary/5"
+            >
+              {expandido ? (
+                <>
+                  <ChevronUp className="h-4 w-4" /> Mostrar menos
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" /> Mostrar mais ({ocultas})
+                </>
+              )}
+            </button>
+          )}
         </>
       )}
     </section>

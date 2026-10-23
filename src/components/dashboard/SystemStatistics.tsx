@@ -33,9 +33,10 @@ export function SystemStatistics({
   ];
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-      <h2 className="mb-4 text-base font-bold">Estatísticas</h2>
-      <div className="grid grid-cols-2 gap-3">
+    <section className="rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-5">
+      <h2 className="mb-2 text-sm font-bold sm:mb-4 sm:text-base">Estatísticas</h2>
+      {/* Celular: 3 por linha (2 linhas); na lateral do desktop, 2 por linha. */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-2">
         {metricas.map((m) => (
           <StatisticCard key={m.label} {...m} />
         ))}
@@ -46,12 +47,16 @@ export function SystemStatistics({
 
 function StatisticCard({ label, valor, icon: Icon, cor }: Metrica) {
   return (
-    <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${cor}`}>
-        <Icon className="h-4 w-4" aria-hidden="true" />
+    <div className="rounded-lg border border-border/60 bg-secondary/20 p-2 sm:rounded-xl sm:p-3">
+      <span
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-md sm:h-9 sm:w-9 sm:rounded-lg ${cor}`}
+      >
+        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
       </span>
-      <p className="mt-2 text-xl font-extrabold tracking-tight">{valor}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-base font-extrabold leading-tight tracking-tight sm:mt-2 sm:text-xl">
+        {valor}
+      </p>
+      <p className="text-[11px] text-muted-foreground sm:text-xs">{label}</p>
     </div>
   );
 }

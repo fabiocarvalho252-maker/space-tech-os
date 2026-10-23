@@ -49,14 +49,14 @@ export function MonthlyResultCard({
   carregando: boolean;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4 sm:gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 sm:h-9 sm:w-9 sm:rounded-xl">
             <Layers className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-base font-bold leading-tight">Resultado do mês</h2>
+            <h2 className="text-sm font-bold leading-tight sm:text-base">Resultado do mês</h2>
             <p className="text-xs text-muted-foreground">DRE</p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export function MonthlyResultCard({
             </>
           )}
           <Select value={periodo} onValueChange={(v) => onPeriodoChange(v as Periodo)}>
-            <SelectTrigger className="h-9 w-40 text-xs">
+            <SelectTrigger className="h-8 w-36 text-xs sm:h-9 sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -99,7 +99,7 @@ export function MonthlyResultCard({
       ) : (
         <>
           <FinancialMetrics {...metrics} />
-          <div className="mt-4">
+          <div className="mt-3 sm:mt-4">
             <FinancialChart pontos={pontos} />
           </div>
         </>

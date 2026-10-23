@@ -10,20 +10,22 @@ export function PartnerProgramCard() {
   });
 
   return (
-    <div className="flex h-full flex-col justify-between rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 p-5 text-white shadow-soft">
+    <div className="flex h-full flex-col justify-between rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 p-4 text-white sm:p-5 shadow-soft">
       <div>
         <div className="flex items-center gap-2">
           <Gift className="h-5 w-5" aria-hidden="true" />
-          <h3 className="text-base font-bold">Programa de Indicações</h3>
+          <h3 className="text-sm font-bold sm:text-base">Programa de Indicações</h3>
         </div>
-        <p className="mt-2 text-sm text-white/80">
+        <p className="mt-1 text-xs text-white/80 sm:mt-2 sm:text-sm">
           Indique o SPACE TECH para outras assistências e acompanhe suas indicações.
         </p>
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs text-white/70">Seu código</p>
-          <p className="text-lg font-bold text-amber-300">{perfil?.referralCode ?? "—"}</p>
+          <p className="text-base font-bold text-amber-300 sm:text-lg">
+            {perfil?.referralCode ?? "—"}
+          </p>
         </div>
         <Link
           to="/indicacoes"

@@ -37,7 +37,10 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-const STATUS_FECHADOS = ["entregue", "cancelado"];
+// OS que já saíram do fluxo de atendimento: faturada também foi concluída
+// (e entregue/paga), e reprovada não vai ser executada — antes só
+// entregue/cancelado contavam, e o quadro de "em aberto" mostrava faturadas.
+const STATUS_FECHADOS = ["entregue", "faturado", "cancelado", "reprovado"];
 
 function intervaloDoPeriodo(
   periodo: Periodo,
@@ -247,7 +250,7 @@ function Dashboard() {
   const servicosCount = (data?.produtos ?? []).filter((p) => p.categoria === "Serviço").length;
 
   return (
-    <div className="-m-4 space-y-6 bg-[#F3F4F9] p-4 dark:m-0 dark:bg-transparent dark:p-0 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+    <div className="-m-4 flex flex-col gap-3 bg-[#F3F4F9] p-4 sm:gap-6 dark:m-0 dark:bg-transparent dark:p-0 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
       <PageHeader
         title={`Olá, ${profile?.nome?.split(" ")[0] || "Administrador"}`}
         subtitle={profile?.loja ? `Painel da ${profile.loja}` : "Visão geral da sua operação"}
@@ -255,27 +258,34 @@ function Dashboard() {
 
       <QuickAccessCards />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Celular: películas e indicações vão para o fim — o topo fica com os
+          números e as OS. No desktop a ordem não muda. */}
+      <div className="order-last grid gap-3 md:grid-cols-2 md:gap-4 lg:order-none">
         <FilmSearchCard />
         <PartnerProgramCard />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <MonthlyResultCard
-            periodo={periodo}
-            onPeriodoChange={setPeriodo}
-            dataInicio={dataInicio}
-            dataFim={dataFim}
-            onDataInicioChange={setDataInicio}
-            onDataFimChange={setDataFim}
-            metrics={{ lucroLiquido, margem, receita, cmv, custoServicos, despesas }}
-            pontos={pontos}
-            carregando={carregando}
-          />
+      <div className="grid gap-3 sm:gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-3 sm:gap-6 lg:col-span-2">
+          <div className="order-1">
+            <MonthlyResultCard
+              periodo={periodo}
+              onPeriodoChange={setPeriodo}
+              dataInicio={dataInicio}
+              dataFim={dataFim}
+              onDataInicioChange={setDataInicio}
+              onDataFimChange={setDataFim}
+              metrics={{ lucroLiquido, margem, receita, cmv, custoServicos, despesas }}
+              pontos={pontos}
+              carregando={carregando}
+            />
+          </div>
 
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <h2 className="mb-4 text-base font-bold">Top 10 Produtos Vendidos</h2>
+          {/* Celular: OS em aberto logo após o resultado (antes dos rankings). */}
+          <section className="order-3 rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-5 lg:order-2">
+            <h2 className="mb-2 text-sm font-bold sm:mb-4 sm:text-base">
+              Top 10 Produtos Vendidos
+            </h2>
             {carregando ? (
               <div className="h-56 animate-pulse rounded-xl bg-secondary/40" />
             ) : (
@@ -283,8 +293,10 @@ function Dashboard() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <h2 className="mb-4 text-base font-bold">Top 10 Serviços Vendidos</h2>
+          <section className="order-4 rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-5 lg:order-3">
+            <h2 className="mb-2 text-sm font-bold sm:mb-4 sm:text-base">
+              Top 10 Serviços Vendidos
+            </h2>
             {carregando ? (
               <div className="h-56 animate-pulse rounded-xl bg-secondary/40" />
             ) : (
@@ -292,15 +304,18 @@ function Dashboard() {
             )}
           </section>
 
-          <OpenOrdersTable
-            ordens={ordensAbertas}
-            carregando={carregando}
-            erro={erroOrdens}
-            onTentarNovamente={() => refetch()}
-          />
+          <div className="order-2 lg:order-4">
+            <OpenOrdersTable
+              ordens={ordensAbertas}
+              carregando={carregando}
+              erro={erroOrdens}
+              onTentarNovamente={() => refetch()}
+            />
+          </div>
         </div>
 
-        <div className="lg:col-span-1">
+        {/* Celular: estatísticas antes do resultado do mês. */}
+        <div className="order-first lg:order-none lg:col-span-1">
           <SystemStatistics
             clientes={data?.clientesCount ?? 0}
             produtos={produtosCount}
