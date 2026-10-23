@@ -1,23 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
-import {
-  Sparkles,
-  Stethoscope,
-  FileText,
-  MessageCircle,
-  History,
-  Wrench,
-  Copy,
-  Smartphone,
-} from "lucide-react";
+import { useRef, useState } from "react";
+import { Sparkles, Cpu, Camera, Copy, X, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
-import { gerarComIA } from "@/lib/ia.functions";
-import { buscarModelosCompativeis, type SugestaoPelicula } from "@/lib/peliculas.functions";
-import { PeliculaIAResultado } from "@/components/PeliculaIAResultado";
+import { pesquisarTestPoint, identificarModeloPorFoto } from "@/lib/ia-spacetech.functions";
+import type { Imagem, RespostaConsulta } from "@/lib/ai/consulta.server";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
 import { usePlanoFeatures, temFeature } from "@/hooks/useCurrentUser";
@@ -28,90 +17,37 @@ export const Route = createFileRoute("/_authenticated/ia-spacetech")({
       { title: "IA SPACE TECH — SpaceTech" },
       {
         name: "description",
-        content: "Assistentes de IA para diagnóstico, orçamento e atendimento.",
+        content: "Pesquisa de test point e identificação de modelo por foto.",
       },
     ],
   }),
   component: IaSpaceTech,
 });
 
-type Tipo = "diagnostico" | "orcamento" | "mensagem_cliente" | "resumo_os" | "pecas";
-
-const FERRAMENTAS: {
-  tipo: Tipo;
-  titulo: string;
-  descricao: string;
-  icon: typeof Stethoscope;
-  placeholder: string;
-}[] = [
-  {
-    tipo: "diagnostico",
-    titulo: "Auxiliar de diagnóstico",
-    descricao:
-      "Descreva o aparelho e o defeito relatado para receber um diagnóstico e serviço sugeridos.",
-    icon: Stethoscope,
-    placeholder: "Aparelho: iPhone 12\nDefeito relatado: não liga após contato com água",
-  },
-  {
-    tipo: "orcamento",
-    titulo: "Gerar texto de orçamento",
-    descricao:
-      "Informe aparelho, defeito e os itens/valores para gerar um texto de proposta pronto para o cliente.",
-    icon: FileText,
-    placeholder: "Aparelho: Samsung A54\nDefeito: tela trincada\nItens: Troca de tela - R$ 350,00",
-  },
-  {
-    tipo: "mensagem_cliente",
-    titulo: "Gerar mensagem para cliente",
-    descricao:
-      "Descreva o contexto (status da OS, o que aconteceu) para gerar uma mensagem pronta de WhatsApp.",
-    icon: MessageCircle,
-    placeholder:
-      "OS #42 aprovada pelo cliente, peça chegou e o reparo deve ficar pronto amanhã à tarde.",
-  },
-  {
-    tipo: "resumo_os",
-    titulo: "Resumir histórico da OS",
-    descricao:
-      "Cole a linha do tempo de eventos de uma OS para receber um resumo curto do que já foi feito.",
-    icon: History,
-    placeholder:
-      "08/08 09:20 OS criada\n08/08 10:10 Diagnóstico iniciado\n08/08 11:30 Orçamento enviado\n08/08 13:00 Cliente aprovou",
-  },
-  {
-    tipo: "pecas",
-    titulo: "Sugerir peças",
-    descricao:
-      "Informe aparelho e defeito para receber uma lista das peças mais prováveis necessárias.",
-    icon: Wrench,
-    placeholder: "Aparelho: Motorola Moto G54\nDefeito: não carrega, conector solto",
-  },
-];
+const MAX_FOTOS = 4;
+const LADO_MAX = 1280;
 
 function IaSpaceTech() {
   const navigate = useNavigate();
   const { data: features } = usePlanoFeatures();
-  // Each card follows the same feature its server function checks: the
-  // película search needs only IA_BASICA, the OS assistants need IA_OS.
-  const temIaBasica = temFeature(features, "IA_BASICA");
-  const temIaOs = temFeature(features, "IA_OS");
+  const temIa = temFeature(features, "IA_BASICA");
 
   return (
     <div>
       <PageHeader
         title="IA SPACE TECH"
-        subtitle="Assistentes de inteligência artificial para agilizar o dia a dia da bancada"
+        subtitle="Pesquisa de test point e identificação de aparelho por foto"
       />
-      {temIaBasica || temIaOs ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {temIaBasica && <BuscadorPeliculaIA />}
-          {temIaOs && FERRAMENTAS.map((f) => <FerramentaIA key={f.tipo} {...f} />)}
+      {temIa ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <PesquisaTestPoint />
+          <IdentificarPorFoto />
         </div>
       ) : (
         <EmptyState
           icon={Sparkles}
           title="IA não disponível no seu plano"
-          description="Os assistentes de IA não estão liberados no plano atual da sua empresa."
+          description="As ferramentas de IA não estão liberadas no plano atual da sua empresa."
           actionLabel="Ver planos"
           onAction={() => navigate({ to: "/planos" })}
         />
@@ -120,113 +56,228 @@ function IaSpaceTech() {
   );
 }
 
-function FerramentaIA({
-  tipo,
+function Cartao({
+  icon: Icon,
   titulo,
   descricao,
-  icon: Icon,
-  placeholder,
+  children,
 }: {
-  tipo: Tipo;
+  icon: typeof Cpu;
   titulo: string;
   descricao: string;
-  icon: typeof Stethoscope;
-  placeholder: string;
+  children: React.ReactNode;
 }) {
-  const [entrada, setEntrada] = useState("");
-  const [resultado, setResultado] = useState<string | null>(null);
-
-  const gerar = useMutation({
-    mutationFn: async () => {
-      if (!entrada.trim()) throw new Error("Preencha as informações antes de gerar");
-      const res = await gerarComIA({ data: { tipo, entrada } });
-      return res.texto;
-    },
-    onSuccess: (texto) => setResultado(texto),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-soft">
       <div className="flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Icon className="h-4 w-4" />
         </div>
-        <div>
-          <h2 className="text-sm font-bold">{titulo}</h2>
-        </div>
+        <h2 className="text-sm font-bold">{titulo}</h2>
       </div>
       <p className="text-xs text-muted-foreground">{descricao}</p>
-      <Textarea
-        value={entrada}
-        onChange={(e) => setEntrada(e.target.value)}
-        placeholder={placeholder}
-        rows={4}
-        className="text-sm"
-      />
-      <Button onClick={() => gerar.mutate()} disabled={gerar.isPending} className="self-start">
-        <Sparkles className="h-4 w-4" />
-        {gerar.isPending ? "Gerando..." : "Gerar com IA"}
-      </Button>
-      {resultado && (
-        <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{resultado}</p>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(resultado);
-              toast.success("Texto copiado");
-            }}
-            className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-          >
-            <Copy className="h-3 w-3" /> Copiar
-          </button>
-        </div>
-      )}
+      {children}
     </div>
   );
 }
 
-function BuscadorPeliculaIA() {
+function PesquisaTestPoint() {
   const [modelo, setModelo] = useState("");
-  const [resultado, setResultado] = useState<SugestaoPelicula | null>(null);
+  const [resultado, setResultado] = useState<RespostaConsulta | null>(null);
 
-  const consultar = useMutation({
-    mutationFn: () => buscarModelosCompativeis({ data: { modelo: modelo.trim() } }),
+  const pesquisar = useMutation({
+    mutationFn: () => pesquisarTestPoint({ data: { modelo: modelo.trim() } }),
     onSuccess: (res) => setResultado(res),
     onError: (e: Error) => toast.error(e.message || "Erro ao consultar a IA"),
   });
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-soft">
-      <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Smartphone className="h-4 w-4" />
-        </div>
-        <h2 className="text-sm font-bold">Buscador de películas</h2>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Digite o celular para saber qual película serve e em quais outros modelos ela também
-        encaixa.
-      </p>
+    <Cartao
+      icon={Cpu}
+      titulo="Pesquisa de test point"
+      descricao="Digite o modelo para ver onde fica o test point na placa, o modo (EDL/BROM) e o passo a passo."
+    >
       <form
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (modelo.trim().length >= 2 && !consultar.isPending) consultar.mutate();
+          if (modelo.trim().length >= 2 && !pesquisar.isPending) pesquisar.mutate();
         }}
       >
         <Input
           value={modelo}
           onChange={(e) => setModelo(e.target.value)}
-          placeholder="Ex.: Galaxy A54, iPhone 13"
+          placeholder="Ex.: Galaxy A24, Redmi Note 12, SM-A245M"
           className="flex-1 text-sm"
         />
-        <Button type="submit" disabled={modelo.trim().length < 2 || consultar.isPending}>
+        <Button type="submit" disabled={modelo.trim().length < 2 || pesquisar.isPending}>
           <Sparkles className="h-4 w-4" />
-          {consultar.isPending ? "Consultando..." : "Consultar IA"}
+          {pesquisar.isPending ? "Pesquisando..." : "Pesquisar"}
         </Button>
       </form>
-      {resultado && <PeliculaIAResultado key={JSON.stringify(resultado)} resultado={resultado} />}
+      {resultado && <Resultado resultado={resultado} aviso="Confira a placa antes de jumpear." />}
+    </Cartao>
+  );
+}
+
+// Shrinks each photo to LADO_MAX on its longest side as JPEG so a few phone
+// photos fit in one request; createImageBitmap applies the EXIF rotation so
+// portrait shots reach the IA upright.
+async function prepararFoto(arquivo: File): Promise<Imagem & { preview: string }> {
+  const bitmap = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
+  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * escala);
+  canvas.height = Math.round(bitmap.height * escala);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+  return { mime: "image/jpeg", base64: dataUrl.split(",")[1]!, preview: dataUrl };
+}
+
+function IdentificarPorFoto() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fotos, setFotos] = useState<(Imagem & { preview: string })[]>([]);
+  const [observacao, setObservacao] = useState("");
+  const [resultado, setResultado] = useState<RespostaConsulta | null>(null);
+
+  async function adicionar(arquivos: FileList | null) {
+    if (!arquivos?.length) return;
+    const livres = MAX_FOTOS - fotos.length;
+    if (arquivos.length > livres) toast.info(`Máximo de ${MAX_FOTOS} fotos por consulta.`);
+    try {
+      const novas = await Promise.all(
+        Array.from(arquivos)
+          .filter((a) => a.type.startsWith("image/"))
+          .slice(0, livres)
+          .map(prepararFoto),
+      );
+      setFotos((atuais) => [...atuais, ...novas]);
+      setResultado(null);
+    } catch {
+      toast.error("Não foi possível ler uma das fotos.");
+    }
+  }
+
+  const identificar = useMutation({
+    mutationFn: () =>
+      identificarModeloPorFoto({
+        data: {
+          imagens: fotos.map(({ mime, base64 }) => ({ mime, base64 })),
+          observacao: observacao.trim(),
+        },
+      }),
+    onSuccess: (res) => setResultado(res),
+    onError: (e: Error) => toast.error(e.message || "Erro ao consultar a IA"),
+  });
+
+  return (
+    <Cartao
+      icon={Camera}
+      titulo="Identificar modelo por foto"
+      descricao="Envie até 4 fotos (traseira, etiqueta, tela Sobre ou placa) para a IA dizer qual é o aparelho."
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          adicionar(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        {fotos.map((f, i) => (
+          <div
+            key={i}
+            className="relative h-20 w-20 overflow-hidden rounded-xl border border-border"
+          >
+            <img src={f.preview} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => {
+                setFotos((atuais) => atuais.filter((_, j) => j !== i));
+                setResultado(null);
+              }}
+              className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"
+              aria-label="Remover foto"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        {fotos.length < MAX_FOTOS && (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border text-xs text-muted-foreground transition hover:border-primary hover:text-primary"
+          >
+            <ImagePlus className="h-5 w-5" />
+            Adicionar
+          </button>
+        )}
+      </div>
+      <Input
+        value={observacao}
+        onChange={(e) => setObservacao(e.target.value)}
+        placeholder="Observação opcional (ex.: veio sem tampa, só a placa)"
+        className="text-sm"
+      />
+      <Button
+        onClick={() => identificar.mutate()}
+        disabled={!fotos.length || identificar.isPending}
+        className="self-start"
+      >
+        <Sparkles className="h-4 w-4" />
+        {identificar.isPending ? "Analisando..." : "Identificar modelo"}
+      </Button>
+      {resultado && (
+        <Resultado
+          resultado={resultado}
+          aviso="Confirme pela etiqueta ou por *#06# antes de pedir peça."
+        />
+      )}
+    </Cartao>
+  );
+}
+
+function Resultado({ resultado, aviso }: { resultado: RespostaConsulta; aviso: string }) {
+  return (
+    <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed">{resultado.texto}</p>
+      {resultado.fontes.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase text-primary">Fontes pesquisadas</p>
+          <ul className="space-y-0.5">
+            {resultado.fontes.map((f) => (
+              <li key={f.url} className="truncate text-xs">
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {f.titulo || f.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">Sugestão da IA — {aviso}</p>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(resultado.texto);
+            toast.success("Texto copiado");
+          }}
+          className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+        >
+          <Copy className="h-3 w-3" /> Copiar
+        </button>
+      </div>
     </div>
   );
 }
