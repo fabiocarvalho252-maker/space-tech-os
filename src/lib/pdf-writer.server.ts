@@ -3,6 +3,76 @@
 // server.ts) doesn't have to re-implement text wrapping, page breaks, field
 // rows and photo grids from scratch. Server-only.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import jpeg from "jpeg-js";
+
+// Fotos de celular chegam com 3–4 MB cada e iam para o PDF no tamanho
+// original (um PDF com 2 fotos passava de 5 MB, pesado para o WhatsApp).
+// Reduz o lado maior para no máximo LADO_MAX_PX e recomprime. jpeg-js é JS
+// puro de propósito: o build do Lovable roda em Cloudflare, onde libs
+// nativas (sharp) não funcionam. Só JPEG — PNG (logo, assinatura, QR) já é
+// pequeno. Qualquer falha devolve a imagem original.
+const LADO_MAX_PX = 1200;
+const QUALIDADE_JPEG = 72;
+const LIMITE_REDUZIR_BYTES = 300 * 1024;
+
+export function reduzirJpeg(bytes: Uint8Array): Uint8Array {
+  if (bytes.length < LIMITE_REDUZIR_BYTES) return bytes;
+  try {
+    const img = jpeg.decode(bytes, { useTArray: true, maxMemoryUsageInMB: 1024 });
+    const escala = Math.min(1, LADO_MAX_PX / Math.max(img.width, img.height));
+    const largura = Math.max(1, Math.round(img.width * escala));
+    const altura = Math.max(1, Math.round(img.height * escala));
+    const destino =
+      escala < 1 ? reduzirPixels(img.data, img.width, img.height, largura, altura) : img.data;
+    const saida = jpeg.encode(
+      { data: destino, width: largura, height: altura },
+      QUALIDADE_JPEG,
+    ).data;
+    return saida.length < bytes.length ? new Uint8Array(saida) : bytes;
+  } catch {
+    return bytes;
+  }
+}
+
+// Redução por média de área (box filter): cada pixel de destino é a média do
+// bloco de origem que ele cobre — sem o serrilhado de pegar 1 pixel a cada N.
+function reduzirPixels(
+  origem: Uint8Array,
+  largOrig: number,
+  altOrig: number,
+  largDest: number,
+  altDest: number,
+): Uint8Array {
+  const destino = new Uint8Array(largDest * altDest * 4);
+  const fx = largOrig / largDest;
+  const fy = altOrig / altDest;
+  for (let y = 0; y < altDest; y++) {
+    const y0 = Math.floor(y * fy);
+    const y1 = Math.min(altOrig, Math.max(y0 + 1, Math.floor((y + 1) * fy)));
+    for (let x = 0; x < largDest; x++) {
+      const x0 = Math.floor(x * fx);
+      const x1 = Math.min(largOrig, Math.max(x0 + 1, Math.floor((x + 1) * fx)));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      for (let yy = y0; yy < y1; yy++) {
+        let i = (yy * largOrig + x0) * 4;
+        for (let xx = x0; xx < x1; xx++, i += 4) {
+          r += origem[i]!;
+          g += origem[i + 1]!;
+          b += origem[i + 2]!;
+        }
+      }
+      const n = (y1 - y0) * (x1 - x0);
+      const d = (y * largDest + x) * 4;
+      destino[d] = r / n;
+      destino[d + 1] = g / n;
+      destino[d + 2] = b / n;
+      destino[d + 3] = 255;
+    }
+  }
+  return destino;
+}
 
 // The standard 14 PDF fonts (Helvetica included) are WinAnsi-encoded — a
 // superset of Latin-1 that covers every accented character Portuguese
@@ -258,7 +328,9 @@ export class Escritor {
 
   async imagem(bytes: Uint8Array, ehPng: boolean, larguraMax: number, alturaMax: number) {
     try {
-      const img = ehPng ? await this.pdf.embedPng(bytes) : await this.pdf.embedJpg(bytes);
+      const img = ehPng
+        ? await this.pdf.embedPng(bytes)
+        : await this.pdf.embedJpg(reduzirJpeg(bytes));
       const escala = Math.min(larguraMax / img.width, alturaMax / img.height, 1);
       const largura = img.width * escala;
       const altura = img.height * escala;
@@ -288,7 +360,7 @@ export class Escritor {
         try {
           const img = item.ehPng
             ? await this.pdf.embedPng(item.bytes)
-            : await this.pdf.embedJpg(item.bytes);
+            : await this.pdf.embedJpg(reduzirJpeg(item.bytes));
           const escala = Math.min(larguraCel / img.width, alturaMax / img.height, 1);
           const largura = img.width * escala;
           const altura = img.height * escala;
