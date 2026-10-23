@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { dataBR, STATUS_VENDAS, statusLabel } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
+import { hojeISO } from "@/lib/crediario";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +71,12 @@ function Vendas() {
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [desconto, setDesconto] = useState("0");
   const [observacoes, setObservacoes] = useState("");
-  const [dataVenda, setDataVenda] = useState(() => new Date().toISOString().slice(0, 10));
+  // Data local, não UTC: com toISOString() a venda feita depois das 21h
+  // (UTC-3) vinha com a data de amanhã preenchida.
+  const [dataVenda, setDataVenda] = useState(() => hojeISO());
+  const [confirmRemover, setConfirmRemover] = useState<{ id: string; numero: number } | null>(
+    null,
+  );
 
   const { data: vendas = [] } = useQuery({
     queryKey: ["vendas"],
@@ -138,6 +145,12 @@ function Vendas() {
         }
         return c.map((i) => (i.id === p.id ? { ...i, qtd: i.qtd + 1 } : i));
       }
+      // Antes só o 2º clique checava o estoque — dava para vender 1 unidade
+      // de um produto zerado, e o estoque ficava em 0 sem aviso.
+      if (tipo === "Produto" && (p.quantidade || 0) <= 0) {
+        toast.error(`${p.nome} está sem estoque`);
+        return c;
+      }
       return [
         ...c,
         {
@@ -163,13 +176,14 @@ function Vendas() {
     setFormaPagamento("PIX");
     setDesconto("0");
     setObservacoes("");
-    setDataVenda(new Date().toISOString().slice(0, 10));
+    setDataVenda(hojeISO());
   };
 
   const criar = useMutation({
     mutationFn: async () => {
       if (!carrinho.length) throw new Error("Adicione ao menos um item à venda");
       if (!user) throw new Error("Usuário não autenticado");
+      if (descontoNum > subtotal) throw new Error("O desconto não pode ser maior que o subtotal");
 
       const agora = new Date();
       const partes = dataVenda.split("-").map(Number);
@@ -218,15 +232,18 @@ function Vendas() {
             .eq("id", item.id)
             .single();
           if (p) {
-            await supabase
+            const { error: estoqueErro } = await supabase
               .from("produtos")
               .update({ quantidade: Math.max(0, p.quantidade - item.qtd) })
               .eq("id", item.id);
+            if (estoqueErro) throw estoqueErro;
           }
         }
       }
 
-      await supabase.from("lancamentos").insert({
+      // Sem checar o erro, uma falha aqui deixava a venda registrada sem a
+      // receita no Financeiro/DRE, sem nenhum aviso.
+      const { error: lancamentoErro } = await supabase.from("lancamentos").insert({
         user_id: empresaId!,
         tipo: "entrada",
         categoria: "Venda",
@@ -236,6 +253,7 @@ function Vendas() {
         created_at: createdAt,
         venda_id: venda.id,
       });
+      if (lancamentoErro) throw lancamentoErro;
     },
     onSuccess: () => {
       toast.success("Venda registrada");
@@ -250,6 +268,11 @@ function Vendas() {
 
   const mudarStatus = useMutation({
     mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
+      // Cancelar devolve o estoque e cancela a receita; reabrir não refazia
+      // nada disso — e cancelar de novo devolvia o estoque pela 2ª vez.
+      if (origem === "cancelado") {
+        throw new Error("Venda cancelada não pode ser reaberta. Registre uma nova venda.");
+      }
       if (origem && statusFlows && statusFlows.length > 0) {
         const permitido = statusFlows.some((f) => f.origem === origem && f.destino === status);
         if (!permitido) {
@@ -266,10 +289,22 @@ function Vendas() {
       // CMV para de contar o custo (já exclui vendas canceladas) mas a
       // receita continuava contando, inflando o lucro líquido artificialmente.
       if (status === "cancelado") {
-        const { data: itens } = await supabase
+        const { data: itens, error: itensErro } = await supabase
           .from("venda_itens")
-          .select("produto_id, quantidade")
+          .select("produto_id, quantidade, aparelho_id")
           .eq("venda_id", id);
+        if (itensErro) throw itensErro;
+        // Venda de aparelho (módulo Aparelhos/Seminovos) tem função própria no
+        // banco: devolve o aparelho ao estoque, cancela receita e garantia e
+        // grava no histórico do aparelho — e já marca a venda como cancelada.
+        if ((itens ?? []).some((i) => i.aparelho_id)) {
+          const { error } = await supabase.rpc("cancelar_venda_aparelho", {
+            p_venda_id: id,
+            p_motivo: "Cancelada pela tela de Vendas",
+          });
+          if (error) throw error;
+          return;
+        }
         for (const item of itens ?? []) {
           if (!item.produto_id) continue;
           const { data: produto } = await supabase
@@ -278,13 +313,18 @@ function Vendas() {
             .eq("id", item.produto_id)
             .single();
           if (produto && produto.categoria !== "Serviço") {
-            await supabase
+            const { error: estoqueErro } = await supabase
               .from("produtos")
               .update({ quantidade: produto.quantidade + item.quantidade })
               .eq("id", item.produto_id);
+            if (estoqueErro) throw estoqueErro;
           }
         }
-        await supabase.from("lancamentos").update({ status: "cancelado" }).eq("venda_id", id);
+        const { error: lancamentoErro } = await supabase
+          .from("lancamentos")
+          .update({ status: "cancelado" })
+          .eq("venda_id", id);
+        if (lancamentoErro) throw lancamentoErro;
       }
 
       const { error } = await supabase.from("vendas").update({ status }).eq("id", id);
@@ -294,18 +334,56 @@ function Vendas() {
       qc.invalidateQueries({ queryKey: ["vendas"] });
       qc.invalidateQueries({ queryKey: ["produtos-vendas"] });
       qc.invalidateQueries({ queryKey: ["dashboard-home"] });
+      qc.invalidateQueries({ queryKey: ["aparelhos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
+      // Excluir apaga itens e lançamento (cascade no banco), mas o estoque
+      // baixado na venda ficava perdido. Venda já cancelada já devolveu.
+      const venda = vendas.find((v) => v.id === id);
+      if (venda && venda.status !== "cancelado") {
+        const { data: itens, error: itensErro } = await supabase
+          .from("venda_itens")
+          .select("produto_id, quantidade, aparelho_id")
+          .eq("venda_id", id);
+        if (itensErro) throw itensErro;
+        if ((itens ?? []).some((i) => i.aparelho_id)) {
+          throw new Error(
+            "Venda de aparelho não pode ser excluída: mude o status para Cancelado — assim o aparelho volta ao estoque e a receita sai do Financeiro.",
+          );
+        }
+        for (const item of itens ?? []) {
+          if (!item.produto_id) continue;
+          const { data: produto } = await supabase
+            .from("produtos")
+            .select("quantidade, categoria")
+            .eq("id", item.produto_id)
+            .single();
+          if (produto && produto.categoria !== "Serviço") {
+            const { error: estoqueErro } = await supabase
+              .from("produtos")
+              .update({ quantidade: produto.quantidade + item.quantidade })
+              .eq("id", item.produto_id);
+            if (estoqueErro) throw estoqueErro;
+          }
+        }
+      }
       const { error } = await supabase.from("vendas").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Venda removida");
+      setConfirmRemover(null);
       qc.invalidateQueries({ queryKey: ["vendas"] });
+      qc.invalidateQueries({ queryKey: ["produtos-vendas"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setConfirmRemover(null);
     },
   });
 
@@ -572,6 +650,7 @@ function Vendas() {
                   <td className="p-3">
                     <select
                       value={v.status ?? "aberto"}
+                      disabled={v.status === "cancelado"}
                       onChange={(e) =>
                         mudarStatus.mutate({ id: v.id, status: e.target.value, origem: v.status })
                       }
@@ -600,7 +679,7 @@ function Vendas() {
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => remover.mutate(v.id)}
+                        onClick={() => setConfirmRemover({ id: v.id, numero: v.numero })}
                         className="text-muted-foreground transition hover:text-destructive"
                         aria-label="Remover"
                       >
@@ -621,6 +700,21 @@ function Vendas() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmRemover}
+        onOpenChange={(v) => !v && setConfirmRemover(null)}
+        title="Deseja realmente excluir esta venda?"
+        description={
+          confirmRemover
+            ? `A venda #${String(confirmRemover.numero).padStart(4, "0")} e a receita dela no Financeiro serão apagadas, e os produtos voltam para o estoque. Para manter o histórico, prefira mudar o status para Cancelado.`
+            : ""
+        }
+        confirmLabel="Excluir"
+        destructive
+        loading={remover.isPending}
+        onConfirm={() => confirmRemover && remover.mutate(confirmRemover.id)}
+      />
 
       <Dialog open={!!detalheId} onOpenChange={(v) => !v && setDetalheId(null)}>
         <DialogContent>
