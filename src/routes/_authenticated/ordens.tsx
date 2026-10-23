@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Printer,
@@ -24,6 +24,8 @@ import {
   Undo2,
   KeyRound,
   Share2,
+  Search,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -69,6 +71,15 @@ import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -946,11 +957,20 @@ function Ordens() {
     return base;
   }, [ordens, filtro, filtrosAvancados]);
 
-  // garantia_vencimento vem pronto do banco (data_entrega + garantia_dias da
-  // própria OS) — só existe depois que o aparelho foi de fato entregue.
-  const getVencimentoGarantia = (garantiaVencimento: string | null) => {
-    if (!garantiaVencimento) return "—";
-    return dataBR(garantiaVencimento);
+  const acoesListaRef = useRef<AcoesListaOs>(null!);
+  acoesListaRef.current = {
+    mudarStatus: (v) => mudarStatus.mutate(v),
+    abrirEdicao,
+    enviarOs,
+    imprimir,
+    enviarWhatsAppOs,
+    gerarAcessoOs,
+    abrirAssinatura: (os) => {
+      setAssinaturaOs(os);
+      setAssinaturaOpen(true);
+    },
+    confirmarEstorno: (os) => setConfirmEstornar({ id: os.id, numero: os.numero }),
+    confirmarExclusao: (os) => setConfirmExcluirOs({ id: os.id, numero: os.numero }),
   };
 
   return (
@@ -989,18 +1009,11 @@ function Ordens() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Cliente</Label>
-                  <select
+                  <ClienteSelect
+                    clientes={clientes}
                     value={form.cliente_id}
-                    onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}
-                    className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-                  >
-                    <option value="">Sem cliente vinculado</option>
-                    {clientes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => setForm({ ...form, cliente_id: id })}
+                  />
                 </div>
                 <Campo
                   label="Aparelho"
@@ -1182,273 +1195,7 @@ function Ordens() {
         </div>
       )}
 
-      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-soft md:block">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="border-bottom border-border bg-muted/30">
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
-                Ordem de Serviço
-              </th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Responsável</th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Data Final</th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
-                Venc. Garantia
-              </th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Valor</th>
-              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Status</th>
-              <th className="p-4 font-bold text-muted-foreground text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {lista.map((os: any) => (
-              <tr key={os.id} className="hover:bg-muted/10 transition-colors">
-                <td className="p-4">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      #{os.numero}
-                    </span>
-                    <span className="font-bold text-base">
-                      {os.clientes?.nome ?? "Sem cliente"}
-                    </span>
-                  </div>
-                </td>
-                <td className="p-4 text-muted-foreground font-medium">
-                  {os.responsavel || "Técnico não atribuído"}
-                </td>
-                <td className="p-4 text-muted-foreground">
-                  <div className="flex flex-col">
-                    <span>{dataBR(os.created_at)}</span>
-                    <span className="text-xs text-primary">{dataBR(os.previsao)}</span>
-                  </div>
-                </td>
-                <td className="p-4 text-muted-foreground">
-                  {getVencimentoGarantia(os.garantia_vencimento)}
-                </td>
-                <td className="p-4">
-                  <div className="flex flex-col">
-                    <span className="font-extrabold text-primary text-base">{brl(os.valor)}</span>
-                    {Number(os.desconto) > 0 && (
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        Desconto: {brl(os.desconto)}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <select
-                    value={os.status}
-                    onChange={(e) =>
-                      mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
-                    }
-                    className={`h-8 w-full rounded-lg border px-2 text-xs font-medium transition ${
-                      STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
-                      "bg-primary/10 text-primary border-primary/20"
-                    }`}
-                  >
-                    {STATUS_OS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center justify-center gap-1">
-                    <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => abrirEdicao(os)}
-                      title="Editar OS"
-                    >
-                      <Edit className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        const url = `${origemPublica()}/consulta/${os.id}`;
-                        navigator.clipboard.writeText(url);
-                        toast.success("Link da Área do Cliente copiado!");
-                      }}
-                      title="Copiar Link Área do Cliente"
-                    >
-                      <QrCode className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
-                      title="Emitir Nota Fiscal"
-                    >
-                      <FileCheck className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => enviarOs(os)}
-                      title="Enviar OS (PDF)"
-                    >
-                      <Share2 className="h-4 w-4 text-primary" />
-                    </Button>
-                    <AcoesOsMenu
-                      os={os}
-                      onImprimir={imprimir}
-                      onEnviarOrcamento={(o) => enviarOs(o, "orcamento")}
-                      onWhatsApp={enviarWhatsAppOs}
-                      onGerarAcesso={gerarAcessoOs}
-                      onAssinatura={(o) => {
-                        setAssinaturaOs(o);
-                        setAssinaturaOpen(true);
-                      }}
-                      onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
-                      navigate={navigate}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setConfirmExcluirOs({ id: os.id, numero: os.numero })}
-                      title="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!lista.length && (
-              <tr>
-                <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                  Nenhuma ordem de serviço neste filtro.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="grid gap-3 md:hidden">
-        {lista.map((os: any) => (
-          <div key={os.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
-                <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {os.responsavel || "Técnico não atribuído"}
-                </p>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="font-extrabold text-primary">{brl(os.valor)}</span>
-                {Number(os.desconto) > 0 && (
-                  <span className="text-[10px] text-muted-foreground opacity-70">
-                    Desconto: {brl(os.desconto)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>Aberta: {dataBR(os.created_at)}</span>
-              <span className="text-primary">Previsão: {dataBR(os.previsao)}</span>
-              <span>Garantia: {getVencimentoGarantia(os.garantia_vencimento)}</span>
-            </div>
-
-            <select
-              value={os.status}
-              onChange={(e) =>
-                mudarStatus.mutate({ id: os.id, status: e.target.value, origem: os.status })
-              }
-              className={`mt-3 h-9 w-full rounded-lg border px-2 text-xs font-medium transition ${
-                STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
-                "bg-primary/10 text-primary border-primary/20"
-              }`}
-            >
-              {STATUS_OS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-              <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => abrirEdicao(os)}
-                title="Editar OS"
-              >
-                <Edit className="h-4 w-4 text-primary" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  const url = `${origemPublica()}/consulta/${os.id}`;
-                  navigator.clipboard.writeText(url);
-                  toast.success("Link da Área do Cliente copiado!");
-                }}
-                title="Copiar Link Área do Cliente"
-              >
-                <QrCode className="h-4 w-4 text-primary" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
-                title="Emitir Nota Fiscal"
-              >
-                <FileCheck className="h-4 w-4 text-primary" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => enviarOs(os)}
-                title="Enviar OS (PDF)"
-              >
-                <Share2 className="h-4 w-4 text-primary" />
-              </Button>
-              <AcoesOsMenu
-                os={os}
-                onImprimir={imprimir}
-                onEnviarOrcamento={(o) => enviarOs(o, "orcamento")}
-                onWhatsApp={enviarWhatsAppOs}
-                onGerarAcesso={gerarAcessoOs}
-                onAssinatura={(o) => {
-                  setAssinaturaOs(o);
-                  setAssinaturaOpen(true);
-                }}
-                onEstornar={(o) => setConfirmEstornar({ id: o.id, numero: o.numero })}
-                navigate={navigate}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => setConfirmExcluirOs({ id: os.id, numero: os.numero })}
-                title="Remover"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ))}
-        {!lista.length && (
-          <p className="py-12 text-center text-muted-foreground">
-            Nenhuma ordem de serviço neste filtro.
-          </p>
-        )}
-      </div>
+      <ListaOs lista={lista} acoes={acoesListaRef} navigate={navigate} />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
@@ -1512,18 +1259,11 @@ function Ordens() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Cliente</Label>
-                  <select
+                  <ClienteSelect
+                    clientes={clientes}
                     value={form.cliente_id}
-                    onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}
-                    className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-                  >
-                    <option value="">Sem cliente vinculado</option>
-                    {clientes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => setForm({ ...form, cliente_id: id })}
+                  />
                 </div>
                 <Campo
                   label="Aparelho"
@@ -2144,6 +1884,306 @@ function Ordens() {
   );
 }
 
+// garantia_vencimento vem pronto do banco (data_entrega + garantia_dias da
+// própria OS) — só existe depois que o aparelho foi de fato entregue.
+const getVencimentoGarantia = (garantiaVencimento: string | null) => {
+  if (!garantiaVencimento) return "—";
+  return dataBR(garantiaVencimento);
+};
+
+type AcoesListaOs = {
+  mudarStatus: (v: { id: string; status: string; origem?: string }) => void;
+  abrirEdicao: (os: any) => void;
+  enviarOs: (os: any, modo?: "os" | "orcamento") => void;
+  imprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
+  enviarWhatsAppOs: (os: any) => void;
+  gerarAcessoOs: (os: any) => void;
+  abrirAssinatura: (os: any) => void;
+  confirmarEstorno: (os: any) => void;
+  confirmarExclusao: (os: any) => void;
+};
+
+// A lista fica fora do componente principal e memoizada: o formulário de
+// Nova OS/edição vive no estado da página, e sem isso cada tecla digitada
+// redesenhava todas as OS (tabela + cards mobile), deixando a digitação
+// lenta. As ações vão por ref para que o memo não seja quebrado.
+const ListaOs = memo(function ListaOs({
+  lista,
+  acoes,
+  navigate,
+}: {
+  lista: any[];
+  acoes: { current: AcoesListaOs };
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { formatFinancialValue: brl } = useFinancialVisibility();
+  return (
+    <>
+      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-soft md:block">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="border-bottom border-border bg-muted/30">
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
+                Ordem de Serviço
+              </th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Responsável</th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Data Final</th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">
+                Venc. Garantia
+              </th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Valor</th>
+              <th className="p-4 font-bold text-muted-foreground whitespace-nowrap">Status</th>
+              <th className="p-4 font-bold text-muted-foreground text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {lista.map((os: any) => (
+              <tr key={os.id} className="hover:bg-muted/10 transition-colors">
+                <td className="p-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      #{os.numero}
+                    </span>
+                    <span className="font-bold text-base">
+                      {os.clientes?.nome ?? "Sem cliente"}
+                    </span>
+                  </div>
+                </td>
+                <td className="p-4 text-muted-foreground font-medium">
+                  {os.responsavel || "Técnico não atribuído"}
+                </td>
+                <td className="p-4 text-muted-foreground">
+                  <div className="flex flex-col">
+                    <span>{dataBR(os.created_at)}</span>
+                    <span className="text-xs text-primary">{dataBR(os.previsao)}</span>
+                  </div>
+                </td>
+                <td className="p-4 text-muted-foreground">
+                  {getVencimentoGarantia(os.garantia_vencimento)}
+                </td>
+                <td className="p-4">
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-primary text-base">{brl(os.valor)}</span>
+                    {Number(os.desconto) > 0 && (
+                      <span className="text-[10px] text-muted-foreground opacity-70">
+                        Desconto: {brl(os.desconto)}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="p-4">
+                  <select
+                    value={os.status}
+                    onChange={(e) =>
+                      acoes.current.mudarStatus({ id: os.id, status: e.target.value, origem: os.status })
+                    }
+                    className={`h-8 w-full rounded-lg border px-2 text-xs font-medium transition ${
+                      STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
+                      "bg-primary/10 text-primary border-primary/20"
+                    }`}
+                  >
+                    {STATUS_OS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-4">
+                  <div className="flex items-center justify-center gap-1">
+                    <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => acoes.current.abrirEdicao(os)}
+                      title="Editar OS"
+                    >
+                      <Edit className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        const url = `${origemPublica()}/consulta/${os.id}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success("Link da Área do Cliente copiado!");
+                      }}
+                      title="Copiar Link Área do Cliente"
+                    >
+                      <QrCode className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
+                      title="Emitir Nota Fiscal"
+                    >
+                      <FileCheck className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => acoes.current.enviarOs(os)}
+                      title="Enviar OS (PDF)"
+                    >
+                      <Share2 className="h-4 w-4 text-primary" />
+                    </Button>
+                    <AcoesOsMenu
+                      os={os}
+                      onImprimir={(o, modo) => acoes.current.imprimir(o, modo)}
+                      onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
+                      onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
+                      onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
+                      onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
+                      onEstornar={(o) => acoes.current.confirmarEstorno(o)}
+                      navigate={navigate}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => acoes.current.confirmarExclusao(os)}
+                      title="Remover"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!lista.length && (
+              <tr>
+                <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                  Nenhuma ordem de serviço neste filtro.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        {lista.map((os: any) => (
+          <div key={os.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
+                <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {os.responsavel || "Técnico não atribuído"}
+                </p>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="font-extrabold text-primary">{brl(os.valor)}</span>
+                {Number(os.desconto) > 0 && (
+                  <span className="text-[10px] text-muted-foreground opacity-70">
+                    Desconto: {brl(os.desconto)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Aberta: {dataBR(os.created_at)}</span>
+              <span className="text-primary">Previsão: {dataBR(os.previsao)}</span>
+              <span>Garantia: {getVencimentoGarantia(os.garantia_vencimento)}</span>
+            </div>
+
+            <select
+              value={os.status}
+              onChange={(e) =>
+                acoes.current.mudarStatus({ id: os.id, status: e.target.value, origem: os.status })
+              }
+              className={`mt-3 h-9 w-full rounded-lg border px-2 text-xs font-medium transition ${
+                STATUS_OS_COR[os.status as keyof typeof STATUS_OS_COR] ??
+                "bg-primary/10 text-primary border-primary/20"
+              }`}
+            >
+              {STATUS_OS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+              <OsFotos osId={os.id} numero={os.numero} empresaId={os.user_id} />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => acoes.current.abrirEdicao(os)}
+                title="Editar OS"
+              >
+                <Edit className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => {
+                  const url = `${origemPublica()}/consulta/${os.id}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Link da Área do Cliente copiado!");
+                }}
+                title="Copiar Link Área do Cliente"
+              >
+                <QrCode className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
+                title="Emitir Nota Fiscal"
+              >
+                <FileCheck className="h-4 w-4 text-primary" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => acoes.current.enviarOs(os)}
+                title="Enviar OS (PDF)"
+              >
+                <Share2 className="h-4 w-4 text-primary" />
+              </Button>
+              <AcoesOsMenu
+                os={os}
+                onImprimir={(o, modo) => acoes.current.imprimir(o, modo)}
+                onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
+                onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
+                onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
+                onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
+                onEstornar={(o) => acoes.current.confirmarEstorno(o)}
+                navigate={navigate}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => acoes.current.confirmarExclusao(os)}
+                title="Remover"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {!lista.length && (
+          <p className="py-12 text-center text-muted-foreground">
+            Nenhuma ordem de serviço neste filtro.
+          </p>
+        )}
+      </div>
+    </>
+  );
+});
+
 function AcoesOsMenu({
   os,
   onImprimir,
@@ -2200,6 +2240,85 @@ function AcoesOsMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const normalizar = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+// Seletor de cliente com busca por nome — o <select> nativo obrigava a rolar
+// a lista inteira de clientes para achar um.
+function ClienteSelect({
+  clientes,
+  value,
+  onChange,
+}: {
+  clientes: { id: string; nome: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const selecionado = clientes.find((c) => c.id === value);
+  return (
+    <Popover open={aberto} onOpenChange={setAberto}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal"
+        >
+          <span className="truncate">{selecionado?.nome ?? "Sem cliente vinculado"}</span>
+          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command
+          filter={(_, busca, palavras) =>
+            normalizar((palavras ?? []).join(" ")).includes(normalizar(busca)) ? 1 : 0
+          }
+        >
+          <CommandInput placeholder="Digite o nome do cliente..." />
+          <CommandList>
+            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="sem-cliente"
+                keywords={["Sem cliente vinculado"]}
+                onSelect={() => {
+                  onChange("");
+                  setAberto(false);
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value ? "opacity-0" : "opacity-100"}`} />
+                Sem cliente vinculado
+              </CommandItem>
+              {clientes.map((c) => (
+                // id no value: clientes homônimos teriam o mesmo value e o
+                // cmdk trataria os dois como um só item. A busca usa só o nome.
+                <CommandItem
+                  key={c.id}
+                  value={c.id}
+                  keywords={[c.nome]}
+                  onSelect={() => {
+                    onChange(c.id);
+                    setAberto(false);
+                  }}
+                >
+                  <Check
+                    className={`mr-2 h-4 w-4 ${c.id === value ? "opacity-100" : "opacity-0"}`}
+                  />
+                  {c.nome}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
