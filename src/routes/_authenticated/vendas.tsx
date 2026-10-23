@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Search, Eye, Minus, ShoppingBag, Receipt } from "lucide-react";
+import { Plus, Trash2, Search, Eye, Minus, ShoppingBag, Receipt, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -78,9 +78,7 @@ function Vendas() {
   // Data local, não UTC: com toISOString() a venda feita depois das 21h
   // (UTC-3) vinha com a data de amanhã preenchida.
   const [dataVenda, setDataVenda] = useState(() => hojeISO());
-  const [confirmRemover, setConfirmRemover] = useState<{ id: string; numero: number } | null>(
-    null,
-  );
+  const [confirmRemover, setConfirmRemover] = useState<{ id: string; numero: number } | null>(null);
   const [comprovante, setComprovante] = useState<VendaParaComprovante | null>(null);
 
   const { data: vendas = [] } = useQuery({
@@ -88,7 +86,7 @@ function Vendas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendas")
-        .select("*, cliente:clientes(nome, telefone)")
+        .select("*, cliente:clientes(nome, telefone), itens:venda_itens(descricao)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
@@ -408,10 +406,18 @@ function Vendas() {
 
   const filtrados = useMemo(() => {
     let base = filtro === "todas" ? vendas : vendas.filter((v) => v.status === filtro);
-    if (busca.trim()) {
-      const q = busca.toLowerCase();
+    const q = busca.trim().toLowerCase();
+    if (q) {
+      // The embedded item descriptions let the counter find a sale by what
+      // was sold ("película A54"), not only by number or client.
       base = base.filter((v) =>
-        `${v.numero ?? ""} ${v.cliente?.nome ?? ""}`.toLowerCase().includes(q),
+        [
+          v.numero?.toString(),
+          v.cliente?.nome,
+          v.cliente?.telefone,
+          v.forma_pagamento,
+          ...(v.itens ?? []).map((i: { descricao: string }) => i.descricao),
+        ].some((campo) => campo?.toLowerCase().includes(q)),
       );
     }
     return base;
@@ -614,6 +620,26 @@ function Vendas() {
         }
       />
 
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Pesquisar venda por nº, cliente, telefone, produto ou pagamento..."
+          className="h-11 pl-9 pr-9"
+        />
+        {busca && (
+          <button
+            type="button"
+            onClick={() => setBusca("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpar pesquisa"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {[{ value: "todas", label: "Todas" }, ...STATUS_VENDAS].map((s) => (
           <button
@@ -628,16 +654,6 @@ function Vendas() {
             {s.label}
           </button>
         ))}
-      </div>
-
-      <div className="relative mb-4 max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por número ou cliente..."
-          className="pl-9"
-        />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
