@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Search, Eye, Minus, ShoppingBag } from "lucide-react";
+import { Plus, Trash2, Search, Eye, Minus, ShoppingBag, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -10,6 +10,10 @@ import { dataBR, STATUS_VENDAS, statusLabel } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { hojeISO } from "@/lib/crediario";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  ComprovanteVendaDialog,
+  type VendaParaComprovante,
+} from "@/components/ComprovanteVendaDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,13 +81,14 @@ function Vendas() {
   const [confirmRemover, setConfirmRemover] = useState<{ id: string; numero: number } | null>(
     null,
   );
+  const [comprovante, setComprovante] = useState<VendaParaComprovante | null>(null);
 
   const { data: vendas = [] } = useQuery({
     queryKey: ["vendas"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendas")
-        .select("*, cliente:clientes(nome)")
+        .select("*, cliente:clientes(nome, telefone)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
@@ -93,7 +98,10 @@ function Vendas() {
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes-vendas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("id, nome").order("nome");
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone")
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },
@@ -254,9 +262,17 @@ function Vendas() {
         venda_id: venda.id,
       });
       if (lancamentoErro) throw lancamentoErro;
+      return venda;
     },
-    onSuccess: () => {
+    onSuccess: (venda) => {
       toast.success("Venda registrada");
+      const cliente = clientes.find((c) => c.id === clienteId);
+      setComprovante({
+        id: venda.id,
+        numero: venda.numero ?? null,
+        clienteNome: cliente?.nome ?? null,
+        clienteTelefone: cliente?.telefone ?? null,
+      });
       resetForm();
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["vendas"] });
@@ -672,6 +688,21 @@ function Vendas() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() =>
+                          setComprovante({
+                            id: v.id,
+                            numero: v.numero,
+                            clienteNome: v.cliente?.nome ?? null,
+                            clienteTelefone: v.cliente?.telefone ?? null,
+                          })
+                        }
+                        className="text-muted-foreground transition hover:text-primary"
+                        aria-label="Comprovante"
+                        title="Comprovante da venda"
+                      >
+                        <Receipt className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => setDetalheId(v.id)}
                         className="text-muted-foreground transition hover:text-primary"
                         aria-label="Ver itens"
@@ -700,6 +731,8 @@ function Vendas() {
           </table>
         </div>
       </div>
+
+      <ComprovanteVendaDialog venda={comprovante} onClose={() => setComprovante(null)} />
 
       <ConfirmDialog
         open={!!confirmRemover}

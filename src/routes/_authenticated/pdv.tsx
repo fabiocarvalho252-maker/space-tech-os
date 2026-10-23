@@ -23,6 +23,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClienteSelect } from "@/components/ClienteSelect";
 import {
+  ComprovanteVendaDialog,
+  type VendaParaComprovante,
+} from "@/components/ComprovanteVendaDialog";
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -98,6 +102,7 @@ function PDV() {
   const [buscaPainel, setBuscaPainel] = useState("");
   // Etapas do painel (pedido do usuário): 1 produtos → 2 cliente → 3 pagamento.
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
+  const [comprovante, setComprovante] = useState<VendaParaComprovante | null>(null);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [valorRecebidoInput, setValorRecebidoInput] = useState("");
 
@@ -112,7 +117,7 @@ function PDV() {
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes-pdv"],
     queryFn: async () => {
-      const { data } = await supabase.from("clientes").select("id, nome").order("nome");
+      const { data } = await supabase.from("clientes").select("id, nome, telefone").order("nome");
       return data ?? [];
     },
   });
@@ -224,9 +229,18 @@ function PDV() {
         venda_id: (venda as any).id,
       });
       if (lancamentoErro) throw lancamentoErro;
+      return venda as { id: string; numero: number | null };
     },
-    onSuccess: () => {
+    onSuccess: (venda) => {
       toast.success("Venda finalizada com sucesso!");
+      // Antes de limpar o cliente da tela: o comprovante abre logo em seguida.
+      const cliente = clientes.find((c) => c.id === clienteId);
+      setComprovante({
+        id: venda.id,
+        numero: venda.numero,
+        clienteNome: cliente?.nome ?? null,
+        clienteTelefone: cliente?.telefone ?? null,
+      });
       setCarrinho([]);
       setObservacoes("");
       setClienteId(null);
@@ -606,6 +620,8 @@ function PDV() {
           </Button>
         </div>
       </div>
+
+      <ComprovanteVendaDialog venda={comprovante} onClose={() => setComprovante(null)} />
 
       <Dialog open={painelAberto} onOpenChange={(o) => !finalizar.isPending && setPainelAberto(o)}>
         {/* Tela cheia no celular, com total e "Finalizar" fixos no rodapé. */}
