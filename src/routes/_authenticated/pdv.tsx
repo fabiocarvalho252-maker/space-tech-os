@@ -9,6 +9,7 @@ import {
   Plus, 
   Minus, 
   Clock,
+  Check,
   Package,
   Wrench,
   ClipboardList
@@ -21,6 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClienteSelect } from "@/components/ClienteSelect";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +68,13 @@ function parseBusca(busca: string): { termo: string; qtd: number } {
   return { termo: m[2] ?? "", qtd: Math.max(1, parseInt(m[1]!, 10) || 1) };
 }
 
+// Busca de cliente sem diferenciar acentos/maiúsculas ("joao" acha "João").
+const normalizarBusca = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 function tipoDoItem(categoria: string | null): 'Produto' | 'Serviço' {
   return categoria === 'Serviço' ? 'Serviço' : 'Produto';
 }
@@ -80,6 +96,8 @@ function PDV() {
   // Painel "Nova venda": cliente, produtos, desconto e pagamento num lugar só.
   const [painelAberto, setPainelAberto] = useState(false);
   const [buscaPainel, setBuscaPainel] = useState("");
+  // Etapas do painel (pedido do usuário): 1 produtos → 2 cliente → 3 pagamento.
+  const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [valorRecebidoInput, setValorRecebidoInput] = useState("");
 
@@ -258,6 +276,12 @@ function PDV() {
     setFormaPagamento("PIX");
     setBusca("");
     setBuscaPainel("");
+    setEtapa(1);
+    setPainelAberto(true);
+  }
+
+  function abrirPainel() {
+    setEtapa(1);
     setPainelAberto(true);
   }
 
@@ -356,7 +380,7 @@ function PDV() {
   const userName = user?.email?.split('@')?.[0]?.replace(/\./g, ' ') || 'Usuário';
 
   return (
-    <div className="flex flex-col gap-6 lg:h-[calc(100vh-120px)] lg:overflow-hidden">
+    <div className="flex flex-col gap-6 pb-24 lg:h-[calc(100vh-120px)] lg:overflow-hidden lg:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -468,7 +492,8 @@ function PDV() {
           </div>
         </div>
 
-        <div className="flex flex-col rounded-3xl border border-border bg-card shadow-panel overflow-hidden">
+        {/* No celular o carrinho fica no painel de venda (barra fixa embaixo). */}
+        <div className="hidden flex-col rounded-3xl border border-border bg-card shadow-panel overflow-hidden lg:flex">
           <div className="flex items-center justify-between border-b border-border p-5">
             <h2 className="flex items-center gap-2 font-bold">
               <ShoppingCart className="h-4 w-4 text-primary" />
@@ -564,30 +589,62 @@ function PDV() {
         </div>
       </div>
 
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">
+              {carrinho.reduce((n, i) => n + i.qtd, 0)} itens · {selectedCliente}
+            </p>
+            <p className="text-xl font-black text-primary">{brl(total)}</p>
+          </div>
+          <Button
+            className="h-12 gap-2 rounded-xl px-5 text-base font-bold"
+            onClick={() => (carrinho.length ? abrirPainel() : iniciarNovaVenda())}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {carrinho.length ? "Ver venda" : "Nova venda"}
+          </Button>
+        </div>
+      </div>
+
       <Dialog open={painelAberto} onOpenChange={(o) => !finalizar.isPending && setPainelAberto(o)}>
-        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto rounded-2xl">
-          <DialogHeader>
+        {/* Tela cheia no celular, com total e "Finalizar" fixos no rodapé. */}
+        <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-2xl">
+          <DialogHeader className="border-b border-border px-4 py-4 text-left sm:px-6">
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-primary" /> Nova venda
             </DialogTitle>
+            <div className="flex gap-1.5 pt-2">
+              {(["Produtos", "Cliente", "Pagamento"] as const).map((nome, i) => {
+                const n = (i + 1) as 1 | 2 | 3;
+                const liberada = n === 1 || carrinho.length > 0;
+                return (
+                  <button
+                    key={nome}
+                    type="button"
+                    disabled={!liberada}
+                    onClick={() => setEtapa(n)}
+                    className="flex-1 text-left disabled:opacity-50"
+                  >
+                    <span
+                      className={`block h-1.5 rounded-full ${etapa >= n ? "bg-primary" : "bg-muted"}`}
+                    />
+                    <span
+                      className={`mt-1 block text-[11px] font-semibold ${etapa === n ? "text-primary" : "text-muted-foreground"}`}
+                    >
+                      {n}. {nome}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </DialogHeader>
 
-          <div className="space-y-5">
+          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
+            {etapa === 1 && (
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                1. Cliente
-              </Label>
-              <ClienteSelect
-                clientes={clientes}
-                value={clienteId ?? ""}
-                onChange={(id) => setClienteId(id || null)}
-                semClienteLabel="Consumidor Final"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                2. Produtos e serviços
+                Produtos e serviços
               </Label>
               <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
                 <Search className="h-4 w-4 text-muted-foreground" />
@@ -606,7 +663,7 @@ function PDV() {
                     if (alvo) adicionarDoPainel(alvo);
                   }}
                   placeholder="Digite o nome ou leia o código de barras (ex.: 2*capinha)"
-                  className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                  className="h-12 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/60 sm:h-11 sm:text-sm"
                 />
               </div>
               {termoPainel.trim() && (
@@ -619,7 +676,7 @@ function PDV() {
                         key={p.id}
                         type="button"
                         onClick={() => adicionarDoPainel(p)}
-                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-muted"
+                        className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm transition hover:bg-muted sm:py-2"
                       >
                         <Icone className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1 truncate">{p.nome}</span>
@@ -657,7 +714,7 @@ function PDV() {
                             c.map((x) => (x.id === item.id ? { ...x, qtd: Math.max(1, x.qtd - 1) } : x)),
                           )
                         }
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border hover:bg-muted sm:h-7 sm:w-7"
                       >
                         <Minus className="h-3 w-3" />
                       </button>
@@ -673,16 +730,18 @@ function PDV() {
                             categoria: item.tipo,
                           })
                         }
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border hover:bg-muted sm:h-7 sm:w-7"
                       >
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>
-                    <span className="w-20 text-right text-sm font-semibold">{brl(item.preco * item.qtd)}</span>
+                    <span className="hidden w-20 text-right text-sm font-semibold sm:inline">
+                      {brl(item.preco * item.qtd)}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setCarrinho((c) => c.filter((x) => x.id !== item.id))}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="p-1.5 text-muted-foreground hover:text-destructive"
                       aria-label="Remover item"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -697,38 +756,107 @@ function PDV() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  3. Desconto
-                </p>
-                {descontoCampo}
-              </div>
-              <div className="space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  4. Pagamento
-                </p>
-                {pagamentoCampos}
-              </div>
-            </div>
+            )}
 
-            <div className="space-y-1 border-t border-border pt-3">
-              {resumoDesconto}
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-sm font-medium text-muted-foreground">Total</span>
-                <span className="text-2xl font-black text-primary">{brl(total)}</span>
+            {etapa === 2 && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Quem está comprando?
+                </Label>
+                <Command
+                  className="rounded-xl border border-border"
+                  filter={(_, termo, palavras) =>
+                    normalizarBusca((palavras ?? []).join(" ")).includes(normalizarBusca(termo)) ? 1 : 0
+                  }
+                >
+                  <CommandInput placeholder="Digite o nome do cliente..." className="h-12 text-base sm:h-11 sm:text-sm" />
+                  <CommandList className="max-h-[50dvh] sm:max-h-72">
+                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {[{ id: "", nome: "Consumidor Final" }, ...clientes].map((c) => (
+                        <CommandItem
+                          key={c.id || "consumidor-final"}
+                          value={c.id || "consumidor-final"}
+                          keywords={[c.nome]}
+                          onSelect={() => {
+                            setClienteId(c.id || null);
+                            setEtapa(3);
+                          }}
+                          className="py-3 sm:py-2"
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${(clienteId ?? "") === c.id ? "opacity-100" : "opacity-0"}`}
+                          />
+                          {c.nome}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+                <p className="text-xs text-muted-foreground">Toque no cliente para seguir para o pagamento.</p>
               </div>
-            </div>
+            )}
+
+            {etapa === 3 && (
+              <div className="space-y-5">
+                <div className="space-y-1 rounded-xl bg-muted/40 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Cliente</span>
+                    <button type="button" onClick={() => setEtapa(2)} className="truncate font-medium text-primary">
+                      {selectedCliente}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Itens</span>
+                    <button type="button" onClick={() => setEtapa(1)} className="font-medium text-primary">
+                      {carrinho.reduce((n, i) => n + i.qtd, 0)} · {brl(subtotal)}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-4">{descontoCampo}</div>
+                  <div className="space-y-4">{pagamentoCampos}</div>
+                </div>
+                {resumoDesconto}
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPainelAberto(false)} disabled={finalizar.isPending}>
-              Fechar
-            </Button>
-            <Button onClick={() => finalizar.mutate()} disabled={finalizar.isPending || !carrinho.length}>
-              {finalizar.isPending ? "Finalizando..." : "Finalizar venda"}
-            </Button>
-          </DialogFooter>
+          <div className="space-y-3 border-t border-border bg-card px-4 py-3 sm:px-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Total · {carrinho.reduce((n, i) => n + i.qtd, 0)} itens
+              </span>
+              <span className="text-2xl font-black text-primary">{brl(total)}</span>
+            </div>
+            <div className="flex gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                className="h-12 flex-1 sm:h-10 sm:flex-none"
+                onClick={() => (etapa === 1 ? setPainelAberto(false) : setEtapa((etapa - 1) as 1 | 2))}
+                disabled={finalizar.isPending}
+              >
+                {etapa === 1 ? "Fechar" : "Voltar"}
+              </Button>
+              {etapa < 3 ? (
+                <Button
+                  className="h-12 flex-[2] text-base font-bold sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={() => setEtapa((etapa + 1) as 2 | 3)}
+                  disabled={!carrinho.length}
+                >
+                  {etapa === 1 ? "Próximo: cliente" : "Próximo: pagamento"}
+                </Button>
+              ) : (
+                <Button
+                  className="h-12 flex-[2] text-base font-bold sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={() => finalizar.mutate()}
+                  disabled={finalizar.isPending || !carrinho.length}
+                >
+                  {finalizar.isPending ? "Finalizando..." : "Finalizar venda"}
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
