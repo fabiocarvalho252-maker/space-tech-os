@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Sparkles, Wrench } from "lucide-react";
@@ -33,6 +33,7 @@ const vazio = {
   preco_custo: "0",
   comissao_percentual: "0",
   descricao: "",
+  fornecedor_id: "",
 };
 
 function CadastroServico() {
@@ -44,6 +45,17 @@ function CadastroServico() {
   const empresaId = useEmpresaId();
   const [form, setForm] = useState(vazio);
   const [carregado, setCarregado] = useState(!id);
+
+  const { data: fornecedores = [] } = useQuery({
+    queryKey: ["fornecedores-opcoes"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("fornecedores")
+          .select("id, razao_social, nome_fantasia")
+          .order("razao_social")
+      ).data ?? [],
+  });
 
   const { data: servicoAtual } = useQuery({
     queryKey: ["servico-editar", id],
@@ -67,6 +79,7 @@ function CadastroServico() {
       preco_custo: String(servicoAtual.preco_custo),
       comissao_percentual: String(servicoAtual.comissao_percentual ?? 0),
       descricao: servicoAtual.descricao ?? "",
+      fornecedor_id: servicoAtual.fornecedor_id ?? "",
     });
     setCarregado(true);
   }, [servicoAtual, carregado]);
@@ -91,6 +104,7 @@ function CadastroServico() {
         preco_custo: custoAdicional,
         comissao_percentual: comissaoPercentual,
         descricao: form.descricao || null,
+        fornecedor_id: form.fornecedor_id || null,
         categoria: "Serviço",
       };
 
@@ -157,6 +171,29 @@ function CadastroServico() {
                 Custos diretamente relacionados à execução do serviço.
               </p>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fornecedor da peça</Label>
+            <select
+              value={form.fornecedor_id}
+              onChange={(e) => setForm({ ...form, fornecedor_id: e.target.value })}
+              className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
+            >
+              <option value="">Não informado</option>
+              {fornecedores.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome_fantasia || f.razao_social}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              De onde você compra a peça usada neste serviço.{" "}
+              {!fornecedores.length && (
+                <Link to="/fornecedores" className="font-medium text-primary hover:underline">
+                  Cadastrar fornecedor
+                </Link>
+              )}
+            </p>
           </div>
           <div className="space-y-1.5 sm:w-56">
             <Label>Comissão deste serviço (%)</Label>

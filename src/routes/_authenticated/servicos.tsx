@@ -27,6 +27,7 @@ type Servico = {
   preco_custo: number;
   preco_venda: number;
   comissao_percentual: number | null;
+  fornecedores: { razao_social: string; nome_fantasia: string | null } | null;
 };
 
 function Servicos() {
@@ -45,7 +46,7 @@ function Servicos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("*")
+        .select("*, fornecedores(razao_social, nome_fantasia)")
         .eq("categoria", "Serviço")
         .order("nome");
       if (error) throw error;
@@ -143,7 +144,14 @@ function Servicos() {
                 const lucro = s.preco_venda - s.preco_custo - comissaoValor;
                 return (
                   <tr key={s.id} className="hover:bg-secondary/30">
-                    <td className="px-4 py-3 font-medium">{s.nome}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {s.nome}
+                      {s.fornecedores && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          Fornecedor: {s.fornecedores.nome_fantasia || s.fornecedores.razao_social}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       {brl(s.preco_custo)}
                     </td>

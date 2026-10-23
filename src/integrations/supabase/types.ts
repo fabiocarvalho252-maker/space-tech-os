@@ -2783,6 +2783,7 @@ export type Database = {
           descricao: string | null
           estoque_minimo: number
           exibir_no_catalogo: boolean | null
+          fornecedor_id: string | null
           id: string
           nome: string
           preco_custo: number
@@ -2799,6 +2800,7 @@ export type Database = {
           descricao?: string | null
           estoque_minimo?: number
           exibir_no_catalogo?: boolean | null
+          fornecedor_id?: string | null
           id?: string
           nome: string
           preco_custo?: number
@@ -2815,6 +2817,7 @@ export type Database = {
           descricao?: string | null
           estoque_minimo?: number
           exibir_no_catalogo?: boolean | null
+          fornecedor_id?: string | null
           id?: string
           nome?: string
           preco_custo?: number
@@ -2824,7 +2827,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "produtos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
