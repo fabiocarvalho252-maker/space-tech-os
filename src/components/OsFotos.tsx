@@ -87,6 +87,28 @@ export function OsFotos({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Frente/traseira do aparelho para o cartão 3D da OS. No máximo uma de
+  // cada por OS (índice único no banco): marcar uma nova tira a anterior.
+  const marcarLado = useMutation({
+    mutationFn: async ({ id, lado }: { id: string; lado: "frente" | "traseira" | null }) => {
+      if (lado) {
+        const { error: limparErro } = await supabase
+          .from("service_order_photos")
+          .update({ lado: null })
+          .eq("service_order_id", osId)
+          .eq("lado", lado);
+        if (limparErro) throw limparErro;
+      }
+      const { error } = await supabase.from("service_order_photos").update({ lado }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["os-fotos", osId] });
+      qc.invalidateQueries({ queryKey: ["os-fotos-lados"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const remover = useMutation({
     mutationFn: async (foto: { id: string; url: string }) => {
       await supabase.storage.from(BUCKET).remove([foto.url]);
@@ -96,6 +118,7 @@ export function OsFotos({
     onSuccess: () => {
       toast.success("Foto removida");
       qc.invalidateQueries({ queryKey: ["os-fotos", osId] });
+      qc.invalidateQueries({ queryKey: ["os-fotos-lados"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -141,7 +164,9 @@ export function OsFotos({
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
               <div>
                 <h4 className="font-semibold text-foreground capitalize">Fotos de {tabAtiva}</h4>
-                <p className="text-xs text-muted-foreground">Arraste fotos ou clique no botão ao lado</p>
+                <p className="text-xs text-muted-foreground">
+                  Marque uma foto como Frente e outra como Traseira para ver o aparelho em 3D na OS
+                </p>
               </div>
               <input
                 ref={inputRef}
@@ -194,6 +219,31 @@ export function OsFotos({
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className="absolute inset-x-1.5 bottom-1.5 flex gap-1">
+                          {(["frente", "traseira"] as const).map((lado) => {
+                            const ativo = f.lado === lado;
+                            return (
+                              <button
+                                key={lado}
+                                type="button"
+                                disabled={marcarLado.isPending}
+                                onClick={() => marcarLado.mutate({ id: f.id, lado: ativo ? null : lado })}
+                                title={
+                                  ativo
+                                    ? "Desmarcar"
+                                    : `Usar como ${lado} do aparelho no cartão 3D`
+                                }
+                                className={`flex-1 rounded-md px-1 py-1 text-[10px] font-semibold shadow backdrop-blur-sm transition ${
+                                  ativo
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-white/85 text-neutral-700 hover:bg-white sm:opacity-0 sm:group-hover:opacity-100"
+                                }`}
+                              >
+                                {lado === "frente" ? "Frente" : "Traseira"}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <button
                           onClick={() => remover.mutate({ id: f.id, url: f.url })}
                           aria-label="Remover foto"

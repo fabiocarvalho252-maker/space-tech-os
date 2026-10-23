@@ -3330,6 +3330,7 @@ export type Database = {
           category: string | null
           created_at: string | null
           id: string
+          lado: string | null
           service_order_id: string
           url: string
           user_id: string
@@ -3338,6 +3339,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           id?: string
+          lado?: string | null
           service_order_id: string
           url: string
           user_id: string
@@ -3346,6 +3348,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           id?: string
+          lado?: string | null
           service_order_id?: string
           url?: string
           user_id?: string

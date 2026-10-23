@@ -10,15 +10,33 @@ import { Label } from "@/components/ui/label";
 // o mesmo caminho/categoria que a galeria da OS (OsFotos) usa.
 // Também reaproveitada na compra de seminovo (CadastroSeminovoModal), que
 // sobe os arquivos no próprio bucket depois de criar o aparelho.
+export type LadoFoto = "frente" | "traseira";
+
 export function NovaOsFotos({
   fotos,
   onChange,
   titulo = "Fotos de entrada",
+  lados,
+  onLadosChange,
 }: {
   fotos: File[];
   onChange: (fotos: File[]) => void;
   titulo?: string;
+  /** Frente/traseira do aparelho (cartão 3D da OS). Só a OS usa — o
+   * seminovo não passa estas props e não vê os botões. */
+  lados?: Map<File, LadoFoto>;
+  onLadosChange?: (lados: Map<File, LadoFoto>) => void;
 }) {
+  function alternarLado(file: File, lado: LadoFoto) {
+    if (!lados || !onLadosChange) return;
+    const novo = new Map(lados);
+    const ativo = novo.get(file) === lado;
+    // Uma frente e uma traseira só: marcar outra foto tira a anterior.
+    for (const [f, l] of novo) if (l === lado) novo.delete(f);
+    if (!ativo) novo.set(file, lado);
+    onLadosChange(novo);
+  }
+
   const cameraRef = useRef<HTMLInputElement>(null);
   const galeriaRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +101,24 @@ export function NovaOsFotos({
               className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/30"
             >
               <img src={src} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+              {onLadosChange && (
+                <div className="absolute inset-x-1 bottom-1 flex gap-1">
+                  {(["frente", "traseira"] as const).map((lado) => (
+                    <button
+                      key={lado}
+                      type="button"
+                      onClick={() => alternarLado(fotos[idx]!, lado)}
+                      className={`flex-1 rounded px-0.5 py-0.5 text-[9px] font-semibold shadow ${
+                        lados?.get(fotos[idx]!) === lado
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-white/85 text-neutral-700"
+                      }`}
+                    >
+                      {lado === "frente" ? "Frente" : "Traseira"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 aria-label="Remover foto"
@@ -103,7 +139,12 @@ export function NovaOsFotos({
   );
 }
 
-export async function enviarFotosEntrada(empresaId: string, osId: string, fotos: File[]) {
+export async function enviarFotosEntrada(
+  empresaId: string,
+  osId: string,
+  fotos: File[],
+  lados?: Map<File, LadoFoto>,
+) {
   for (const file of fotos) {
     const ext = file.name.split(".").pop() || "jpg";
     // Prefixo = id da empresa (RLS do storage checa esse segmento) — mesma
@@ -116,6 +157,7 @@ export async function enviarFotosEntrada(empresaId: string, osId: string, fotos:
       service_order_id: osId,
       url: path,
       category: "entrada",
+      lado: lados?.get(file) ?? null,
     });
     if (error) throw error;
   }

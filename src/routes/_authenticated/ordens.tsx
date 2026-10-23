@@ -24,8 +24,6 @@ import {
   Undo2,
   KeyRound,
   Share2,
-  Search,
-  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,7 +46,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
-import { NovaOsFotos, enviarFotosEntrada } from "@/components/NovaOsFotos";
+import { NovaOsFotos, enviarFotosEntrada, type LadoFoto } from "@/components/NovaOsFotos";
+import {
+  AparelhoCard3D,
+  useLadosAparelho,
+  useLadosAparelhos,
+} from "@/components/AparelhoCard3D";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
@@ -71,15 +74,7 @@ import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { ClienteSelect } from "@/components/ClienteSelect";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -243,6 +238,7 @@ function Ordens() {
   const itemVazio = { descricao: "", observacao: "", preco_unitario: "", quantidade: "1" };
   const [novoProduto, setNovoProduto] = useState(itemVazio);
   const [fotosNovaOs, setFotosNovaOs] = useState<File[]>([]);
+  const [ladosNovaOs, setLadosNovaOs] = useState<Map<File, LadoFoto>>(new Map());
   const [novoServico, setNovoServico] = useState(itemVazio);
 
   const totalProdutos = useMemo(
@@ -396,6 +392,8 @@ function Ordens() {
     },
   });
 
+  const { data: ladosOsEditada } = useLadosAparelho(editOpen ? selectedOsId : null);
+
   const valoresUsados = (campo: "aparelho" | "marca" | "modelo" | "cor") =>
     (ordens as any[]).map((o) => o[campo]).filter((v): v is string => !!v);
 
@@ -529,7 +527,7 @@ function Ordens() {
       // usuário criar a OS de novo; avisa e deixa enviar pela galeria.
       if (fotosNovaOs.length > 0) {
         try {
-          await enviarFotosEntrada(empresaId!, os.id, fotosNovaOs);
+          await enviarFotosEntrada(empresaId!, os.id, fotosNovaOs, ladosNovaOs);
         } catch (e) {
           toast.warning(
             `OS criada, mas as fotos não foram enviadas: ${(e as Error).message}. Envie pela galeria da OS.`,
@@ -541,8 +539,10 @@ function Ordens() {
       toast.success("OS criada");
       setForm(vazio);
       setFotosNovaOs([]);
+      setLadosNovaOs(new Map());
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["ordens"] });
+      qc.invalidateQueries({ queryKey: ["os-fotos-lados"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -992,6 +992,7 @@ function Ordens() {
               if (v) {
                 setForm(vazio);
                 setFotosNovaOs([]);
+                setLadosNovaOs(new Map());
                 setNovoProduto(itemVazio);
                 setNovoServico(itemVazio);
               }
@@ -1112,7 +1113,15 @@ function Ordens() {
                   />
                 </div>
                 <div className="border-t border-border pt-4 sm:col-span-2">
-                  <NovaOsFotos fotos={fotosNovaOs} onChange={setFotosNovaOs} />
+                  <NovaOsFotos
+                    fotos={fotosNovaOs}
+                    onChange={setFotosNovaOs}
+                    lados={ladosNovaOs}
+                    onLadosChange={setLadosNovaOs}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Marque a frente e a traseira do aparelho para vê-lo em 3D na lista de OS.
+                  </p>
                 </div>
               </div>
               <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
@@ -1233,8 +1242,15 @@ function Ordens() {
             <Button variant="outline" size="sm" onClick={() => setFaturarOpen(true)}>
               <Receipt className="mr-2 h-4 w-4" /> Faturar
             </Button>
-            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              OS {ordens.find((o) => o.id === selectedOsId)?.numero ?? "—"}
+            <span className="ml-auto flex items-center gap-2">
+              <AparelhoCard3D
+                lados={ladosOsEditada}
+                tamanho="md"
+                titulo={`OS #${ordens.find((o) => o.id === selectedOsId)?.numero ?? ""} — ${[form.aparelho, form.marca, form.modelo].filter(Boolean).join(" ")}`}
+              />
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                OS {ordens.find((o) => o.id === selectedOsId)?.numero ?? "—"}
+              </span>
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -1917,6 +1933,9 @@ const ListaOs = memo(function ListaOs({
   navigate: ReturnType<typeof useNavigate>;
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
+  const { data: ladosPorOs = {} } = useLadosAparelhos();
+  const tituloAparelho = (os: any) =>
+    `OS #${os.numero} — ${[os.aparelho, os.marca, os.modelo].filter(Boolean).join(" ") || "Aparelho"}`;
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-soft md:block">
@@ -1940,13 +1959,16 @@ const ListaOs = memo(function ListaOs({
             {lista.map((os: any) => (
               <tr key={os.id} className="hover:bg-muted/10 transition-colors">
                 <td className="p-4">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      #{os.numero}
-                    </span>
-                    <span className="font-bold text-base">
-                      {os.clientes?.nome ?? "Sem cliente"}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <AparelhoCard3D lados={ladosPorOs[os.id]} titulo={tituloAparelho(os)} />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        #{os.numero}
+                      </span>
+                      <span className="font-bold text-base">
+                        {os.clientes?.nome ?? "Sem cliente"}
+                      </span>
+                    </div>
                   </div>
                 </td>
                 <td className="p-4 text-muted-foreground font-medium">
@@ -2070,12 +2092,15 @@ const ListaOs = memo(function ListaOs({
         {lista.map((os: any) => (
           <div key={os.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
-                <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {os.responsavel || "Técnico não atribuído"}
-                </p>
+              <div className="flex items-start gap-3">
+                <AparelhoCard3D lados={ladosPorOs[os.id]} titulo={tituloAparelho(os)} />
+                <div>
+                  <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
+                  <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {os.responsavel || "Técnico não atribuído"}
+                  </p>
+                </div>
               </div>
               <div className="flex flex-col items-end">
                 <span className="font-extrabold text-primary">{brl(os.valor)}</span>
@@ -2243,84 +2268,6 @@ function AcoesOsMenu({
   );
 }
 
-const normalizar = (t: string) =>
-  t
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-// Seletor de cliente com busca por nome — o <select> nativo obrigava a rolar
-// a lista inteira de clientes para achar um.
-function ClienteSelect({
-  clientes,
-  value,
-  onChange,
-}: {
-  clientes: { id: string; nome: string }[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const [aberto, setAberto] = useState(false);
-  const selecionado = clientes.find((c) => c.id === value);
-  return (
-    <Popover open={aberto} onOpenChange={setAberto}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          className="w-full justify-between font-normal"
-        >
-          <span className="truncate">{selecionado?.nome ?? "Sem cliente vinculado"}</span>
-          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command
-          filter={(_, busca, palavras) =>
-            normalizar((palavras ?? []).join(" ")).includes(normalizar(busca)) ? 1 : 0
-          }
-        >
-          <CommandInput placeholder="Digite o nome do cliente..." />
-          <CommandList>
-            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem
-                value="sem-cliente"
-                keywords={["Sem cliente vinculado"]}
-                onSelect={() => {
-                  onChange("");
-                  setAberto(false);
-                }}
-              >
-                <Check className={`mr-2 h-4 w-4 ${value ? "opacity-0" : "opacity-100"}`} />
-                Sem cliente vinculado
-              </CommandItem>
-              {clientes.map((c) => (
-                // id no value: clientes homônimos teriam o mesmo value e o
-                // cmdk trataria os dois como um só item. A busca usa só o nome.
-                <CommandItem
-                  key={c.id}
-                  value={c.id}
-                  keywords={[c.nome]}
-                  onSelect={() => {
-                    onChange(c.id);
-                    setAberto(false);
-                  }}
-                >
-                  <Check
-                    className={`mr-2 h-4 w-4 ${c.id === value ? "opacity-100" : "opacity-0"}`}
-                  />
-                  {c.nome}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 function Campo({
   label,
