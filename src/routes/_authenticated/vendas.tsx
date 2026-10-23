@@ -267,12 +267,15 @@ function Vendas() {
     onSuccess: (venda) => {
       toast.success("Venda registrada");
       const cliente = clientes.find((c) => c.id === clienteId);
-      setComprovante({
+      // Abre depois que a janela da venda termina de fechar (~200 ms de
+      // animação) — abrir junto fazia uma janela atropelar a outra.
+      const dadosComprovante: VendaParaComprovante = {
         id: venda.id,
         numero: venda.numero ?? null,
         clienteNome: cliente?.nome ?? null,
         clienteTelefone: cliente?.telefone ?? null,
-      });
+      };
+      setTimeout(() => setComprovante(dadosComprovante), 250);
       resetForm();
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["vendas"] });

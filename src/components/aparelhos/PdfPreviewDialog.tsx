@@ -7,6 +7,7 @@
 // silencioso (ou nada, quando o navegador bloqueia o clique sintético em
 // <a download>), então não havia confirmação visível de que o PDF foi
 // gerado.
+import type { ReactNode } from "react";
 import { Download, Eye, Loader2, MessageCircle, Share2 } from "lucide-react";
 import { buildWaMeLink } from "@/lib/whatsapp";
 import { baixarArquivo, podeCompartilharArquivo } from "@/lib/pdf-share";
@@ -23,6 +24,7 @@ export function PdfPreviewDialog({
   pdf,
   telefoneCliente,
   mensagemWhatsapp,
+  extra,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,6 +33,8 @@ export function PdfPreviewDialog({
   pdf: PdfGerado | null;
   telefoneCliente?: string | null | undefined;
   mensagemWhatsapp?: string | undefined;
+  /** Ações que não dependem do PDF (ex.: cupom térmico da venda), no topo. */
+  extra?: ReactNode;
 }) {
   const compartilhamentoNativoDisponivel = pdf ? podeCompartilharArquivo(pdf.file) : false;
 
@@ -55,10 +59,16 @@ export function PdfPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      {/* Aberto logo depois de outra janela fechar (ex.: "Finalizar venda"
+          no PDV), o foco que volta para o botão daquela janela contava como
+          "clique fora" e fechava esta na hora — o comprovante nem aparecia.
+          Fechar continua funcionando pelo X, Esc ou clique fora. */}
+      <DialogContent className="max-w-md" onFocusOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
         </DialogHeader>
+
+        {extra}
 
         {gerando && (
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">

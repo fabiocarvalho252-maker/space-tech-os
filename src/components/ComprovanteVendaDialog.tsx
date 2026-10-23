@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
+import { Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  imprimirCupomVenda,
+  lerLarguraCupom,
+  salvarLarguraCupom,
+  type LarguraCupom,
+} from "@/lib/cupom-venda";
 import { gerarComprovanteVendaFn } from "@/lib/vendas.functions";
 import { base64ParaBytes } from "@/lib/pdf-share";
 import { PdfPreviewDialog, type PdfGerado } from "@/components/aparelhos/PdfPreviewDialog";
@@ -22,6 +30,20 @@ export function ComprovanteVendaDialog({
 }) {
   const [pdf, setPdf] = useState<PdfGerado | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [largura, setLargura] = useState<LarguraCupom>(() => lerLarguraCupom());
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function imprimirCupom() {
+    if (!venda) return;
+    setImprimindo(true);
+    try {
+      await imprimirCupomVenda(venda.id, largura);
+    } catch (e) {
+      toast.error((e as Error).message || "Não foi possível imprimir o cupom");
+    } finally {
+      setImprimindo(false);
+    }
+  }
 
   useEffect(() => {
     if (!venda) return;
@@ -58,6 +80,38 @@ export function ComprovanteVendaDialog({
       gerando={gerando}
       pdf={pdf}
       telefoneCliente={venda?.clienteTelefone}
+      extra={
+        <div className="space-y-2 rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Impressora térmica</span>
+            <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+              {(["80", "58"] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => {
+                    setLargura(l);
+                    salvarLarguraCupom(l);
+                  }}
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                    largura === l ? "bg-background shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  {l} mm
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button className="h-12 w-full gap-2" onClick={imprimirCupom} disabled={imprimindo}>
+            {imprimindo ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            Imprimir cupom
+          </Button>
+        </div>
+      }
       mensagemWhatsapp={`Olá${venda?.clienteNome ? `, ${venda.clienteNome}` : ""}! Segue o comprovante da sua compra (venda #${numero}). Obrigado pela preferência!`}
     />
   );
