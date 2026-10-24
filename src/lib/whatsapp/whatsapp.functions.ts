@@ -1,7 +1,7 @@
 // Authenticated server functions for the WhatsApp screen — same pattern as
 // src/lib/ai/chat.functions.ts: createServerFn + requireSupabaseAuth, so the
-// empresa is always context.userId from the verified Supabase session, never
-// a value the client could send. This file is safe to import from client
+// empresa always comes from the verified Supabase session (empresaDoUsuario),
+// never a value the client could send. This file is safe to import from client
 // components (it ships a thin RPC stub to the browser bundle); the actual
 // Evolution API calls and service-role DB access happen only inside
 // whatsapp-service.ts / evolution-api.ts, which never leave the server.
@@ -23,28 +23,65 @@ function origemAtual(): string {
   return new URL(request.url).origin;
 }
 
+type Ctx = { supabase: any; userId: string };
+
+// Empresa em que o login trabalha — a mesma regra de useMinhaEmpresa: um
+// convite para outra empresa vence a empresa própria (vazia) do funcionário.
+// Sem isso, funcionário convidado conectava/enviava pela própria conta.
+// Com `modulo`, exige a permissão (has_permission) nessa empresa.
+async function empresaDoUsuario(
+  context: Ctx,
+  modulo?: string,
+  acao: "ver" | "gerenciar" = "ver",
+): Promise<string> {
+  const { data } = await context.supabase
+    .from("user_empresas")
+    .select("empresa_id")
+    .eq("user_id", context.userId);
+  const ids: string[] = (data ?? []).map((m: { empresa_id: string }) => m.empresa_id);
+  const empresaId = ids.find((id) => id !== context.userId) ?? context.userId;
+  if (modulo) {
+    const { data: pode } = await context.supabase.rpc("has_permission", {
+      p_empresa_id: empresaId,
+      p_modulo: modulo,
+      p_acao: acao,
+    });
+    if (!pode) throw new Error("Seu usuário não tem permissão para isso no WhatsApp.");
+  }
+  return empresaId;
+}
+
 export const conectarWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappConexao> => {
-    return whatsappService.conectar(context.userId, origemAtual());
+    return whatsappService.conectar(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+      origemAtual(),
+    );
   });
 
 export const statusWhatsapp = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappConexao | null> => {
-    return whatsappService.atualizarStatus(context.userId);
+    return whatsappService.atualizarStatus(await empresaDoUsuario(context));
   });
 
 export const qrCodeWhatsapp = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ qr: string | null }> => {
-    return { qr: await whatsappService.obterQrCodeSalvo(context.userId) };
+    return {
+      qr: await whatsappService.obterQrCodeSalvo(
+        await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+      ),
+    };
   });
 
 export const desconectarWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappConexao | null> => {
-    return whatsappService.desconectar(context.userId);
+    return whatsappService.desconectar(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+    );
   });
 
 const enviarSchema = z.object({
@@ -56,13 +93,17 @@ export const enviarMensagemWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => enviarSchema.parse(data))
   .handler(async ({ data, context }): Promise<WhatsappMensagem> => {
-    return whatsappService.enviarMensagem(context.userId, data.numero, data.mensagem);
+    return whatsappService.enviarMensagem(
+      await empresaDoUsuario(context, "clientes"),
+      data.numero,
+      data.mensagem,
+    );
   });
 
 export const listarMensagensWhatsapp = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappMensagem[]> => {
-    return whatsappService.listarMensagensRecentes(context.userId);
+    return whatsappService.listarMensagensRecentes(await empresaDoUsuario(context, "clientes"));
   });
 
 const notificacaoOsSchema = z.object({
@@ -75,14 +116,14 @@ const notificacaoOsSchema = z.object({
 });
 
 // Behind "Enviar notificação por WhatsApp" in the OS faturamento/notification
-// modal. context.userId doubles as both the empresa scope (matches every
-// other table) and, for scheduled sends, the "sent_by" attribution.
+// modal. The empresa scopes the OS lookup and connection; context.userId is
+// the "sent_by" attribution.
 export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => notificacaoOsSchema.parse(data))
   .handler(async ({ data, context }): Promise<WhatsappMensagem> => {
     return whatsappService.enviarNotificacaoOs({
-      userId: context.userId,
+      userId: await empresaDoUsuario(context, "ordens"),
       osId: data.osId,
       numero: data.numero,
       mensagem: data.mensagem,
@@ -99,7 +140,9 @@ export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
 export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ processadas: number }> => {
-    const processadas = await whatsappService.processarNotificacoesAgendadasOs(context.userId);
+    const processadas = await whatsappService.processarNotificacoesAgendadasOs(
+      await empresaDoUsuario(context),
+    );
     return { processadas };
   });
 
