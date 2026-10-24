@@ -186,6 +186,46 @@ export async function desconectarInstancia(instanceName: string): Promise<void> 
 export type EvolutionSendResult = { messageId: string | null };
 
 /** Sends a plain text message through the instance. */
+/**
+ * Celular brasileiro com e sem o 9 da frente: 55 + DDD + 9XXXXXXXX ↔
+ * 55 + DDD + XXXXXXXX. Contas antigas (comum no Nordeste) continuam
+ * registradas no WhatsApp sem o 9, e a Evolution responde "exists: false"
+ * para o número com 9.
+ */
+function numeroAlternativoBR(numero: string): string | null {
+  const m = /^55(\d{2})(\d+)$/.exec(numero);
+  if (!m) return null;
+  const ddd = m[1] ?? "";
+  const resto = m[2] ?? "";
+  if (resto.length === 9 && resto.startsWith("9")) return `55${ddd}${resto.slice(1)}`;
+  if (resto.length === 8 && /^[6-9]/.test(resto)) return `55${ddd}9${resto}`;
+  return null;
+}
+
+/**
+ * Envia e, se falhar, tenta de novo uma vez: com o número sem/com o 9 quando
+ * o WhatsApp diz que o número não existe, ou depois de 3 s quando a sessão
+ * acabou de cair ("Connection Closed" — o Baileys costuma reconectar sozinho).
+ */
+async function enviarComNovaTentativa<T>(
+  numero: string,
+  enviar: (numero: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await enviar(numero);
+  } catch (e) {
+    if (!(e instanceof EvolutionApiError)) throw e;
+    if (/"exists"\s*:\s*false/.test(e.message)) {
+      const alternativo = numeroAlternativoBR(numero);
+      if (alternativo) return enviar(alternativo);
+    } else if (/Connection Closed/i.test(e.message)) {
+      await new Promise((r) => setTimeout(r, 3000));
+      return enviar(numero);
+    }
+    throw e;
+  }
+}
+
 export async function enviarMensagemTexto(
   instanceName: string,
   numero: string,
@@ -194,15 +234,12 @@ export async function enviarMensagemTexto(
   const config = configuracao();
   if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await chamar<any>(
-    config,
-    "POST",
-    `/message/sendText/${encodeURIComponent(instanceName)}`,
-    {
-      number: numero,
+  const data = await enviarComNovaTentativa(numero, (n) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chamar<any>(config, "POST", `/message/sendText/${encodeURIComponent(instanceName)}`, {
+      number: n,
       text: texto,
-    },
+    }),
   );
   const messageId = data?.key?.id ?? null;
   return { messageId: typeof messageId === "string" ? messageId : null };
@@ -217,19 +254,16 @@ export async function enviarMensagemMidia(
   const config = configuracao();
   if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await chamar<any>(
-    config,
-    "POST",
-    `/message/sendMedia/${encodeURIComponent(instanceName)}`,
-    {
-      number: numero,
+  const data = await enviarComNovaTentativa(numero, (n) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chamar<any>(config, "POST", `/message/sendMedia/${encodeURIComponent(instanceName)}`, {
+      number: n,
       mediatype: "document",
       mimetype: params.mimetype,
       fileName: params.fileName,
       media: params.mediaBase64,
       ...(params.caption ? { caption: params.caption } : {}),
-    },
+    }),
   );
   const messageId = data?.key?.id ?? null;
   return { messageId: typeof messageId === "string" ? messageId : null };
