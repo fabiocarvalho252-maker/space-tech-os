@@ -114,7 +114,11 @@ export function GerarTermoGarantiaIA({
           disabled={gerando}
           className="flex h-9 items-center gap-2 rounded-xl bg-gradient-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {gerando ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           {gerando ? "Gerando..." : `Gerar termo de ${Math.max(0, Math.round(dias || 0))} dias`}
         </button>
       </div>

@@ -59,7 +59,10 @@ function formatarTelefone(digitos: string): string {
 }
 
 function juntar(partes: (string | null | undefined)[], separador = ", "): string {
-  return partes.map((p) => (p ?? "").trim()).filter(Boolean).join(separador);
+  return partes
+    .map((p) => (p ?? "").trim())
+    .filter(Boolean)
+    .join(separador);
 }
 
 export type DadosCnpj = {

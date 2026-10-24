@@ -45,7 +45,13 @@ export function FinancialVisibilityProvider({ children }: { children: ReactNode 
       hideFinancialValues,
       formatFinancialValue: format,
     }),
-    [isFinancialValuesVisible, toggleFinancialValues, showFinancialValues, hideFinancialValues, format],
+    [
+      isFinancialValuesVisible,
+      toggleFinancialValues,
+      showFinancialValues,
+      hideFinancialValues,
+      format,
+    ],
   );
 
   return (

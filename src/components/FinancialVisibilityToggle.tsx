@@ -1,12 +1,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function FinancialVisibilityToggle() {
   const { isFinancialValuesVisible, toggleFinancialValues } = useFinancialVisibility();

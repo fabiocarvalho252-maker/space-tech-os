@@ -22,7 +22,11 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { buildSampleOsRenderData, renderOsTemplateHtml, type RenderOsData } from "@/lib/os-template-render";
+import {
+  buildSampleOsRenderData,
+  renderOsTemplateHtml,
+  type RenderOsData,
+} from "@/lib/os-template-render";
 import { OsTemplateThumbnail } from "@/components/os-templates/OsTemplateThumbnail";
 import { GerarTermoGarantiaIA } from "@/components/GerarTermoGarantiaIA";
 import type { OsTemplateDbRow } from "@/components/os-templates/types";
@@ -73,8 +77,16 @@ export const Route = createFileRoute("/bem-vindo")({
     if (!profile) throw redirect({ to: "/dashboard" });
 
     const [{ data: osConfig }, { data: saleConfig }, { data: termoGarantia }] = await Promise.all([
-      supabase.from("os_config").select("dias_garantia_padrao, termos_condicoes").eq("user_id", user.id).maybeSingle(),
-      supabase.from("sale_config").select("dias_garantia_padrao").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("os_config")
+        .select("dias_garantia_padrao, termos_condicoes")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("sale_config")
+        .select("dias_garantia_padrao")
+        .eq("user_id", user.id)
+        .maybeSingle(),
       supabase
         .from("termos_garantia")
         .select("id, conteudo, ativo")
@@ -254,10 +266,16 @@ function BemVindo() {
     ]
       .filter(Boolean)
       .join(" - ");
-    const cidade = [endereco.cidade.trim(), endereco.uf.trim().toUpperCase()].filter(Boolean).join(" - ");
+    const cidade = [endereco.cidade.trim(), endereco.uf.trim().toUpperCase()]
+      .filter(Boolean)
+      .join(" - ");
     const { error } = await supabase
       .from("profiles")
-      .update({ endereco: linha || null, cidade: cidade || null, updated_at: new Date().toISOString() })
+      .update({
+        endereco: linha || null,
+        cidade: cidade || null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", userId);
     if (error) {
       toast.error("Erro ao salvar o endereço", { description: error.message });
@@ -291,7 +309,10 @@ function BemVindo() {
       ),
       supabase
         .from("sale_config")
-        .upsert({ user_id: userId, dias_garantia_padrao: dias, updated_at: agora }, { onConflict: "user_id" }),
+        .upsert(
+          { user_id: userId, dias_garantia_padrao: dias, updated_at: agora },
+          { onConflict: "user_id" },
+        ),
     ]);
     let error = os.error ?? venda.error;
 
@@ -329,7 +350,9 @@ function BemVindo() {
 
   async function salvarModelo(): Promise<boolean> {
     if (!modeloId) return true;
-    const { error } = await supabase.rpc("definir_template_padrao" as any, { p_template_id: modeloId });
+    const { error } = await supabase.rpc("definir_template_padrao" as any, {
+      p_template_id: modeloId,
+    });
     if (error) {
       toast.error("Erro ao salvar o modelo do PDF", { description: error.message });
       return false;
@@ -395,14 +418,20 @@ function BemVindo() {
         <ol className="mb-5 grid grid-cols-5 gap-2">
           {PASSOS.map((p, i) => (
             <li key={p.titulo} className="flex flex-col gap-2">
-              <div className={cn("h-1.5 rounded-full", i <= passo ? "bg-primary" : "bg-white/20")} />
+              <div
+                className={cn("h-1.5 rounded-full", i <= passo ? "bg-primary" : "bg-white/20")}
+              />
               <span
                 className={cn(
                   "hidden items-center gap-1.5 text-xs font-semibold sm:flex",
                   i <= passo ? "text-white" : "text-white/50",
                 )}
               >
-                {i < passo ? <Check className="h-3.5 w-3.5" /> : <p.icone className="h-3.5 w-3.5" />}
+                {i < passo ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <p.icone className="h-3.5 w-3.5" />
+                )}
                 {p.titulo}
               </span>
             </li>
@@ -435,14 +464,20 @@ function BemVindo() {
                   {enviandoLogo ? (
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   ) : logoUrl ? (
-                    <img src={logoUrl} alt="Logo da empresa" className="h-full w-full object-contain" />
+                    <img
+                      src={logoUrl}
+                      alt="Logo da empresa"
+                      className="h-full w-full object-contain"
+                    />
                   ) : (
                     <ImagePlus className="h-7 w-7 text-muted-foreground" />
                   )}
                 </button>
                 <div className="text-sm">
                   <p className="font-semibold">Logo da assistência</p>
-                  <p className="text-muted-foreground">PNG ou JPG, até 5 MB. De preferência quadrada.</p>
+                  <p className="text-muted-foreground">
+                    PNG ou JPG, até 5 MB. De preferência quadrada.
+                  </p>
                   <button
                     type="button"
                     onClick={() => inputLogo.current?.click()}
@@ -452,7 +487,13 @@ function BemVindo() {
                     {logoUrl ? "Trocar logo" : "Escolher imagem"}
                   </button>
                 </div>
-                <input ref={inputLogo} type="file" accept="image/*" className="hidden" onChange={escolherLogo} />
+                <input
+                  ref={inputLogo}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={escolherLogo}
+                />
               </div>
 
               <Campo
@@ -471,7 +512,9 @@ function BemVindo() {
                 <div className="flex gap-2">
                   <input
                     value={empresa.documento}
-                    onChange={(e) => setEmpresa((f) => ({ ...f, documento: formatarDocumento(e.target.value) }))}
+                    onChange={(e) =>
+                      setEmpresa((f) => ({ ...f, documento: formatarDocumento(e.target.value) }))
+                    }
                     inputMode="numeric"
                     placeholder="00.000.000/0000-00"
                     className={estiloInput}
@@ -483,7 +526,11 @@ function BemVindo() {
                       disabled={buscandoCnpj}
                       className="flex h-12 shrink-0 items-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold transition hover:border-primary hover:text-primary"
                     >
-                      {buscandoCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      {buscandoCnpj ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
                       <span className="hidden sm:inline">Preencher</span>
                     </button>
                   )}
@@ -564,8 +611,8 @@ function BemVindo() {
               <div>
                 <h1 className="text-2xl font-extrabold tracking-tight">Garantia</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  A garantia padrão já vem preenchida em cada OS e venda — dá para mudar caso a caso.
-                  O prazo começa a contar na entrega do aparelho.
+                  A garantia padrão já vem preenchida em cada OS e venda — dá para mudar caso a
+                  caso. O prazo começa a contar na entrega do aparelho.
                 </p>
               </div>
               <div className="space-y-2">
@@ -841,7 +888,9 @@ function EscolherModeloPdf({
       // Empresa nova ainda não tem os modelos prontos: cria (mesma RPC da
       // biblioteca em Configurações > Modelos de OS) e busca de novo.
       if (!data?.length) {
-        const seed = await supabase.rpc("garantir_templates_padrao" as any, { p_user_id: empresaId });
+        const seed = await supabase.rpc("garantir_templates_padrao" as any, {
+          p_user_id: empresaId,
+        });
         if (seed.error) throw seed.error;
         ({ data, error } = await buscar());
         if (error) throw error;
@@ -857,7 +906,10 @@ function EscolherModeloPdf({
     if (padrao) onSelecionar(padrao.id);
   }, [modelos, selecionado, onSelecionar]);
 
-  const amostra = buildSampleOsRenderData(empresa, termoGarantia ? { termoGarantiaTexto: termoGarantia } : {});
+  const amostra = buildSampleOsRenderData(
+    empresa,
+    termoGarantia ? { termoGarantiaTexto: termoGarantia } : {},
+  );
 
   if (isLoading) {
     return (
@@ -889,7 +941,10 @@ function EscolherModeloPdf({
                 aria-pressed={ativo}
               >
                 <div className="pointer-events-none relative bg-muted/30">
-                  <OsTemplateThumbnail html={renderOsTemplateHtml(m, amostra)} orientacao={m.orientacao} />
+                  <OsTemplateThumbnail
+                    html={renderOsTemplateHtml(m, amostra)}
+                    orientacao={m.orientacao}
+                  />
                   {ativo && (
                     <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground shadow">
                       <Check className="h-3 w-3" /> Escolhido

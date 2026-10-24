@@ -72,9 +72,10 @@ function analisarLocalmente(texto: string): DeviceAnalysis {
   };
 }
 
-function inferirPelaFamiliaDoModelo(
-  modelo: string | null,
-): { marca: string | null; aparelho: (typeof CATEGORIAS)[number] | null } {
+function inferirPelaFamiliaDoModelo(modelo: string | null): {
+  marca: string | null;
+  aparelho: (typeof CATEGORIAS)[number] | null;
+} {
   if (!modelo) return { marca: null, aparelho: null };
   if (/^iPhone\b/.test(modelo)) return { marca: "Apple", aparelho: "Smartphone" };
   if (/^iPad\b/.test(modelo)) return { marca: "Apple", aparelho: "Tablet" };
@@ -201,7 +202,9 @@ function capitalizarPalavras(s: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")
-    .map((p) => (/^\d/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()))
+    .map((p) =>
+      /^\d/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(),
+    )
     .join(" ");
 }
 
@@ -284,7 +287,7 @@ const CORES: Record<string, string> = {
   coral: "Coral",
   champagne: "Champagne",
   titanio: "Titânio",
-  "titânio": "Titânio",
+  titânio: "Titânio",
 };
 
 export const CORES_CONHECIDAS: readonly string[] = Array.from(new Set(Object.values(CORES))).sort();

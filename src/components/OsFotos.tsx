@@ -22,7 +22,7 @@ const CATEGORIAS = [
   { value: "saida", label: "Saída" },
 ] as const;
 
-type Categoria = typeof CATEGORIAS[number]["value"];
+type Categoria = (typeof CATEGORIAS)[number]["value"];
 
 export function OsFotos({
   osId,
@@ -50,9 +50,7 @@ export function OsFotos({
       if (error) throw error;
       const comUrl = await Promise.all(
         (data ?? []).map(async (f) => {
-          const { data: signed } = await supabase.storage
-            .from(BUCKET)
-            .createSignedUrl(f.url, 3600);
+          const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(f.url, 3600);
           return { ...f, src: signed?.signedUrl ?? "" };
         }),
       );
@@ -140,11 +138,7 @@ export function OsFotos({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs 
-          value={tabAtiva} 
-          onValueChange={(v) => setTabAtiva(v as Categoria)} 
-          className="mt-4"
-        >
+        <Tabs value={tabAtiva} onValueChange={(v) => setTabAtiva(v as Categoria)} className="mt-4">
           <TabsList className="grid h-auto w-full grid-cols-3 bg-secondary/50">
             {CATEGORIAS.map((c) => (
               <TabsTrigger
@@ -184,8 +178,8 @@ export function OsFotos({
                   e.target.value = "";
                 }}
               />
-              <Button 
-                onClick={() => inputRef.current?.click()} 
+              <Button
+                onClick={() => inputRef.current?.click()}
                 disabled={enviar.isPending}
                 className="gap-2"
               >
@@ -208,8 +202,8 @@ export function OsFotos({
                 ) : fotosPorCategoria(c.value).length ? (
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                     {fotosPorCategoria(c.value).map((f) => (
-                      <figure 
-                        key={f.id} 
+                      <figure
+                        key={f.id}
                         className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/30"
                       >
                         <img
@@ -227,11 +221,11 @@ export function OsFotos({
                                 key={lado}
                                 type="button"
                                 disabled={marcarLado.isPending}
-                                onClick={() => marcarLado.mutate({ id: f.id, lado: ativo ? null : lado })}
+                                onClick={() =>
+                                  marcarLado.mutate({ id: f.id, lado: ativo ? null : lado })
+                                }
                                 title={
-                                  ativo
-                                    ? "Desmarcar"
-                                    : `Usar como ${lado} do aparelho no cartão 3D`
+                                  ativo ? "Desmarcar" : `Usar como ${lado} do aparelho no cartão 3D`
                                 }
                                 className={`flex-1 rounded-md px-1 py-1 text-[10px] font-semibold shadow backdrop-blur-sm transition ${
                                   ativo
@@ -260,7 +254,9 @@ export function OsFotos({
                       <LayoutGrid className="h-8 w-8 text-muted-foreground/50" />
                     </div>
                     <p className="text-sm font-medium text-foreground">Sem fotos nesta fase</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Inicie o envio de fotos para o registro da OS</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Inicie o envio de fotos para o registro da OS
+                    </p>
                   </div>
                 )}
               </TabsContent>
@@ -271,4 +267,3 @@ export function OsFotos({
     </Dialog>
   );
 }
-

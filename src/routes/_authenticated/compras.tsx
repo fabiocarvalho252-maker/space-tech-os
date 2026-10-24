@@ -54,7 +54,12 @@ const TONE_POR_STATUS: Record<string, StatusTone> = {
   cancelado: "danger",
 };
 
-type ItemForm = { produto_id: string; descricao: string; quantidade: string; custo_unitario: string };
+type ItemForm = {
+  produto_id: string;
+  descricao: string;
+  quantidade: string;
+  custo_unitario: string;
+};
 const itemVazio: ItemForm = { produto_id: "", descricao: "", quantidade: "1", custo_unitario: "0" };
 
 function Compras() {
@@ -129,7 +134,10 @@ function Compras() {
   const { data: purchaseConfig } = useQuery({
     queryKey: ["purchase-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("purchase_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("purchase_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -164,10 +172,7 @@ function Compras() {
       return;
     }
     const produto = produtos.find((p) => p.id === novoItem.produto_id);
-    setItens((prev) => [
-      ...prev,
-      { ...novoItem, descricao: produto?.nome ?? novoItem.descricao },
-    ]);
+    setItens((prev) => [...prev, { ...novoItem, descricao: produto?.nome ?? novoItem.descricao }]);
     setNovoItem(itemVazio);
   }
 
@@ -252,7 +257,10 @@ function Compras() {
         return;
       }
 
-      const { error } = await supabase.from("compras" as any).update({ status }).eq("id", id);
+      const { error } = await supabase
+        .from("compras" as any)
+        .update({ status })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -266,7 +274,10 @@ function Compras() {
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("compras" as any).delete().eq("id", id);
+      const { error } = await supabase
+        .from("compras" as any)
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -333,7 +344,9 @@ function Compras() {
               filtradas.map((c) => (
                 <tr key={c.id} className="hover:bg-secondary/30">
                   <td className="px-4 py-3 font-medium">
-                    {c.fornecedor?.nome_fantasia || c.fornecedor?.razao_social || "Fornecedor removido"}
+                    {c.fornecedor?.nome_fantasia ||
+                      c.fornecedor?.razao_social ||
+                      "Fornecedor removido"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{dataBR(c.created_at)}</td>
                   <td className="px-4 py-3 text-right font-semibold">{brl(c.valor_total)}</td>
@@ -553,7 +566,11 @@ function Compras() {
         open={!!confirmExcluir}
         onOpenChange={(v) => !v && setConfirmExcluir(null)}
         title="Deseja realmente excluir esta compra?"
-        description={confirmExcluir ? `A compra de "${confirmExcluir.fornecedor}" será removida permanentemente.` : ""}
+        description={
+          confirmExcluir
+            ? `A compra de "${confirmExcluir.fornecedor}" será removida permanentemente.`
+            : ""
+        }
         confirmLabel="Excluir"
         destructive
         loading={remover.isPending}

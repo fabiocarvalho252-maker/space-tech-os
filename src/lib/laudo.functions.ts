@@ -26,13 +26,18 @@ export const ajustarLaudo = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: "google/gemini-3-flash",
         messages: [
-          { role: "system", content: "Você é um técnico de assistência que escreve laudos técnicos. Responda apenas com o texto final, sem comentários." },
+          {
+            role: "system",
+            content:
+              "Você é um técnico de assistência que escreve laudos técnicos. Responda apenas com o texto final, sem comentários.",
+          },
           { role: "user", content: `${instrucao}\n\nTexto:\n${data.texto}` },
         ],
       }),
     });
 
-    if (res.status === 429) throw new Error("Limite de uso da IA atingido. Tente novamente em instantes.");
+    if (res.status === 429)
+      throw new Error("Limite de uso da IA atingido. Tente novamente em instantes.");
     if (res.status === 402) throw new Error("Créditos de IA esgotados.");
     if (!res.ok) throw new Error("Não foi possível processar o texto com IA.");
 

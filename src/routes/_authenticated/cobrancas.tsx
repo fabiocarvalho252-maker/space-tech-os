@@ -353,9 +353,7 @@ function Cobrancas() {
                       disabled={verificar.isPending}
                       onClick={() => verificar.mutate(c.id)}
                     >
-                      <RefreshCw
-                        className={cn("h-4 w-4", verificar.isPending && "animate-spin")}
-                      />
+                      <RefreshCw className={cn("h-4 w-4", verificar.isPending && "animate-spin")} />
                       Verificar pagamento
                     </Button>
                     <Dialog>

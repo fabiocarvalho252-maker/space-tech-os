@@ -3,19 +3,19 @@ import { dataBR } from "@/lib/format";
 
 export async function exportToCSV(data: any[], filename: string) {
   if (!data || !data.length) return;
-  
+
   const headers = Object.keys(data[0]).join(",");
-  const rows = data.map(row => 
-    Object.values(row).map(value => 
-      typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
-    ).join(",")
+  const rows = data.map((row) =>
+    Object.values(row)
+      .map((value) => (typeof value === "string" ? `"${value.replace(/"/g, '""')}"` : value))
+      .join(","),
   );
-  
+
   const csvContent = [headers, ...rows].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
-  
+
   link.setAttribute("href", url);
   link.setAttribute("download", `${filename}.csv`);
   link.style.visibility = "hidden";
@@ -24,17 +24,22 @@ export async function exportToCSV(data: any[], filename: string) {
   document.body.removeChild(link);
 }
 
-export async function generateFinancePDF(lancamentos: any[], profile: any, resumo: { entradas: number, saidas: number, saldo: number }) {
+export async function generateFinancePDF(
+  lancamentos: any[],
+  profile: any,
+  resumo: { entradas: number; saidas: number; saldo: number },
+) {
   const janela = window.open("", "_blank", "width=800,height=900");
   if (!janela) return;
-  
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+  const brl = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
   janela.document.write(`
     <!doctype html>
     <html>
     <head>
-      <title>Relatório Financeiro — ${profile?.loja || 'SpaceTech'}</title>
+      <title>Relatório Financeiro — ${profile?.loja || "SpaceTech"}</title>
       <style>
         body { font-family: sans-serif; padding: 40px; color: #333; }
         header { border-bottom: 2px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
@@ -54,8 +59,8 @@ export async function generateFinancePDF(lancamentos: any[], profile: any, resum
     <body>
       <header>
         <div>
-          <h1>${profile?.loja || 'SpaceTech'}</h1>
-          <p>Relatório Financeiro - Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+          <h1>${profile?.loja || "SpaceTech"}</h1>
+          <p>Relatório Financeiro - Gerado em ${new Date().toLocaleString("pt-BR")}</p>
         </div>
         <button class="no-print" onclick="window.print()">Imprimir PDF</button>
       </header>
@@ -86,15 +91,19 @@ export async function generateFinancePDF(lancamentos: any[], profile: any, resum
           </tr>
         </thead>
         <tbody>
-          ${lancamentos.map(l => `
+          ${lancamentos
+            .map(
+              (l) => `
             <tr>
               <td>${dataBR(l.data)}</td>
               <td>${l.descricao}</td>
-              <td>${l.categoria || '—'}</td>
-              <td class="${l.tipo}">${l.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
-              <td class="${l.tipo}">${l.tipo === 'entrada' ? '+' : '-'} ${brl(l.valor)}</td>
+              <td>${l.categoria || "—"}</td>
+              <td class="${l.tipo}">${l.tipo === "entrada" ? "Entrada" : "Saída"}</td>
+              <td class="${l.tipo}">${l.tipo === "entrada" ? "+" : "-"} ${brl(l.valor)}</td>
             </tr>
-          `).join('')}
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
     </body>

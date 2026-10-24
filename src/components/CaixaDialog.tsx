@@ -4,7 +4,15 @@
 // que o caixa ficou aberto.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownCircle, ArrowUpCircle, Loader2, Lock, Printer, Unlock, Wallet } from "lucide-react";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Loader2,
+  Lock,
+  Printer,
+  Unlock,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
@@ -248,7 +256,10 @@ export function CaixaDialog({
     onSuccess: (s) => {
       const dif = Number(s.diferenca ?? 0);
       if (dif === 0) toast.success("Caixa fechado — dinheiro confere");
-      else toast.warning(`Caixa fechado com ${dif > 0 ? "sobra" : "falta"} de ${brlSempre(Math.abs(dif))}`);
+      else
+        toast.warning(
+          `Caixa fechado com ${dif > 0 ? "sobra" : "falta"} de ${brlSempre(Math.abs(dif))}`,
+        );
       setContado("");
       setObs("");
       atualizar();
@@ -258,7 +269,8 @@ export function CaixaDialog({
   });
 
   const esperado = resumo?.dinheiro_esperado ?? 0;
-  const diferencaPrevia = contado.trim() === "" ? null : Math.round((numero(contado) - esperado) * 100) / 100;
+  const diferencaPrevia =
+    contado.trim() === "" ? null : Math.round((numero(contado) - esperado) * 100) / 100;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -289,7 +301,11 @@ export function CaixaDialog({
                 placeholder="0,00"
                 autoFocus
               />
-              <Button className="w-full gap-2" onClick={() => abrir.mutate()} disabled={abrir.isPending}>
+              <Button
+                className="w-full gap-2"
+                onClick={() => abrir.mutate()}
+                disabled={abrir.isPending}
+              >
                 <Unlock className="h-4 w-4" /> {abrir.isPending ? "Abrindo..." : "Abrir caixa"}
               </Button>
             </div>
@@ -305,7 +321,9 @@ export function CaixaDialog({
                     return (
                       <li key={s.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium">{s.fechado_em ? dataHora(s.fechado_em) : "—"}</p>
+                          <p className="font-medium">
+                            {s.fechado_em ? dataHora(s.fechado_em) : "—"}
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             Entradas {brl(s.resumo?.total_entradas ?? 0)}
                           </p>
@@ -313,10 +331,16 @@ export function CaixaDialog({
                         <span
                           className={cn(
                             "text-xs font-semibold",
-                            dif === 0 ? "text-emerald-600" : dif > 0 ? "text-amber-600" : "text-red-600",
+                            dif === 0
+                              ? "text-emerald-600"
+                              : dif > 0
+                                ? "text-amber-600"
+                                : "text-red-600",
                           )}
                         >
-                          {dif === 0 ? "Conferido" : `${dif > 0 ? "Sobra" : "Falta"} ${brl(Math.abs(dif))}`}
+                          {dif === 0
+                            ? "Conferido"
+                            : `${dif > 0 ? "Sobra" : "Falta"} ${brl(Math.abs(dif))}`}
                         </span>
                         <button
                           type="button"
@@ -341,7 +365,8 @@ export function CaixaDialog({
           <div className="space-y-5">
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Recebido neste caixa · {resumo.qtd_vendas} {resumo.qtd_vendas === 1 ? "venda" : "vendas"}
+                Recebido neste caixa · {resumo.qtd_vendas}{" "}
+                {resumo.qtd_vendas === 1 ? "venda" : "vendas"}
               </p>
               <div className="divide-y divide-border rounded-2xl border border-border text-sm">
                 {resumo.formas.length === 0 && (
@@ -365,8 +390,8 @@ export function CaixaDialog({
               </div>
               {resumo.formas.some((f) => f.forma === "Não informado" && f.saidas > 0) && (
                 <p className="text-xs text-muted-foreground">
-                  Saídas sem forma de pagamento não entram na conta do dinheiro. Se pagou algo com
-                  o dinheiro da gaveta, registre uma sangria.
+                  Saídas sem forma de pagamento não entram na conta do dinheiro. Se pagou algo com o
+                  dinheiro da gaveta, registre uma sangria.
                 </p>
               )}
             </div>
@@ -380,8 +405,12 @@ export function CaixaDialog({
               {resumo.dinheiro_saidas > 0 && (
                 <Linha label="Saídas em dinheiro" valor={`− ${brl(resumo.dinheiro_saidas)}`} />
               )}
-              {resumo.suprimentos > 0 && <Linha label="Suprimentos" valor={`+ ${brl(resumo.suprimentos)}`} />}
-              {resumo.sangrias > 0 && <Linha label="Sangrias" valor={`− ${brl(resumo.sangrias)}`} />}
+              {resumo.suprimentos > 0 && (
+                <Linha label="Suprimentos" valor={`+ ${brl(resumo.suprimentos)}`} />
+              )}
+              {resumo.sangrias > 0 && (
+                <Linha label="Sangrias" valor={`− ${brl(resumo.sangrias)}`} />
+              )}
               <div className="flex items-center justify-between border-t border-border pt-1.5 font-bold">
                 <span>Esperado</span>
                 <span className="text-primary">{brl(esperado)}</span>
@@ -423,7 +452,11 @@ export function CaixaDialog({
                 <Input
                   value={movMotivo}
                   onChange={(e) => setMovMotivo(e.target.value.slice(0, 200))}
-                  placeholder={movTipo === "sangria" ? "Motivo (ex.: cofre, pagar motoboy)" : "Motivo (ex.: troco)"}
+                  placeholder={
+                    movTipo === "sangria"
+                      ? "Motivo (ex.: cofre, pagar motoboy)"
+                      : "Motivo (ex.: troco)"
+                  }
                   className="flex-1"
                 />
                 <Button
@@ -437,7 +470,10 @@ export function CaixaDialog({
               {movimentos.length > 0 && (
                 <ul className="space-y-1 pt-1 text-xs">
                   {movimentos.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between text-muted-foreground">
+                    <li
+                      key={m.id}
+                      className="flex items-center justify-between text-muted-foreground"
+                    >
                       <span className="truncate">
                         {hora(m.created_at)} · {m.tipo === "sangria" ? "Sangria" : "Suprimento"}
                         {m.motivo ? ` · ${m.motivo}` : ""}
@@ -483,7 +519,11 @@ export function CaixaDialog({
                 onChange={(e) => setObs(e.target.value.slice(0, 500))}
                 placeholder="Observações (opcional)"
               />
-              <Button className="w-full gap-2" onClick={() => fechar.mutate()} disabled={fechar.isPending}>
+              <Button
+                className="w-full gap-2"
+                onClick={() => fechar.mutate()}
+                disabled={fechar.isPending}
+              >
                 <Lock className="h-4 w-4" /> {fechar.isPending ? "Fechando..." : "Fechar caixa"}
               </Button>
             </div>

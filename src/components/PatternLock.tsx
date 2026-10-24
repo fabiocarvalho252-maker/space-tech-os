@@ -23,7 +23,10 @@ export function PatternLock({ value, onChange, className }: PatternLockProps) {
   // Parse initial value
   useEffect(() => {
     if (value && path.length === 0) {
-      const initialPath = value.split("").map(Number).filter(n => !isNaN(n));
+      const initialPath = value
+        .split("")
+        .map(Number)
+        .filter((n) => !isNaN(n));
       if (initialPath.length > 0) setPath(initialPath);
     }
   }, [value]);
@@ -75,7 +78,6 @@ export function PatternLock({ value, onChange, className }: PatternLockProps) {
           }
         }
       }
-
 
       if (isDrawing && currentMousePos) {
         ctx.lineTo(currentMousePos.x, currentMousePos.y);
@@ -147,7 +149,6 @@ export function PatternLock({ value, onChange, className }: PatternLockProps) {
       onChange(newPath.join(""));
     }
   };
-
 
   const handleEnd = () => {
     setIsDrawing(false);

@@ -82,7 +82,6 @@ const brl = (v: number | string | null | undefined) =>
 const dataBR = (v: string | null | undefined) =>
   v ? new Date(v).toLocaleDateString("pt-BR") : "—";
 
-
 export type GerarPdfOsInput = {
   osId: string;
   empresaId: string;

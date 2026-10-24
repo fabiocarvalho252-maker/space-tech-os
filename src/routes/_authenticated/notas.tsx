@@ -130,7 +130,10 @@ function NotasFiscais() {
   const { data: fiscalConfig } = useQuery({
     queryKey: ["fiscal-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fiscal_config" as any).select("*").maybeSingle();
+      const { data, error } = await supabase
+        .from("fiscal_config" as any)
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },

@@ -131,7 +131,9 @@ export function AjustarEstoqueDialog({
                   onClick={() => setMotivo(m)}
                   className={cn(
                     "rounded-full border px-3 py-1 text-xs font-medium transition",
-                    motivo === m ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary",
+                    motivo === m
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary",
                   )}
                 >
                   {m}
@@ -145,7 +147,11 @@ export function AjustarEstoqueDialog({
             />
           </div>
 
-          <Button className="w-full" onClick={() => salvar.mutate()} disabled={salvar.isPending || nova < 0}>
+          <Button
+            className="w-full"
+            onClick={() => salvar.mutate()}
+            disabled={salvar.isPending || nova < 0}
+          >
             {salvar.isPending ? "Salvando..." : "Salvar ajuste"}
           </Button>
         </div>

@@ -97,7 +97,11 @@ export function HistoricoEstoqueDialog({
                       entrou ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600",
                     )}
                   >
-                    {entrou ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                    {entrou ? (
+                      <ArrowUpRight className="h-4 w-4" />
+                    ) : (
+                      <ArrowDownRight className="h-4 w-4" />
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{TIPO_LABEL[m.tipo] ?? m.tipo}</p>
@@ -107,7 +111,12 @@ export function HistoricoEstoqueDialog({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className={cn("text-sm font-bold", entrou ? "text-emerald-600" : "text-red-600")}>
+                    <p
+                      className={cn(
+                        "text-sm font-bold",
+                        entrou ? "text-emerald-600" : "text-red-600",
+                      )}
+                    >
                       {entrou ? "+" : ""}
                       {m.quantidade}
                     </p>

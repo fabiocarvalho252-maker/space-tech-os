@@ -96,7 +96,9 @@ export function EnviarOsModal({
     },
     onSuccess: (file) => setPdf({ file, url: URL.createObjectURL(file) }),
     onError: (e: Error) =>
-      toast.error(`Erro ao gerar PDF ${modo === "orcamento" ? "do orçamento" : "da OS"}: ` + e.message),
+      toast.error(
+        `Erro ao gerar PDF ${modo === "orcamento" ? "do orçamento" : "da OS"}: ` + e.message,
+      ),
   });
 
   useEffect(() => {

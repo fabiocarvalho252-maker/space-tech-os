@@ -5,7 +5,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { randomId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const BUCKET = "os-fotos";
@@ -115,7 +121,10 @@ export function AssinaturaDigitalModal({
       const canvas = canvasRef.current;
       if (!canvas) return;
       const blob: Blob = await new Promise((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Falha ao gerar a imagem"))), "image/png"),
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Falha ao gerar a imagem"))),
+          "image/png",
+        ),
       );
       const category = TIPOS.find((t) => t.value === tipo)!.category;
       // Path prefix must be the empresa's id, not the signer's own login —
@@ -167,7 +176,9 @@ export function AssinaturaDigitalModal({
             <TabsContent key={t.value} value={t.value} className="space-y-3">
               {assinaturaAtual(t.value) && (
                 <div className="rounded-lg border border-border bg-muted/30 p-2">
-                  <p className="mb-1 text-xs text-muted-foreground">Assinatura já registrada — capture novamente para substituir.</p>
+                  <p className="mb-1 text-xs text-muted-foreground">
+                    Assinatura já registrada — capture novamente para substituir.
+                  </p>
                   <img
                     src={assinaturaAtual(t.value)!.src}
                     alt={`Assinatura do ${t.label} já registrada`}
@@ -185,7 +196,9 @@ export function AssinaturaDigitalModal({
                 onPointerUp={finalizarTraco}
                 onPointerLeave={finalizarTraco}
               />
-              <p className="text-xs text-muted-foreground">Assine com o mouse, caneta ou dedo na área acima.</p>
+              <p className="text-xs text-muted-foreground">
+                Assine com o mouse, caneta ou dedo na área acima.
+              </p>
             </TabsContent>
           ))}
         </Tabs>
@@ -194,7 +207,11 @@ export function AssinaturaDigitalModal({
           <Button variant="outline" onClick={limparCanvas} disabled={!temTraco} className="gap-2">
             <Eraser className="h-4 w-4" /> Limpar
           </Button>
-          <Button onClick={() => salvar.mutate()} disabled={!temTraco || salvar.isPending} className="gap-2">
+          <Button
+            onClick={() => salvar.mutate()}
+            disabled={!temTraco || salvar.isPending}
+            className="gap-2"
+          >
             {salvar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Salvar assinatura
           </Button>

@@ -115,7 +115,9 @@ export function AvaliarDevolucaoDialog({
     },
     onSuccess: () => {
       toast.success(
-        destino === "disponivel" ? "Aparelho disponível para venda novamente" : "Avaliação registrada",
+        destino === "disponivel"
+          ? "Aparelho disponível para venda novamente"
+          : "Avaliação registrada",
       );
       qc.invalidateQueries({ queryKey: ["seminovos"] });
       // Seminovos disponíveis espelham em Aparelhos (trigger no banco).
