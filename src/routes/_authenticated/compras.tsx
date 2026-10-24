@@ -229,34 +229,19 @@ function Compras() {
 
       const compra = compras.find((c) => c.id === id);
 
-      // Entrada automática no estoque ao marcar como recebido — só uma vez
-      // por compra, senão reabrir/editar o status duplicaria a entrada.
+      // Entrada automática no estoque ao marcar como recebido — feita no
+      // banco (receber_compra) numa transação só, e uma única vez por compra:
+      // reabrir/editar o status não duplica a entrada.
       if (status === "recebido" && !compra?.recebido_em) {
-        const { data: itensCompra, error: itensErro } = await supabase
-          .from("compra_itens" as any)
-          .select("produto_id, quantidade")
-          .eq("compra_id", id);
-        if (itensErro) throw itensErro;
-        for (const item of (itensCompra as any[]) ?? []) {
-          if (!item.produto_id) continue;
-          const { data: produto } = await supabase
-            .from("produtos")
-            .select("quantidade")
-            .eq("id", item.produto_id)
-            .single();
-          if (produto) {
-            await supabase
-              .from("produtos")
-              .update({ quantidade: (produto.quantidade || 0) + Number(item.quantidade) })
-              .eq("id", item.produto_id);
-          }
-        }
+        const { error } = await supabase.rpc("receber_compra" as any, {
+          p_compra_id: id,
+          p_status: status,
+        });
+        if (error) throw error;
       }
 
       const situacaoFaturar = purchaseConfig?.situacao_faturar || "faturado";
       const patch: Record<string, unknown> = { status };
-      if (status === "recebido" && !compra?.recebido_em)
-        patch["recebido_em"] = new Date().toISOString();
       if (status === situacaoFaturar && !compra?.faturado_em) {
         patch["faturado_em"] = new Date().toISOString();
         await supabase.from("lancamentos").insert({

@@ -202,64 +202,27 @@ function Vendas() {
         agora.getSeconds(),
       ).toISOString();
 
-      const { data: venda, error: vendaErro } = await supabase
-        .from("vendas")
-        .insert({
-          user_id: empresaId!,
-          cliente_id: clienteId || null,
-          total,
-          desconto: descontoNum,
-          forma_pagamento: formaPagamento,
-          observacoes: observacoes || null,
-          created_at: createdAt,
-        })
-        .select()
-        .single();
-      if (vendaErro) throw vendaErro;
-      if (!venda) throw new Error("Erro ao criar venda");
-
-      const { error: itensErro } = await supabase.from("venda_itens").insert(
-        carrinho.map((i) => ({
-          user_id: empresaId!,
-          venda_id: venda.id,
+      // Venda, itens, baixa de estoque e receita numa única transação no
+      // banco (registrar_venda): ou grava tudo, ou nada.
+      const { data, error: vendaErro } = await supabase.rpc("registrar_venda" as any, {
+        p_empresa_id: empresaId!,
+        p_itens: carrinho.map((i) => ({
           produto_id: i.id,
           descricao: i.nome,
           quantidade: i.qtd,
           preco_unitario: i.preco,
         })),
-      );
-      if (itensErro) throw itensErro;
-
-      for (const item of carrinho) {
-        if (item.tipo === "Produto") {
-          const { data: p } = await supabase
-            .from("produtos")
-            .select("quantidade")
-            .eq("id", item.id)
-            .single();
-          if (p) {
-            const { error: estoqueErro } = await supabase
-              .from("produtos")
-              .update({ quantidade: Math.max(0, p.quantidade - item.qtd) })
-              .eq("id", item.id);
-            if (estoqueErro) throw estoqueErro;
-          }
-        }
-      }
-
-      // Sem checar o erro, uma falha aqui deixava a venda registrada sem a
-      // receita no Financeiro/DRE, sem nenhum aviso.
-      const { error: lancamentoErro } = await supabase.from("lancamentos").insert({
-        user_id: empresaId!,
-        tipo: "entrada",
-        categoria: "Venda",
-        descricao: `Venda #${String(venda.numero ?? venda.id.slice(0, 8)).padStart(4, "0")}`,
-        valor: total,
-        data: dataVenda,
-        created_at: createdAt,
-        venda_id: venda.id,
+        p_cliente_id: clienteId || null,
+        p_desconto: descontoNum,
+        p_forma_pagamento: formaPagamento,
+        p_observacoes: observacoes || null,
+        p_categoria: "Venda",
+        p_data: dataVenda,
+        p_created_at: createdAt,
       });
-      if (lancamentoErro) throw lancamentoErro;
+      if (vendaErro) throw vendaErro;
+      const venda = data as unknown as { id: string; numero: number | null } | null;
+      if (!venda) throw new Error("Erro ao criar venda");
       return venda;
     },
     onSuccess: (venda) => {
@@ -322,26 +285,11 @@ function Vendas() {
           if (error) throw error;
           return;
         }
-        for (const item of itens ?? []) {
-          if (!item.produto_id) continue;
-          const { data: produto } = await supabase
-            .from("produtos")
-            .select("quantidade, categoria")
-            .eq("id", item.produto_id)
-            .single();
-          if (produto && produto.categoria !== "Serviço") {
-            const { error: estoqueErro } = await supabase
-              .from("produtos")
-              .update({ quantidade: produto.quantidade + item.quantidade })
-              .eq("id", item.produto_id);
-            if (estoqueErro) throw estoqueErro;
-          }
-        }
-        const { error: lancamentoErro } = await supabase
-          .from("lancamentos")
-          .update({ status: "cancelado" })
-          .eq("venda_id", id);
-        if (lancamentoErro) throw lancamentoErro;
+        // Devolve o estoque, cancela a receita e marca a venda, tudo numa
+        // transação só (cancelar_venda).
+        const { error } = await supabase.rpc("cancelar_venda" as any, { p_venda_id: id });
+        if (error) throw error;
+        return;
       }
 
       const { error } = await supabase.from("vendas").update({ status }).eq("id", id);
@@ -358,37 +306,10 @@ function Vendas() {
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      // Excluir apaga itens e lançamento (cascade no banco), mas o estoque
-      // baixado na venda ficava perdido. Venda já cancelada já devolveu.
-      const venda = vendas.find((v) => v.id === id);
-      if (venda && venda.status !== "cancelado") {
-        const { data: itens, error: itensErro } = await supabase
-          .from("venda_itens")
-          .select("produto_id, quantidade, aparelho_id")
-          .eq("venda_id", id);
-        if (itensErro) throw itensErro;
-        if ((itens ?? []).some((i) => i.aparelho_id)) {
-          throw new Error(
-            "Venda de aparelho não pode ser excluída: mude o status para Cancelado — assim o aparelho volta ao estoque e a receita sai do Financeiro.",
-          );
-        }
-        for (const item of itens ?? []) {
-          if (!item.produto_id) continue;
-          const { data: produto } = await supabase
-            .from("produtos")
-            .select("quantidade, categoria")
-            .eq("id", item.produto_id)
-            .single();
-          if (produto && produto.categoria !== "Serviço") {
-            const { error: estoqueErro } = await supabase
-              .from("produtos")
-              .update({ quantidade: produto.quantidade + item.quantidade })
-              .eq("id", item.produto_id);
-            if (estoqueErro) throw estoqueErro;
-          }
-        }
-      }
-      const { error } = await supabase.from("vendas").delete().eq("id", id);
+      // Devolve o estoque (se a venda não estava cancelada) e apaga venda,
+      // itens e lançamento numa transação só (excluir_venda). Venda de
+      // aparelho ativa é recusada lá — precisa ser cancelada antes.
+      const { error } = await supabase.rpc("excluir_venda" as any, { p_venda_id: id });
       if (error) throw error;
     },
     onSuccess: () => {

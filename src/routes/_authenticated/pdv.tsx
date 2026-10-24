@@ -175,60 +175,24 @@ function PDV() {
         throw new Error("Valor recebido é menor que o total");
       }
       
-      const { data: venda, error: vendaErro } = await supabase
-        .from("vendas")
-        .insert({
-          user_id: empresaId!,
-          cliente_id: clienteId,
-          total,
-          desconto,
-          observacoes: observacoes.trim() || null,
-          forma_pagamento: formaPagamento,
-        })
-        .select()
-        .single();
-      
-      if (vendaErro) throw vendaErro;
-      if (!venda) throw new Error("Erro ao criar venda");
-
-      const { error: itensErro } = await supabase.from("venda_itens").insert(
-        carrinho.map(i => ({
-          user_id: empresaId!,
-          venda_id: (venda as any).id,
+      // Venda, itens, baixa de estoque e receita numa única transação no
+      // banco (registrar_venda): ou grava tudo, ou nada.
+      const { data: venda, error: vendaErro } = await supabase.rpc("registrar_venda" as any, {
+        p_empresa_id: empresaId!,
+        p_itens: carrinho.map((i) => ({
           produto_id: i.id,
           descricao: i.nome,
           quantidade: i.qtd,
-          preco_unitario: i.preco
-        }))
-      );
-
-      if (itensErro) throw itensErro;
-
-      for (const item of carrinho) {
-        if (item.tipo === 'Produto') {
-          const { data: p } = await supabase.from('produtos').select('quantidade').eq('id', item.id).single();
-          if (p) {
-            const { error: estoqueErro } = await supabase
-              .from('produtos')
-              .update({ quantidade: Math.max(0, p.quantidade - item.qtd) })
-              .eq('id', item.id);
-            if (estoqueErro) throw estoqueErro;
-          }
-        }
-      }
-
-      // Sem checar o erro, uma falha aqui deixava a venda sem a receita no
-      // Financeiro/DRE, sem aviso. Descrição com o nº da venda (antes saía um
-      // pedaço do id, ex.: "Venda #ef390326"), igual à tela de Vendas.
-      const { error: lancamentoErro } = await supabase.from("lancamentos").insert({
-        user_id: empresaId!,
-        tipo: "entrada",
-        categoria: "Venda PDV",
-        descricao: `Venda #${String((venda as any).numero ?? (venda as any).id.slice(0, 8)).padStart(4, "0")}`,
-        valor: total,
-        venda_id: (venda as any).id,
+          preco_unitario: i.preco,
+        })),
+        p_cliente_id: clienteId,
+        p_desconto: desconto,
+        p_forma_pagamento: formaPagamento,
+        p_observacoes: observacoes.trim() || null,
+        p_categoria: "Venda PDV",
       });
-      if (lancamentoErro) throw lancamentoErro;
+      if (vendaErro) throw vendaErro;
+      if (!venda) throw new Error("Erro ao criar venda");
       return venda as { id: string; numero: number | null };
     },
     onSuccess: (venda) => {
