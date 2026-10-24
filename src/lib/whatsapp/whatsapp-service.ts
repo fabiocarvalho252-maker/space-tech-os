@@ -1573,6 +1573,39 @@ export async function avisarDonoDaPlataforma(templateId: string, mensagem: strin
   }
 }
 
+/**
+ * Mensagem da plataforma para o dono de uma empresa cliente (aviso de conta
+ * inativa). Sai pelo WhatsApp da empresa do operador, então a resposta do
+ * cliente cai na caixa de WhatsApp do SPACE TECH. Não lança.
+ */
+export async function enviarDaPlataforma(params: {
+  telefone: string;
+  nome: string | null;
+  mensagem: string;
+  templateId: string;
+}): Promise<"enviado" | "falhou" | "sem_conexao"> {
+  try {
+    if (!evolutionConfigurado()) return "sem_conexao";
+    const empresaId = await obterEmpresaDoOperador();
+    if (!empresaId) return "sem_conexao";
+    const conexao = await obterConexao(empresaId);
+    if (!conexao || conexao.status !== "conectado") return "sem_conexao";
+
+    const envio = await enviarAutomatico({
+      empresaId,
+      conexao,
+      numeroCompleto: paraE164BR(params.telefone.replace(/\D/g, "")),
+      nome: params.nome,
+      mensagem: params.mensagem,
+      templateId: params.templateId,
+    });
+    return envio === "falhou" ? "falhou" : "enviado";
+  } catch (erro) {
+    console.error("[Plataforma] Erro ao enviar mensagem:", erro);
+    return "falhou";
+  }
+}
+
 export type ReclamacaoPesquisa = {
   id: string;
   phone_number: string;

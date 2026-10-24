@@ -6,6 +6,7 @@ import { handleWhatsappWebhook } from "./lib/whatsapp/webhook-handler.server";
 import { handlePixWebhook } from "./lib/pix/webhook-handler.server";
 import { handleMercadoPagoSubscriptionWebhook } from "./lib/mercadopago/webhook-handler.server";
 import { handleCrediarioCron } from "./lib/crediario/cron-handler.server";
+import { handleContasInativasCron } from "./lib/contas-inativas-cron.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -87,6 +88,14 @@ function isCrediarioCronRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/crediario/cron";
 }
 
+// Chamado uma vez por dia pelo cron do servidor (scripts/contas-inativas.sh)
+// — sem sessão. Autenticado por token; ver
+// src/lib/contas-inativas-cron.server.ts.
+function isContasInativasCronRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/contas-inativas/cron";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -101,6 +110,9 @@ export default {
       }
       if (isCrediarioCronRequest(request)) {
         return await handleCrediarioCron(request);
+      }
+      if (isContasInativasCronRequest(request)) {
+        return await handleContasInativasCron(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

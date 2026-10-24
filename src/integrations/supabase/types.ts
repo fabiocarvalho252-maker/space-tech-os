@@ -2387,6 +2387,7 @@ export type Database = {
           plano_solicitado_em: string | null;
           status: string;
           trial_aviso_enviado_em: string | null;
+          aviso_inatividade_enviado_em: string | null;
           updated_at: string;
           whatsapp: string | null;
         };
@@ -2409,6 +2410,7 @@ export type Database = {
           plano_solicitado_em?: string | null;
           status?: string;
           trial_aviso_enviado_em?: string | null;
+          aviso_inatividade_enviado_em?: string | null;
           updated_at?: string;
           whatsapp?: string | null;
         };
@@ -2431,6 +2433,7 @@ export type Database = {
           plano_solicitado_em?: string | null;
           status?: string;
           trial_aviso_enviado_em?: string | null;
+          aviso_inatividade_enviado_em?: string | null;
           updated_at?: string;
           whatsapp?: string | null;
         };
