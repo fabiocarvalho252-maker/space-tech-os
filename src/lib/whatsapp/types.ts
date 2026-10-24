@@ -51,4 +51,8 @@ export type WhatsappMensagem = {
   error: string | null;
   sent_by: string | null;
   created_at: string;
+  // Resposta à pesquisa de satisfação classificada pelo agente de IA.
+  avaliacao?: "positiva" | "neutra" | "reclamacao" | "outro" | null;
+  pesquisa_msg_id?: string | null;
+  avaliacao_resolvida?: boolean;
 };

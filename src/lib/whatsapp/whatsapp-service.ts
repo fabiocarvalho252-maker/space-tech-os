@@ -22,6 +22,7 @@ import {
   statusInstancia,
 } from "./evolution-api";
 import type { JsonValue, WhatsappAnexoRegistro, WhatsappConexao, WhatsappMensagem } from "./types";
+import { avaliarRespostaPesquisa, escreverPesquisaPosOs } from "./ia-pesquisa.server";
 
 export class WhatsappNaoConfiguradoError extends Error {
   constructor() {
@@ -605,7 +606,7 @@ export async function registrarMensagemRecebida(params: {
   if (!conexao) return { ok: false, motivo: "Instância desconhecida — nenhuma empresa vinculada." };
 
   const row = conexao as unknown as { id: string; user_id: string };
-  const { error } = await supabaseAdmin
+  const { data: inserida, error } = await supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
     .from("whatsapp_messages" as any)
     .insert({
@@ -618,11 +619,183 @@ export async function registrarMensagemRecebida(params: {
       status: "recebido",
       evolution_message_id: params.evolutionMessageId,
       metadata: params.metadata ?? null,
-    });
+    })
+    .select("id, created_at")
+    .single();
   // Idempotent on evolution_message_id: a duplicate webhook delivery hits
   // the partial unique index and is silently ignored, not an error.
   if (error && error.code !== "23505") throw error;
+
+  // Resposta a uma pesquisa de satisfação? O Gemini pode levar alguns
+  // segundos, então roda depois de responder ao webhook (o Evolution não
+  // espera nem reenvia por isso).
+  const recebida = inserida as unknown as { id: string; created_at: string } | null;
+  if (recebida && params.texto?.trim()) {
+    void processarRespostaPesquisa({
+      empresaId: row.user_id,
+      mensagemId: recebida.id,
+      recebidaEm: recebida.created_at,
+      numero: params.numero,
+      texto: params.texto,
+    }).catch((e) =>
+      console.error(
+        "[ia-pesquisa] falha ao processar resposta:",
+        e instanceof Error ? e.message : e,
+      ),
+    );
+  }
   return { ok: true };
+}
+
+// Mesmo telefone mesmo com/sem 55 e com/sem o nono dígito: o WhatsApp
+// devolve 557498125994 para o número cadastrado como 74 99812-5994.
+function chaveTelefone(numero: string): string {
+  let d = numero.replace(/\D/g, "");
+  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+  return d.length >= 10 ? `${d.slice(0, 2)}${d.slice(-8)}` : d;
+}
+
+// Até quantos dias depois da pesquisa uma mensagem do cliente conta como
+// resposta a ela.
+const RESPOSTA_PESQUISA_DIAS = 7;
+
+/**
+ * Agente de IA da pesquisa (Configurações > WhatsApp, "IA: agradecer quem
+ * responde a pesquisa", desligado por padrão). Quando o cliente responde à
+ * última pesquisa que recebeu (pós-OS ou pós-venda, automática ou manual):
+ *   - o Gemini classifica a resposta e ela fica gravada na mensagem e na OS;
+ *   - elogio ou neutra: agradece uma única vez por pesquisa;
+ *   - reclamação: não responde nada — vira aviso no sininho para a loja;
+ *   - outro assunto: ignora e espera a próxima mensagem.
+ * Não entra se a loja já mandou outra mensagem a esse cliente depois da
+ * pesquisa (aí a conversa é com uma pessoa).
+ */
+export async function processarRespostaPesquisa(params: {
+  empresaId: string;
+  mensagemId: string;
+  recebidaEm: string;
+  numero: string;
+  texto: string;
+}): Promise<void> {
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("ia_agradecer_pesquisa")
+    .eq("user_id", params.empresaId)
+    .maybeSingle();
+  if (!(config as unknown as { ia_agradecer_pesquisa: boolean } | null)?.ia_agradecer_pesquisa) {
+    return;
+  }
+
+  const chave = chaveTelefone(params.numero);
+  const desde = new Date(
+    new Date(params.recebidaEm).getTime() - RESPOSTA_PESQUISA_DIAS * 86400_000,
+  ).toISOString();
+  const { data: enviadas } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("id, phone_number, contact_name, content, template_id, os_id, status, created_at")
+    .eq("user_id", params.empresaId)
+    .eq("direction", "outbound")
+    .gte("created_at", desde)
+    .lt("created_at", params.recebidaEm)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  type Enviada = {
+    id: string;
+    phone_number: string;
+    contact_name: string | null;
+    content: string | null;
+    template_id: string | null;
+    os_id: string | null;
+    status: string;
+    created_at: string;
+  };
+  const paraEsteCliente = ((enviadas ?? []) as unknown as Enviada[]).filter(
+    (m) => m.status === "enviado" && chaveTelefone(m.phone_number) === chave,
+  );
+  const ultima = paraEsteCliente[0];
+  const ehPesquisa = (t: string | null) =>
+    t === "pesquisa_auto" || t === "pos_atendimento" || !!t?.startsWith("pos_venda_");
+  if (!ultima || !ehPesquisa(ultima.template_id)) return;
+  const pesquisa = ultima;
+
+  const { data: jaRespondida } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("id")
+    .eq("pesquisa_msg_id", pesquisa.id)
+    .maybeSingle();
+  if (jaRespondida) return;
+
+  // Primeiro nome: do cadastro da OS, senão o nome do contato no WhatsApp.
+  let nomeCliente = pesquisa.contact_name ?? "";
+  if (pesquisa.os_id) {
+    const { data: os } = await supabaseAdmin
+      .from("ordens_servico")
+      .select("clientes(nome)")
+      .eq("id", pesquisa.os_id)
+      .maybeSingle();
+    nomeCliente = ((os as any)?.clientes?.nome as string | undefined) ?? nomeCliente;
+  }
+  const primeiroNome = nomeCliente.trim().split(/\s+/)[0] ?? "";
+
+  const loja = await nomeDaLoja(params.empresaId);
+  const resultado = await avaliarRespostaPesquisa(params.empresaId, {
+    loja,
+    cliente: primeiroNome,
+    pesquisa: pesquisa.content ?? "",
+    resposta: params.texto,
+  });
+  if (!resultado || resultado.avaliacao === "outro") return;
+
+  // Liga a resposta à pesquisa; o índice único barra um segundo webhook ou
+  // uma segunda mensagem do cliente processada ao mesmo tempo.
+  const { error: erroVinculo } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .update({ avaliacao: resultado.avaliacao, pesquisa_msg_id: pesquisa.id })
+    .eq("id", params.mensagemId);
+  if (erroVinculo) {
+    if (erroVinculo.code === "23505") return;
+    throw erroVinculo;
+  }
+
+  const rotulo =
+    resultado.avaliacao === "positiva"
+      ? "elogio"
+      : resultado.avaliacao === "neutra"
+        ? "resposta neutra"
+        : "reclamação";
+  await registrarHistoricoOs(
+    params.empresaId,
+    pesquisa.os_id,
+    "pesquisa_respondida",
+    `Cliente respondeu à pesquisa (IA: ${rotulo}): "${params.texto.slice(0, 200)}"`,
+    params.empresaId,
+  );
+
+  if (resultado.avaliacao === "reclamacao" || !resultado.agradecimento) return;
+  const conexao = await obterConexao(params.empresaId);
+  if (!conexao || conexao.status !== "conectado") return;
+  const status = await enviarAutomatico({
+    empresaId: params.empresaId,
+    conexao,
+    numeroCompleto: pesquisa.phone_number,
+    nome: nomeCliente || null,
+    mensagem: resultado.agradecimento,
+    templateId: `agradecimento_${pesquisa.id}`,
+    osId: pesquisa.os_id,
+  });
+  if (status === "enviado") {
+    await registrarHistoricoOs(
+      params.empresaId,
+      pesquisa.os_id,
+      "whatsapp_enviado",
+      "Agradecimento pela pesquisa enviado pela IA",
+      params.empresaId,
+    );
+  }
 }
 
 /**
@@ -775,6 +948,25 @@ function horaDeBrasilia(): number {
   );
 }
 
+const IA_PESQUISAS_POR_RODADA = 5;
+
+// Serviços lançados em cada OS (os_itens tipo "servico"), para a IA citar.
+async function servicosDasOrdens(osIds: string[]): Promise<Map<string, string>> {
+  const { data } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- os_itens not in the generated Database type yet
+    .from("os_itens" as any)
+    .select("os_id, descricao")
+    .in("os_id", osIds)
+    .eq("tipo", "servico");
+  const mapa = new Map<string, string>();
+  for (const item of (data ?? []) as unknown as { os_id: string; descricao: string | null }[]) {
+    if (!item.descricao) continue;
+    const atual = mapa.get(item.os_id);
+    mapa.set(item.os_id, atual ? `${atual}, ${item.descricao}` : item.descricao);
+  }
+  return mapa;
+}
+
 /**
  * Pesquisa de satisfação automática (Configurações > WhatsApp, desligada por
  * padrão): coloca na fila uma mensagem por OS entregue dentro da janela acima
@@ -789,13 +981,16 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   const { data: config } = await supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
     .from("whatsapp_config" as any)
-    .select("notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto")
+    .select(
+      "notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto, ia_pesquisa_personalizada",
+    )
     .eq("user_id", empresaId)
     .maybeSingle();
   const cfg = config as unknown as {
     notif_pesquisa_auto: boolean;
     notif_pesquisa_auto_desde: string | null;
     pesquisa_pos_os_texto: string | null;
+    ia_pesquisa_personalizada: boolean;
   } | null;
   if (!cfg?.notif_pesquisa_auto || !cfg.notif_pesquisa_auto_desde || !cfg.pesquisa_pos_os_texto) {
     return 0;
@@ -834,6 +1029,12 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   );
 
   const loja = await nomeDaLoja(empresaId);
+  const servicosPorOs = cfg.ia_pesquisa_personalizada
+    ? await servicosDasOrdens(ordens.map((o) => o.id))
+    : new Map<string, string>();
+  // Cada pesquisa personalizada é uma chamada ao Gemini (limite gratuito por
+  // minuto): poucas por rodada; as demais saem nas próximas, 10 min depois.
+  let escritasPelaIA = 0;
   let enfileiradas = 0;
   for (const os of ordens) {
     if (enviadas.has(os.id)) continue;
@@ -853,6 +1054,25 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
       .replace(/\{\{\s*loja\s*\}\}/g, loja)
       .replace(/Olá\s+([,!])/g, "Olá$1");
 
+    let texto = mensagem;
+    if (cfg.ia_pesquisa_personalizada) {
+      if (escritasPelaIA >= IA_PESQUISAS_POR_RODADA) continue;
+      escritasPelaIA++;
+      const daIA = await escreverPesquisaPosOs(empresaId, {
+        loja,
+        cliente: primeiroNome,
+        aparelho,
+        servico: servicosPorOs.get(os.id) ?? "",
+        numeroOs: os.numero,
+        textoBase: mensagem,
+      }).catch((e) => {
+        console.error("[ia-pesquisa] falha ao escrever:", e instanceof Error ? e.message : e);
+        return null;
+      });
+      // Sem IA (chave ausente, limite, erro) vai o texto fixo da loja.
+      if (daIA) texto = daIA;
+    }
+
     const { error } = await supabaseAdmin
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
       .from("whatsapp_messages" as any)
@@ -860,7 +1080,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
         user_id: empresaId,
         direction: "outbound",
         phone_number: paraE164BR(telefone),
-        content: mensagem,
+        content: texto,
         status: "agendado",
         os_id: os.id,
         template_id: "pesquisa_auto",
@@ -963,6 +1183,7 @@ async function enviarAutomatico(params: {
   nome: string | null;
   mensagem: string;
   templateId: string;
+  osId?: string | null;
 }): Promise<"enviado" | "falhou" | "repetida"> {
   const { data: reserva, error } = await supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
@@ -976,6 +1197,7 @@ async function enviarAutomatico(params: {
       content: params.mensagem,
       status: "pendente",
       template_id: params.templateId,
+      os_id: params.osId ?? null,
     })
     .select("id")
     .single();
@@ -1295,4 +1517,62 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
     templateId,
   });
   return envio === "enviado";
+}
+
+export type ReclamacaoPesquisa = {
+  id: string;
+  phone_number: string;
+  contact_name: string | null;
+  content: string | null;
+  created_at: string;
+};
+
+/**
+ * Reclamações recebidas na pesquisa (classificadas pela IA) que ainda pedem
+ * atenção: some do sininho quando marcada como resolvida ou quando a loja
+ * manda qualquer mensagem a esse cliente depois da reclamação.
+ */
+export async function listarReclamacoesPesquisa(empresaId: string): Promise<ReclamacaoPesquisa[]> {
+  const desde = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const { data } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("id, phone_number, contact_name, content, created_at")
+    .eq("user_id", empresaId)
+    .eq("avaliacao", "reclamacao")
+    .eq("avaliacao_resolvida", false)
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const reclamacoes = (data ?? []) as unknown as ReclamacaoPesquisa[];
+  if (!reclamacoes.length) return [];
+
+  const { data: respostas } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("phone_number, created_at")
+    .eq("user_id", empresaId)
+    .eq("direction", "outbound")
+    .eq("status", "enviado")
+    .gte("created_at", reclamacoes[reclamacoes.length - 1]!.created_at)
+    .limit(500);
+  const ultimaResposta = new Map<string, string>();
+  for (const r of (respostas ?? []) as unknown as { phone_number: string; created_at: string }[]) {
+    const chave = chaveTelefone(r.phone_number);
+    if ((ultimaResposta.get(chave) ?? "") < r.created_at) ultimaResposta.set(chave, r.created_at);
+  }
+  return reclamacoes.filter(
+    (r) => (ultimaResposta.get(chaveTelefone(r.phone_number)) ?? "") <= r.created_at,
+  );
+}
+
+export async function resolverReclamacaoPesquisa(empresaId: string, id: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .update({ avaliacao_resolvida: true })
+    .eq("id", id)
+    .eq("user_id", empresaId)
+    .eq("avaliacao", "reclamacao");
+  if (error) throw error;
 }

@@ -33,6 +33,7 @@ import {
   enviarMensagemWhatsapp,
   listarMensagensWhatsapp,
   reiniciarWhatsapp,
+  resolverReclamacaoPesquisaFn,
   statusWhatsapp,
 } from "@/lib/whatsapp/whatsapp.functions";
 import type { WhatsappConexao } from "@/lib/whatsapp/types";
@@ -81,6 +82,16 @@ function WhatsappPage() {
     queryKey: ["whatsapp-mensagens", direcao],
     queryFn: () => listarMensagensWhatsapp({ data: { direcao } }),
     refetchInterval: status === "conectado" ? 15000 : false,
+  });
+
+  const resolverReclamacao = useMutation({
+    mutationFn: (id: string) => resolverReclamacaoPesquisaFn({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["whatsapp-mensagens"] });
+      qc.invalidateQueries({ queryKey: ["notificacoes-header"] });
+      toast.success("Reclamação marcada como resolvida");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível marcar"),
   });
 
   useEffect(() => {
@@ -383,6 +394,36 @@ function WhatsappPage() {
                       {m.status === "falhou" && (
                         <p className="text-[10px] text-destructive">{motivoFalha(m.error)}</p>
                       )}
+                      {m.direction === "inbound" && m.avaliacao && m.avaliacao !== "outro" && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              m.avaliacao === "reclamacao"
+                                ? "bg-destructive/10 text-destructive"
+                                : m.avaliacao === "positiva"
+                                  ? "bg-green-500/10 text-green-600"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {m.avaliacao === "reclamacao"
+                              ? `Reclamação na pesquisa${m.avaliacao_resolvida ? " · resolvida" : ""}`
+                              : m.avaliacao === "positiva"
+                                ? "Elogio na pesquisa"
+                                : "Resposta neutra na pesquisa"}
+                          </span>
+                          {m.avaliacao === "reclamacao" && !m.avaliacao_resolvida && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px]"
+                              disabled={resolverReclamacao.isPending}
+                              onClick={() => resolverReclamacao.mutate(m.id)}
+                            >
+                              Marcar como resolvida
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -444,6 +485,7 @@ function tipoMensagem(templateId: string | null): string | null {
   if (templateId.startsWith("aniversario_")) return "Aniversário · automático";
   if (templateId.startsWith("boas_vindas_")) return "Boas-vindas · automático";
   if (templateId.startsWith("relatorio_semanal_")) return "Resumo semanal · automático";
+  if (templateId.startsWith("agradecimento_")) return "Agradecimento · IA";
   if (templateId === "pos_atendimento") return "Pesquisa pós-OS";
   if (templateId === "nova_os") return "OS criada";
   if (templateId === "os_atualizada") return "OS atualizada";

@@ -123,6 +123,73 @@ async function chamarGemini(params: {
   return { texto, fontes };
 }
 
+/**
+ * Texto curto para automações sem usuário logado (agente da pesquisa de
+ * satisfação no WhatsApp). Tenta o Gemini e, se ele faltar, falhar ou
+ * estourar o limite por minuto, o ChatGPT (OPENAI_API_KEY) como reserva.
+ * Nunca usa o provedor pago do chat nem créditos de IA; sem nenhuma das duas
+ * chaves devolve null e a automação simplesmente não age.
+ */
+export async function gerarTextoAutomacao(
+  empresaId: string,
+  params: { systemPrompt: string; texto: string },
+): Promise<string | null> {
+  const geminiKey = process.env["GEMINI_API_KEY"];
+  if (geminiKey && dentroDoLimiteGemini(empresaId)) {
+    try {
+      const resposta = await chamarGemini({
+        apiKey: geminiKey,
+        ...params,
+        imagens: [],
+        pesquisar: false,
+      });
+      return resposta.texto;
+    } catch (e) {
+      console.error("[ia] automação: gemini falhou:", e instanceof Error ? e.message : e);
+    }
+  }
+  return chamarChatGPT(params);
+}
+
+const OPENAI_MODELO_PADRAO = "gpt-4o-mini";
+
+// Reserva das automações: OpenAI Chat Completions, só texto.
+async function chamarChatGPT(params: {
+  systemPrompt: string;
+  texto: string;
+}): Promise<string | null> {
+  const apiKey = process.env["OPENAI_API_KEY"];
+  if (!apiKey) return null;
+  const modelo = process.env["OPENAI_MODEL"] || OPENAI_MODELO_PADRAO;
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: modelo,
+        max_tokens: 400,
+        messages: [
+          { role: "system", content: params.systemPrompt },
+          { role: "user", content: params.texto },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const corpo = await res.text().catch(() => "");
+      console.error(`[ia] automação: chatgpt HTTP ${res.status}`, corpo.slice(0, 300));
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const json: any = await res.json();
+    const texto = String(json?.choices?.[0]?.message?.content ?? "").trim();
+    return texto || null;
+  } catch (e) {
+    console.error("[ia] automação: chatgpt sem resposta", e instanceof Error ? e.name : e);
+    return null;
+  }
+}
+
 // Charges one IA credit and refunds it if no answer comes back — same rule
 // as ia.functions.ts.
 async function chamarProvedorPago(

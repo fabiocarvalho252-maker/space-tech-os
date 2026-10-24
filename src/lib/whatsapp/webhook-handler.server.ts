@@ -97,7 +97,15 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
       if (remoteJid && /@(g\.us|broadcast|newsletter)$/.test(remoteJid)) {
         return new Response("ok", { status: 200 });
       }
-      const numero = remoteJid?.split("@")[0] ?? "desconhecido";
+      // Contatos com "@lid" chegam com um código no lugar do telefone; o
+      // número real vem em remoteJidAlt / senderPn (conforme a versão do
+      // Evolution). Sem ele a resposta não casa com o cliente cadastrado.
+      const jidTelefone = remoteJid?.endsWith("@lid")
+        ? [key["remoteJidAlt"], key["senderPn"], data["senderPn"]]
+            .map(texto)
+            .find((j) => j?.endsWith("@s.whatsapp.net"))
+        : undefined;
+      const numero = (jidTelefone ?? remoteJid)?.split("@")[0] ?? "desconhecido";
       const conteudo = extrairTextoMensagem(data["message"]);
       const evolutionMessageId = texto(key["id"]) ?? null;
       const nomeContato = texto(data["pushName"]) ?? null;

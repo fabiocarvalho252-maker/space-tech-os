@@ -2212,6 +2212,18 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "ia_pesquisa_personalizada",
+                        label: "IA: escrever a pesquisa pós-OS para cada cliente",
+                        key: "ia_pesquisa_personalizada",
+                        uso: "auto",
+                      },
+                      {
+                        id: "ia_agradecer_pesquisa",
+                        label: "IA: agradecer quem responde a pesquisa",
+                        key: "ia_agradecer_pesquisa",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_pesquisa_venda_auto",
                         label: "Pesquisa pós-venda no dia seguinte à compra",
                         key: "notif_pesquisa_venda_auto",
@@ -2317,7 +2329,26 @@ function Configuracoes() {
                         </summary>
                         <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
                           <div className="space-y-2">
-                            {item.key === "notif_relatorio_auto" ? (
+                            {item.key === "ia_pesquisa_personalizada" ? (
+                              <p className="text-[11px] text-muted-foreground">
+                                Com a pesquisa pós-OS automática ligada, a IA (Gemini, com o ChatGPT
+                                de reserva se configurado) escreve cada mensagem com o primeiro nome
+                                do cliente, o aparelho e o serviço feito, usando o texto da pesquisa
+                                como referência de tom. Se a IA não responder, vai o texto fixo de
+                                sempre.
+                              </p>
+                            ) : item.key === "ia_agradecer_pesquisa" ? (
+                              <p className="text-[11px] text-muted-foreground">
+                                Quando o cliente responde à pesquisa (pós-OS ou pós-venda,
+                                automática ou enviada à mão), a IA lê a resposta.{" "}
+                                <strong>Elogio ou resposta neutra:</strong> ela agradece sozinha,
+                                uma vez por pesquisa. <strong>Reclamação:</strong> nada é enviado —
+                                aparece um aviso no sininho para você responder pessoalmente. A
+                                avaliação fica registrada no histórico da OS. Se você já tiver
+                                mandado outra mensagem ao cliente depois da pesquisa, a IA não entra
+                                na conversa.
+                              </p>
+                            ) : item.key === "notif_relatorio_auto" ? (
                               <>
                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">
                                   WhatsApp que recebe o resumo

@@ -120,6 +120,24 @@ export const listarMensagensWhatsapp = createServerFn({ method: "GET" })
     );
   });
 
+// Reclamações da pesquisa de satisfação (agente de IA) para o sininho.
+export const listarReclamacoesPesquisaFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<whatsappService.ReclamacaoPesquisa[]> => {
+    return whatsappService.listarReclamacoesPesquisa(await empresaDoUsuario(context, "clientes"));
+  });
+
+export const resolverReclamacaoPesquisaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await whatsappService.resolverReclamacaoPesquisa(
+      await empresaDoUsuario(context, "clientes"),
+      data.id,
+    );
+    return { ok: true };
+  });
+
 const notificacaoOsSchema = z.object({
   osId: z.string().uuid(),
   numero: z.string().trim().min(8).max(20),

@@ -36,6 +36,7 @@ import {
   Gift,
   HandCoins,
   MonitorDown,
+  MessageSquareWarning,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -49,7 +50,10 @@ import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useC
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
-import { processarNotificacoesAgendadasWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
+import {
+  listarReclamacoesPesquisaFn,
+  processarNotificacoesAgendadasWhatsAppFn,
+} from "@/lib/whatsapp/whatsapp.functions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -477,12 +481,14 @@ function useNotificacoes() {
   return useQuery({
     queryKey: ["notificacoes-header"],
     queryFn: async () => {
-      const [{ data: produtos }, { count: osAguardando }] = await Promise.all([
+      const [{ data: produtos }, { count: osAguardando }, reclamacoes] = await Promise.all([
         supabase.from("produtos").select("id, nome, quantidade, estoque_minimo"),
         supabase
           .from("ordens_servico")
           .select("id", { count: "exact", head: true })
           .eq("status", "aguardando_aprovacao"),
+        // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
+        listarReclamacoesPesquisaFn().catch(() => []),
       ]);
 
       const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
@@ -498,6 +504,18 @@ function useNotificacoes() {
             .join(", "),
           to: "/estoque",
           icon: Package,
+        });
+      }
+      if (reclamacoes.length > 0) {
+        itens.push({
+          id: "reclamacoes-pesquisa",
+          titulo: `${reclamacoes.length} reclamaç${reclamacoes.length > 1 ? "ões" : "ão"} na pesquisa de satisfação`,
+          descricao: reclamacoes
+            .slice(0, 2)
+            .map((r) => `${r.contact_name || "Cliente"}: "${r.content ?? ""}"`)
+            .join(" · "),
+          to: "/whatsapp",
+          icon: MessageSquareWarning,
         });
       }
       if ((osAguardando ?? 0) > 0) {
