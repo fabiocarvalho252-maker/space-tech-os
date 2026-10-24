@@ -1459,6 +1459,7 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
+          acessorios: string | null
           anotacoes: string | null
           aparelho: string
           checklist_entrada: Json
@@ -1493,6 +1494,7 @@ export type Database = {
           valor_pago: number
         }
         Insert: {
+          acessorios?: string | null
           anotacoes?: string | null
           aparelho: string
           checklist_entrada?: Json
@@ -1527,6 +1529,7 @@ export type Database = {
           valor_pago?: number
         }
         Update: {
+          acessorios?: string | null
           anotacoes?: string | null
           aparelho?: string
           checklist_entrada?: Json
@@ -2778,6 +2781,7 @@ export type Database = {
       produtos: {
         Row: {
           categoria: string | null
+          codigo_barras: string | null
           comissao_percentual: number
           created_at: string
           descricao: string | null
@@ -2795,6 +2799,7 @@ export type Database = {
         }
         Insert: {
           categoria?: string | null
+          codigo_barras?: string | null
           comissao_percentual?: number
           created_at?: string
           descricao?: string | null
@@ -2812,6 +2817,7 @@ export type Database = {
         }
         Update: {
           categoria?: string | null
+          codigo_barras?: string | null
           comissao_percentual?: number
           created_at?: string
           descricao?: string | null

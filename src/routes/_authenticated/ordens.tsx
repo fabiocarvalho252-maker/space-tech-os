@@ -26,6 +26,7 @@ import {
   Undo2,
   KeyRound,
   Share2,
+  UserCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -124,8 +125,53 @@ const vazio = {
   padrao_desbloqueio: "",
   responsavel: "",
   responsavel_user_id: "",
+  acessorios: "",
   itens: [] as any[],
 };
+
+const ACESSORIOS_COMUNS = ["Chip", "Capinha", "Carregador", "Cabo", "Película", "Cartão de memória", "Caixa"];
+
+// Acessórios ficam como texto livre ("Chip, Capinha"); os botões só
+// acrescentam ou tiram o item da lista.
+function alternarAcessorio(texto: string, item: string): string {
+  const lista = texto
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const tem = lista.some((t) => t.toLowerCase() === item.toLowerCase());
+  return (tem ? lista.filter((t) => t.toLowerCase() !== item.toLowerCase()) : [...lista, item]).join(", ");
+}
+
+function AcessoriosCampo({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const marcados = value.split(",").map((t) => t.trim().toLowerCase());
+  return (
+    <div className="space-y-2">
+      <Label>Acessórios deixados</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {ACESSORIOS_COMUNS.map((a) => {
+          const ativo = marcados.includes(a.toLowerCase());
+          return (
+            <button
+              key={a}
+              type="button"
+              onClick={() => onChange(alternarAcessorio(value, a))}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                ativo ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary"
+              }`}
+            >
+              {a}
+            </button>
+          );
+        })}
+      </div>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Nenhum — ou escreva outros"
+      />
+    </div>
+  );
+}
 
 // Checklist funcional de entrada — cada item aceita 4 estados possíveis.
 const CHECKLIST_STATUS = [
@@ -204,6 +250,8 @@ function Ordens() {
   const [form, setForm] = useState(vazio);
   const [filtro, setFiltro] = useState("todas");
   const [showFilters, setShowFilters] = useState(false);
+  // "Minhas OS": só as atribuídas a quem está logado (o técnico na bancada).
+  const [soMinhas, setSoMinhas] = useState(false);
   const [filtrosAvancados, setFiltrosAvancados] = useState({
     dataInicio: "",
     dataFim: "",
@@ -320,6 +368,7 @@ function Ordens() {
       padrao_desbloqueio: os.padrao_desbloqueio || "",
       responsavel: os.responsavel || "",
       responsavel_user_id: (os as any).responsavel_user_id || "",
+      acessorios: (os as any).acessorios || "",
       itens: [],
     });
     setEditOpen(true);
@@ -503,6 +552,10 @@ function Ordens() {
           diagnostico: form.diagnostico,
           valor: Number(form.valor) || 0,
           status: form.status,
+          acessorios: form.acessorios.trim() || null,
+          estado_fisico: estadoFisico,
+          estado_fisico_obs: estadoFisicoObs.trim() || null,
+          previsao: previsaoData || null,
         } as any)
         .select()
         .single();
@@ -582,6 +635,7 @@ function Ordens() {
           checklist_entrada: checklist,
           estado_fisico: estadoFisico,
           estado_fisico_obs: estadoFisicoObs || null,
+          acessorios: form.acessorios.trim() || null,
           garantia_dias: garantiaDias ? Number(garantiaDias) : null,
           data_entrega: dataEntrega || null,
           previsao: previsaoData || null,
@@ -900,6 +954,7 @@ function Ordens() {
       checklist: ((os as any).checklist_entrada ?? {}) as Record<string, string>,
       estadoFisico: ((os as any).estado_fisico ?? {}) as Record<string, boolean>,
       estadoFisicoObs: (os as any).estado_fisico_obs ?? null,
+      acessorios: (os as any).acessorios ?? null,
       fotos: fotosComUrl,
       assinaturaClienteSrc,
       assinaturaTecnicoSrc,
@@ -939,6 +994,7 @@ function Ordens() {
       dataFim.setHours(23, 59, 59, 999);
       base = base.filter((o) => new Date(o.created_at) <= dataFim);
     }
+    if (soMinhas) base = base.filter((o) => o.responsavel_user_id === user?.id);
     if (filtrosAvancados.responsavel) {
       base = base.filter((o) =>
         o.responsavel?.toLowerCase().includes(filtrosAvancados.responsavel.toLowerCase()),
@@ -960,7 +1016,17 @@ function Ordens() {
     }
 
     return base;
-  }, [ordens, filtro, filtrosAvancados]);
+  }, [ordens, filtro, filtrosAvancados, soMinhas, user?.id]);
+
+  const minhasEmAberto = useMemo(
+    () =>
+      (ordens as any[]).filter(
+        (o) =>
+          o.responsavel_user_id === user?.id &&
+          !["entregue", "faturado", "cancelado", "reprovado"].includes(o.status),
+      ).length,
+    [ordens, user?.id],
+  );
 
   const acoesListaRef = useRef<AcoesListaOs>(null!);
   acoesListaRef.current = {
@@ -995,7 +1061,13 @@ function Ordens() {
               // dados da última OS editada, criando uma OS nova com o valor
               // de outro cliente.
               if (v) {
-                setForm(vazio);
+                // Técnico já vem preenchido com quem está abrindo a OS, se
+                // a pessoa for técnico/gerente/admin da empresa.
+                const souTecnico = tecnicos.some((m: any) => m.user_id === user?.id);
+                setForm({ ...vazio, responsavel_user_id: souTecnico ? user!.id : "" });
+                setEstadoFisico({});
+                setEstadoFisicoObs("");
+                setPrevisaoData("");
                 setFotosNovaOs([]);
                 setLadosNovaOs(new Map());
                 setNovoProduto(itemVazio);
@@ -1050,7 +1122,7 @@ function Ordens() {
                   sugestoes={sugestoesCor}
                 />
                 <Campo
-                  label="IMEI / Serial"
+                  label="IMEI"
                   value={form.imei}
                   onChange={(v) => setForm({ ...form, imei: v })}
                 />
@@ -1071,6 +1143,21 @@ function Ordens() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Previsão de entrega</Label>
+                  <Input
+                    type="date"
+                    value={previsaoData}
+                    onChange={(e) => setPrevisaoData(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nº de série</Label>
+                  <Input
+                    value={form.serial_number}
+                    onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Senha (PIN)</Label>
@@ -1115,6 +1202,38 @@ function Ordens() {
                   <Textarea
                     value={form.diagnostico}
                     onChange={(e) => setForm({ ...form, diagnostico: e.target.value })}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <AcessoriosCampo
+                    value={form.acessorios}
+                    onChange={(v) => setForm({ ...form, acessorios: v })}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Estado físico na entrada</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ESTADO_FISICO_ITENS.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() =>
+                          setEstadoFisico({ ...estadoFisico, [item.key]: !estadoFisico[item.key] })
+                        }
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                          estadoFisico[item.key]
+                            ? "border-red-500/40 bg-red-500/10 text-red-600"
+                            : "border-border hover:border-primary"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <Input
+                    value={estadoFisicoObs}
+                    onChange={(e) => setEstadoFisicoObs(e.target.value)}
+                    placeholder="Observações (ex.: trinca no canto superior)"
                   />
                 </div>
                 <div className="border-t border-border pt-4 sm:col-span-2">
@@ -1180,7 +1299,25 @@ function Ordens() {
         <Button
           variant="outline"
           size="sm"
-          className={`ml-auto gap-2 rounded-full ${showFilters ? "bg-primary/10 border-primary text-primary" : ""}`}
+          className={`ml-auto gap-2 rounded-full ${soMinhas ? "bg-primary/10 border-primary text-primary" : ""}`}
+          onClick={() => {
+            setSoMinhas(!soMinhas);
+            setLimiteLista(OS_POR_PAGINA);
+          }}
+          title="Só as OS em que você é o técnico responsável"
+        >
+          <UserCheck className="h-4 w-4" />
+          Minhas OS
+          {minhasEmAberto > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+              {minhasEmAberto}
+            </span>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`gap-2 rounded-full ${showFilters ? "bg-primary/10 border-primary text-primary" : ""}`}
           onClick={() => setShowFilters(!showFilters)}
         >
           {showFilters ? <X className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
@@ -1725,6 +1862,10 @@ function Ordens() {
                   placeholder="Detalhe as avarias marcadas acima, se necessário"
                 />
               </div>
+              <AcessoriosCampo
+                value={form.acessorios}
+                onChange={(v) => setForm({ ...form, acessorios: v })}
+              />
             </TabsContent>
 
             {/* GARANTIA */}

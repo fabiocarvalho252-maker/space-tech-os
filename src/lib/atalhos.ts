@@ -89,3 +89,8 @@ export function estaDigitando(target: EventTarget | null): boolean {
   const tag = target.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
+
+// Teclas que a tela aberta assumiu para si (o PDV usa F2/F4/F9 para buscar,
+// escolher cliente e finalizar). Enquanto estiverem aqui, o atalho global da
+// mesma tecla não navega — a tela registra ao montar e remove ao sair.
+export const teclasDaTela = new Set<string>();

@@ -347,7 +347,8 @@ function Vendas() {
   const itensProduto = produtos.filter(
     (p) =>
       p.nome.toLowerCase().includes(buscaItem.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(buscaItem.toLowerCase())),
+      (p.sku && p.sku.toLowerCase().includes(buscaItem.toLowerCase())) ||
+      (!!p.codigo_barras && p.codigo_barras === buscaItem.trim()),
   );
 
   const detalheVenda = vendas.find((v) => v.id === detalheId);

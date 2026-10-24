@@ -53,6 +53,7 @@ type Produto = {
   id: string;
   nome: string;
   sku: string | null;
+  codigo_barras: string | null;
   categoria: string | null;
   preco_custo: number;
   preco_venda: number;
@@ -63,6 +64,7 @@ type Produto = {
 const vazio = {
   nome: "",
   sku: "",
+  codigo_barras: "",
   categoria: "",
   preco_custo: "0",
   preco_venda: "0",
@@ -182,6 +184,7 @@ function Estoque() {
     setForm({
       nome: p.nome,
       sku: p.sku ?? "",
+      codigo_barras: p.codigo_barras ?? "",
       categoria: p.categoria ?? "",
       preco_custo: String(p.preco_custo),
       preco_venda: String(p.preco_venda),
@@ -214,9 +217,23 @@ function Estoque() {
         if (existente) throw new Error("Este SKU já está em uso");
       }
 
+      const codigoBarras = form.codigo_barras.trim();
+      if (codigoBarras) {
+        const { data: existente } = await supabase
+          .from("produtos")
+          .select("nome")
+          .eq("user_id", empresaId!)
+          .eq("codigo_barras", codigoBarras)
+          .neq("id", produtoAtual?.id ?? "")
+          .limit(1)
+          .maybeSingle();
+        if (existente) throw new Error(`Este código de barras já está em "${existente.nome}"`);
+      }
+
       const payload = {
         nome: form.nome,
         sku: form.sku || null,
+        codigo_barras: codigoBarras || null,
         categoria: form.categoria || null,
         preco_custo: Number(form.preco_custo) || 0,
         preco_venda: Number(form.preco_venda) || 0,
@@ -283,7 +300,8 @@ function Estoque() {
     const lista = produtos.filter(
       (p) =>
         p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(busca.toLowerCase())),
+        (p.sku && p.sku.toLowerCase().includes(busca.toLowerCase())) ||
+        (!!p.codigo_barras && p.codigo_barras.includes(busca.trim())),
     );
     const dir = ordenacao.direcao === "asc" ? 1 : -1;
     return [...lista].sort((a, b) => {
@@ -524,6 +542,12 @@ function Estoque() {
             <Campo label="Nome" value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} />
             <Campo label="SKU" value={form.sku} onChange={(v) => setForm({ ...form, sku: v })} />
             <Campo
+              label="Código de barras"
+              value={form.codigo_barras}
+              onChange={(v) => setForm({ ...form, codigo_barras: v })}
+              placeholder="Leia com o leitor ou digite"
+            />
+            <Campo
               label="Categoria"
               value={form.categoria}
               onChange={(v) => setForm({ ...form, categoria: v })}
@@ -574,6 +598,7 @@ function Estoque() {
           {produtoAtual && (
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <Info label="SKU" value={produtoAtual.sku || "—"} />
+              <Info label="Código de barras" value={produtoAtual.codigo_barras || "—"} />
               <Info label="Categoria" value={produtoAtual.categoria || "Sem categoria"} />
               <Info label="Preço de custo" value={brl(produtoAtual.preco_custo)} />
               <Info label="Preço de venda" value={brl(produtoAtual.preco_venda)} />
@@ -669,12 +694,14 @@ function Campo({
   onChange,
   type = "text",
   list,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   list?: string;
+  placeholder?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -683,6 +710,7 @@ function Campo({
         type={type}
         step="0.01"
         list={list}
+        placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

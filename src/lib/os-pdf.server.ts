@@ -292,12 +292,13 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
 
       case "estado_fisico": {
         const marcado = Object.keys(estadoFisico).filter((k) => estadoFisico[k]);
-        if (marcado.length || osAny.estado_fisico_obs) {
+        if (marcado.length || osAny.estado_fisico_obs || osAny.acessorios) {
           w.subtitulo("Estado físico do aparelho");
           w.paragrafo(
             marcado.map((k) => ESTADO_FISICO_LABELS[k] ?? k).join(", ") || "Sem avarias marcadas.",
           );
           if (osAny.estado_fisico_obs) w.paragrafo(osAny.estado_fisico_obs, 9, rgb(0.4, 0.4, 0.45));
+          if (osAny.acessorios) w.paragrafo(`Acessórios deixados: ${osAny.acessorios}`);
           w.espaco(6);
         }
         break;

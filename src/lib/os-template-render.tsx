@@ -153,6 +153,7 @@ export type RenderOsData = {
   checklist: Record<string, string>;
   estadoFisico: Record<string, boolean>;
   estadoFisicoObs: string | null;
+  acessorios: string | null;
   fotos: RenderOsFoto[];
   assinaturaClienteSrc: string | null;
   assinaturaTecnicoSrc: string | null;
@@ -302,12 +303,13 @@ function renderSecao(
     }
     case "estado_fisico": {
       const marcados = Object.keys(ESTADO_FISICO_LABELS).filter((k) => d.estadoFisico[k]);
-      if (!marcados.length && !d.estadoFisicoObs) return "";
+      if (!marcados.length && !d.estadoFisicoObs && !d.acessorios) return "";
       return `
         <section class="bloco">
           <h2>Estado Físico do Aparelho</h2>
           <p>${marcados.map((k) => ESTADO_FISICO_LABELS[k]).join(", ") || "Sem avarias marcadas."}</p>
           ${d.estadoFisicoObs ? `<p class="muted">${esc(d.estadoFisicoObs)}</p>` : ""}
+          ${d.acessorios ? `<p>Acessórios deixados: <strong>${esc(d.acessorios)}</strong></p>` : ""}
         </section>
       `;
     }
@@ -607,6 +609,7 @@ export function buildSampleOsRenderData(
     checklist: { liga: "ok", tela: "defeito", touch: "defeito", wifi: "ok", carregamento: "ok" },
     estadoFisico: { tela_trincada: true },
     estadoFisicoObs: "Trinca no canto superior direito.",
+    acessorios: "Capinha, chip",
     fotos: [
       { src: FOTO_PLACEHOLDER, category: "entrada" },
       { src: FOTO_PLACEHOLDER, category: "durante" },

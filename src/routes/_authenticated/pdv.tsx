@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { 
   ShoppingCart, 
   Trash2, 
@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
+import { teclasDaTela } from "@/lib/atalhos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,6 +80,34 @@ const normalizarBusca = (t: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+// Atalhos do PDV. F2/F4/F9 valem também com o cursor no campo de busca; o
+// atalho global das mesmas teclas (Produtos, Ordens, Seminovos) fica suspenso
+// enquanto o PDV está aberto.
+const TECLAS_PDV = ["F2", "F4", "F9"];
+
+// Leitor de código de barras manda o código + Enter: acha pelo código de
+// barras e, se não houver, pelo SKU.
+function acharPorCodigo<T extends { codigo_barras?: string | null; sku: string | null }>(
+  produtos: T[],
+  termo: string,
+): T | undefined {
+  const t = termo.trim().toLowerCase();
+  if (!t) return undefined;
+  return (
+    produtos.find((p) => p.codigo_barras?.toLowerCase() === t) ??
+    produtos.find((p) => p.sku?.toLowerCase() === t)
+  );
+}
+
+function bateBusca(p: { nome: string; sku: string | null; codigo_barras?: string | null }, termo: string) {
+  const t = termo.toLowerCase();
+  return (
+    p.nome.toLowerCase().includes(t) ||
+    (!!p.sku && p.sku.toLowerCase().includes(t)) ||
+    (!!p.codigo_barras && p.codigo_barras.toLowerCase().includes(t.trim()))
+  );
+}
+
 function tipoDoItem(categoria: string | null): 'Produto' | 'Serviço' {
   return categoria === 'Serviço' ? 'Serviço' : 'Produto';
 }
@@ -105,6 +134,8 @@ function PDV() {
   const [comprovante, setComprovante] = useState<VendaParaComprovante | null>(null);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [valorRecebidoInput, setValorRecebidoInput] = useState("");
+  const buscaRef = useRef<HTMLInputElement>(null);
+  const buscaPainelRef = useRef<HTMLInputElement>(null);
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["pdv-itens"],
@@ -226,21 +257,12 @@ function PDV() {
 
   const filtrados = produtos.filter(p => {
     if (filtroTipo !== 'Tudo' && tipoDoItem(p.categoria) !== filtroTipo) return false;
-    return (
-      p.nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(termoBusca.toLowerCase()))
-    );
+    return bateBusca(p, termoBusca);
   });
 
   const { termo: termoPainel, qtd: qtdPainel } = parseBusca(buscaPainel);
   const resultadosPainel = termoPainel.trim()
-    ? produtos
-        .filter(
-          (p) =>
-            p.nome.toLowerCase().includes(termoPainel.toLowerCase()) ||
-            (p.sku && p.sku.toLowerCase().includes(termoPainel.toLowerCase())),
-        )
-        .slice(0, 8)
+    ? produtos.filter((p) => bateBusca(p, termoPainel)).slice(0, 8)
     : [];
 
   function adicionarDoPainel(p: any) {
@@ -265,6 +287,62 @@ function PDV() {
     setEtapa(1);
     setPainelAberto(true);
   }
+
+  // Enter no campo de busca (é o que o leitor de código de barras manda).
+  function adicionarPorEnter(termo: string, qtd: number, resultados: typeof produtos) {
+    const alvo = acharPorCodigo(produtos, termo) ?? (resultados.length === 1 ? resultados[0] : null);
+    if (alvo) {
+      adicionar(alvo, qtd);
+      return true;
+    }
+    if (/^\d{6,}$/.test(termo.trim())) toast.error(`Código ${termo.trim()} não cadastrado`);
+    return false;
+  }
+
+  // As funções mudam a cada render; o listener lê sempre a versão atual.
+  const teclaRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  teclaRef.current = (e: KeyboardEvent) => {
+    if (comprovante) return;
+    if (e.key === "F2") {
+      e.preventDefault();
+      if (finalizarAberto) return;
+      if (painelAberto) {
+        setEtapa(1);
+        setTimeout(() => buscaPainelRef.current?.focus(), 0);
+      } else {
+        buscaRef.current?.focus();
+        buscaRef.current?.select();
+      }
+    } else if (e.key === "F4") {
+      e.preventDefault();
+      if (finalizar.isPending) return;
+      setFinalizarAberto(false);
+      setEtapa(2);
+      setPainelAberto(true);
+    } else if (e.key === "F9") {
+      e.preventDefault();
+      if (!carrinho.length) {
+        toast.error("Adicione itens antes de finalizar");
+        return;
+      }
+      if (finalizar.isPending) return;
+      if (finalizarAberto || (painelAberto && etapa === 3)) finalizar.mutate();
+      else if (painelAberto) setEtapa(3);
+      else setFinalizarAberto(true);
+    } else if (e.key === "Escape" && !painelAberto && !finalizarAberto && busca) {
+      setBusca("");
+    }
+  };
+
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => teclaRef.current(e);
+    TECLAS_PDV.forEach((t) => teclasDaTela.add(t));
+    window.addEventListener("keydown", aoTeclar);
+    return () => {
+      TECLAS_PDV.forEach((t) => teclasDaTela.delete(t));
+      window.removeEventListener("keydown", aoTeclar);
+    };
+  }, []);
 
   const descontoCampo = (
     <div className="space-y-1.5">
@@ -401,22 +479,34 @@ function PDV() {
             >
               <ClipboardList className="h-4 w-4" /> Entregar OS
             </Button>
+            <div className="ml-auto hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
+              {[
+                ["F2", "Buscar"],
+                ["F4", "Cliente"],
+                ["F9", "Finalizar"],
+                ["Esc", "Limpar busca"],
+              ].map(([tecla, acao]) => (
+                <span key={tecla} className="flex items-center gap-1">
+                  <kbd className="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+                    {tecla}
+                  </kbd>
+                  {acao}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
+                ref={buscaRef}
                 value={busca}
                 onChange={e => setBusca(e.target.value)}
                 onKeyDown={e => {
                   if (e.key !== 'Enter') return;
-                  const exato = produtos.find(
-                    p => p.sku && p.sku.toLowerCase() === termoBusca.trim().toLowerCase(),
-                  );
-                  if (!exato) return;
-                  adicionar(exato, qtdBusca);
-                  setBusca("");
+                  e.preventDefault();
+                  if (adicionarPorEnter(termoBusca, qtdBusca, filtrados)) setBusca("");
                 }}
                 placeholder="Qtde*nome — ex: 10*iphone ou código de barras"
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
@@ -565,6 +655,7 @@ function PDV() {
                className="h-12 w-full rounded-2xl text-base font-bold shadow-lg shadow-primary/20"
              >
                Finalizar venda
+               <kbd className="ml-2 rounded-md bg-primary-foreground/20 px-1.5 py-0.5 font-mono text-[10px]">F9</kbd>
              </Button>
           </div>
         </div>
@@ -632,18 +723,14 @@ function PDV() {
               <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input
+                  ref={buscaPainelRef}
                   autoFocus
                   value={buscaPainel}
                   onChange={(e) => setBuscaPainel(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter") return;
                     e.preventDefault();
-                    // Leitor de código de barras manda o código + Enter.
-                    const exato = produtos.find(
-                      (p) => p.sku && p.sku.toLowerCase() === termoPainel.trim().toLowerCase(),
-                    );
-                    const alvo = exato ?? (resultadosPainel.length === 1 ? resultadosPainel[0] : null);
-                    if (alvo) adicionarDoPainel(alvo);
+                    if (adicionarPorEnter(termoPainel, qtdPainel, resultadosPainel)) setBuscaPainel("");
                   }}
                   placeholder="Digite o nome ou leia o código de barras (ex.: 2*capinha)"
                   className="h-12 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/60 sm:h-11 sm:text-sm"
@@ -873,7 +960,7 @@ function PDV() {
               Voltar
             </Button>
             <Button onClick={() => finalizar.mutate()} disabled={finalizar.isPending || !carrinho.length}>
-              {finalizar.isPending ? 'Finalizando...' : 'Confirmar venda'}
+              {finalizar.isPending ? 'Finalizando...' : 'Confirmar venda (F9)'}
             </Button>
           </DialogFooter>
         </DialogContent>

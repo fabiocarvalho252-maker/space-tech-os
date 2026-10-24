@@ -46,7 +46,7 @@ import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { SuporteWhatsapp } from "@/components/SuporteWhatsapp";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
-import { ATALHOS, estaDigitando } from "@/lib/atalhos";
+import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -136,6 +136,8 @@ export function AppShell() {
 
   useEffect(() => {
     function aoTeclar(e: KeyboardEvent) {
+      // A tela aberta (ex.: PDV) pode ter assumido esta tecla para si.
+      if (teclasDaTela.has(e.key)) return;
       const atalho = ATALHOS.find((a) => a.tecla === e.key);
       if (!atalho) return;
       // Fora de um campo de digitação, assumimos a tecla F para o atalho —
