@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 .output
+.output-next
+.output-prev
+.output-failed
 .vinxi
 .tanstack/**
 .nitro
