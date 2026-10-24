@@ -177,6 +177,17 @@ export async function statusInstancia(instanceName: string): Promise<EvolutionSt
 }
 
 /** Logs the instance out of WhatsApp (keeps the instance registered on Evolution, just disconnects the session). */
+/**
+ * Reinicia a sessão da instância sem sair da conta: reabre o socket com as
+ * credenciais salvas, então não precisa ler o QR Code de novo. Resolve o
+ * caso em que a instância diz "open" mas todo envio volta "Connection Closed".
+ */
+export async function reiniciarInstancia(instanceName: string): Promise<void> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  await chamar(config, "POST", `/instance/restart/${encodeURIComponent(instanceName)}`);
+}
+
 export async function desconectarInstancia(instanceName: string): Promise<void> {
   const config = configuracao();
   if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");

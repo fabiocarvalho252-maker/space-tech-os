@@ -13,6 +13,7 @@ import {
   conectarInstancia,
   criarInstancia,
   desconectarInstancia,
+  reiniciarInstancia,
   enviarMensagemMidia,
   enviarMensagemTexto,
   evolutionConfigurado,
@@ -138,6 +139,16 @@ export async function atualizarStatus(userId: string): Promise<WhatsappConexao |
 export async function obterQrCodeSalvo(userId: string): Promise<string | null> {
   const existente = await obterConexao(userId);
   return existente?.qr_code ?? null;
+}
+
+/** Reinicia a sessão (sem novo QR Code) e devolve o status depois de alguns segundos. */
+export async function reiniciar(userId: string): Promise<WhatsappConexao | null> {
+  if (!evolutionConfigurado()) throw new WhatsappNaoConfiguradoError();
+  const existente = await obterConexao(userId);
+  if (!existente) return null;
+  await reiniciarInstancia(existente.instance_name);
+  await new Promise((r) => setTimeout(r, 5000));
+  return atualizarStatus(userId);
 }
 
 export async function desconectar(userId: string): Promise<WhatsappConexao | null> {

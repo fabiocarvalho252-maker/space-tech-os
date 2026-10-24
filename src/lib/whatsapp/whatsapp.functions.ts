@@ -76,6 +76,12 @@ export const qrCodeWhatsapp = createServerFn({ method: "GET" })
     };
   });
 
+export const reiniciarWhatsapp = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<WhatsappConexao | null> => {
+    return whatsappService.reiniciar(await empresaDoUsuario(context, "configuracoes", "gerenciar"));
+  });
+
 export const desconectarWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WhatsappConexao | null> => {

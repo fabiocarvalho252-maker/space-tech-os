@@ -7,6 +7,7 @@ import {
   Loader2,
   MessageSquare,
   QrCode,
+  RotateCw,
   Send,
   Smartphone,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import {
   desconectarWhatsapp,
   enviarMensagemWhatsapp,
   listarMensagensWhatsapp,
+  reiniciarWhatsapp,
   statusWhatsapp,
 } from "@/lib/whatsapp/whatsapp.functions";
 import type { WhatsappConexao } from "@/lib/whatsapp/types";
@@ -109,6 +111,19 @@ function WhatsappPage() {
       toast.error(e.message);
       setConfirmDesconectar(false);
     },
+  });
+
+  const reiniciar = useMutation({
+    mutationFn: () => reiniciarWhatsapp(),
+    onSuccess: (res) => {
+      qc.setQueryData(["whatsapp-status"], res);
+      if (res?.status === "conectado") toast.success("Conexão reiniciada.");
+      else
+        toast.warning(
+          "Reiniciado, mas ainda não conectou. Se continuar, desconecte e leia o QR Code.",
+        );
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const enviar = useMutation({
@@ -199,9 +214,24 @@ function WhatsappPage() {
                       Conectar WhatsApp
                     </Button>
                   ) : (
-                    <Button variant="outline" onClick={() => setConfirmDesconectar(true)}>
-                      Desconectar
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => reiniciar.mutate()}
+                        disabled={reiniciar.isPending}
+                        title="Use quando aparece conectado mas as mensagens falham. Não precisa ler o QR Code."
+                      >
+                        {reiniciar.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCw className="h-4 w-4" />
+                        )}
+                        Reiniciar conexão
+                      </Button>
+                      <Button variant="outline" onClick={() => setConfirmDesconectar(true)}>
+                        Desconectar
+                      </Button>
+                    </>
                   )}
                 </div>
               </>
