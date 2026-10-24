@@ -478,6 +478,11 @@ function Agenda() {
       </div>
 
       <div className="space-y-4">
+        {visao !== "dia" && !filtrados.length && (
+          <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            Nenhum compromisso {visao === "semana" ? "nesta semana" : "neste mês"}.
+          </div>
+        )}
         {dias.map((dia) => {
           const doDia = filtrados
             .filter((a) => isSameDay(new Date(a.inicio), dia))
