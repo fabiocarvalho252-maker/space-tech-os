@@ -1,0 +1,31 @@
+# Camada offline sobre o docker-compose.yml do Supabase (gerada por
+# offline/gerar-pacote.sh). No Windows o Postgres não roda com o diretório de
+# dados numa pasta do disco C: (permissões do NTFS), então banco e arquivos
+# vão para volumes do Docker, restaurados pelo instalar.ps1.
+services:
+  db:
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  storage:
+    volumes:
+      - storage-data:/var/lib/storage
+  imgproxy:
+    volumes:
+      - storage-data:/var/lib/storage
+
+  app:
+    container_name: space-tech-os-app
+    image: space-tech-os-app:offline
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    env_file: ../app.env
+    volumes:
+      - ../app.env:/app/.env:ro
+    depends_on:
+      kong:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  storage-data:
