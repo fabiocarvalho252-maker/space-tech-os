@@ -858,43 +858,165 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
       .replace(/\{\{\s*(numero|status|tecnico)\s*\}\}/g, "")
       .replace(/Parabéns\s*,?\s*!/g, "Parabéns!");
 
-    const { data: reserva, error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-      .from("whatsapp_messages" as any)
-      .insert({
-        user_id: empresaId,
-        connection_id: conexao.id,
-        direction: "outbound",
-        phone_number: numeroCompleto,
-        contact_name: cliente.nome,
-        content: mensagem,
-        status: "pendente",
-        template_id: `aniversario_${ano}`,
-      })
-      .select("id")
-      .single();
-    // 23505: já enviado este ano (ou outra tela está enviando agora).
-    if (error) {
-      if (error.code === "23505") continue;
-      throw error;
-    }
-
-    let status: "enviado" | "falhou" = "enviado";
-    let evolutionMessageId: string | null = null;
-    let erro: string | null = null;
-    try {
-      const resultado = await enviarMensagemTexto(conexao.instance_name, numeroCompleto, mensagem);
-      evolutionMessageId = resultado.messageId;
-    } catch (e) {
-      status = "falhou";
-      erro = e instanceof Error ? e.message : String(e);
-    }
-    await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-      .from("whatsapp_messages" as any)
-      .update({ status, evolution_message_id: evolutionMessageId, error: erro })
-      .eq("id", (reserva as unknown as { id: string }).id);
-    if (status === "enviado") enviadas++;
+    const resultado = await enviarAutomatico({
+      empresaId,
+      conexao,
+      numeroCompleto,
+      nome: cliente.nome,
+      mensagem,
+      templateId: `aniversario_${ano}`,
+    });
+    if (resultado === "enviado") enviadas++;
   }
   return enviadas;
+}
+
+/**
+ * Envio das mensagens automáticas sem OS (aniversário, pós-venda): grava a
+ * linha como "pendente" antes de enviar — o índice único do template barra
+ * a segunda tela aberta — e depois registra o resultado.
+ */
+async function enviarAutomatico(params: {
+  empresaId: string;
+  conexao: { id: string; instance_name: string };
+  numeroCompleto: string;
+  nome: string | null;
+  mensagem: string;
+  templateId: string;
+}): Promise<"enviado" | "falhou" | "repetida"> {
+  const { data: reserva, error } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .insert({
+      user_id: params.empresaId,
+      connection_id: params.conexao.id,
+      direction: "outbound",
+      phone_number: params.numeroCompleto,
+      contact_name: params.nome,
+      content: params.mensagem,
+      status: "pendente",
+      template_id: params.templateId,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") return "repetida";
+    throw error;
+  }
+
+  let status: "enviado" | "falhou" = "enviado";
+  let evolutionMessageId: string | null = null;
+  let erro: string | null = null;
+  try {
+    const resultado = await enviarMensagemTexto(
+      params.conexao.instance_name,
+      params.numeroCompleto,
+      params.mensagem,
+    );
+    evolutionMessageId = resultado.messageId;
+  } catch (e) {
+    status = "falhou";
+    erro = e instanceof Error ? e.message : String(e);
+  }
+  await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .update({ status, evolution_message_id: evolutionMessageId, error: erro })
+    .eq("id", (reserva as unknown as { id: string }).id);
+  return status;
+}
+
+/**
+ * Pesquisa pós-venda automática (Configurações > WhatsApp, desligada por
+ * padrão): uma mensagem por venda finalizada/faturada com cliente, entre 20 h
+ * e 7 dias depois da venda e só para vendas feitas depois de ligar a opção.
+ * Das 9h às 20h de Brasília, quando alguém abre Ordens de Serviço.
+ */
+export async function enviarPesquisasPosVenda(empresaId: string): Promise<number> {
+  if (!evolutionConfigurado()) return 0;
+  const hora = horaDeBrasilia();
+  if (hora < 9 || hora >= 20) return 0;
+
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_pesquisa_venda_auto, notif_pesquisa_venda_auto_desde, pesquisa_pos_venda_texto")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as {
+    notif_pesquisa_venda_auto: boolean;
+    notif_pesquisa_venda_auto_desde: string | null;
+    pesquisa_pos_venda_texto: string | null;
+  } | null;
+  if (
+    !cfg?.notif_pesquisa_venda_auto ||
+    !cfg.notif_pesquisa_venda_auto_desde ||
+    !cfg.pesquisa_pos_venda_texto?.trim()
+  ) {
+    return 0;
+  }
+
+  const agora = Date.now();
+  const limiteRecente = new Date(agora - PESQUISA_HORAS_MIN * 3600_000).toISOString();
+  const limiteAntigo = new Date(
+    Math.max(
+      agora - PESQUISA_DIAS_MAX * 86400_000,
+      new Date(cfg.notif_pesquisa_venda_auto_desde).getTime(),
+    ),
+  ).toISOString();
+
+  const { data: vendas } = await supabaseAdmin
+    .from("vendas")
+    .select("id, numero, clientes(nome, telefone)")
+    .eq("user_id", empresaId)
+    .in("status", ["finalizado", "faturado"])
+    .not("cliente_id", "is", null)
+    .gte("created_at", limiteAntigo)
+    .lte("created_at", limiteRecente)
+    .limit(30);
+  if (!vendas?.length) return 0;
+
+  const { data: jaEnviadas } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("template_id")
+    .eq("user_id", empresaId)
+    .in(
+      "template_id",
+      vendas.map((v) => `pos_venda_${v.id}`),
+    );
+  const enviadas = new Set(
+    ((jaEnviadas ?? []) as unknown as { template_id: string }[]).map((m) => m.template_id),
+  );
+
+  const conexao = await obterConexao(empresaId);
+  if (!conexao || conexao.status !== "conectado") return 0;
+
+  let total = 0;
+  for (const venda of vendas) {
+    const templateId = `pos_venda_${venda.id}`;
+    if (enviadas.has(templateId)) continue;
+    const cliente = (venda as any).clientes as {
+      nome: string | null;
+      telefone: string | null;
+    } | null;
+    const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
+    if (telefone.length < 10) continue;
+    const primeiroNome = (cliente?.nome ?? "").trim().split(/\s+/)[0] || "";
+    const mensagem = cfg.pesquisa_pos_venda_texto
+      .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
+      .replace(/\{\{\s*numero\s*\}\}/g, String(venda.numero ?? ""))
+      .replace(/\{\{\s*(status|tecnico)\s*\}\}/g, "")
+      .replace(/Olá\s+([,!])/g, "Olá$1");
+    const resultado = await enviarAutomatico({
+      empresaId,
+      conexao,
+      numeroCompleto: paraE164BR(telefone),
+      nome: cliente?.nome ?? null,
+      mensagem,
+      templateId,
+    });
+    if (resultado === "enviado") total++;
+  }
+  return total;
 }

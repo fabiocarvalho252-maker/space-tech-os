@@ -2212,6 +2212,13 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_pesquisa_venda_auto",
+                        label: "Pesquisa pós-venda no dia seguinte à compra",
+                        key: "notif_pesquisa_venda_auto",
+                        textoKey: "pesquisa_pos_venda_texto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_aniversario_auto",
                         label: "Feliz aniversário para o cliente",
                         key: "notif_aniversario_auto",
@@ -2247,12 +2254,6 @@ function Configuracoes() {
                         label: "Pesquisa de satisfação pós-OS",
                         key: "pesquisa_pos_os",
                         uso: "manual",
-                      },
-                      {
-                        id: "pesquisa_pos_venda",
-                        label: "Pesquisa de Satisfação: Pós-Venda (avaliação de produto)",
-                        key: "pesquisa_pos_venda",
-                        uso: "breve",
                       },
                       {
                         id: "relatorio_semanal_ia",
@@ -2349,6 +2350,14 @@ function Configuracoes() {
                                 Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
                                 pela lista ou pela edição da OS. Precisa do WhatsApp conectado e do
                                 telefone do cliente cadastrado.
+                              </p>
+                            )}
+                            {item.key === "notif_pesquisa_venda_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Vai uma vez por venda finalizada com cliente e telefone, entre 20
+                                horas e 7 dias depois da compra, das 9h às 20h, quando alguém abrir
+                                Ordens de Serviço. Só vale para vendas feitas depois de ligar a
+                                opção.
                               </p>
                             )}
                             {item.key === "notif_aniversario_auto" && (
