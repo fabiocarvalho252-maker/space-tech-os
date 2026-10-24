@@ -668,6 +668,7 @@ export async function avisarOsPronta(params: {
     .replace(/\{\{\s*aparelho\s*\}\}/g, aparelho)
     .replace(/\{\{\s*status\s*\}\}/g, "Pronto")
     .replace(/\{\{\s*link\s*\}\}/g, `${params.origem}/consulta/${params.osId}`)
+    .replace(/\{\{\s*loja\s*\}\}/g, await nomeDaLoja(params.empresaId))
     .replace(/Olá\s+!/g, "Olá!");
 
   const msg = await enviarNotificacaoOs({
@@ -688,6 +689,16 @@ export async function avisarOsPronta(params: {
 // Brasília, porque o envio acontece quando alguém abre Ordens de Serviço.
 const PESQUISA_HORAS_MIN = 20;
 const PESQUISA_DIAS_MAX = 7;
+
+// Nome da loja (Configurações > Empresa) para a variável {{loja}}.
+async function nomeDaLoja(empresaId: string): Promise<string> {
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("loja, nome")
+    .eq("id", empresaId)
+    .maybeSingle();
+  return (data?.loja || data?.nome || "nossa loja").trim();
+}
 
 function horaDeBrasilia(): number {
   return Number(
@@ -757,6 +768,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
     ((jaEnviadas ?? []) as unknown as { os_id: string }[]).map((m) => m.os_id),
   );
 
+  const loja = await nomeDaLoja(empresaId);
   let enfileiradas = 0;
   for (const os of ordens) {
     if (enviadas.has(os.id)) continue;
@@ -773,6 +785,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
       .replace(/\{\{\s*aparelho\s*\}\}/g, aparelho)
       .replace(/\{\{\s*status\s*\}\}/g, "Entregue")
       .replace(/\{\{\s*tecnico\s*\}\}/g, "")
+      .replace(/\{\{\s*loja\s*\}\}/g, loja)
       .replace(/Olá\s+([,!])/g, "Olá$1");
 
     const { error } = await supabaseAdmin
@@ -847,6 +860,7 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
   const conexao = await obterConexao(empresaId);
   if (!conexao || conexao.status !== "conectado") return 0;
 
+  const loja = await nomeDaLoja(empresaId);
   let enviadas = 0;
   for (const cliente of aniversariantes.slice(0, 30)) {
     const telefone = (cliente.telefone ?? "").replace(/\D/g, "");
@@ -856,6 +870,7 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
     const mensagem = cfg.feliz_aniversario_texto
       .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
       .replace(/\{\{\s*(numero|status|tecnico)\s*\}\}/g, "")
+      .replace(/\{\{\s*loja\s*\}\}/g, loja)
       .replace(/Parabéns\s*,?\s*!/g, "Parabéns!");
 
     const resultado = await enviarAutomatico({
@@ -992,6 +1007,7 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   const conexao = await obterConexao(empresaId);
   if (!conexao || conexao.status !== "conectado") return 0;
 
+  const loja = await nomeDaLoja(empresaId);
   let total = 0;
   for (const venda of vendas) {
     const templateId = `pos_venda_${venda.id}`;
@@ -1007,12 +1023,102 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
       .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
       .replace(/\{\{\s*numero\s*\}\}/g, String(venda.numero ?? ""))
       .replace(/\{\{\s*(status|tecnico)\s*\}\}/g, "")
+      .replace(/\{\{\s*loja\s*\}\}/g, loja)
       .replace(/Olá\s+([,!])/g, "Olá$1");
     const resultado = await enviarAutomatico({
       empresaId,
       conexao,
       numeroCompleto: paraE164BR(telefone),
       nome: cliente?.nome ?? null,
+      mensagem,
+      templateId,
+    });
+    if (resultado === "enviado") total++;
+  }
+  return total;
+}
+
+/**
+ * Boas-vindas automáticas (Configurações > WhatsApp, desligada por padrão)
+ * para clientes cadastrados com telefone depois de ligar a opção — de
+ * qualquer tela (Clientes, OS, PDV). Uma por cliente, das 9h às 20h, quando
+ * alguém abre Ordens de Serviço; quem foi cadastrado à noite recebe no dia
+ * seguinte, até 7 dias depois do cadastro.
+ */
+export async function enviarBoasVindas(empresaId: string): Promise<number> {
+  if (!evolutionConfigurado()) return 0;
+  const hora = horaDeBrasilia();
+  if (hora < 9 || hora >= 20) return 0;
+
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_boas_vindas_auto, notif_boas_vindas_auto_desde, boas_vindas_texto")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as {
+    notif_boas_vindas_auto: boolean;
+    notif_boas_vindas_auto_desde: string | null;
+    boas_vindas_texto: string | null;
+  } | null;
+  if (
+    !cfg?.notif_boas_vindas_auto ||
+    !cfg.notif_boas_vindas_auto_desde ||
+    !cfg.boas_vindas_texto?.trim()
+  ) {
+    return 0;
+  }
+
+  const limiteAntigo = new Date(
+    Math.max(
+      Date.now() - PESQUISA_DIAS_MAX * 86400_000,
+      new Date(cfg.notif_boas_vindas_auto_desde).getTime(),
+    ),
+  ).toISOString();
+  const { data: clientes } = await supabaseAdmin
+    .from("clientes")
+    .select("id, nome, telefone")
+    .eq("user_id", empresaId)
+    .not("telefone", "is", null)
+    .gte("created_at", limiteAntigo)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (!clientes?.length) return 0;
+
+  const { data: jaEnviadas } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("template_id")
+    .eq("user_id", empresaId)
+    .in(
+      "template_id",
+      clientes.map((c) => `boas_vindas_${c.id}`),
+    );
+  const enviadas = new Set(
+    ((jaEnviadas ?? []) as unknown as { template_id: string }[]).map((m) => m.template_id),
+  );
+
+  const conexao = await obterConexao(empresaId);
+  if (!conexao || conexao.status !== "conectado") return 0;
+
+  const loja = await nomeDaLoja(empresaId);
+  let total = 0;
+  for (const cliente of clientes) {
+    const templateId = `boas_vindas_${cliente.id}`;
+    if (enviadas.has(templateId)) continue;
+    const telefone = (cliente.telefone ?? "").replace(/\D/g, "");
+    if (telefone.length < 10) continue;
+    const primeiroNome = (cliente.nome ?? "").trim().split(/\s+/)[0] || "";
+    const mensagem = cfg.boas_vindas_texto
+      .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
+      .replace(/\{\{\s*loja\s*\}\}/g, loja)
+      .replace(/\{\{\s*(numero|status|tecnico)\s*\}\}/g, "")
+      .replace(/Olá\s+([,!])/g, "Olá$1");
+    const resultado = await enviarAutomatico({
+      empresaId,
+      conexao,
+      numeroCompleto: paraE164BR(telefone),
+      nome: cliente.nome,
       mensagem,
       templateId,
     });

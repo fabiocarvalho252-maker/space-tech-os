@@ -2219,6 +2219,13 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_boas_vindas_auto",
+                        label: "Boas-vindas ao cliente novo",
+                        key: "notif_boas_vindas_auto",
+                        textoKey: "boas_vindas_texto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_aniversario_auto",
                         label: "Feliz aniversário para o cliente",
                         key: "notif_aniversario_auto",
@@ -2241,12 +2248,6 @@ function Configuracoes() {
                         id: "notif_nfe_emitida",
                         label: "Notificação: Quando uma nota fiscal for emitida",
                         key: "notif_nfe_emitida",
-                        uso: "breve",
-                      },
-                      {
-                        id: "boas_vindas",
-                        label: "Relacionamento: Boas-vindas ao novo cliente",
-                        key: "boas_vindas",
                         uso: "breve",
                       },
                       {
@@ -2343,7 +2344,8 @@ function Configuracoes() {
                                   , {"{{aparelho}}"}, {"{{link}}"}
                                 </>
                               )}
-                              {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}.
+                              {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}
+                              {item.uso === "auto" && <>, {"{{loja}}"}</>}.
                             </p>
                             {item.key === "notif_os_pronta" && (
                               <p className="text-[11px] text-muted-foreground">
@@ -2358,6 +2360,14 @@ function Configuracoes() {
                                 horas e 7 dias depois da compra, das 9h às 20h, quando alguém abrir
                                 Ordens de Serviço. Só vale para vendas feitas depois de ligar a
                                 opção.
+                              </p>
+                            )}
+                            {item.key === "notif_boas_vindas_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Vai uma vez para cada cliente cadastrado com telefone depois de
+                                ligar a opção — em Clientes, na OS ou no PDV —, das 9h às 20h,
+                                quando alguém abrir Ordens de Serviço. Quem foi cadastrado à noite
+                                recebe no dia seguinte.
                               </p>
                             )}
                             {item.key === "notif_aniversario_auto" && (
