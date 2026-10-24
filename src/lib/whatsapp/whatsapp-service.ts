@@ -440,6 +440,16 @@ export async function processarNotificacoesAgendadasOs(userId: string): Promise<
   let processadas = 0;
   for (const msg of pendentes as any[]) {
     if (!msg.os_id) continue;
+    // Reserva a mensagem (agendado → pendente) antes de enviar: com duas
+    // telas abertas, só quem conseguir a reserva envia.
+    const { data: reservada } = await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
+      .from("whatsapp_messages" as any)
+      .update({ status: "pendente" })
+      .eq("id", msg.id)
+      .eq("status", "agendado")
+      .select("id");
+    if (!reservada?.length) continue;
     const { data: osRow } = await supabaseAdmin
       .from("ordens_servico")
       .select("numero")
@@ -593,7 +603,11 @@ export async function aplicarQrCodeWebhook(
 
 export type ResultadoAvisoPronta =
   | { enviado: true }
-  | { enviado: false; motivo: "desligado" | "sem_telefone" | "ja_enviado" | "nao_pronta" | "desconectado" | "falhou" };
+  | {
+      enviado: false;
+      motivo:
+        "desligado" | "sem_telefone" | "ja_enviado" | "nao_pronta" | "desconectado" | "falhou";
+    };
 
 /**
  * Aviso automático "sua OS está pronta" (Configurações > WhatsApp, desligado
@@ -614,7 +628,10 @@ export async function avisarOsPronta(params: {
     .select("notif_os_pronta, notif_os_pronta_texto")
     .eq("user_id", params.empresaId)
     .maybeSingle();
-  const cfg = config as unknown as { notif_os_pronta: boolean; notif_os_pronta_texto: string } | null;
+  const cfg = config as unknown as {
+    notif_os_pronta: boolean;
+    notif_os_pronta_texto: string;
+  } | null;
   if (!cfg?.notif_os_pronta) return { enviado: false, motivo: "desligado" };
 
   const { data: os } = await supabaseAdmin
@@ -664,4 +681,117 @@ export async function avisarOsPronta(params: {
     sentBy: params.sentBy,
   });
   return msg.status === "enviado" ? { enviado: true } : { enviado: false, motivo: "falhou" };
+}
+
+// Janela do envio automático da pesquisa: entregue há pelo menos 20 h (o
+// cliente já usou o aparelho) e no máximo há 7 dias; só sai das 9h às 20h de
+// Brasília, porque o envio acontece quando alguém abre Ordens de Serviço.
+const PESQUISA_HORAS_MIN = 20;
+const PESQUISA_DIAS_MAX = 7;
+
+function horaDeBrasilia(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date()),
+  );
+}
+
+/**
+ * Pesquisa de satisfação automática (Configurações > WhatsApp, desligada por
+ * padrão): coloca na fila uma mensagem por OS entregue dentro da janela acima
+ * e depois que a opção foi ligada. O envio em si fica com
+ * processarNotificacoesAgendadasOs. Não repete se a OS já recebeu a pesquisa,
+ * automática ou manual.
+ */
+export async function enfileirarPesquisasPosOs(empresaId: string): Promise<number> {
+  const hora = horaDeBrasilia();
+  if (hora < 9 || hora >= 20) return 0;
+
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as {
+    notif_pesquisa_auto: boolean;
+    notif_pesquisa_auto_desde: string | null;
+    pesquisa_pos_os_texto: string | null;
+  } | null;
+  if (!cfg?.notif_pesquisa_auto || !cfg.notif_pesquisa_auto_desde || !cfg.pesquisa_pos_os_texto) {
+    return 0;
+  }
+
+  const agora = Date.now();
+  const limiteRecente = new Date(agora - PESQUISA_HORAS_MIN * 3600_000).toISOString();
+  const limiteAntigo = new Date(
+    Math.max(
+      agora - PESQUISA_DIAS_MAX * 86400_000,
+      new Date(cfg.notif_pesquisa_auto_desde).getTime(),
+    ),
+  ).toISOString();
+
+  const { data: ordens } = await supabaseAdmin
+    .from("ordens_servico")
+    .select("id, numero, aparelho, marca, modelo, clientes(nome, telefone)")
+    .eq("user_id", empresaId)
+    .in("status", ["entregue", "faturado"])
+    .gte("data_entrega", limiteAntigo)
+    .lte("data_entrega", limiteRecente)
+    .limit(30);
+  if (!ordens?.length) return 0;
+
+  const { data: jaEnviadas } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("os_id")
+    .in(
+      "os_id",
+      ordens.map((o) => o.id),
+    )
+    .in("template_id", ["pesquisa_auto", "pos_atendimento"]);
+  const enviadas = new Set(
+    ((jaEnviadas ?? []) as unknown as { os_id: string }[]).map((m) => m.os_id),
+  );
+
+  let enfileiradas = 0;
+  for (const os of ordens) {
+    if (enviadas.has(os.id)) continue;
+    const cliente = (os as any).clientes as { nome: string | null; telefone: string | null } | null;
+    const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
+    if (telefone.length < 10) continue;
+
+    const aparelho =
+      [os.marca, os.modelo].filter(Boolean).join(" ").trim() || os.aparelho || "aparelho";
+    const primeiroNome = (cliente?.nome ?? "").trim().split(/\s+/)[0] || "";
+    const mensagem = cfg.pesquisa_pos_os_texto
+      .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
+      .replace(/\{\{\s*numero\s*\}\}/g, String(os.numero))
+      .replace(/\{\{\s*aparelho\s*\}\}/g, aparelho)
+      .replace(/\{\{\s*status\s*\}\}/g, "Entregue")
+      .replace(/\{\{\s*tecnico\s*\}\}/g, "")
+      .replace(/Olá\s+([,!])/g, "Olá$1");
+
+    const { error } = await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+      .from("whatsapp_messages" as any)
+      .insert({
+        user_id: empresaId,
+        direction: "outbound",
+        phone_number: paraE164BR(telefone),
+        content: mensagem,
+        status: "agendado",
+        os_id: os.id,
+        template_id: "pesquisa_auto",
+        attachments: [],
+        scheduled_at: new Date().toISOString(),
+      });
+    // 23505: outra tela já colocou a pesquisa desta OS na fila.
+    if (error && error.code !== "23505") throw error;
+    if (!error) enfileiradas++;
+  }
+  return enfileiradas;
 }

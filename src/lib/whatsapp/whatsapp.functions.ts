@@ -140,9 +140,9 @@ export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
 export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ processadas: number }> => {
-    const processadas = await whatsappService.processarNotificacoesAgendadasOs(
-      await empresaDoUsuario(context),
-    );
+    const empresaId = await empresaDoUsuario(context);
+    await whatsappService.enfileirarPesquisasPosOs(empresaId);
+    const processadas = await whatsappService.processarNotificacoesAgendadasOs(empresaId);
     return { processadas };
   });
 

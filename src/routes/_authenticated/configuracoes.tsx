@@ -2205,6 +2205,13 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_pesquisa_auto",
+                        label: "Pesquisa de satisfação no dia seguinte à entrega",
+                        key: "notif_pesquisa_auto",
+                        textoKey: "pesquisa_pos_os_texto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_os_criada",
                         label: "OS criada",
                         key: "notif_os_criada",
@@ -2312,12 +2319,14 @@ function Configuracoes() {
                             </Label>
                             <Textarea
                               className="min-h-[100px] text-sm"
-                              defaultValue={whatsappConfig?.[`${item.key}_texto`] || ""}
+                              defaultValue={
+                                whatsappConfig?.[item.textoKey ?? `${item.key}_texto`] || ""
+                              }
                               onBlur={async (e) => {
                                 await supabase.from("whatsapp_config" as any).upsert(
                                   {
                                     user_id: empresaId!,
-                                    [`${item.key}_texto`]: e.target.value,
+                                    [item.textoKey ?? `${item.key}_texto`]: e.target.value,
                                   },
                                   { onConflict: "user_id" },
                                 );
@@ -2332,13 +2341,22 @@ function Configuracoes() {
                                   , {"{{aparelho}}"}, {"{{link}}"}
                                 </>
                               )}
-                              .
+                              {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}.
                             </p>
                             {item.key === "notif_os_pronta" && (
                               <p className="text-[11px] text-muted-foreground">
                                 Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
                                 pela lista ou pela edição da OS. Precisa do WhatsApp conectado e do
                                 telefone do cliente cadastrado.
+                              </p>
+                            )}
+                            {item.key === "notif_pesquisa_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Usa o mesmo texto da pesquisa manual pós-OS. Vai uma vez por OS
+                                entregue, entre 20 horas e 7 dias depois da entrega, das 9h às 20h,
+                                quando alguém abrir Ordens de Serviço. Só vale para entregas feitas
+                                depois de ligar a opção, e não repete se a pesquisa já foi enviada à
+                                mão.
                               </p>
                             )}
                           </div>
