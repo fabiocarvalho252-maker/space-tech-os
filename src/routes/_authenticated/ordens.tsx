@@ -58,7 +58,10 @@ import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
-import { processarNotificacoesAgendadasWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
+import {
+  avisarOsProntaFn,
+  processarNotificacoesAgendadasWhatsAppFn,
+} from "@/lib/whatsapp/whatsapp.functions";
 import {
   renderOsTemplateHtml,
   FALLBACK_TEMPLATE,
@@ -665,9 +668,13 @@ function Ordens() {
         );
         if (insError) throw insError;
       }
+      // Só avisa "pronta" se o status mudou nesta edição.
+      const anterior = (ordens as any[]).find((o) => o.id === selectedOsId)?.status;
+      return { id: selectedOsId, status: anterior === form.status ? "" : form.status };
     },
-    onSuccess: () => {
+    onSuccess: (salva) => {
       toast.success("OS atualizada");
+      if (salva) avisarSePronta(salva.id, salva.status);
       setEditOpen(false);
       setSelectedOsId(null);
       setForm(vazio);
@@ -705,6 +712,25 @@ function Ordens() {
     enabled: !!selectedOsId && editOpen,
   });
 
+  // Aviso automático "OS pronta" no WhatsApp (se ligado em Configurações).
+  // O servidor confere tudo — ligado, telefone, já enviado — e só avisa
+  // aqui quando a mensagem saiu ou falhou de verdade.
+  function avisarSePronta(osId: string, status: string) {
+    if (status !== "pronto") return;
+    avisarOsProntaFn({ data: { osId } })
+      .then((r) => {
+        if (r.enviado) {
+          toast.success("Cliente avisado no WhatsApp que a OS está pronta");
+          qc.invalidateQueries({ queryKey: ["os-historico", osId] });
+        } else if (r.motivo === "desconectado") {
+          toast.warning("Aviso de OS pronta não enviado: WhatsApp desconectado");
+        } else if (r.motivo === "falhou") {
+          toast.warning("Não foi possível enviar o aviso de OS pronta no WhatsApp");
+        }
+      })
+      .catch(() => {});
+  }
+
   const mudarStatus = useMutation({
     mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
       // Validar fluxo se houver fluxos configurados. Cancelar é sempre
@@ -729,6 +755,7 @@ function Ordens() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["os-historico", variables.id] });
       toast.success("Status atualizado");
+      avisarSePronta(variables.id, variables.status);
     },
     onError: (error: Error) => {
       toast.error(error.message);

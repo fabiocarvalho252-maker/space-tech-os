@@ -102,3 +102,24 @@ export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method:
     const processadas = await whatsappService.processarNotificacoesAgendadasOs(context.userId);
     return { processadas };
   });
+
+// Aviso automático "OS pronta" — a tela de OS chama depois de mudar o status.
+// A leitura da OS usa o cliente do usuário (RLS): só quem enxerga a OS dispara
+// o aviso, e o envio sai pela conexão da empresa dona da OS.
+export const avisarOsProntaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ osId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }): Promise<whatsappService.ResultadoAvisoPronta> => {
+    const { data: os } = await context.supabase
+      .from("ordens_servico")
+      .select("user_id")
+      .eq("id", data.osId)
+      .maybeSingle();
+    if (!os) throw new Error("OS não encontrada.");
+    return whatsappService.avisarOsPronta({
+      empresaId: os.user_id,
+      osId: data.osId,
+      sentBy: context.userId,
+      origem: process.env["VITE_SITE_URL"] || origemAtual(),
+    });
+  });

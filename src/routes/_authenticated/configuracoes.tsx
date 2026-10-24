@@ -2206,6 +2206,11 @@ function Configuracoes() {
                   <div className="space-y-2">
                     {[
                       {
+                        id: "notif_os_pronta",
+                        label: "Automático: avisar o cliente quando a OS ficar Pronta",
+                        key: "notif_os_pronta",
+                      },
+                      {
                         id: "notif_os_criada",
                         label: "Notificação: Quando uma OS for criada",
                         key: "notif_os_criada",
@@ -2298,8 +2303,16 @@ function Configuracoes() {
                             />
                             <p className="text-[10px] text-muted-foreground">
                               Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"}, {"{{status}}"}
-                              , {"{{tecnico}}"}.
+                              , {"{{tecnico}}"}
+                              {item.key === "notif_os_pronta" && <>, {"{{aparelho}}"}, {"{{link}}"}</>}.
                             </p>
+                            {item.key === "notif_os_pronta" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Enviado sozinho, uma vez por OS, quando o status muda para Pronto
+                                — pela lista ou pela edição da OS. Precisa do WhatsApp conectado e
+                                do telefone do cliente cadastrado.
+                              </p>
+                            )}
                           </div>
                         </div>
                       </details>

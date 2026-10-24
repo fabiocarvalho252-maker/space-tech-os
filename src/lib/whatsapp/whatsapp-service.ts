@@ -586,3 +586,78 @@ export async function aplicarQrCodeWebhook(
     .eq("instance_name", instanceName);
   if (error) throw error;
 }
+
+export type ResultadoAvisoPronta =
+  | { enviado: true }
+  | { enviado: false; motivo: "desligado" | "sem_telefone" | "ja_enviado" | "nao_pronta" | "desconectado" | "falhou" };
+
+/**
+ * Aviso automático "sua OS está pronta" (Configurações > WhatsApp, desligado
+ * por padrão). Chamado pela tela de OS depois que o status vira "pronto";
+ * manda uma vez por OS — voltar para "em reparo" e de novo para "pronto" não
+ * repete a mensagem. O acesso do usuário à OS é conferido antes, em
+ * whatsapp.functions.ts; aqui `empresaId` é o dono da OS.
+ */
+export async function avisarOsPronta(params: {
+  empresaId: string;
+  osId: string;
+  sentBy: string;
+  origem: string;
+}): Promise<ResultadoAvisoPronta> {
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_os_pronta, notif_os_pronta_texto")
+    .eq("user_id", params.empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as { notif_os_pronta: boolean; notif_os_pronta_texto: string } | null;
+  if (!cfg?.notif_os_pronta) return { enviado: false, motivo: "desligado" };
+
+  const { data: os } = await supabaseAdmin
+    .from("ordens_servico")
+    .select("numero, status, aparelho, marca, modelo, clientes(nome, telefone)")
+    .eq("id", params.osId)
+    .eq("user_id", params.empresaId)
+    .maybeSingle();
+  if (!os || os.status !== "pronto") return { enviado: false, motivo: "nao_pronta" };
+  const cliente = (os as any).clientes as { nome: string | null; telefone: string | null } | null;
+  const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
+  if (telefone.length < 10) return { enviado: false, motivo: "sem_telefone" };
+
+  const { count } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("os_id", params.osId)
+    .eq("template_id", "os_pronta")
+    .in("status", ["enviado", "agendado"]);
+  if (count) return { enviado: false, motivo: "ja_enviado" };
+
+  const conexao = await obterConexao(params.empresaId);
+  if (!evolutionConfigurado() || !conexao || conexao.status !== "conectado") {
+    return { enviado: false, motivo: "desconectado" };
+  }
+
+  const aparelho =
+    [os.marca, os.modelo].filter(Boolean).join(" ").trim() || os.aparelho || "aparelho";
+  const primeiroNome = (cliente?.nome ?? "").trim().split(/\s+/)[0] || "";
+  const mensagem = (cfg.notif_os_pronta_texto || "")
+    .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
+    .replace(/\{\{\s*numero\s*\}\}/g, String(os.numero))
+    .replace(/\{\{\s*aparelho\s*\}\}/g, aparelho)
+    .replace(/\{\{\s*status\s*\}\}/g, "Pronto")
+    .replace(/\{\{\s*link\s*\}\}/g, `${params.origem}/consulta/${params.osId}`)
+    .replace(/Olá\s+!/g, "Olá!");
+
+  const msg = await enviarNotificacaoOs({
+    userId: params.empresaId,
+    osId: params.osId,
+    numero: telefone,
+    mensagem,
+    templateId: "os_pronta",
+    anexos: { os: false, orcamento: false },
+    agendamento: { tipo: "agora" },
+    sentBy: params.sentBy,
+  });
+  return msg.status === "enviado" ? { enviado: true } : { enviado: false, motivo: "falhou" };
+}

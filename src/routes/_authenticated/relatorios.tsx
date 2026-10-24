@@ -6,7 +6,7 @@ import { Download, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
-import { useProfile } from "@/hooks/useCurrentUser";
+import { useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { dataBR, statusLabel } from "@/lib/format";
 import { categoriaConsertoInfo } from "@/lib/seminovos-conserto";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
@@ -93,6 +93,30 @@ function Relatorios() {
   // exclui vendas/OS feitas à noite (horário local) do período selecionado.
   const inicioISO = new Date(`${dataInicio}T00:00:00`).toISOString();
   const fimISO = new Date(`${dataFim}T23:59:59.999`).toISOString();
+  const empresaId = useEmpresaId();
+
+  // Produção por técnico: OS faturadas no período, pelo técnico responsável.
+  const { data: tecnicos = [] } = useQuery({
+    queryKey: ["relatorio-tecnicos", empresaId, dataInicio, dataFim],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("relatorio_tecnicos" as any, {
+        p_empresa_id: empresaId!,
+        p_inicio: inicioISO,
+        p_fim: fimISO,
+      });
+      if (error) throw error;
+      return (data ?? []) as unknown as {
+        tecnico: string;
+        qtd_os: number;
+        faturamento: number;
+        mao_de_obra: number;
+        pecas: number;
+        comissao: number;
+        custo_terceiro: number;
+      }[];
+    },
+  });
 
   const { data } = useQuery({
     queryKey: ["relatorios", dataInicio, dataFim],
@@ -624,6 +648,52 @@ function Relatorios() {
               <TabelaTop itens={resumo.topServicos} />
             </Secao>
           </div>
+
+          <Secao
+            id="tecnicos"
+            titulo="Produção por técnico"
+            onExportar={() => exportToCSV(tecnicos, "relatorio-producao-tecnicos")}
+          >
+            {tecnicos.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="py-2 pr-3">Técnico</th>
+                      <th className="py-2 pr-3 text-right">OS faturadas</th>
+                      <th className="py-2 pr-3 text-right">Faturamento</th>
+                      <th className="py-2 pr-3 text-right">Mão de obra</th>
+                      <th className="py-2 pr-3 text-right">Peças</th>
+                      <th className="py-2 pr-3 text-right">Comissão</th>
+                      <th className="py-2 text-right">Técnico terceiro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {tecnicos.map((t) => (
+                      <tr key={t.tecnico}>
+                        <td className="py-2 pr-3 font-medium">{t.tecnico}</td>
+                        <td className="py-2 pr-3 text-right">{t.qtd_os}</td>
+                        <td className="py-2 pr-3 text-right">{brl(t.faturamento)}</td>
+                        <td className="py-2 pr-3 text-right">{brl(t.mao_de_obra)}</td>
+                        <td className="py-2 pr-3 text-right">{brl(t.pecas)}</td>
+                        <td className="py-2 pr-3 text-right font-semibold text-primary">
+                          {brl(t.comissao)}
+                        </td>
+                        <td className="py-2 text-right">{brl(t.custo_terceiro)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Comissão = % de comissão de cada serviço (cadastro em Serviços) sobre o valor
+                  cobrado. "Técnico terceiro" é o custo de técnico informado ao faturar a OS. O
+                  técnico de cada OS é o responsável escolhido na OS.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhuma OS faturada no período.</p>
+            )}
+          </Secao>
 
           <Secao
             titulo="Estoque"
