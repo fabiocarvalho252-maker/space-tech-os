@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,13 +17,20 @@ import {
   ShieldCheck,
   Wrench,
   ClipboardList,
+  FileText,
+  Maximize2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { buildSampleOsRenderData, renderOsTemplateHtml, type RenderOsData } from "@/lib/os-template-render";
+import { OsTemplateThumbnail } from "@/components/os-templates/OsTemplateThumbnail";
+import type { OsTemplateDbRow } from "@/components/os-templates/types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoWord } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import { enviarLogoEmpresa } from "@/lib/logo-empresa";
-import { termosOsPadrao } from "@/lib/termos-padrao";
+import { termoGarantiaPadrao, termosOsPadrao } from "@/lib/termos-padrao";
 import { digitsOnlyBR, isValidPhoneBR, maskPhoneBR, normalizarWhatsappBR } from "@/lib/whatsapp";
 import {
   buscarCepDetalhado,
@@ -37,7 +44,7 @@ import {
 
 // Configuração inicial: o dono de uma empresa recém-cadastrada cai aqui no
 // primeiro acesso (ver o redirect em _authenticated/route.tsx) e preenche
-// logo, dados, endereço e garantia antes de usar o sistema. Cada passo é
+// logo, dados, endereço, garantia e modelo do PDF antes de usar o sistema. Cada passo é
 // salvo ao avançar, então um refresh no meio não perde nada; ao terminar (ou
 // em "Fazer depois") grava profiles.onboarding_concluido_em e libera o resto.
 export const Route = createFileRoute("/bem-vindo")({
@@ -64,12 +71,18 @@ export const Route = createFileRoute("/bem-vindo")({
     // preenchidos); só o redirect de _authenticated é limitado ao 1º acesso.
     if (!profile) throw redirect({ to: "/dashboard" });
 
-    const [{ data: osConfig }, { data: saleConfig }] = await Promise.all([
+    const [{ data: osConfig }, { data: saleConfig }, { data: termoGarantia }] = await Promise.all([
       supabase.from("os_config").select("dias_garantia_padrao, termos_condicoes").eq("user_id", user.id).maybeSingle(),
       supabase.from("sale_config").select("dias_garantia_padrao").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("termos_garantia")
+        .select("id, conteudo, ativo")
+        .eq("user_id", user.id)
+        .eq("is_default", true)
+        .maybeSingle(),
     ]);
 
-    return { userId: user.id, profile, osConfig, saleConfig };
+    return { userId: user.id, profile, osConfig, saleConfig, termoGarantia };
   },
   component: BemVindo,
 });
@@ -77,7 +90,8 @@ export const Route = createFileRoute("/bem-vindo")({
 const PASSOS = [
   { titulo: "Sua empresa", icone: Building2 },
   { titulo: "Endereço", icone: MapPin },
-  { titulo: "OS e garantia", icone: ShieldCheck },
+  { titulo: "Garantia", icone: ShieldCheck },
+  { titulo: "Modelo do PDF", icone: FileText },
   { titulo: "Tudo pronto", icone: Rocket },
 ] as const;
 
@@ -90,7 +104,7 @@ function whatsappParaTela(valor: string | null | undefined): string {
 }
 
 function BemVindo() {
-  const { userId, profile, osConfig, saleConfig } = Route.useRouteContext();
+  const { userId, profile, osConfig, saleConfig, termoGarantia } = Route.useRouteContext();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -122,14 +136,21 @@ function BemVindo() {
 
   const garantiaInicial = osConfig?.dias_garantia_padrao ?? saleConfig?.dias_garantia_padrao ?? 90;
   const [garantia, setGarantia] = useState(garantiaInicial);
-  const [termos, setTermos] = useState(osConfig?.termos_condicoes || termosOsPadrao(garantiaInicial));
-  // Enquanto o texto for o padrão, ele acompanha a garantia escolhida; depois
-  // que a pessoa edita, não mexemos mais no que ela escreveu.
-  const [termosEditados, setTermosEditados] = useState(!!osConfig?.termos_condicoes);
+  // Termo de garantia padrão (termos_garantia, is_default): sai impresso na
+  // OS e no PDF enquanto estiver ativo.
+  const [termoAtivo, setTermoAtivo] = useState(termoGarantia?.ativo ?? true);
+  const [termo, setTermo] = useState(
+    termoGarantia?.conteudo || termoGarantiaPadrao(profile.loja ?? "", garantiaInicial),
+  );
+  // Enquanto o texto for o padrão, ele acompanha a garantia e o nome da loja;
+  // depois que a pessoa edita, não mexemos mais no que ela escreveu.
+  const [termoEditado, setTermoEditado] = useState(!!termoGarantia?.conteudo);
 
   useEffect(() => {
-    if (!termosEditados) setTermos(termosOsPadrao(garantia || 90));
-  }, [garantia, termosEditados]);
+    if (!termoEditado) setTermo(termoGarantiaPadrao(empresa.loja, garantia || 90));
+  }, [garantia, empresa.loja, termoEditado]);
+
+  const [modeloId, setModeloId] = useState<string | null>(null);
 
   async function escolherLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -250,29 +271,74 @@ function BemVindo() {
       toast.error("Informe a garantia em dias (0 a 3650).");
       return false;
     }
+    if (termoAtivo && !termo.trim()) {
+      toast.error("Escreva o termo de garantia ou desative-o.");
+      return false;
+    }
     const agora = new Date().toISOString();
     const [os, venda] = await Promise.all([
-      supabase
-        .from("os_config")
-        .upsert(
-          { user_id: userId, dias_garantia_padrao: dias, termos_condicoes: termos, updated_at: agora },
-          { onConflict: "user_id" },
-        ),
+      supabase.from("os_config").upsert(
+        {
+          user_id: userId,
+          dias_garantia_padrao: dias,
+          // Condições do orçamento: só preenche o padrão se ainda estiver
+          // vazio — o texto continua editável em Configurações > OS.
+          ...(osConfig?.termos_condicoes ? {} : { termos_condicoes: termosOsPadrao(dias) }),
+          updated_at: agora,
+        },
+        { onConflict: "user_id" },
+      ),
       supabase
         .from("sale_config")
         .upsert({ user_id: userId, dias_garantia_padrao: dias, updated_at: agora }, { onConflict: "user_id" }),
     ]);
-    const error = os.error ?? venda.error;
+    let error = os.error ?? venda.error;
+
+    // O termo existente é atualizado; sem termo, só cria um se for ativado.
+    const { data: atual } = await supabase
+      .from("termos_garantia")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_default", true)
+      .maybeSingle();
+    if (!error && atual) {
+      ({ error } = await supabase
+        .from("termos_garantia")
+        .update({ conteudo: termo, ativo: termoAtivo, updated_at: agora })
+        .eq("id", atual.id));
+    } else if (!error && termoAtivo) {
+      ({ error } = await supabase.from("termos_garantia").insert({
+        user_id: userId,
+        titulo: `Garantia de ${dias} dias`,
+        conteudo: termo,
+        is_default: true,
+        ativo: true,
+      }));
+    }
+
     if (error) {
       toast.error("Erro ao salvar a garantia", { description: error.message });
       return false;
     }
     qc.invalidateQueries({ queryKey: ["os-config"] });
+    qc.invalidateQueries({ queryKey: ["termos_garantia"] });
+    qc.invalidateQueries({ queryKey: ["termo-garantia-padrao"] });
+    return true;
+  }
+
+  async function salvarModelo(): Promise<boolean> {
+    if (!modeloId) return true;
+    const { error } = await supabase.rpc("definir_template_padrao" as any, { p_template_id: modeloId });
+    if (error) {
+      toast.error("Erro ao salvar o modelo do PDF", { description: error.message });
+      return false;
+    }
+    qc.invalidateQueries({ queryKey: ["os-templates"] });
     return true;
   }
 
   async function avancar() {
-    const salvar = [salvarEmpresa, salvarEndereco, salvarGarantia][passo];
+    const salvar = [salvarEmpresa, salvarEndereco, salvarGarantia, salvarModelo][passo];
     setSalvando(true);
     const ok = salvar ? await salvar() : true;
     setSalvando(false);
@@ -325,7 +391,7 @@ function BemVindo() {
           </div>
         </header>
 
-        <ol className="mb-5 grid grid-cols-4 gap-2">
+        <ol className="mb-5 grid grid-cols-5 gap-2">
           {PASSOS.map((p, i) => (
             <li key={p.titulo} className="flex flex-col gap-2">
               <div className={cn("h-1.5 rounded-full", i <= passo ? "bg-primary" : "bg-white/20")} />
@@ -495,9 +561,10 @@ function BemVindo() {
           {passo === 2 && (
             <section className="mt-2 space-y-5">
               <div>
-                <h1 className="text-2xl font-extrabold tracking-tight">Garantia e termos da OS</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">Garantia</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   A garantia padrão já vem preenchida em cada OS e venda — dá para mudar caso a caso.
+                  O prazo começa a contar na entrega do aparelho.
                 </p>
               </div>
               <div className="space-y-2">
@@ -531,33 +598,72 @@ function BemVindo() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold">Termos impressos na OS</label>
-                  {termosEditados && (
-                    <button
-                      type="button"
-                      onClick={() => setTermosEditados(false)}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Usar texto padrão
-                    </button>
-                  )}
+
+              <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-border p-4">
+                <span>
+                  <span className="block text-sm font-semibold">Ativar termo de garantia</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Imprime o termo no fim de cada OS e no PDF enviado ao cliente.
+                  </span>
+                </span>
+                <Switch checked={termoAtivo} onCheckedChange={setTermoAtivo} />
+              </label>
+
+              {termoAtivo && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold">Termo de garantia</label>
+                    {termoEditado && (
+                      <button
+                        type="button"
+                        onClick={() => setTermoEditado(false)}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Usar texto padrão
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={termo}
+                    onChange={(e) => {
+                      setTermoEditado(true);
+                      setTermo(e.target.value);
+                    }}
+                    rows={9}
+                    className="w-full rounded-xl border border-input bg-card p-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
+                  />
                 </div>
-                <textarea
-                  value={termos}
-                  onChange={(e) => {
-                    setTermosEditados(true);
-                    setTermos(e.target.value);
-                  }}
-                  rows={8}
-                  className="w-full rounded-xl border border-input bg-card p-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
-                />
-                              </div>
+              )}
             </section>
           )}
 
           {passo === 3 && (
+            <section className="mt-2 space-y-5">
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight">Modelo do PDF</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Escolha como a OS sai na impressão e no PDF enviado ao cliente. A prévia já usa a
+                  sua logo e os seus dados.
+                </p>
+              </div>
+              <EscolherModeloPdf
+                empresaId={userId}
+                selecionado={modeloId}
+                onSelecionar={setModeloId}
+                empresa={{
+                  nome: empresa.loja || "Sua Empresa",
+                  logoUrl: logoUrl || null,
+                  cnpj: empresa.documento || null,
+                  endereco: profile.endereco ?? null,
+                  telefone: empresa.whatsapp || null,
+                  responsavel: null,
+                }}
+                termoGarantia={termoAtivo ? termo : null}
+              />
+            </section>
+          )}
+
+          {passo === 4 && (
             <section className="mt-2 space-y-6">
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-primary">
@@ -692,5 +798,145 @@ function Atalho({
         <span className="block text-xs text-muted-foreground">{texto}</span>
       </span>
     </button>
+  );
+}
+
+function EscolherModeloPdf({
+  empresaId,
+  selecionado,
+  onSelecionar,
+  empresa,
+  termoGarantia,
+}: {
+  empresaId: string;
+  selecionado: string | null;
+  onSelecionar: (id: string) => void;
+  empresa: RenderOsData["empresa"];
+  termoGarantia: string | null;
+}) {
+  const [ampliado, setAmpliado] = useState<OsTemplateDbRow | null>(null);
+
+  const { data: modelos, isLoading } = useQuery({
+    queryKey: ["os-templates", empresaId],
+    queryFn: async () => {
+      const buscar = () =>
+        supabase
+          .from("os_templates" as any)
+          .select("*")
+          .eq("user_id", empresaId)
+          .eq("ativo", true)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true });
+      let { data, error } = await buscar();
+      if (error) throw error;
+      // Empresa nova ainda não tem os modelos prontos: cria (mesma RPC da
+      // biblioteca em Configurações > Modelos de OS) e busca de novo.
+      if (!data?.length) {
+        const seed = await supabase.rpc("garantir_templates_padrao" as any, { p_user_id: empresaId });
+        if (seed.error) throw seed.error;
+        ({ data, error } = await buscar());
+        if (error) throw error;
+      }
+      return (data ?? []) as unknown as OsTemplateDbRow[];
+    },
+  });
+
+  // Sem escolha ainda: marca o modelo que já é o padrão da empresa.
+  useEffect(() => {
+    if (selecionado || !modelos?.length) return;
+    const padrao = modelos.find((m) => m.padrao) ?? modelos[0];
+    if (padrao) onSelecionar(padrao.id);
+  }, [modelos, selecionado, onSelecionar]);
+
+  const amostra = buildSampleOsRenderData(empresa, termoGarantia ? { termoGarantiaTexto: termoGarantia } : {});
+
+  if (isLoading) {
+    return (
+      <div className="flex h-48 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {(modelos ?? []).map((m) => {
+          const ativo = m.id === selecionado;
+          return (
+            <div
+              key={m.id}
+              className={cn(
+                "group relative overflow-hidden rounded-2xl border-2 transition",
+                ativo
+                  ? "border-primary shadow-soft ring-4 ring-primary/25"
+                  : "border-border hover:border-primary/50",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => onSelecionar(m.id)}
+                className="block w-full text-left"
+                aria-pressed={ativo}
+              >
+                <div className="pointer-events-none relative bg-muted/30">
+                  <OsTemplateThumbnail html={renderOsTemplateHtml(m, amostra)} orientacao={m.orientacao} />
+                  {ativo && (
+                    <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground shadow">
+                      <Check className="h-3 w-3" /> Escolhido
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 p-2.5">
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                      ativo ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                    )}
+                  >
+                    {ativo && <Check className="h-3 w-3" />}
+                  </span>
+                  <span className="truncate text-xs font-semibold">{m.nome}</span>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAmpliado(m)}
+                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white shadow transition hover:bg-black/85"
+                aria-label={`Ampliar prévia de ${m.nome}`}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <Dialog open={!!ampliado} onOpenChange={(open) => !open && setAmpliado(null)}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{ampliado?.nome}</DialogTitle>
+          </DialogHeader>
+          {ampliado && (
+            <div className="overflow-hidden rounded-xl border border-border">
+              <OsTemplateThumbnail
+                html={renderOsTemplateHtml(ampliado, amostra)}
+                orientacao={ampliado.orientacao}
+              />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (ampliado) onSelecionar(ampliado.id);
+              setAmpliado(null);
+            }}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground"
+          >
+            <Check className="h-4 w-4" /> Usar este modelo
+          </button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

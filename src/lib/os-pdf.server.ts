@@ -114,6 +114,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
       .select("conteudo")
       .eq("user_id", empresaId)
       .eq("is_default", true)
+      .eq("ativo", true)
       .maybeSingle(),
 
     supabaseAdmin

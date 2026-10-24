@@ -802,7 +802,8 @@ function Ordens() {
         .select("conteudo")
         .eq("user_id", empresaId || "")
         .eq("is_default", true)
-        .single(),
+        .eq("ativo", true)
+        .maybeSingle(),
       supabase
         .from("os_config" as any)
         .select("*")

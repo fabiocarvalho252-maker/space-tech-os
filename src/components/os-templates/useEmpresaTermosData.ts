@@ -39,6 +39,7 @@ export function useEmpresaTermosData(): Partial<
         .select("conteudo")
         .eq("user_id", empresaId!)
         .eq("is_default", true)
+        .eq("ativo", true)
         .maybeSingle();
       return data as { conteudo: string } | null;
     },
