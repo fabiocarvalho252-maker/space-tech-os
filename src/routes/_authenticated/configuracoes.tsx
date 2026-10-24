@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { enviarLogoEmpresa } from "@/lib/logo-empresa";
 import { termosOsPadrao } from "@/lib/termos-padrao";
@@ -392,16 +393,14 @@ function Configuracoes() {
     mutationFn: async (serie_padrao: string) => {
       if (!user) return;
       if (!serie_padrao.trim()) throw new Error("Informe a série.");
-      const { error } = await supabase
-        .from("fiscal_config" as any)
-        .upsert(
-          {
-            user_id: empresaId!,
-            serie_padrao: serie_padrao.trim(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" },
-        );
+      const { error } = await supabase.from("fiscal_config" as any).upsert(
+        {
+          user_id: empresaId!,
+          serie_padrao: serie_padrao.trim(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -469,7 +468,6 @@ function Configuracoes() {
     whatsappConexaoQuery.error instanceof Error &&
     /não foi configurada/i.test(whatsappConexaoQuery.error.message);
   const whatsappStatus = whatsappConexaoQuery.data?.status ?? "desconectado";
-
 
   const { data: catalogoConfig, refetch: refetchCatalogo } = useQuery({
     queryKey: ["catalogo-config"],
@@ -1079,16 +1077,14 @@ function Configuracoes() {
                     defaultValue={osConfig?.termos_condicoes || ""}
                     onBlur={async (e) => {
                       const val = e.target.value;
-                      const { error } = await supabase
-                        .from("os_config" as any)
-                        .upsert(
-                          {
-                            user_id: empresaId!,
-                            termos_condicoes: val,
-                            updated_at: new Date().toISOString(),
-                          },
-                          { onConflict: "user_id" },
-                        );
+                      const { error } = await supabase.from("os_config" as any).upsert(
+                        {
+                          user_id: empresaId!,
+                          termos_condicoes: val,
+                          updated_at: new Date().toISOString(),
+                        },
+                        { onConflict: "user_id" },
+                      );
                       if (error) toast.error("Erro ao salvar termos: " + error.message);
                       else toast.success("Termos atualizados!");
                     }}
@@ -1099,16 +1095,14 @@ function Configuracoes() {
                       className="text-primary hover:underline"
                       onClick={async () => {
                         const defaultText = termosOsPadrao(osConfig?.dias_garantia_padrao || 90);
-                        const { error } = await supabase
-                          .from("os_config" as any)
-                          .upsert(
-                            {
-                              user_id: empresaId!,
-                              termos_condicoes: defaultText,
-                              updated_at: new Date().toISOString(),
-                            },
-                            { onConflict: "user_id" },
-                          );
+                        const { error } = await supabase.from("os_config" as any).upsert(
+                          {
+                            user_id: empresaId!,
+                            termos_condicoes: defaultText,
+                            updated_at: new Date().toISOString(),
+                          },
+                          { onConflict: "user_id" },
+                        );
                         if (!error) {
                           toast.success("Texto padrão restaurado!");
                           refetchOsConfig();
@@ -1291,15 +1285,13 @@ function Configuracoes() {
                     type="number"
                     value={osConfig?.dias_garantia_padrao || 90}
                     onChange={async (e) => {
-                      await supabase
-                        .from("os_config" as any)
-                        .upsert(
-                          {
-                            user_id: empresaId!,
-                            dias_garantia_padrao: Number(e.target.value),
-                          },
-                          { onConflict: "user_id" },
-                        );
+                      await supabase.from("os_config" as any).upsert(
+                        {
+                          user_id: empresaId!,
+                          dias_garantia_padrao: Number(e.target.value),
+                        },
+                        { onConflict: "user_id" },
+                      );
                       refetchOsConfig();
                     }}
                   />
@@ -2198,62 +2190,73 @@ function Configuracoes() {
                     </h3>
                   </div>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Cada bloco abaixo corresponde a um tipo de envio. Expanda para editar o texto e
-                    o interruptor de ativação; o botão Salvar configurações WhatsApp no fim da aba
-                    aplica todas as alterações de uma vez.
+                    Expanda um bloco para editar o texto; ele é salvo ao sair do campo.{" "}
+                    <strong>Automático</strong> é enviado sozinho quando ligado.{" "}
+                    <strong>Envio manual</strong> aparece como mensagem pronta no botão de WhatsApp
+                    da OS. <strong>Em breve</strong> ainda não é enviado pelo sistema.
                   </p>
 
                   <div className="space-y-2">
                     {[
                       {
                         id: "notif_os_pronta",
-                        label: "Automático: avisar o cliente quando a OS ficar Pronta",
+                        label: "Avisar o cliente quando a OS ficar Pronta",
                         key: "notif_os_pronta",
+                        uso: "auto",
                       },
                       {
                         id: "notif_os_criada",
-                        label: "Notificação: Quando uma OS for criada",
+                        label: "OS criada",
                         key: "notif_os_criada",
+                        uso: "manual",
                       },
                       {
                         id: "notif_os_editada",
-                        label: "Notificação: Quando uma OS for editada",
+                        label: "OS atualizada",
                         key: "notif_os_editada",
+                        uso: "manual",
                       },
                       {
                         id: "notif_nfe_emitida",
                         label: "Notificação: Quando uma nota fiscal for emitida",
                         key: "notif_nfe_emitida",
+                        uso: "breve",
                       },
                       {
                         id: "boas_vindas",
                         label: "Relacionamento: Boas-vindas ao novo cliente",
                         key: "boas_vindas",
+                        uso: "breve",
                       },
                       {
                         id: "pesquisa_pos_os",
-                        label: "Pesquisa de Satisfação: Pós-OS (avaliação de serviço)",
+                        label: "Pesquisa de satisfação pós-OS",
                         key: "pesquisa_pos_os",
+                        uso: "manual",
                       },
                       {
                         id: "pesquisa_pos_venda",
                         label: "Pesquisa de Satisfação: Pós-Venda (avaliação de produto)",
                         key: "pesquisa_pos_venda",
+                        uso: "breve",
                       },
                       {
                         id: "relatorio_semanal_ia",
                         label: "Gestão: Relatório Semanal de Desempenho (via IA)",
                         key: "relatorio_semanal_ia",
+                        uso: "breve",
                       },
                       {
                         id: "feliz_aniversario",
                         label: "Relacionamento: Mensagem de Feliz Aniversário",
                         key: "feliz_aniversario",
+                        uso: "breve",
                       },
                       {
                         id: "lembrete_tecnico",
                         label: "Equipe: Lembrete de visita/entrega ao técnico",
                         key: "lembrete_tecnico",
+                        uso: "breve",
                       },
                     ].map((item) => (
                       <details
@@ -2261,24 +2264,44 @@ function Configuracoes() {
                         className="group rounded-xl border border-border bg-card overflow-hidden"
                       >
                         <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors list-none">
-                          <span className="text-sm font-medium">{item.label}</span>
+                          <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                            {item.label}
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                item.uso === "auto"
+                                  ? "bg-green-500/15 text-green-600"
+                                  : item.uso === "manual"
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-muted text-muted-foreground",
+                              )}
+                            >
+                              {item.uso === "auto"
+                                ? "Automático"
+                                : item.uso === "manual"
+                                  ? "Envio manual"
+                                  : "Em breve"}
+                            </span>
+                          </span>
                           <div
                             className="flex items-center gap-4"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Switch
-                              checked={whatsappConfig?.[item.key] ?? false}
-                              onCheckedChange={async (val) => {
-                                await supabase.from("whatsapp_config" as any).upsert(
-                                  {
-                                    user_id: empresaId!,
-                                    [item.key]: val,
-                                  },
-                                  { onConflict: "user_id" },
-                                );
-                                refetchWhatsapp();
-                              }}
-                            />
+                            {item.uso === "auto" && (
+                              <Switch
+                                checked={whatsappConfig?.[item.key] ?? false}
+                                onCheckedChange={async (val) => {
+                                  await supabase.from("whatsapp_config" as any).upsert(
+                                    {
+                                      user_id: empresaId!,
+                                      [item.key]: val,
+                                    },
+                                    { onConflict: "user_id" },
+                                  );
+                                  refetchWhatsapp();
+                                }}
+                              />
+                            )}
                             <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" />
                           </div>
                         </summary>
@@ -2304,13 +2327,18 @@ function Configuracoes() {
                             <p className="text-[10px] text-muted-foreground">
                               Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"}, {"{{status}}"}
                               , {"{{tecnico}}"}
-                              {item.key === "notif_os_pronta" && <>, {"{{aparelho}}"}, {"{{link}}"}</>}.
+                              {item.key === "notif_os_pronta" && (
+                                <>
+                                  , {"{{aparelho}}"}, {"{{link}}"}
+                                </>
+                              )}
+                              .
                             </p>
                             {item.key === "notif_os_pronta" && (
                               <p className="text-[11px] text-muted-foreground">
-                                Enviado sozinho, uma vez por OS, quando o status muda para Pronto
-                                — pela lista ou pela edição da OS. Precisa do WhatsApp conectado e
-                                do telefone do cliente cadastrado.
+                                Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
+                                pela lista ou pela edição da OS. Precisa do WhatsApp conectado e do
+                                telefone do cliente cadastrado.
                               </p>
                             )}
                           </div>
