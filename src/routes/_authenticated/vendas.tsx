@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus, Trash2, Search, Eye, Minus, ShoppingBag, Receipt, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { dataBR, STATUS_VENDAS, statusLabel } from "@/lib/format";
@@ -32,6 +33,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+// O que basta para pôr um item no carrinho (produto do cadastro ou item já no carrinho).
+type ProdutoAdicionavel = Pick<
+  Tables<"produtos">,
+  "id" | "nome" | "preco_venda" | "quantidade" | "categoria"
+>;
 
 export const Route = createFileRoute("/_authenticated/vendas")({
   head: () => ({
@@ -89,7 +96,7 @@ function Vendas() {
         .select("*, cliente:clientes(nome, telefone), itens:venda_itens(descricao)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -140,7 +147,7 @@ function Vendas() {
     enabled: !!detalheId,
   });
 
-  function adicionar(p: any) {
+  function adicionar(p: ProdutoAdicionavel) {
     setCarrinho((c) => {
       const existe = c.find((i) => i.id === p.id);
       const tipo: CartItem["tipo"] = p.categoria === "Serviço" ? "Serviço" : "Produto";
@@ -204,7 +211,7 @@ function Vendas() {
 
       // Venda, itens, baixa de estoque e receita numa única transação no
       // banco (registrar_venda): ou grava tudo, ou nada.
-      const { data, error: vendaErro } = await supabase.rpc("registrar_venda" as any, {
+      const { data, error: vendaErro } = await supabase.rpc("registrar_venda", {
         p_empresa_id: empresaId!,
         p_itens: carrinho.map((i) => ({
           produto_id: i.id,
@@ -212,10 +219,10 @@ function Vendas() {
           quantidade: i.qtd,
           preco_unitario: i.preco,
         })),
-        p_cliente_id: clienteId || null,
+        p_cliente_id: (clienteId || null) as string,
         p_desconto: descontoNum,
         p_forma_pagamento: formaPagamento,
-        p_observacoes: observacoes || null,
+        p_observacoes: (observacoes || null) as string,
         p_categoria: "Venda",
         p_data: dataVenda,
         p_created_at: createdAt,
@@ -287,7 +294,7 @@ function Vendas() {
         }
         // Devolve o estoque, cancela a receita e marca a venda, tudo numa
         // transação só (cancelar_venda).
-        const { error } = await supabase.rpc("cancelar_venda" as any, { p_venda_id: id });
+        const { error } = await supabase.rpc("cancelar_venda", { p_venda_id: id });
         if (error) throw error;
         return;
       }
@@ -309,7 +316,7 @@ function Vendas() {
       // Devolve o estoque (se a venda não estava cancelada) e apaga venda,
       // itens e lançamento numa transação só (excluir_venda). Venda de
       // aparelho ativa é recusada lá — precisa ser cancelada antes.
-      const { error } = await supabase.rpc("excluir_venda" as any, { p_venda_id: id });
+      const { error } = await supabase.rpc("excluir_venda", { p_venda_id: id });
       if (error) throw error;
     },
     onSuccess: () => {

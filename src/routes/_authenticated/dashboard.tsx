@@ -241,7 +241,7 @@ function Dashboard() {
     .map((o) => ({
       id: o.id,
       numero: o.numero,
-      cliente: (o.clientes as any)?.nome ?? "Sem cliente",
+      cliente: o.clientes?.nome ?? "Sem cliente",
       previsao: o.previsao,
       status: o.status,
     }));

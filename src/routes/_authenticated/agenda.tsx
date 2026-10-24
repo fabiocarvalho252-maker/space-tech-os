@@ -133,7 +133,7 @@ function Agenda() {
         .lte("inicio", rangeFim.toISOString())
         .order("inicio");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -223,11 +223,11 @@ function Agenda() {
     },
   });
 
-  function abrirEdicao(a: any) {
+  function abrirEdicao(a: (typeof agendamentos)[number]) {
     setEditId(a.id);
     setForm({
       titulo: a.titulo,
-      tipo: a.tipo,
+      tipo: a.tipo as "compromisso" | "bloqueio",
       cliente_id: a.cliente_id ?? "",
       os_id: a.os_id ?? "",
       tecnico: a.tecnico ?? "",

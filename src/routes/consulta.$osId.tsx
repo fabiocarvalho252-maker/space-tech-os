@@ -28,12 +28,12 @@ function ConsultaPublica() {
       // SECURITY DEFINER — ordens_servico não tem nenhuma policy de RLS
       // liberada para o papel "anon", então uma consulta direta na tabela
       // sempre voltava vazia para um cliente sem login.
-      const { data, error } = await supabase.rpc("consultar_os_publica" as any, {
+      const { data, error } = await supabase.rpc("consultar_os_publica", {
         p_identificador: osId,
       });
 
       if (error) throw error;
-      return ((data as any[]) ?? [])[0] ?? null;
+      return data?.[0] ?? null;
     },
   });
 

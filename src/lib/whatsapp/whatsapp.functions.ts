@@ -8,7 +8,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 import * as whatsappService from "./whatsapp-service";
 import type { WhatsappConexao, WhatsappMensagem } from "./types";
 
@@ -23,7 +25,7 @@ function origemAtual(): string {
   return new URL(request.url).origin;
 }
 
-type Ctx = { supabase: any; userId: string };
+type Ctx = { supabase: SupabaseClient<Database>; userId: string };
 
 // Empresa em que o login trabalha — a mesma regra de useMinhaEmpresa: um
 // convite para outra empresa vence a empresa própria (vazia) do funcionário.

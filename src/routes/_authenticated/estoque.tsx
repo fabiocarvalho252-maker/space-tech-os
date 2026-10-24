@@ -182,22 +182,16 @@ function Estoque() {
   const { data: estoqueConfig } = useQuery({
     queryKey: ["estoque-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("estoque_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("estoque_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
   });
 
   const { data: categoriasProduto = [] } = useQuery({
     queryKey: ["produto-categorias"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produto_categorias" as any)
-        .select("*")
-        .order("nome");
+      const { data, error } = await supabase.from("produto_categorias").select("*").order("nome");
       if (error) throw error;
       return (data ?? []) as unknown as { id: string; nome: string }[];
     },

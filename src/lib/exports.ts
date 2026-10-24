@@ -1,10 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { dataBR } from "@/lib/format";
 
-export async function exportToCSV(data: any[], filename: string) {
+export async function exportToCSV(data: Record<string, unknown>[], filename: string) {
   if (!data || !data.length) return;
 
-  const headers = Object.keys(data[0]).join(",");
+  const headers = Object.keys(data[0]!).join(",");
   const rows = data.map((row) =>
     Object.values(row)
       .map((value) => (typeof value === "string" ? `"${value.replace(/"/g, '""')}"` : value))
@@ -25,8 +25,14 @@ export async function exportToCSV(data: any[], filename: string) {
 }
 
 export async function generateFinancePDF(
-  lancamentos: any[],
-  profile: any,
+  lancamentos: {
+    data: string;
+    descricao: string;
+    categoria: string | null;
+    tipo: string;
+    valor: number;
+  }[],
+  profile: { loja: string | null } | null | undefined,
   resumo: { entradas: number; saidas: number; saldo: number },
 ) {
   const janela = window.open("", "_blank", "width=800,height=900");

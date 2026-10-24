@@ -76,7 +76,7 @@ export function useCaixa(empresaId: string | null | undefined) {
     enabled: !!empresaId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("caixa_sessoes" as any)
+        .from("caixa_sessoes")
         .select("*")
         .eq("user_id", empresaId!)
         .eq("status", "aberto")
@@ -90,7 +90,7 @@ export function useCaixa(empresaId: string | null | undefined) {
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("sale_config" as any)
+        .from("sale_config")
         .select("tipo_caixa")
         .eq("user_id", empresaId!)
         .maybeSingle();
@@ -163,7 +163,7 @@ export function CaixaDialog({
     queryKey: ["caixa-resumo", caixa?.id],
     enabled: open && !!caixa,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("resumo_caixa" as any, { p_sessao_id: caixa!.id });
+      const { data, error } = await supabase.rpc("resumo_caixa", { p_sessao_id: caixa!.id });
       if (error) throw error;
       return data as unknown as ResumoCaixa;
     },
@@ -174,7 +174,7 @@ export function CaixaDialog({
     enabled: open && !!caixa,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("caixa_movimentos" as any)
+        .from("caixa_movimentos")
         .select("id, tipo, valor, motivo, created_at")
         .eq("sessao_id", caixa!.id)
         .order("created_at");
@@ -188,7 +188,7 @@ export function CaixaDialog({
     enabled: open && !caixa && !!empresaId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("caixa_sessoes" as any)
+        .from("caixa_sessoes")
         .select("*")
         .eq("user_id", empresaId!)
         .eq("status", "fechado")
@@ -208,7 +208,7 @@ export function CaixaDialog({
 
   const abrir = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("abrir_caixa" as any, {
+      const { error } = await supabase.rpc("abrir_caixa", {
         p_empresa_id: empresaId!,
         p_valor_abertura: numero(valorAbertura),
       });
@@ -225,7 +225,7 @@ export function CaixaDialog({
   const movimentar = useMutation({
     mutationFn: async () => {
       if (numero(movValor) <= 0) throw new Error("Informe o valor");
-      const { error } = await supabase.rpc("movimentar_caixa" as any, {
+      const { error } = await supabase.rpc("movimentar_caixa", {
         p_sessao_id: caixa!.id,
         p_tipo: movTipo,
         p_valor: numero(movValor),
@@ -245,7 +245,7 @@ export function CaixaDialog({
   const fechar = useMutation({
     mutationFn: async () => {
       if (contado.trim() === "") throw new Error("Conte o dinheiro da gaveta e informe o valor");
-      const { data, error } = await supabase.rpc("fechar_caixa" as any, {
+      const { data, error } = await supabase.rpc("fechar_caixa", {
         p_sessao_id: caixa!.id,
         p_valor_contado: numero(contado),
         p_observacoes: obs,

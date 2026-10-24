@@ -84,11 +84,11 @@ function Compras() {
     queryKey: ["compras"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("compras" as any)
+        .from("compras")
         .select("*, fornecedor:fornecedores(razao_social, nome_fantasia)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -98,11 +98,11 @@ function Compras() {
     enabled: !!verId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("compra_itens" as any)
+        .from("compra_itens")
         .select("*")
-        .eq("compra_id", verId);
+        .eq("compra_id", verId as string);
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -134,12 +134,9 @@ function Compras() {
   const { data: purchaseConfig } = useQuery({
     queryKey: ["purchase-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchase_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("purchase_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -148,11 +145,11 @@ function Compras() {
     queryKey: ["purchase-status-flows"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("purchase_status_flows" as any)
+        .from("purchase_status_flows")
         .select("*")
         .eq("is_active", true);
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -187,7 +184,7 @@ function Compras() {
       if (!itens.length) throw new Error("Adicione ao menos um item.");
 
       const { data: compra, error: compraErro } = await supabase
-        .from("compras" as any)
+        .from("compras")
         .insert({
           user_id: empresaId!,
           fornecedor_id: fornecedorId,
@@ -199,10 +196,10 @@ function Compras() {
         .single();
       if (compraErro) throw compraErro;
 
-      const { error: itensErro } = await supabase.from("compra_itens" as any).insert(
+      const { error: itensErro } = await supabase.from("compra_itens").insert(
         itens.map((i) => ({
           user_id: empresaId!,
-          compra_id: (compra as any).id,
+          compra_id: compra.id,
           produto_id: i.produto_id || null,
           descricao: i.descricao,
           quantidade: parseFloat(i.quantidade) || 1,
@@ -238,7 +235,7 @@ function Compras() {
       // banco (receber_compra) numa transação só, e uma única vez por compra:
       // reabrir/editar o status não duplica a entrada.
       if (status === "recebido" && !compra?.recebido_em) {
-        const { error } = await supabase.rpc("receber_compra" as any, {
+        const { error } = await supabase.rpc("receber_compra", {
           p_compra_id: id,
           p_status: status,
         });
@@ -249,7 +246,7 @@ function Compras() {
       // uma vez por compra e junto com a mudança de status.
       const situacaoFaturar = purchaseConfig?.situacao_faturar || "faturado";
       if (status === situacaoFaturar && !compra?.faturado_em) {
-        const { error } = await supabase.rpc("faturar_compra" as any, {
+        const { error } = await supabase.rpc("faturar_compra", {
           p_compra_id: id,
           p_status: status,
         });
@@ -257,10 +254,7 @@ function Compras() {
         return;
       }
 
-      const { error } = await supabase
-        .from("compras" as any)
-        .update({ status })
-        .eq("id", id);
+      const { error } = await supabase.from("compras").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -274,10 +268,7 @@ function Compras() {
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("compras" as any)
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("compras").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -22,7 +22,7 @@ export function useEmpresaTermosData(): Partial<
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("os_config" as any)
+        .from("os_config")
         .select("termos_condicoes")
         .eq("user_id", empresaId!)
         .maybeSingle();

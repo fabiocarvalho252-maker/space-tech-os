@@ -40,8 +40,7 @@ export class WhatsappSistemaNaoConfiguradoError extends Error {
 
 async function obterConexao(): Promise<WhatsappSistemaConexao | null> {
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_system_connection" as any)
+    .from("whatsapp_system_connection")
     .select("*")
     .eq("id", SYSTEM_INSTANCE_ID)
     .maybeSingle();
@@ -53,8 +52,7 @@ async function atualizarConexao(
   patch: Partial<WhatsappSistemaConexao>,
 ): Promise<WhatsappSistemaConexao> {
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_system_connection" as any)
+    .from("whatsapp_system_connection")
     .update(patch)
     .eq("id", SYSTEM_INSTANCE_ID)
     .select("*")

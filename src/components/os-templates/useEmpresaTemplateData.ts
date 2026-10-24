@@ -9,11 +9,11 @@ export function useEmpresaTemplateData(): RenderOsData["empresa"] {
   const { data: profile } = useProfile();
   return useMemo(
     () => ({
-      nome: (profile as any)?.loja || (profile as any)?.nome || "Sua Empresa",
-      logoUrl: (profile as any)?.logo_url ?? null,
-      cnpj: (profile as any)?.cnpj_cpf ?? null,
-      endereco: (profile as any)?.endereco ?? null,
-      telefone: (profile as any)?.whatsapp ?? null,
+      nome: profile?.loja || profile?.nome || "Sua Empresa",
+      logoUrl: profile?.logo_url ?? null,
+      cnpj: profile?.cnpj_cpf ?? null,
+      endereco: profile?.endereco ?? null,
+      telefone: profile?.whatsapp ?? null,
       responsavel: null,
     }),
     [profile],

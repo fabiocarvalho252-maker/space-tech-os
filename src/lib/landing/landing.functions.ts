@@ -23,8 +23,7 @@ export type PlanoPublico = {
 async function lerConteudo(): Promise<LandingConteudo> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- site_landing not in the generated Database type yet
-    .from("site_landing" as any)
+    .from("site_landing")
     .select("conteudo")
     .eq("id", 1)
     .maybeSingle();
@@ -89,8 +88,7 @@ export const salvarLanding = createServerFn({ method: "POST" })
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- site_landing not in the generated Database type yet
-      .from("site_landing" as any)
+      .from("site_landing")
       .upsert({ id: 1, conteudo: data, updated_at: new Date().toISOString() });
     if (error) throw error;
     return { ok: true };

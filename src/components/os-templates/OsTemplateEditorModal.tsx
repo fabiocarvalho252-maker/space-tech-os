@@ -127,7 +127,7 @@ export function OsTemplateEditorModal({
     mutationFn: async () => {
       if (!template) throw new Error("Nenhum modelo selecionado.");
       const { data, error } = await supabase
-        .from("os_templates" as any)
+        .from("os_templates")
         .update({
           nome,
           descricao: descricao || null,

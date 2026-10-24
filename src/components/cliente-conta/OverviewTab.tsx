@@ -45,8 +45,7 @@ export function OverviewTab({
     queryKey: ["minha-conta-ultimas-compras", cliente.id],
     queryFn: async (): Promise<MinhaVenda[]> => {
       const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendas.origem not in the generated Database type yet
-        .from("vendas" as any)
+        .from("vendas")
         .select("id, numero, created_at, total, status, origem, venda_itens(descricao, quantidade)")
         .eq("cliente_id", cliente.id)
         .order("created_at", { ascending: false })

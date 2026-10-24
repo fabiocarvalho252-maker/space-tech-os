@@ -40,7 +40,7 @@ export function FinancialChart({ pontos }: { pontos: PontoResultado[] }) {
           content={
             <ChartTooltipContent
               hideLabel={false}
-              formatter={(value) => [brl(Number(value)), "Resultado"] as any}
+              formatter={(value) => [brl(Number(value)), "Resultado"]}
             />
           }
         />

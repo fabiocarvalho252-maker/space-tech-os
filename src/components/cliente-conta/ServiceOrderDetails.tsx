@@ -58,14 +58,10 @@ export function ServiceOrderDetails({
 
   const decidir = useMutation({
     mutationFn: async (aprovar: boolean) => {
-      const { error } = await supabase.rpc(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cliente_decidir_orcamento not in the generated Database type yet
-        "cliente_decidir_orcamento" as any,
-        {
-          p_os_id: os!.id,
-          p_aprovar: aprovar,
-        },
-      );
+      const { error } = await supabase.rpc("cliente_decidir_orcamento", {
+        p_os_id: os!.id,
+        p_aprovar: aprovar,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, aprovar) => {

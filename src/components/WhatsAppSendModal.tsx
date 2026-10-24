@@ -66,11 +66,7 @@ export function WhatsAppSendModal({
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see src/lib/whatsapp/types.ts header
-        .from("whatsapp_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("whatsapp_config").select("*").maybeSingle();
       if (error) throw error;
       return data as Record<string, unknown> | null;
     },
@@ -98,9 +94,9 @@ export function WhatsAppSendModal({
       modelo: os?.modelo ?? "",
       data: os?.created_at ? dataBR(os.created_at) : "",
       garantia: os?.garantia_dias ? `${os.garantia_dias} dias` : "",
-      nome_loja: (profile as any)?.loja ?? "",
-      empresa: (profile as any)?.loja ?? "",
-      telefone: (profile as any)?.whatsapp ?? "",
+      nome_loja: profile?.loja ?? "",
+      empresa: profile?.loja ?? "",
+      telefone: profile?.whatsapp ?? "",
     }),
     [os, profile],
   );

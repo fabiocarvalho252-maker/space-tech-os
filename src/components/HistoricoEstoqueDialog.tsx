@@ -55,7 +55,7 @@ export function HistoricoEstoqueDialog({
     enabled: !!produto,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("estoque_movimentacoes" as any)
+        .from("estoque_movimentacoes")
         .select("id, tipo, quantidade, saldo_anterior, saldo_posterior, descricao, created_at")
         .eq("produto_id", produto!.id)
         .order("created_at", { ascending: false })

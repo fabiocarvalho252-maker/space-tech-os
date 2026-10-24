@@ -41,7 +41,9 @@ export const ajustarLaudo = createServerFn({ method: "POST" })
     if (res.status === 402) throw new Error("Créditos de IA esgotados.");
     if (!res.ok) throw new Error("Não foi possível processar o texto com IA.");
 
-    const json = (await res.json()) as any;
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
     const texto = json?.choices?.[0]?.message?.content?.trim();
     if (!texto) throw new Error("A IA não retornou nenhum texto.");
     return { texto };

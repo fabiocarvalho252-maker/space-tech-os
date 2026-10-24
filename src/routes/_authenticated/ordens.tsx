@@ -47,13 +47,14 @@ import {
 } from "@/lib/device-analyzer";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database, Tables } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
 import { NovaOsFotos, enviarFotosEntrada, type LadoFoto } from "@/components/NovaOsFotos";
 import { AparelhoCard3D, useLadosAparelho, useLadosAparelhos } from "@/components/AparelhoCard3D";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
-import { WhatsAppSendModal } from "@/components/WhatsAppSendModal";
+import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
 import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
@@ -109,6 +110,19 @@ export const Route = createFileRoute("/_authenticated/ordens")({
   component: Ordens,
 });
 
+// Uma OS como vem da listagem (com o nome/telefone do cliente embutidos).
+type OsListada = Tables<"ordens_servico"> & {
+  clientes: { nome: string; telefone: string | null } | null;
+};
+type MembroEmpresa = Database["public"]["Functions"]["get_empresa_membros"]["Returns"][number];
+type ItemNovaOs = {
+  tipo: "produto" | "servico";
+  produto_id: string | null;
+  descricao: string;
+  quantidade: number;
+  preco_unitario: number;
+};
+
 const vazio = {
   cliente_id: "",
   aparelho: "",
@@ -126,7 +140,7 @@ const vazio = {
   responsavel: "",
   responsavel_user_id: "",
   acessorios: "",
-  itens: [] as any[],
+  itens: [] as ItemNovaOs[],
 };
 
 const ACESSORIOS_COMUNS = [
@@ -252,12 +266,12 @@ function Ordens() {
   const [editOpen, setEditOpen] = useState(false);
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
   const [faturarOpen, setFaturarOpen] = useState(false);
-  const [whatsappOs, setWhatsappOs] = useState<any>(null);
+  const [whatsappOs, setWhatsappOs] = useState<WhatsAppOsAlvo | null>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
-  const [enviarOsAlvo, setEnviarOsAlvo] = useState<any>(null);
+  const [enviarOsAlvo, setEnviarOsAlvo] = useState<OsListada | null>(null);
   const [enviarOsModo, setEnviarOsModo] = useState<"os" | "orcamento">("os");
   const [enviarOsOpen, setEnviarOsOpen] = useState(false);
-  const [assinaturaOs, setAssinaturaOs] = useState<any>(null);
+  const [assinaturaOs, setAssinaturaOs] = useState<OsListada | null>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const [form, setForm] = useState(vazio);
   const [filtro, setFiltro] = useState("todas");
@@ -327,7 +341,7 @@ function Ordens() {
       return;
     }
     const catalogo = tipo === "produto" ? pecas : servicosCadastrados;
-    const item = catalogo.find((p: any) => p.nome === base.descricao);
+    const item = catalogo.find((p) => p.nome === base.descricao);
     setItensEdicao([
       ...itensEdicao,
       {
@@ -335,19 +349,19 @@ function Ordens() {
         descricao: base.descricao,
         observacao: base.observacao || undefined,
         quantidade: Number(base.quantidade) || 1,
-        preco_unitario: Number(base.preco_unitario) || Number((item as any)?.preco_venda) || 0,
+        preco_unitario: Number(base.preco_unitario) || Number(item?.preco_venda) || 0,
         // Linking serviço items to their produtos row too (not just tipo
         // "produto") keeps their preco_custo ("Custo Adicional" em Serviços)
         // available for o cálculo de CMV no Painel — sem isso, todo custo de
         // peça lançado como serviço ficava invisível no lucro do dia.
-        produto_id: (item as any)?.id ?? null,
+        produto_id: item?.id ?? null,
       },
     ]);
     if (tipo === "produto") setNovoProduto(itemVazio);
     else setNovoServico(itemVazio);
   }
 
-  async function abrirEdicao(os: any) {
+  async function abrirEdicao(os: OsListada) {
     setSelectedOsId(os.id);
     setTabEdicao("detalhes");
     setVerSenha(false);
@@ -358,8 +372,8 @@ function Ordens() {
     setDesconto(String(os.desconto ?? 0));
     setValorPago(String(os.valor_pago ?? 0));
     setStatusPagamento(os.status_pagamento || "pendente");
-    setChecklist(os.checklist_entrada || {});
-    setEstadoFisico(os.estado_fisico || {});
+    setChecklist((os.checklist_entrada || {}) as Record<string, string>);
+    setEstadoFisico((os.estado_fisico || {}) as Record<string, boolean>);
     setEstadoFisicoObs(os.estado_fisico_obs || "");
     setGarantiaDias(os.garantia_dias != null ? String(os.garantia_dias) : "");
     setDataEntrega(os.data_entrega ? os.data_entrega.slice(0, 10) : "");
@@ -379,17 +393,14 @@ function Ordens() {
       senha_dispositivo: os.senha_dispositivo || "",
       padrao_desbloqueio: os.padrao_desbloqueio || "",
       responsavel: os.responsavel || "",
-      responsavel_user_id: (os as any).responsavel_user_id || "",
-      acessorios: (os as any).acessorios || "",
+      responsavel_user_id: os.responsavel_user_id || "",
+      acessorios: os.acessorios || "",
       itens: [],
     });
     setEditOpen(true);
-    const { data } = await supabase
-      .from("os_itens" as any)
-      .select("*")
-      .eq("os_id", os.id);
+    const { data } = await supabase.from("os_itens").select("*").eq("os_id", os.id);
     setItensEdicao(
-      ((data as any[]) ?? []).map((i) => ({
+      (data ?? []).map((i) => ({
         id: i.id,
         tipo: (i.tipo === "servico" ? "servico" : "produto") as "produto" | "servico",
         descricao: i.descricao,
@@ -402,7 +413,7 @@ function Ordens() {
   }
 
   function enviarWhatsApp() {
-    const os: any = ordens.find((o) => o.id === selectedOsId);
+    const os = ordens.find((o) => o.id === selectedOsId);
     if (!os) return;
     setWhatsappOs({ ...os, status: form.status, valor: totalOs });
     setWhatsappOpen(true);
@@ -459,7 +470,7 @@ function Ordens() {
   const { data: ladosOsEditada } = useLadosAparelho(editOpen ? selectedOsId : null);
 
   const valoresUsados = (campo: "aparelho" | "marca" | "modelo" | "cor") =>
-    (ordens as any[]).map((o) => o[campo]).filter((v): v is string => !!v);
+    ordens.map((o) => o[campo]).filter((v): v is string => !!v);
 
   const sugestoesAparelho = useMemo(
     () => Array.from(new Set([...CATEGORIAS_CONHECIDAS, ...valoresUsados("aparelho")])).sort(),
@@ -480,7 +491,7 @@ function Ordens() {
 
   useEffect(() => {
     if (!searchParams.os || !ordens.length) return;
-    const alvo = ordens.find((o: any) => o.id === searchParams.os);
+    const alvo = ordens.find((o) => o.id === searchParams.os);
     if (alvo) abrirEdicao(alvo);
     navigate({ to: "/ordens", search: {}, replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -502,9 +513,7 @@ function Ordens() {
         p_empresa_id: empresaId as string,
       });
       if (error) throw error;
-      return ((data as any[]) ?? []).filter((m) =>
-        ["tecnico", "gerente", "admin"].includes(m.role),
-      );
+      return (data ?? []).filter((m) => ["tecnico", "gerente", "admin"].includes(m.role));
     },
   });
   const nomeTecnico = (m: { nome?: string | null; email: string }) => m.nome || m.email;
@@ -515,12 +524,9 @@ function Ordens() {
   });
   // "produtos" mistura estoque real com o cadastro de serviços (categoria "Serviço",
   // sem controle de estoque) — separar aqui evita que serviços apareçam nos seletores de peça.
-  const pecas = useMemo(
-    () => (produtos as any[]).filter((p) => p.categoria !== "Serviço"),
-    [produtos],
-  );
+  const pecas = useMemo(() => produtos.filter((p) => p.categoria !== "Serviço"), [produtos]);
   const servicosCadastrados = useMemo(
-    () => (produtos as any[]).filter((p) => p.categoria === "Serviço"),
+    () => produtos.filter((p) => p.categoria === "Serviço"),
     [produtos],
   );
 
@@ -528,7 +534,7 @@ function Ordens() {
     mutationFn: async () => {
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
-      const tecnicoSelecionado = tecnicos.find((m: any) => m.user_id === form.responsavel_user_id);
+      const tecnicoSelecionado = tecnicos.find((m) => m.user_id === form.responsavel_user_id);
 
       const { data: os, error } = await supabase
         .from("ordens_servico")
@@ -552,14 +558,14 @@ function Ordens() {
           estado_fisico: estadoFisico,
           estado_fisico_obs: estadoFisicoObs.trim() || null,
           previsao: previsaoData || null,
-        } as any)
+        })
         .select()
         .single();
 
       if (error) throw error;
 
       if (form.itens.length > 0) {
-        const { error: itensError } = await supabase.from("os_itens" as any).insert(
+        const { error: itensError } = await supabase.from("os_itens").insert(
           form.itens.map((i) => ({
             user_id: empresaId!,
             os_id: os.id,
@@ -603,7 +609,7 @@ function Ordens() {
       if (!selectedOsId) return;
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
 
-      const tecnicoSelecionado = tecnicos.find((m: any) => m.user_id === form.responsavel_user_id);
+      const tecnicoSelecionado = tecnicos.find((m) => m.user_id === form.responsavel_user_id);
 
       const { error } = await supabase
         .from("ordens_servico")
@@ -635,19 +641,19 @@ function Ordens() {
           garantia_dias: garantiaDias ? Number(garantiaDias) : null,
           data_entrega: dataEntrega || null,
           previsao: previsaoData || null,
-        } as any)
+        })
         .eq("id", selectedOsId);
 
       if (error) throw error;
 
       const { error: delError } = await supabase
-        .from("os_itens" as any)
+        .from("os_itens")
         .delete()
         .eq("os_id", selectedOsId);
       if (delError) throw delError;
 
       if (itensEdicao.length > 0) {
-        const { error: insError } = await supabase.from("os_itens" as any).insert(
+        const { error: insError } = await supabase.from("os_itens").insert(
           itensEdicao.map((i) => ({
             user_id: empresaId!,
             os_id: selectedOsId,
@@ -662,7 +668,7 @@ function Ordens() {
         if (insError) throw insError;
       }
       // Só avisa "pronta" se o status mudou nesta edição.
-      const anterior = (ordens as any[]).find((o) => o.id === selectedOsId)?.status;
+      const anterior = ordens.find((o) => o.id === selectedOsId)?.status;
       return { id: selectedOsId, status: anterior === form.status ? "" : form.status };
     },
     onSuccess: (salva) => {
@@ -681,12 +687,9 @@ function Ordens() {
   const { data: statusFlows = [] } = useQuery({
     queryKey: ["os-status-flows"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("os_status_flows" as any)
-        .select("*")
-        .eq("ativo", true);
+      const { data, error } = await supabase.from("os_status_flows").select("*").eq("ativo", true);
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -695,12 +698,12 @@ function Ordens() {
     queryKey: ["os-historico", selectedOsId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("os_historico" as any)
+        .from("os_historico")
         .select("*")
         .eq("os_id", selectedOsId as string)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!selectedOsId && editOpen,
   });
@@ -765,7 +768,7 @@ function Ordens() {
       setConfirmExcluirOs(null);
       qc.invalidateQueries({ queryKey: ["ordens"] });
     },
-    onError: (e: any) => {
+    onError: (e: Error & { code?: string }) => {
       if (e?.code === "23503") {
         toast.error("Não é possível excluir: esta OS possui faturamento registrado.", {
           description: "Cancele o faturamento antes de excluir a OS.",
@@ -783,12 +786,12 @@ function Ordens() {
     null,
   );
 
-  function enviarWhatsAppOs(os: any) {
+  function enviarWhatsAppOs(os: OsListada) {
     setWhatsappOs(os);
     setWhatsappOpen(true);
   }
 
-  function enviarOs(os: any, modo: "os" | "orcamento" = "os") {
+  function enviarOs(os: OsListada, modo: "os" | "orcamento" = "os") {
     setEnviarOsAlvo(os);
     setEnviarOsModo(modo);
     setEnviarOsOpen(true);
@@ -798,7 +801,8 @@ function Ordens() {
   const [acessoOpen, setAcessoOpen] = useState(false);
 
   const gerarAcesso = useMutation({
-    mutationFn: (os: any) => gerarAcessoCliente({ data: { clienteId: os.cliente_id } }),
+    mutationFn: (os: OsListada) =>
+      gerarAcessoCliente({ data: { clienteId: os.cliente_id as string } }),
     onSuccess: (res, os) => {
       setAcesso({ ...res, osNumero: os.numero ?? null });
       setAcessoOpen(true);
@@ -806,7 +810,7 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function gerarAcessoOs(os: any) {
+  function gerarAcessoOs(os: OsListada) {
     if (!os.cliente_id) {
       toast.error("Esta OS não tem um cliente vinculado.");
       return;
@@ -817,15 +821,15 @@ function Ordens() {
   const estornar = useMutation({
     mutationFn: async (osId: string) => {
       const { data: faturamento, error: erroBusca } = await supabase
-        .from("os_faturamentos" as any)
+        .from("os_faturamentos")
         .select("id")
         .eq("os_id", osId)
         .neq("status", "cancelado")
         .maybeSingle();
       if (erroBusca) throw erroBusca;
       if (!faturamento) throw new Error("Esta OS não possui lançamento financeiro para estornar.");
-      const { error } = await supabase.rpc("cancelar_faturamento_os" as any, {
-        p_faturamento_id: (faturamento as any).id,
+      const { error } = await supabase.rpc("cancelar_faturamento_os", {
+        p_faturamento_id: faturamento.id,
         p_motivo: "Estorno solicitado na listagem de Ordens de Serviço",
       });
       if (error) throw error;
@@ -879,20 +883,14 @@ function Ordens() {
         .eq("ativo", true)
         .maybeSingle(),
       supabase
-        .from("os_config" as any)
+        .from("os_config")
         .select("*")
         .eq("user_id", empresaId || "")
         .maybeSingle(),
+      supabase.from("service_order_photos").select("*").eq("service_order_id", os.id),
+      supabase.from("os_itens").select("*").eq("os_id", os.id),
       supabase
-        .from("service_order_photos" as any)
-        .select("*")
-        .eq("service_order_id", os.id),
-      supabase
-        .from("os_itens" as any)
-        .select("*")
-        .eq("os_id", os.id),
-      supabase
-        .from("os_templates" as any)
+        .from("os_templates")
         .select("*")
         .eq("user_id", empresaId || "")
         .eq("ativo", true)
@@ -902,24 +900,20 @@ function Ordens() {
         .limit(1),
     ]);
 
-    const osConfig = osConfigData as any;
-    // `.from(x as any)` above makes postgrest-js fall back to an opaque
-    // SelectQueryError element type it can't statically resolve — cast once
-    // here instead of at every access site below.
-    const fotos = (fotosData ?? []) as any[];
-    const itensOs = (itensData ?? []) as any[];
-    const template =
-      (((templatesData as any[]) ?? [])[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
+    const osConfig = osConfigData;
+    const fotos = fotosData ?? [];
+    const itensOs = itensData ?? [];
+    const template = (templatesData?.[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
 
     // Fotos e assinaturas: bucket "os-fotos" é privado — precisa de signed
     // URL, uma public URL retornaria 400/403 em silêncio na <img>.
     const fotosGaleria = fotos.filter(
-      (f: any) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
+      (f) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
     );
     const fotosComUrl = osConfig?.exibir_fotos_impressao
       ? (
           await Promise.all(
-            fotosGaleria.map(async (f: any) => {
+            fotosGaleria.map(async (f) => {
               const { data: signed } = await supabase.storage
                 .from("os-fotos")
                 .createSignedUrl(f.url, 3600);
@@ -929,8 +923,8 @@ function Ordens() {
         ).filter((f) => f.src)
       : [];
 
-    const assinaturaCliente = fotos.find((f: any) => f.category === "assinatura_cliente");
-    const assinaturaTecnico = fotos.find((f: any) => f.category === "assinatura_tecnico");
+    const assinaturaCliente = fotos.find((f) => f.category === "assinatura_cliente");
+    const assinaturaTecnico = fotos.find((f) => f.category === "assinatura_tecnico");
     const [assinaturaClienteSrc, assinaturaTecnicoSrc] = await Promise.all([
       assinaturaCliente
         ? supabase.storage
@@ -952,13 +946,13 @@ function Ordens() {
       createdAt: os.created_at,
       cliente: os.clientes ? { nome: os.clientes.nome, telefone: os.clientes.telefone } : null,
       aparelho: os.aparelho,
-      marca: (os as any).marca ?? null,
-      modelo: (os as any).modelo ?? null,
-      imei: (os as any).imei ?? null,
-      serialNumber: (os as any).serial_number ?? null,
-      cor: (os as any).cor ?? null,
-      senhaDispositivo: (os as any).senha_dispositivo ?? null,
-      padraoDesbloqueio: (os as any).padrao_desbloqueio ?? null,
+      marca: os.marca ?? null,
+      modelo: os.modelo ?? null,
+      imei: os.imei ?? null,
+      serialNumber: os.serial_number ?? null,
+      cor: os.cor ?? null,
+      senhaDispositivo: os.senha_dispositivo ?? null,
+      padraoDesbloqueio: os.padrao_desbloqueio ?? null,
       defeito: os.defeito ?? null,
       diagnostico: os.diagnostico ?? null,
       itens: itensOs.map((i) => ({
@@ -968,24 +962,24 @@ function Ordens() {
         precoUnitario: Number(i.preco_unitario),
       })),
       valor: Number(os.valor),
-      desconto: Number((os as any).desconto ?? 0),
-      garantiaDias: (os as any).garantia_dias ?? null,
-      garantiaVencimento: (os as any).garantia_vencimento ?? null,
-      checklist: ((os as any).checklist_entrada ?? {}) as Record<string, string>,
-      estadoFisico: ((os as any).estado_fisico ?? {}) as Record<string, boolean>,
-      estadoFisicoObs: (os as any).estado_fisico_obs ?? null,
-      acessorios: (os as any).acessorios ?? null,
+      desconto: Number(os.desconto ?? 0),
+      garantiaDias: os.garantia_dias ?? null,
+      garantiaVencimento: os.garantia_vencimento ?? null,
+      checklist: (os.checklist_entrada ?? {}) as Record<string, string>,
+      estadoFisico: (os.estado_fisico ?? {}) as Record<string, boolean>,
+      estadoFisicoObs: os.estado_fisico_obs ?? null,
+      acessorios: os.acessorios ?? null,
       fotos: fotosComUrl,
       assinaturaClienteSrc,
       assinaturaTecnicoSrc,
       termoGarantiaTexto: termo?.conteudo ?? null,
       condicoesTexto: osConfig?.termos_condicoes ?? null,
       empresa: {
-        nome: profile?.loja || (profile as any)?.nome || "Assistência Técnica",
-        logoUrl: (profile as any)?.logo_url ?? null,
-        cnpj: (profile as any)?.cnpj_cpf ?? null,
-        endereco: (profile as any)?.endereco ?? null,
-        telefone: (profile as any)?.whatsapp ?? null,
+        nome: profile?.loja || profile?.nome || "Assistência Técnica",
+        logoUrl: profile?.logo_url ?? null,
+        cnpj: profile?.cnpj_cpf ?? null,
+        endereco: profile?.endereco ?? null,
+        telefone: profile?.whatsapp ?? null,
         responsavel: null,
       },
       qrCodeUrl: osConfig?.imprimir_qrcode_cliente ? `${origemPublica()}/consulta/${os.id}` : null,
@@ -1002,9 +996,7 @@ function Ordens() {
   }
 
   const lista = useMemo(() => {
-    let base = (
-      filtro === "todas" ? ordens : ordens.filter((o) => (o as any).status === filtro)
-    ) as any[];
+    let base: OsListada[] = filtro === "todas" ? ordens : ordens.filter((o) => o.status === filtro);
 
     if (filtrosAvancados.dataInicio) {
       base = base.filter((o) => new Date(o.created_at) >= new Date(filtrosAvancados.dataInicio));
@@ -1040,7 +1032,7 @@ function Ordens() {
 
   const minhasEmAberto = useMemo(
     () =>
-      (ordens as any[]).filter(
+      ordens.filter(
         (o) =>
           o.responsavel_user_id === user?.id &&
           !["entregue", "faturado", "cancelado", "reprovado"].includes(o.status),
@@ -1083,7 +1075,7 @@ function Ordens() {
               if (v) {
                 // Técnico já vem preenchido com quem está abrindo a OS, se
                 // a pessoa for técnico/gerente/admin da empresa.
-                const souTecnico = tecnicos.some((m: any) => m.user_id === user?.id);
+                const souTecnico = tecnicos.some((m) => m.user_id === user?.id);
                 setForm({ ...vazio, responsavel_user_id: souTecnico ? user!.id : "" });
                 setEstadoFisico({});
                 setEstadoFisicoObs("");
@@ -1156,7 +1148,7 @@ function Ordens() {
                       <SelectValue placeholder="Sem técnico atribuído" />
                     </SelectTrigger>
                     <SelectContent>
-                      {tecnicos.map((m: any) => (
+                      {tecnicos.map((m) => (
                         <SelectItem key={m.user_id} value={m.user_id}>
                           {nomeTecnico(m)}
                         </SelectItem>
@@ -1544,7 +1536,7 @@ function Ordens() {
                       <SelectValue placeholder="Sem técnico atribuído" />
                     </SelectTrigger>
                     <SelectContent>
-                      {tecnicos.map((m: any) => (
+                      {tecnicos.map((m) => (
                         <SelectItem key={m.user_id} value={m.user_id}>
                           {nomeTecnico(m)}
                         </SelectItem>
@@ -1765,8 +1757,8 @@ function Ordens() {
               {selectedOsId ? (
                 <OsFotos
                   osId={selectedOsId}
-                  numero={ordens.find((o) => o.id === selectedOsId)?.numero as any}
-                  empresaId={ordens.find((o) => o.id === selectedOsId)?.user_id as any}
+                  numero={ordens.find((o) => o.id === selectedOsId)?.numero as number}
+                  empresaId={ordens.find((o) => o.id === selectedOsId)?.user_id as string}
                 />
               ) : null}
             </TabsContent>
@@ -1946,7 +1938,7 @@ function Ordens() {
             <TabsContent value="historico" className="mt-4">
               {historico.length ? (
                 <ol className="space-y-4 border-l-2 border-border pl-4">
-                  {historico.map((h: any) => (
+                  {historico.map((h) => (
                     <li key={h.id} className="relative">
                       <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
                       <p className="text-sm font-medium">{h.descricao}</p>
@@ -2114,14 +2106,14 @@ const getVencimentoGarantia = (garantiaVencimento: string | null) => {
 
 type AcoesListaOs = {
   mudarStatus: (v: { id: string; status: string; origem?: string }) => void;
-  abrirEdicao: (os: any) => void;
-  enviarOs: (os: any, modo?: "os" | "orcamento") => void;
-  imprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
-  enviarWhatsAppOs: (os: any) => void;
-  gerarAcessoOs: (os: any) => void;
-  abrirAssinatura: (os: any) => void;
-  confirmarEstorno: (os: any) => void;
-  confirmarExclusao: (os: any) => void;
+  abrirEdicao: (os: OsListada) => void;
+  enviarOs: (os: OsListada, modo?: "os" | "orcamento") => void;
+  imprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
+  enviarWhatsAppOs: (os: OsListada) => void;
+  gerarAcessoOs: (os: OsListada) => void;
+  abrirAssinatura: (os: OsListada) => void;
+  confirmarEstorno: (os: OsListada) => void;
+  confirmarExclusao: (os: OsListada) => void;
 };
 
 // A lista fica fora do componente principal e memoizada: o formulário de
@@ -2133,13 +2125,13 @@ const ListaOs = memo(function ListaOs({
   acoes,
   navigate,
 }: {
-  lista: any[];
+  lista: OsListada[];
   acoes: { current: AcoesListaOs };
   navigate: ReturnType<typeof useNavigate>;
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const { data: ladosPorOs = {} } = useLadosAparelhos();
-  const tituloAparelho = (os: any) =>
+  const tituloAparelho = (os: OsListada) =>
     `OS #${os.numero} — ${[os.aparelho, os.marca, os.modelo].filter(Boolean).join(" ") || "Aparelho"}`;
   return (
     <>
@@ -2161,7 +2153,7 @@ const ListaOs = memo(function ListaOs({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {lista.map((os: any) => (
+            {lista.map((os) => (
               <tr key={os.id} className="hover:bg-muted/10 transition-colors">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
@@ -2298,7 +2290,7 @@ const ListaOs = memo(function ListaOs({
       </div>
 
       <div className="grid gap-3 md:hidden">
-        {lista.map((os: any) => (
+        {lista.map((os) => (
           <div key={os.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
@@ -2428,13 +2420,13 @@ function AcoesOsMenu({
   onEstornar,
   navigate,
 }: {
-  os: any;
-  onImprimir: (os: any, modo: "os" | "orcamento" | "nao_fiscal") => void;
-  onEnviarOrcamento: (os: any) => void;
-  onWhatsApp: (os: any) => void;
-  onGerarAcesso: (os: any) => void;
-  onAssinatura: (os: any) => void;
-  onEstornar: (os: any) => void;
+  os: OsListada;
+  onImprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
+  onEnviarOrcamento: (os: OsListada) => void;
+  onWhatsApp: (os: OsListada) => void;
+  onGerarAcesso: (os: OsListada) => void;
+  onAssinatura: (os: OsListada) => void;
+  onEstornar: (os: OsListada) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
   return (

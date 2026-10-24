@@ -350,7 +350,7 @@ function BemVindo() {
 
   async function salvarModelo(): Promise<boolean> {
     if (!modeloId) return true;
-    const { error } = await supabase.rpc("definir_template_padrao" as any, {
+    const { error } = await supabase.rpc("definir_template_padrao", {
       p_template_id: modeloId,
     });
     if (error) {
@@ -877,7 +877,7 @@ function EscolherModeloPdf({
     queryFn: async () => {
       const buscar = () =>
         supabase
-          .from("os_templates" as any)
+          .from("os_templates")
           .select("*")
           .eq("user_id", empresaId)
           .eq("ativo", true)
@@ -888,7 +888,7 @@ function EscolherModeloPdf({
       // Empresa nova ainda não tem os modelos prontos: cria (mesma RPC da
       // biblioteca em Configurações > Modelos de OS) e busca de novo.
       if (!data?.length) {
-        const seed = await supabase.rpc("garantir_templates_padrao" as any, {
+        const seed = await supabase.rpc("garantir_templates_padrao", {
           p_user_id: empresaId,
         });
         if (seed.error) throw seed.error;

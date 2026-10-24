@@ -203,7 +203,7 @@ function Garantia() {
                 <div className="space-y-2">
                   <Label>Conteúdo das Cláusulas</Label>
                   <GerarTermoGarantiaIA
-                    loja={(profile as any)?.loja ?? ""}
+                    loja={profile?.loja ?? ""}
                     dias={diasDoTitulo ?? diasPadrao}
                     onGerado={(texto) => setForm((f) => ({ ...f, conteudo: texto }))}
                   />

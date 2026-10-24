@@ -117,7 +117,7 @@ export function EnviarOsModal({
     if (!os) return;
     const perfil = profile as { nome?: string; loja?: string } | null | undefined;
     const nomeUsuario = perfil?.nome || perfil?.loja || user?.email || "Usuário";
-    await supabase.from("os_historico" as any).insert({
+    await supabase.from("os_historico").insert({
       user_id: os.user_id,
       os_id: os.id,
       evento: "envio",

@@ -100,7 +100,7 @@ function Relatorios() {
     queryKey: ["relatorio-tecnicos", empresaId, dataInicio, dataFim],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("relatorio_tecnicos" as any, {
+      const { data, error } = await supabase.rpc("relatorio_tecnicos", {
         p_empresa_id: empresaId!,
         p_inicio: inicioISO,
         p_fim: fimISO,

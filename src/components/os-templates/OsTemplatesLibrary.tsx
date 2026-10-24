@@ -203,7 +203,7 @@ export function OsTemplatesLibrary() {
     enabled: !!empresaId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("os_templates" as any)
+        .from("os_templates")
         .select("*")
         .eq("user_id", empresaId!)
         .eq("ativo", true)
@@ -228,22 +228,20 @@ export function OsTemplatesLibrary() {
     if (!empresaId || isLoading || seedTentadoRef.current === empresaId) return;
     if (templates && templates.length === 0) {
       seedTentadoRef.current = empresaId;
-      supabase
-        .rpc("garantir_templates_padrao" as any, { p_user_id: empresaId })
-        .then(({ error }) => {
-          if (error) {
-            toast.error("Não foi possível carregar os modelos padrão: " + error.message);
-            return;
-          }
-          qc.invalidateQueries({ queryKey: ["os-templates", empresaId] });
-        });
+      supabase.rpc("garantir_templates_padrao", { p_user_id: empresaId }).then(({ error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar os modelos padrão: " + error.message);
+          return;
+        }
+        qc.invalidateQueries({ queryKey: ["os-templates", empresaId] });
+      });
     }
   }, [empresaId, isLoading, templates, qc]);
 
   const favoritar = useMutation({
     mutationFn: async (t: OsTemplateDbRow) => {
       const { error } = await supabase
-        .from("os_templates" as any)
+        .from("os_templates")
         .update({ favorito: !t.favorito })
         .eq("id", t.id);
       if (error) throw error;
@@ -254,7 +252,7 @@ export function OsTemplatesLibrary() {
 
   const definirPadrao = useMutation({
     mutationFn: async (t: OsTemplateDbRow) => {
-      const { error } = await supabase.rpc("definir_template_padrao" as any, {
+      const { error } = await supabase.rpc("definir_template_padrao", {
         p_template_id: t.id,
       });
       if (error) throw error;
@@ -269,7 +267,7 @@ export function OsTemplatesLibrary() {
   const duplicar = useMutation({
     mutationFn: async (t: OsTemplateDbRow) => {
       const { data, error } = await supabase
-        .from("os_templates" as any)
+        .from("os_templates")
         .insert({
           user_id: empresaId!,
           nome: `${t.nome} — Cópia`,
@@ -296,10 +294,7 @@ export function OsTemplatesLibrary() {
 
   const excluir = useMutation({
     mutationFn: async (t: OsTemplateDbRow) => {
-      const { error } = await supabase
-        .from("os_templates" as any)
-        .update({ ativo: false })
-        .eq("id", t.id);
+      const { error } = await supabase.from("os_templates").update({ ativo: false }).eq("id", t.id);
       if (error) throw error;
     },
     onSuccess: () => {

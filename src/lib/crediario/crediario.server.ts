@@ -279,8 +279,7 @@ export async function enviarCobrancaWhatsapp(params: {
 async function whatsappConectado(empresaId: string, cache: Map<string, boolean>) {
   if (!cache.has(empresaId)) {
     const { data } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-      .from("whatsapp_connections" as any)
+      .from("whatsapp_connections")
       .select("status")
       .eq("user_id", empresaId)
       .maybeSingle();

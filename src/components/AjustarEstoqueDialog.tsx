@@ -53,7 +53,7 @@ export function AjustarEstoqueDialog({
     mutationFn: async () => {
       if (quantidade.trim() === "") throw new Error("Informe a quantidade");
       if (!motivo.trim()) throw new Error("Informe o motivo");
-      const { error } = await supabase.rpc("ajustar_estoque" as any, {
+      const { error } = await supabase.rpc("ajustar_estoque", {
         p_produto_id: produto!.id,
         p_tipo: tipo,
         p_quantidade: qtd,

@@ -51,8 +51,8 @@ function webhookUrlPara(instanceName: string, origin: string): string {
 
 async function obterConexao(userId: string): Promise<WhatsappConexao | null> {
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_connections" as any)
+
+    .from("whatsapp_connections")
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
@@ -66,8 +66,8 @@ async function upsertConexao(
   patch: Partial<WhatsappConexao>,
 ): Promise<WhatsappConexao> {
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_connections" as any)
+
+    .from("whatsapp_connections")
     .upsert({ user_id: userId, instance_name: instanceName, ...patch }, { onConflict: "user_id" })
     .select("*")
     .single();
@@ -89,14 +89,14 @@ async function registrarSaudeEnvio(
   const caiu = !!erro && /Connection Closed/i.test(erro);
   if (caiu && conexao.status !== "erro") {
     await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-      .from("whatsapp_connections" as any)
+
+      .from("whatsapp_connections")
       .update({ status: "erro", last_error: SESSAO_CAIDA })
       .eq("id", conexao.id);
   } else if (!erro && conexao.status === "erro") {
     await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-      .from("whatsapp_connections" as any)
+
+      .from("whatsapp_connections")
       .update({ status: "conectado", last_error: null })
       .eq("id", conexao.id);
   }
@@ -254,8 +254,8 @@ export async function enviarMensagem(
   await registrarSaudeEnvio(conexao, erroEnvio);
 
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .insert({
       user_id: userId,
       connection_id: conexao.id,
@@ -283,8 +283,8 @@ async function registrarHistoricoOs(
 ): Promise<void> {
   if (!osId) return;
   await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- os_historico not in the generated Database type yet
-    .from("os_historico" as any)
+
+    .from("os_historico")
     .insert({ user_id: userId, os_id: osId, evento, descricao, created_by: createdBy });
 }
 
@@ -404,8 +404,8 @@ export async function enviarNotificacaoOs(params: {
 
   if (params.agendamento.tipo === "fila") {
     const { data, error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-      .from("whatsapp_messages" as any)
+
+      .from("whatsapp_messages")
       .insert({
         user_id: params.userId,
         direction: "outbound",
@@ -449,8 +449,8 @@ export async function enviarNotificacaoOs(params: {
   });
 
   const { data, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .insert({
       user_id: params.userId,
       connection_id: conexao.id,
@@ -493,8 +493,8 @@ export async function processarNotificacoesAgendadasOs(userId: string): Promise<
   if (!evolutionConfigurado()) return 0;
 
   const { data: pendentes, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("*")
     .eq("user_id", userId)
     .eq("status", "agendado")
@@ -505,13 +505,13 @@ export async function processarNotificacoesAgendadasOs(userId: string): Promise<
   if (!conexao || conexao.status !== "conectado") return 0;
 
   let processadas = 0;
-  for (const msg of pendentes as any[]) {
+  for (const msg of pendentes) {
     if (!msg.os_id) continue;
     // Reserva a mensagem (agendado → pendente) antes de enviar: com duas
     // telas abertas, só quem conseguir a reserva envia.
     const { data: reservada } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-      .from("whatsapp_messages" as any)
+
+      .from("whatsapp_messages")
       .update({ status: "pendente" })
       .eq("id", msg.id)
       .eq("status", "agendado")
@@ -540,8 +540,8 @@ export async function processarNotificacoesAgendadasOs(userId: string): Promise<
     });
 
     await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-      .from("whatsapp_messages" as any)
+
+      .from("whatsapp_messages")
       .update({
         status: resultado.status,
         evolution_message_id: resultado.evolutionMessageId,
@@ -570,8 +570,8 @@ export async function listarMensagensRecentes(
   limite = 50,
 ): Promise<WhatsappMensagem[]> {
   let consulta = supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -597,8 +597,8 @@ export async function registrarMensagemRecebida(params: {
   metadata?: JsonValue;
 }): Promise<{ ok: true } | { ok: false; motivo: string }> {
   const { data: conexao, error: erroConexao } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_connections" as any)
+
+    .from("whatsapp_connections")
     .select("id, user_id")
     .eq("instance_name", params.instanceName)
     .maybeSingle();
@@ -607,8 +607,8 @@ export async function registrarMensagemRecebida(params: {
 
   const row = conexao as unknown as { id: string; user_id: string };
   const { data: inserida, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .insert({
       user_id: row.user_id,
       connection_id: row.id,
@@ -678,8 +678,8 @@ export async function processarRespostaPesquisa(params: {
   texto: string;
 }): Promise<void> {
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("ia_agradecer_pesquisa")
     .eq("user_id", params.empresaId)
     .maybeSingle();
@@ -692,8 +692,8 @@ export async function processarRespostaPesquisa(params: {
     new Date(params.recebidaEm).getTime() - RESPOSTA_PESQUISA_DIAS * 86400_000,
   ).toISOString();
   const { data: enviadas } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("id, phone_number, contact_name, content, template_id, os_id, status, created_at")
     .eq("user_id", params.empresaId)
     .eq("direction", "outbound")
@@ -721,8 +721,8 @@ export async function processarRespostaPesquisa(params: {
   const pesquisa = ultima;
 
   const { data: jaRespondida } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("id")
     .eq("pesquisa_msg_id", pesquisa.id)
     .maybeSingle();
@@ -736,7 +736,7 @@ export async function processarRespostaPesquisa(params: {
       .select("clientes(nome)")
       .eq("id", pesquisa.os_id)
       .maybeSingle();
-    nomeCliente = ((os as any)?.clientes?.nome as string | undefined) ?? nomeCliente;
+    nomeCliente = os?.clientes?.nome ?? nomeCliente;
   }
   const primeiroNome = nomeCliente.trim().split(/\s+/)[0] ?? "";
 
@@ -752,8 +752,8 @@ export async function processarRespostaPesquisa(params: {
   // Liga a resposta à pesquisa; o índice único barra um segundo webhook ou
   // uma segunda mensagem do cliente processada ao mesmo tempo.
   const { error: erroVinculo } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .update({ avaliacao: resultado.avaliacao, pesquisa_msg_id: pesquisa.id })
     .eq("id", params.mensagemId);
   if (erroVinculo) {
@@ -810,13 +810,13 @@ export async function aplicarAtualizacaoConexaoWebhook(
   const status =
     state === "open" ? "conectado" : state === "connecting" ? "conectando" : "desconectado";
   const { error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_connections" as any)
+    .from("whatsapp_connections")
     .update({
       status,
-      phone_number: phoneNumber ?? undefined,
-      qr_code: status === "conectado" ? null : undefined,
-      last_connected_at: status === "conectado" ? new Date().toISOString() : undefined,
+      ...(phoneNumber != null ? { phone_number: phoneNumber } : {}),
+      ...(status === "conectado"
+        ? { qr_code: null, last_connected_at: new Date().toISOString() }
+        : {}),
     })
     .eq("instance_name", instanceName);
   if (error) throw error;
@@ -832,8 +832,8 @@ export async function aplicarQrCodeWebhook(
   qrcodeBase64: string,
 ): Promise<void> {
   const { error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
-    .from("whatsapp_connections" as any)
+
+    .from("whatsapp_connections")
     .update({ qr_code: qrcodeBase64, status: "conectando" })
     .eq("instance_name", instanceName);
   if (error) throw error;
@@ -861,8 +861,8 @@ export async function avisarOsPronta(params: {
   origem: string;
 }): Promise<ResultadoAvisoPronta> {
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("notif_os_pronta, notif_os_pronta_texto")
     .eq("user_id", params.empresaId)
     .maybeSingle();
@@ -879,13 +879,13 @@ export async function avisarOsPronta(params: {
     .eq("user_id", params.empresaId)
     .maybeSingle();
   if (!os || os.status !== "pronto") return { enviado: false, motivo: "nao_pronta" };
-  const cliente = (os as any).clientes as { nome: string | null; telefone: string | null } | null;
+  const cliente = os.clientes;
   const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
   if (telefone.length < 10) return { enviado: false, motivo: "sem_telefone" };
 
   const { count } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("id", { count: "exact", head: true })
     .eq("os_id", params.osId)
     .eq("template_id", "os_pronta")
@@ -953,8 +953,8 @@ const IA_PESQUISAS_POR_RODADA = 5;
 // Serviços lançados em cada OS (os_itens tipo "servico"), para a IA citar.
 async function servicosDasOrdens(osIds: string[]): Promise<Map<string, string>> {
   const { data } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- os_itens not in the generated Database type yet
-    .from("os_itens" as any)
+
+    .from("os_itens")
     .select("os_id, descricao")
     .in("os_id", osIds)
     .eq("tipo", "servico");
@@ -979,8 +979,8 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   if (hora < 9 || hora >= 20) return 0;
 
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select(
       "notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto, ia_pesquisa_personalizada",
     )
@@ -1016,8 +1016,8 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   if (!ordens?.length) return 0;
 
   const { data: jaEnviadas } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("os_id")
     .in(
       "os_id",
@@ -1038,7 +1038,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   let enfileiradas = 0;
   for (const os of ordens) {
     if (enviadas.has(os.id)) continue;
-    const cliente = (os as any).clientes as { nome: string | null; telefone: string | null } | null;
+    const cliente = os.clientes;
     const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
     if (telefone.length < 10) continue;
 
@@ -1073,20 +1073,17 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
       if (daIA) texto = daIA;
     }
 
-    const { error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-      .from("whatsapp_messages" as any)
-      .insert({
-        user_id: empresaId,
-        direction: "outbound",
-        phone_number: paraE164BR(telefone),
-        content: texto,
-        status: "agendado",
-        os_id: os.id,
-        template_id: "pesquisa_auto",
-        attachments: [],
-        scheduled_at: new Date().toISOString(),
-      });
+    const { error } = await supabaseAdmin.from("whatsapp_messages").insert({
+      user_id: empresaId,
+      direction: "outbound",
+      phone_number: paraE164BR(telefone),
+      content: texto,
+      status: "agendado",
+      os_id: os.id,
+      template_id: "pesquisa_auto",
+      attachments: [],
+      scheduled_at: new Date().toISOString(),
+    });
     // 23505: outra tela já colocou a pesquisa desta OS na fila.
     if (error && error.code !== "23505") throw error;
     if (!error) enfileiradas++;
@@ -1117,8 +1114,8 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
   if (hora < 9 || hora >= 20) return 0;
 
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("notif_aniversario_auto, feliz_aniversario_texto")
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -1186,8 +1183,8 @@ async function enviarAutomatico(params: {
   osId?: string | null;
 }): Promise<"enviado" | "falhou" | "repetida"> {
   const { data: reserva, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .insert({
       user_id: params.empresaId,
       connection_id: params.conexao.id,
@@ -1222,8 +1219,8 @@ async function enviarAutomatico(params: {
   }
   await registrarSaudeEnvio(params.conexao, erro);
   await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .update({ status, evolution_message_id: evolutionMessageId, error: erro })
     .eq("id", (reserva as unknown as { id: string }).id);
   return status;
@@ -1241,8 +1238,8 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   if (hora < 9 || hora >= 20) return 0;
 
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("notif_pesquisa_venda_auto, notif_pesquisa_venda_auto_desde, pesquisa_pos_venda_texto")
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -1280,8 +1277,8 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   if (!vendas?.length) return 0;
 
   const { data: jaEnviadas } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("template_id")
     .eq("user_id", empresaId)
     .in(
@@ -1300,10 +1297,7 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   for (const venda of vendas) {
     const templateId = `pos_venda_${venda.id}`;
     if (enviadas.has(templateId)) continue;
-    const cliente = (venda as any).clientes as {
-      nome: string | null;
-      telefone: string | null;
-    } | null;
+    const cliente = venda.clientes;
     const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
     if (telefone.length < 10) continue;
     const primeiroNome = (cliente?.nome ?? "").trim().split(/\s+/)[0] || "";
@@ -1339,8 +1333,8 @@ export async function enviarBoasVindas(empresaId: string): Promise<number> {
   if (hora < 9 || hora >= 20) return 0;
 
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("notif_boas_vindas_auto, notif_boas_vindas_auto_desde, boas_vindas_texto")
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -1374,8 +1368,8 @@ export async function enviarBoasVindas(empresaId: string): Promise<number> {
   if (!clientes?.length) return 0;
 
   const { data: jaEnviadas } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("template_id")
     .eq("user_id", empresaId)
     .in(
@@ -1429,8 +1423,8 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
   if (hora < 9 || hora >= 20) return false;
 
   const { data: config } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
-    .from("whatsapp_config" as any)
+
+    .from("whatsapp_config")
     .select("notif_relatorio_auto, relatorio_numero")
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -1450,8 +1444,8 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
   const templateId = `relatorio_semanal_${segunda}`;
 
   const { count } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("id", { count: "exact", head: true })
     .eq("user_id", empresaId)
     .eq("template_id", templateId);
@@ -1468,7 +1462,7 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
   const conexao = await obterConexao(empresaId);
   if (!conexao || conexao.status !== "conectado") return false;
 
-  const { data: dados, error } = await supabaseAdmin.rpc("relatorio_semanal_dados" as any, {
+  const { data: dados, error } = await supabaseAdmin.rpc("relatorio_semanal_dados", {
     p_empresa_id: empresaId,
     p_inicio: inicio.toISOString(),
     p_fim: fim.toISOString(),
@@ -1535,8 +1529,8 @@ export type ReclamacaoPesquisa = {
 export async function listarReclamacoesPesquisa(empresaId: string): Promise<ReclamacaoPesquisa[]> {
   const desde = new Date(Date.now() - 30 * 86400_000).toISOString();
   const { data } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("id, phone_number, contact_name, content, created_at")
     .eq("user_id", empresaId)
     .eq("avaliacao", "reclamacao")
@@ -1548,8 +1542,8 @@ export async function listarReclamacoesPesquisa(empresaId: string): Promise<Recl
   if (!reclamacoes.length) return [];
 
   const { data: respostas } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .select("phone_number, created_at")
     .eq("user_id", empresaId)
     .eq("direction", "outbound")
@@ -1568,8 +1562,8 @@ export async function listarReclamacoesPesquisa(empresaId: string): Promise<Recl
 
 export async function resolverReclamacaoPesquisa(empresaId: string, id: string): Promise<void> {
   const { error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
-    .from("whatsapp_messages" as any)
+
+    .from("whatsapp_messages")
     .update({ avaliacao_resolvida: true })
     .eq("id", id)
     .eq("user_id", empresaId)

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { teclasDaTela } from "@/lib/atalhos";
@@ -44,6 +45,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// O que basta para pôr um item no carrinho (produto do cadastro ou item já no carrinho).
+type ProdutoAdicionavel = Pick<
+  Tables<"produtos">,
+  "id" | "nome" | "preco_venda" | "quantidade" | "categoria"
+>;
 
 export const Route = createFileRoute("/_authenticated/pdv")({
   head: () => ({
@@ -185,7 +192,7 @@ function PDV() {
   const dataFormatada = agora.toLocaleDateString("pt-BR");
   const horaFormatada = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  function adicionar(p: any, qtdAdicional = 1) {
+  function adicionar(p: ProdutoAdicionavel, qtdAdicional = 1) {
     const tipo = tipoDoItem(p.categoria);
     setCarrinho((c) => {
       const existe = c.find((i) => i.id === p.id);
@@ -225,7 +232,7 @@ function PDV() {
 
       // Venda, itens, baixa de estoque e receita numa única transação no
       // banco (registrar_venda): ou grava tudo, ou nada.
-      const { data: venda, error: vendaErro } = await supabase.rpc("registrar_venda" as any, {
+      const { data: venda, error: vendaErro } = await supabase.rpc("registrar_venda", {
         p_empresa_id: empresaId!,
         p_itens: carrinho.map((i) => ({
           produto_id: i.id,
@@ -233,10 +240,10 @@ function PDV() {
           quantidade: i.qtd,
           preco_unitario: i.preco,
         })),
-        p_cliente_id: clienteId,
+        p_cliente_id: clienteId as string,
         p_desconto: desconto,
         p_forma_pagamento: formaPagamento,
-        p_observacoes: observacoes.trim() || null,
+        p_observacoes: (observacoes.trim() || null) as string,
         p_categoria: "Venda PDV",
       });
       if (vendaErro) throw vendaErro;
@@ -267,7 +274,7 @@ function PDV() {
       setBuscaPainel("");
       qc.invalidateQueries();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const { termo: termoBusca, qtd: qtdBusca } = parseBusca(busca);
@@ -282,7 +289,7 @@ function PDV() {
     ? produtos.filter((p) => bateBusca(p, termoPainel)).slice(0, 8)
     : [];
 
-  function adicionarDoPainel(p: any) {
+  function adicionarDoPainel(p: ProdutoAdicionavel) {
     adicionar(p, qtdPainel);
     setBuscaPainel("");
   }

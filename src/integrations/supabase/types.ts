@@ -78,14 +78,12 @@ export type Database = {
           {
             foreignKeyName: "agendamentos_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "agendamentos_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
@@ -120,7 +118,6 @@ export type Database = {
           {
             foreignKeyName: "aparelho_fotos_aparelho_id_fkey";
             columns: ["aparelho_id"];
-            isOneToOne: false;
             referencedRelation: "aparelhos";
             referencedColumns: ["id"];
           },
@@ -179,28 +176,24 @@ export type Database = {
           {
             foreignKeyName: "aparelho_garantias_aparelho_id_fkey";
             columns: ["aparelho_id"];
-            isOneToOne: false;
             referencedRelation: "aparelhos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "aparelho_garantias_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "aparelho_garantias_termo_id_fkey";
             columns: ["termo_id"];
-            isOneToOne: false;
             referencedRelation: "termos_garantia";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "aparelho_garantias_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -238,7 +231,6 @@ export type Database = {
           {
             foreignKeyName: "aparelho_historico_aparelho_id_fkey";
             columns: ["aparelho_id"];
-            isOneToOne: false;
             referencedRelation: "aparelhos";
             referencedColumns: ["id"];
           },
@@ -342,14 +334,12 @@ export type Database = {
           {
             foreignKeyName: "aparelhos_reservado_cliente_id_fkey";
             columns: ["reservado_cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "aparelhos_seminovo_id_fkey";
             columns: ["seminovo_id"];
-            isOneToOne: true;
             referencedRelation: "seminovos";
             referencedColumns: ["id"];
           },
@@ -388,6 +378,94 @@ export type Database = {
           tipo?: string | null;
           updated_at?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      caixa_movimentos: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          motivo: string | null;
+          sessao_id: string;
+          tipo: string;
+          user_id: string;
+          valor: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          motivo?: string | null;
+          sessao_id: string;
+          tipo: string;
+          user_id: string;
+          valor: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          motivo?: string | null;
+          sessao_id?: string;
+          tipo?: string;
+          user_id?: string;
+          valor?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "caixa_movimentos_sessao_id_fkey";
+            columns: ["sessao_id"];
+            referencedRelation: "caixa_sessoes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      caixa_sessoes: {
+        Row: {
+          aberto_em: string;
+          aberto_por: string | null;
+          diferenca: number | null;
+          fechado_em: string | null;
+          fechado_por: string | null;
+          id: string;
+          observacoes: string | null;
+          resumo: Json | null;
+          status: string;
+          user_id: string;
+          valor_abertura: number;
+          valor_contado: number | null;
+          valor_esperado: number | null;
+        };
+        Insert: {
+          aberto_em?: string;
+          aberto_por?: string | null;
+          diferenca?: number | null;
+          fechado_em?: string | null;
+          fechado_por?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          resumo?: Json | null;
+          status?: string;
+          user_id: string;
+          valor_abertura?: number;
+          valor_contado?: number | null;
+          valor_esperado?: number | null;
+        };
+        Update: {
+          aberto_em?: string;
+          aberto_por?: string | null;
+          diferenca?: number | null;
+          fechado_em?: string | null;
+          fechado_por?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          resumo?: Json | null;
+          status?: string;
+          user_id?: string;
+          valor_abertura?: number;
+          valor_contado?: number | null;
+          valor_esperado?: number | null;
         };
         Relationships: [];
       };
@@ -540,7 +618,6 @@ export type Database = {
           {
             foreignKeyName: "cobrancas_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
@@ -559,21 +636,18 @@ export type Database = {
           {
             foreignKeyName: "cobrancas_lancamento_id_fkey";
             columns: ["lancamento_id"];
-            isOneToOne: false;
             referencedRelation: "lancamentos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "cobrancas_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "cobrancas_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -614,14 +688,12 @@ export type Database = {
           {
             foreignKeyName: "compra_itens_compra_id_fkey";
             columns: ["compra_id"];
-            isOneToOne: false;
             referencedRelation: "compras";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "compra_itens_produto_id_fkey";
             columns: ["produto_id"];
-            isOneToOne: false;
             referencedRelation: "produtos";
             referencedColumns: ["id"];
           },
@@ -671,7 +743,6 @@ export type Database = {
           {
             foreignKeyName: "compras_fornecedor_id_fkey";
             columns: ["fornecedor_id"];
-            isOneToOne: false;
             referencedRelation: "fornecedores";
             referencedColumns: ["id"];
           },
@@ -724,7 +795,6 @@ export type Database = {
           {
             foreignKeyName: "compras_aparelhos_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
@@ -1109,7 +1179,6 @@ export type Database = {
           {
             foreignKeyName: "devices_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
@@ -1153,7 +1222,6 @@ export type Database = {
           {
             foreignKeyName: "empresa_convites_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1182,6 +1250,55 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      estoque_movimentacoes: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          descricao: string | null;
+          id: string;
+          origem_id: string | null;
+          produto_id: string;
+          quantidade: number;
+          saldo_anterior: number;
+          saldo_posterior: number;
+          tipo: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          descricao?: string | null;
+          id?: string;
+          origem_id?: string | null;
+          produto_id: string;
+          quantidade: number;
+          saldo_anterior: number;
+          saldo_posterior: number;
+          tipo: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          descricao?: string | null;
+          id?: string;
+          origem_id?: string | null;
+          produto_id?: string;
+          quantidade?: number;
+          saldo_anterior?: number;
+          saldo_posterior?: number;
+          tipo?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "estoque_movimentacoes_produto_id_fkey";
+            columns: ["produto_id"];
+            referencedRelation: "produtos";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       finance_categories: {
         Row: {
@@ -1289,8 +1406,8 @@ export type Database = {
           tipo: string;
           user_id: string;
           valor: number;
-          venda_id: string | null;
           vencimento: string | null;
+          venda_id: string | null;
         };
         Insert: {
           bank_account_id?: string | null;
@@ -1304,8 +1421,8 @@ export type Database = {
           tipo?: string;
           user_id: string;
           valor?: number;
-          venda_id?: string | null;
           vencimento?: string | null;
+          venda_id?: string | null;
         };
         Update: {
           bank_account_id?: string | null;
@@ -1319,28 +1436,25 @@ export type Database = {
           tipo?: string;
           user_id?: string;
           valor?: number;
-          venda_id?: string | null;
           vencimento?: string | null;
+          venda_id?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "lancamentos_bank_account_id_fkey";
             columns: ["bank_account_id"];
-            isOneToOne: false;
             referencedRelation: "bank_accounts";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "lancamentos_payment_method_id_fkey";
             columns: ["payment_method_id"];
-            isOneToOne: false;
             referencedRelation: "payment_methods";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "lancamentos_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -1375,7 +1489,6 @@ export type Database = {
           {
             foreignKeyName: "nota_fiscal_itens_nota_id_fkey";
             columns: ["nota_id"];
-            isOneToOne: false;
             referencedRelation: "notas_fiscais";
             referencedColumns: ["id"];
           },
@@ -1434,21 +1547,18 @@ export type Database = {
           {
             foreignKeyName: "notas_fiscais_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "notas_fiscais_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "notas_fiscais_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -1564,7 +1674,6 @@ export type Database = {
           {
             foreignKeyName: "ordens_servico_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
@@ -1689,28 +1798,24 @@ export type Database = {
           {
             foreignKeyName: "os_faturamento_parcelas_faturamento_id_fkey";
             columns: ["faturamento_id"];
-            isOneToOne: false;
             referencedRelation: "os_faturamentos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_faturamento_parcelas_forma_pagamento_id_fkey";
             columns: ["forma_pagamento_id"];
-            isOneToOne: false;
             referencedRelation: "payment_methods";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_faturamento_parcelas_lancamento_estorno_id_fkey";
             columns: ["lancamento_estorno_id"];
-            isOneToOne: false;
             referencedRelation: "lancamentos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_faturamento_parcelas_lancamento_id_fkey";
             columns: ["lancamento_id"];
-            isOneToOne: false;
             referencedRelation: "lancamentos";
             referencedColumns: ["id"];
           },
@@ -1748,7 +1853,6 @@ export type Database = {
           {
             foreignKeyName: "os_faturamento_tecnicos_faturamento_id_fkey";
             columns: ["faturamento_id"];
-            isOneToOne: false;
             referencedRelation: "os_faturamentos";
             referencedColumns: ["id"];
           },
@@ -1760,9 +1864,9 @@ export type Database = {
           cancelado_por: string | null;
           categoria_id: string | null;
           created_at: string;
+          created_by: string;
           custo_tecnico: number;
           custo_tecnico_nome: string | null;
-          created_by: string;
           descricao: string | null;
           id: string;
           lancamento_custo_tecnico_id: string | null;
@@ -1779,9 +1883,9 @@ export type Database = {
           cancelado_por?: string | null;
           categoria_id?: string | null;
           created_at?: string;
+          created_by: string;
           custo_tecnico?: number;
           custo_tecnico_nome?: string | null;
-          created_by: string;
           descricao?: string | null;
           id?: string;
           lancamento_custo_tecnico_id?: string | null;
@@ -1798,9 +1902,9 @@ export type Database = {
           cancelado_por?: string | null;
           categoria_id?: string | null;
           created_at?: string;
+          created_by?: string;
           custo_tecnico?: number;
           custo_tecnico_nome?: string | null;
-          created_by?: string;
           descricao?: string | null;
           id?: string;
           lancamento_custo_tecnico_id?: string | null;
@@ -1816,14 +1920,18 @@ export type Database = {
           {
             foreignKeyName: "os_faturamentos_categoria_id_fkey";
             columns: ["categoria_id"];
-            isOneToOne: false;
             referencedRelation: "finance_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "os_faturamentos_lancamento_custo_tecnico_id_fkey";
+            columns: ["lancamento_custo_tecnico_id"];
+            referencedRelation: "lancamentos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_faturamentos_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
@@ -1861,7 +1969,6 @@ export type Database = {
           {
             foreignKeyName: "os_historico_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
@@ -1908,14 +2015,12 @@ export type Database = {
           {
             foreignKeyName: "os_itens_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_itens_produto_id_fkey";
             columns: ["produto_id"];
-            isOneToOne: false;
             referencedRelation: "produtos";
             referencedColumns: ["id"];
           },
@@ -2104,578 +2209,33 @@ export type Database = {
         };
         Relationships: [];
       };
-      subscriptions: {
-        Row: {
-          billing_cycle: string;
-          canceled_at: string | null;
-          created_at: string;
-          empresa_id: string;
-          id: string;
-          mercado_pago_preapproval_id: string | null;
-          next_billing_date: string | null;
-          plan_id: string;
-          start_date: string | null;
-          status: string;
-          updated_at: string;
-        };
-        Insert: {
-          billing_cycle: string;
-          canceled_at?: string | null;
-          created_at?: string;
-          empresa_id: string;
-          id?: string;
-          mercado_pago_preapproval_id?: string | null;
-          next_billing_date?: string | null;
-          plan_id: string;
-          start_date?: string | null;
-          status?: string;
-          updated_at?: string;
-        };
-        Update: {
-          billing_cycle?: string;
-          canceled_at?: string | null;
-          created_at?: string;
-          empresa_id?: string;
-          id?: string;
-          mercado_pago_preapproval_id?: string | null;
-          next_billing_date?: string | null;
-          plan_id?: string;
-          start_date?: string | null;
-          status?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "subscriptions_empresa_id_fkey";
-            columns: ["empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "subscriptions_plan_id_fkey";
-            columns: ["plan_id"];
-            isOneToOne: false;
-            referencedRelation: "plans";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      subscription_payments: {
-        Row: {
-          amount: number;
-          created_at: string;
-          expires_at: string | null;
-          external_reference: string;
-          id: string;
-          mercado_pago_payment_id: string | null;
-          metadata: Json | null;
-          paid_at: string | null;
-          payment_method: string;
-          status: string;
-          subscription_id: string;
-          updated_at: string;
-        };
-        Insert: {
-          amount: number;
-          created_at?: string;
-          expires_at?: string | null;
-          external_reference: string;
-          id?: string;
-          mercado_pago_payment_id?: string | null;
-          metadata?: Json | null;
-          paid_at?: string | null;
-          payment_method: string;
-          status?: string;
-          subscription_id: string;
-          updated_at?: string;
-        };
-        Update: {
-          amount?: number;
-          created_at?: string;
-          expires_at?: string | null;
-          external_reference?: string;
-          id?: string;
-          mercado_pago_payment_id?: string | null;
-          metadata?: Json | null;
-          paid_at?: string | null;
-          payment_method?: string;
-          status?: string;
-          subscription_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "subscription_payments_subscription_id_fkey";
-            columns: ["subscription_id"];
-            isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      subscription_events: {
+      plan_features: {
         Row: {
           created_at: string;
-          id: string;
-          payload: Json | null;
-          subscription_id: string | null;
-          type: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          payload?: Json | null;
-          subscription_id?: string | null;
-          type: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          payload?: Json | null;
-          subscription_id?: string | null;
-          type?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "subscription_events_subscription_id_fkey";
-            columns: ["subscription_id"];
-            isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_commissions: {
-        Row: {
-          amount: number;
-          available_at: string | null;
-          canceled_at: string | null;
-          commission_type: string;
-          created_at: string;
-          description: string | null;
-          id: string;
-          paid_at: string | null;
-          plan_id: string | null;
-          referral_id: string;
-          referrer_empresa_id: string;
-          status: string;
-          subscription_id: string | null;
-          subscription_payment_id: string | null;
-          updated_at: string;
-          used_at: string | null;
-          used_note: string | null;
-        };
-        Insert: {
-          amount: number;
-          available_at?: string | null;
-          canceled_at?: string | null;
-          commission_type: string;
-          created_at?: string;
-          description?: string | null;
-          id?: string;
-          paid_at?: string | null;
-          plan_id?: string | null;
-          referral_id: string;
-          referrer_empresa_id: string;
-          status?: string;
-          subscription_id?: string | null;
-          subscription_payment_id?: string | null;
-          updated_at?: string;
-          used_at?: string | null;
-          used_note?: string | null;
-        };
-        Update: {
-          amount?: number;
-          available_at?: string | null;
-          canceled_at?: string | null;
-          commission_type?: string;
-          created_at?: string;
-          description?: string | null;
-          id?: string;
-          paid_at?: string | null;
-          plan_id?: string | null;
-          referral_id?: string;
-          referrer_empresa_id?: string;
-          status?: string;
-          subscription_id?: string | null;
-          subscription_payment_id?: string | null;
-          updated_at?: string;
-          used_at?: string | null;
-          used_note?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referral_commissions_plan_id_fkey";
-            columns: ["plan_id"];
-            isOneToOne: false;
-            referencedRelation: "plans";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_commissions_referral_id_fkey";
-            columns: ["referral_id"];
-            isOneToOne: false;
-            referencedRelation: "referrals";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_commissions_referrer_empresa_id_fkey";
-            columns: ["referrer_empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_commissions_subscription_id_fkey";
-            columns: ["subscription_id"];
-            isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_commissions_subscription_payment_id_fkey";
-            columns: ["subscription_payment_id"];
-            isOneToOne: false;
-            referencedRelation: "subscription_payments";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_events: {
-        Row: {
-          actor_empresa_id: string | null;
-          commission_id: string | null;
-          created_at: string;
-          id: string;
-          payload: Json | null;
-          referral_id: string | null;
-          type: string;
-          withdrawal_id: string | null;
-        };
-        Insert: {
-          actor_empresa_id?: string | null;
-          commission_id?: string | null;
-          created_at?: string;
-          id?: string;
-          payload?: Json | null;
-          referral_id?: string | null;
-          type: string;
-          withdrawal_id?: string | null;
-        };
-        Update: {
-          actor_empresa_id?: string | null;
-          commission_id?: string | null;
-          created_at?: string;
-          id?: string;
-          payload?: Json | null;
-          referral_id?: string | null;
-          type?: string;
-          withdrawal_id?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referral_events_actor_empresa_id_fkey";
-            columns: ["actor_empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_events_commission_id_fkey";
-            columns: ["commission_id"];
-            isOneToOne: false;
-            referencedRelation: "referral_commissions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_events_referral_id_fkey";
-            columns: ["referral_id"];
-            isOneToOne: false;
-            referencedRelation: "referrals";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_events_withdrawal_id_fkey";
-            columns: ["withdrawal_id"];
-            isOneToOne: false;
-            referencedRelation: "referral_withdrawals";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_plan_rules: {
-        Row: {
-          active: boolean;
-          commission_type: string;
-          commission_value: number | null;
-          created_at: string;
+          enabled: boolean;
+          feature: string;
           id: string;
           plan_id: string;
-          updated_at: string;
         };
         Insert: {
-          active?: boolean;
-          commission_type: string;
-          commission_value?: number | null;
           created_at?: string;
+          enabled?: boolean;
+          feature: string;
           id?: string;
           plan_id: string;
-          updated_at?: string;
         };
         Update: {
-          active?: boolean;
-          commission_type?: string;
-          commission_value?: number | null;
           created_at?: string;
+          enabled?: boolean;
+          feature?: string;
           id?: string;
           plan_id?: string;
-          updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "referral_plan_rules_plan_id_fkey";
+            foreignKeyName: "plan_features_plan_id_fkey";
             columns: ["plan_id"];
-            isOneToOne: true;
             referencedRelation: "plans";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_profiles: {
-        Row: {
-          active: boolean;
-          created_at: string;
-          empresa_id: string;
-          id: string;
-          referral_code: string;
-          updated_at: string;
-        };
-        Insert: {
-          active?: boolean;
-          created_at?: string;
-          empresa_id: string;
-          id?: string;
-          referral_code: string;
-          updated_at?: string;
-        };
-        Update: {
-          active?: boolean;
-          created_at?: string;
-          empresa_id?: string;
-          id?: string;
-          referral_code?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referral_profiles_empresa_id_fkey";
-            columns: ["empresa_id"];
-            isOneToOne: true;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_program_config: {
-        Row: {
-          active: boolean;
-          commission_type: string | null;
-          commission_value: number | null;
-          created_at: string;
-          description: string | null;
-          first_payment_only: boolean;
-          id: string;
-          minimum_withdrawal: number | null;
-          name: string;
-          pending_days: number | null;
-          recurring_commission: boolean;
-          updated_at: string;
-          whatsapp_share_message: string | null;
-        };
-        Insert: {
-          active?: boolean;
-          commission_type?: string | null;
-          commission_value?: number | null;
-          created_at?: string;
-          description?: string | null;
-          first_payment_only?: boolean;
-          id?: string;
-          minimum_withdrawal?: number | null;
-          name?: string;
-          pending_days?: number | null;
-          recurring_commission?: boolean;
-          updated_at?: string;
-          whatsapp_share_message?: string | null;
-        };
-        Update: {
-          active?: boolean;
-          commission_type?: string | null;
-          commission_value?: number | null;
-          created_at?: string;
-          description?: string | null;
-          first_payment_only?: boolean;
-          id?: string;
-          minimum_withdrawal?: number | null;
-          name?: string;
-          pending_days?: number | null;
-          recurring_commission?: boolean;
-          updated_at?: string;
-          whatsapp_share_message?: string | null;
-        };
-        Relationships: [];
-      };
-      referral_withdrawal_items: {
-        Row: {
-          amount: number;
-          commission_id: string;
-          created_at: string;
-          id: string;
-          withdrawal_id: string;
-        };
-        Insert: {
-          amount: number;
-          commission_id: string;
-          created_at?: string;
-          id?: string;
-          withdrawal_id: string;
-        };
-        Update: {
-          amount?: number;
-          commission_id?: string;
-          created_at?: string;
-          id?: string;
-          withdrawal_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referral_withdrawal_items_commission_id_fkey";
-            columns: ["commission_id"];
-            isOneToOne: false;
-            referencedRelation: "referral_commissions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referral_withdrawal_items_withdrawal_id_fkey";
-            columns: ["withdrawal_id"];
-            isOneToOne: false;
-            referencedRelation: "referral_withdrawals";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referral_withdrawals: {
-        Row: {
-          amount: number;
-          approved_at: string | null;
-          created_at: string;
-          id: string;
-          notes: string | null;
-          paid_at: string | null;
-          payment_method: string;
-          pix_key: string | null;
-          referrer_empresa_id: string;
-          rejected_at: string | null;
-          rejection_reason: string | null;
-          requested_at: string;
-          status: string;
-          transaction_reference: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          amount: number;
-          approved_at?: string | null;
-          created_at?: string;
-          id?: string;
-          notes?: string | null;
-          paid_at?: string | null;
-          payment_method?: string;
-          pix_key?: string | null;
-          referrer_empresa_id: string;
-          rejected_at?: string | null;
-          rejection_reason?: string | null;
-          requested_at?: string;
-          status?: string;
-          transaction_reference?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          amount?: number;
-          approved_at?: string | null;
-          created_at?: string;
-          id?: string;
-          notes?: string | null;
-          paid_at?: string | null;
-          payment_method?: string;
-          pix_key?: string | null;
-          referrer_empresa_id?: string;
-          rejected_at?: string | null;
-          rejection_reason?: string | null;
-          requested_at?: string;
-          status?: string;
-          transaction_reference?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referral_withdrawals_referrer_empresa_id_fkey";
-            columns: ["referrer_empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      referrals: {
-        Row: {
-          clicked_at: string | null;
-          converted_at: string | null;
-          created_at: string;
-          id: string;
-          referral_code: string;
-          referred_empresa_id: string | null;
-          referrer_empresa_id: string;
-          registered_at: string | null;
-          status: string;
-          updated_at: string;
-        };
-        Insert: {
-          clicked_at?: string | null;
-          converted_at?: string | null;
-          created_at?: string;
-          id?: string;
-          referral_code: string;
-          referred_empresa_id?: string | null;
-          referrer_empresa_id: string;
-          registered_at?: string | null;
-          status?: string;
-          updated_at?: string;
-        };
-        Update: {
-          clicked_at?: string | null;
-          converted_at?: string | null;
-          created_at?: string;
-          id?: string;
-          referral_code?: string;
-          referred_empresa_id?: string | null;
-          referrer_empresa_id?: string;
-          registered_at?: string | null;
-          status?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "referrals_referred_empresa_id_fkey";
-            columns: ["referred_empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "referrals_referrer_empresa_id_fkey";
-            columns: ["referrer_empresa_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2721,38 +2281,6 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      };
-      plan_features: {
-        Row: {
-          created_at: string;
-          enabled: boolean;
-          feature: string;
-          id: string;
-          plan_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          enabled?: boolean;
-          feature: string;
-          id?: string;
-          plan_id: string;
-        };
-        Update: {
-          created_at?: string;
-          enabled?: boolean;
-          feature?: string;
-          id?: string;
-          plan_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "plan_features_plan_id_fkey";
-            columns: ["plan_id"];
-            isOneToOne: false;
-            referencedRelation: "plans";
-            referencedColumns: ["id"];
-          },
-        ];
       };
       produto_categorias: {
         Row: {
@@ -2834,7 +2362,6 @@ export type Database = {
           {
             foreignKeyName: "produtos_fornecedor_id_fkey";
             columns: ["fornecedor_id"];
-            isOneToOne: false;
             referencedRelation: "fornecedores";
             referencedColumns: ["id"];
           },
@@ -2851,9 +2378,9 @@ export type Database = {
           ia_creditos: number;
           id: string;
           logo_url: string | null;
-          onboarding_concluido_em: string | null;
           loja: string | null;
           nome: string | null;
+          onboarding_concluido_em: string | null;
           plan_id: string | null;
           plano: string;
           plano_solicitado: string | null;
@@ -2873,9 +2400,9 @@ export type Database = {
           ia_creditos?: number;
           id: string;
           logo_url?: string | null;
-          onboarding_concluido_em?: string | null;
           loja?: string | null;
           nome?: string | null;
+          onboarding_concluido_em?: string | null;
           plan_id?: string | null;
           plano?: string;
           plano_solicitado?: string | null;
@@ -2895,9 +2422,9 @@ export type Database = {
           ia_creditos?: number;
           id?: string;
           logo_url?: string | null;
-          onboarding_concluido_em?: string | null;
           loja?: string | null;
           nome?: string | null;
+          onboarding_concluido_em?: string | null;
           plan_id?: string | null;
           plano?: string;
           plano_solicitado?: string | null;
@@ -2911,7 +2438,6 @@ export type Database = {
           {
             foreignKeyName: "profiles_plan_id_fkey";
             columns: ["plan_id"];
-            isOneToOne: false;
             referencedRelation: "plans";
             referencedColumns: ["id"];
           },
@@ -2974,6 +2500,424 @@ export type Database = {
         };
         Relationships: [];
       };
+      referral_commissions: {
+        Row: {
+          amount: number;
+          available_at: string | null;
+          canceled_at: string | null;
+          commission_type: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          paid_at: string | null;
+          plan_id: string | null;
+          referral_id: string;
+          referrer_empresa_id: string;
+          status: string;
+          subscription_id: string | null;
+          subscription_payment_id: string | null;
+          updated_at: string;
+          used_at: string | null;
+          used_note: string | null;
+        };
+        Insert: {
+          amount: number;
+          available_at?: string | null;
+          canceled_at?: string | null;
+          commission_type: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          paid_at?: string | null;
+          plan_id?: string | null;
+          referral_id: string;
+          referrer_empresa_id: string;
+          status?: string;
+          subscription_id?: string | null;
+          subscription_payment_id?: string | null;
+          updated_at?: string;
+          used_at?: string | null;
+          used_note?: string | null;
+        };
+        Update: {
+          amount?: number;
+          available_at?: string | null;
+          canceled_at?: string | null;
+          commission_type?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          paid_at?: string | null;
+          plan_id?: string | null;
+          referral_id?: string;
+          referrer_empresa_id?: string;
+          status?: string;
+          subscription_id?: string | null;
+          subscription_payment_id?: string | null;
+          updated_at?: string;
+          used_at?: string | null;
+          used_note?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_commissions_plan_id_fkey";
+            columns: ["plan_id"];
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_commissions_referral_id_fkey";
+            columns: ["referral_id"];
+            referencedRelation: "referrals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_commissions_referrer_empresa_id_fkey";
+            columns: ["referrer_empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_commissions_subscription_id_fkey";
+            columns: ["subscription_id"];
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_commissions_subscription_payment_id_fkey";
+            columns: ["subscription_payment_id"];
+            referencedRelation: "subscription_payments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_events: {
+        Row: {
+          actor_empresa_id: string | null;
+          commission_id: string | null;
+          created_at: string;
+          id: string;
+          payload: Json | null;
+          referral_id: string | null;
+          type: string;
+          withdrawal_id: string | null;
+        };
+        Insert: {
+          actor_empresa_id?: string | null;
+          commission_id?: string | null;
+          created_at?: string;
+          id?: string;
+          payload?: Json | null;
+          referral_id?: string | null;
+          type: string;
+          withdrawal_id?: string | null;
+        };
+        Update: {
+          actor_empresa_id?: string | null;
+          commission_id?: string | null;
+          created_at?: string;
+          id?: string;
+          payload?: Json | null;
+          referral_id?: string | null;
+          type?: string;
+          withdrawal_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_events_actor_empresa_id_fkey";
+            columns: ["actor_empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_events_commission_id_fkey";
+            columns: ["commission_id"];
+            referencedRelation: "referral_commissions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_events_referral_id_fkey";
+            columns: ["referral_id"];
+            referencedRelation: "referrals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_events_withdrawal_id_fkey";
+            columns: ["withdrawal_id"];
+            referencedRelation: "referral_withdrawals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_plan_rules: {
+        Row: {
+          active: boolean;
+          commission_type: string;
+          commission_value: number | null;
+          created_at: string;
+          id: string;
+          plan_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          commission_type: string;
+          commission_value?: number | null;
+          created_at?: string;
+          id?: string;
+          plan_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          commission_type?: string;
+          commission_value?: number | null;
+          created_at?: string;
+          id?: string;
+          plan_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_plan_rules_plan_id_fkey";
+            columns: ["plan_id"];
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_profiles: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          empresa_id: string;
+          id: string;
+          referral_code: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          empresa_id: string;
+          id?: string;
+          referral_code: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          referral_code?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_profiles_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_program_config: {
+        Row: {
+          active: boolean;
+          commission_type: string | null;
+          commission_value: number | null;
+          created_at: string;
+          description: string | null;
+          first_payment_only: boolean;
+          id: string;
+          minimum_withdrawal: number | null;
+          name: string;
+          pending_days: number | null;
+          recurring_commission: boolean;
+          updated_at: string;
+          whatsapp_share_message: string | null;
+        };
+        Insert: {
+          active?: boolean;
+          commission_type?: string | null;
+          commission_value?: number | null;
+          created_at?: string;
+          description?: string | null;
+          first_payment_only?: boolean;
+          id?: string;
+          minimum_withdrawal?: number | null;
+          name?: string;
+          pending_days?: number | null;
+          recurring_commission?: boolean;
+          updated_at?: string;
+          whatsapp_share_message?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          commission_type?: string | null;
+          commission_value?: number | null;
+          created_at?: string;
+          description?: string | null;
+          first_payment_only?: boolean;
+          id?: string;
+          minimum_withdrawal?: number | null;
+          name?: string;
+          pending_days?: number | null;
+          recurring_commission?: boolean;
+          updated_at?: string;
+          whatsapp_share_message?: string | null;
+        };
+        Relationships: [];
+      };
+      referral_withdrawal_items: {
+        Row: {
+          amount: number;
+          commission_id: string;
+          created_at: string;
+          id: string;
+          withdrawal_id: string;
+        };
+        Insert: {
+          amount: number;
+          commission_id: string;
+          created_at?: string;
+          id?: string;
+          withdrawal_id: string;
+        };
+        Update: {
+          amount?: number;
+          commission_id?: string;
+          created_at?: string;
+          id?: string;
+          withdrawal_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_withdrawal_items_commission_id_fkey";
+            columns: ["commission_id"];
+            referencedRelation: "referral_commissions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_withdrawal_items_withdrawal_id_fkey";
+            columns: ["withdrawal_id"];
+            referencedRelation: "referral_withdrawals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_withdrawals: {
+        Row: {
+          amount: number;
+          approved_at: string | null;
+          created_at: string;
+          id: string;
+          notes: string | null;
+          paid_at: string | null;
+          payment_method: string;
+          pix_key: string | null;
+          referrer_empresa_id: string;
+          rejected_at: string | null;
+          rejection_reason: string | null;
+          requested_at: string;
+          status: string;
+          transaction_reference: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          approved_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          paid_at?: string | null;
+          payment_method?: string;
+          pix_key?: string | null;
+          referrer_empresa_id: string;
+          rejected_at?: string | null;
+          rejection_reason?: string | null;
+          requested_at?: string;
+          status?: string;
+          transaction_reference?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          approved_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          paid_at?: string | null;
+          payment_method?: string;
+          pix_key?: string | null;
+          referrer_empresa_id?: string;
+          rejected_at?: string | null;
+          rejection_reason?: string | null;
+          requested_at?: string;
+          status?: string;
+          transaction_reference?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_withdrawals_referrer_empresa_id_fkey";
+            columns: ["referrer_empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referrals: {
+        Row: {
+          clicked_at: string | null;
+          converted_at: string | null;
+          created_at: string;
+          id: string;
+          referral_code: string;
+          referred_empresa_id: string | null;
+          referrer_empresa_id: string;
+          registered_at: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          clicked_at?: string | null;
+          converted_at?: string | null;
+          created_at?: string;
+          id?: string;
+          referral_code: string;
+          referred_empresa_id?: string | null;
+          referrer_empresa_id: string;
+          registered_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          clicked_at?: string | null;
+          converted_at?: string | null;
+          created_at?: string;
+          id?: string;
+          referral_code?: string;
+          referred_empresa_id?: string | null;
+          referrer_empresa_id?: string;
+          registered_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_empresa_id_fkey";
+            columns: ["referred_empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referrals_referrer_empresa_id_fkey";
+            columns: ["referrer_empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       role_permissions: {
         Row: {
           created_at: string;
@@ -3009,7 +2953,6 @@ export type Database = {
           {
             foreignKeyName: "role_permissions_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -3144,8 +3087,8 @@ export type Database = {
           valor_oferecido: number | null;
           valor_pago: number | null;
           valor_total_gasto: number | null;
-          vendedor_documento: string | null;
           venda_id: string | null;
+          vendedor_documento: string | null;
           vendedor_nome: string | null;
           vendedor_telefone: string | null;
         };
@@ -3169,6 +3112,8 @@ export type Database = {
           fotos?: string[];
           id?: string;
           imei?: string | null;
+          lucro_minimo?: number | null;
+          lucro_previsto?: number | null;
           marca: string;
           modelo: string;
           observacoes?: string | null;
@@ -3184,8 +3129,9 @@ export type Database = {
           valor_conserto?: number;
           valor_oferecido?: number | null;
           valor_pago?: number | null;
-          vendedor_documento?: string | null;
+          valor_total_gasto?: number | null;
           venda_id?: string | null;
+          vendedor_documento?: string | null;
           vendedor_nome?: string | null;
           vendedor_telefone?: string | null;
         };
@@ -3209,6 +3155,8 @@ export type Database = {
           fotos?: string[];
           id?: string;
           imei?: string | null;
+          lucro_minimo?: number | null;
+          lucro_previsto?: number | null;
           marca?: string;
           modelo?: string;
           observacoes?: string | null;
@@ -3224,8 +3172,9 @@ export type Database = {
           valor_conserto?: number;
           valor_oferecido?: number | null;
           valor_pago?: number | null;
-          vendedor_documento?: string | null;
+          valor_total_gasto?: number | null;
           venda_id?: string | null;
+          vendedor_documento?: string | null;
           vendedor_nome?: string | null;
           vendedor_telefone?: string | null;
         };
@@ -3233,14 +3182,12 @@ export type Database = {
           {
             foreignKeyName: "seminovos_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "seminovos_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -3287,7 +3234,6 @@ export type Database = {
           {
             foreignKeyName: "seminovos_conserto_itens_seminovo_id_fkey";
             columns: ["seminovo_id"];
-            isOneToOne: false;
             referencedRelation: "seminovos";
             referencedColumns: ["id"];
           },
@@ -3325,7 +3271,6 @@ export type Database = {
           {
             foreignKeyName: "seminovos_historico_seminovo_id_fkey";
             columns: ["seminovo_id"];
-            isOneToOne: false;
             referencedRelation: "seminovos";
             referencedColumns: ["id"];
           },
@@ -3363,11 +3308,28 @@ export type Database = {
           {
             foreignKeyName: "service_order_photos_service_order_id_fkey";
             columns: ["service_order_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
             referencedColumns: ["id"];
           },
         ];
+      };
+      site_landing: {
+        Row: {
+          conteudo: Json;
+          id: number;
+          updated_at: string;
+        };
+        Insert: {
+          conteudo?: Json;
+          id?: number;
+          updated_at?: string;
+        };
+        Update: {
+          conteudo?: Json;
+          id?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       smtp_config: {
         Row: {
@@ -3413,6 +3375,144 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      subscription_events: {
+        Row: {
+          created_at: string;
+          id: string;
+          payload: Json | null;
+          subscription_id: string | null;
+          type: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          payload?: Json | null;
+          subscription_id?: string | null;
+          type: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          payload?: Json | null;
+          subscription_id?: string | null;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_subscription_id_fkey";
+            columns: ["subscription_id"];
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscription_payments: {
+        Row: {
+          amount: number;
+          created_at: string;
+          expires_at: string | null;
+          external_reference: string;
+          id: string;
+          mercado_pago_payment_id: string | null;
+          metadata: Json | null;
+          paid_at: string | null;
+          payment_method: string;
+          status: string;
+          subscription_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          expires_at?: string | null;
+          external_reference: string;
+          id?: string;
+          mercado_pago_payment_id?: string | null;
+          metadata?: Json | null;
+          paid_at?: string | null;
+          payment_method: string;
+          status?: string;
+          subscription_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          expires_at?: string | null;
+          external_reference?: string;
+          id?: string;
+          mercado_pago_payment_id?: string | null;
+          metadata?: Json | null;
+          paid_at?: string | null;
+          payment_method?: string;
+          status?: string;
+          subscription_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_subscription_id_fkey";
+            columns: ["subscription_id"];
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscriptions: {
+        Row: {
+          billing_cycle: string;
+          canceled_at: string | null;
+          created_at: string;
+          empresa_id: string;
+          id: string;
+          mercado_pago_preapproval_id: string | null;
+          next_billing_date: string | null;
+          plan_id: string;
+          start_date: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          billing_cycle: string;
+          canceled_at?: string | null;
+          created_at?: string;
+          empresa_id: string;
+          id?: string;
+          mercado_pago_preapproval_id?: string | null;
+          next_billing_date?: string | null;
+          plan_id: string;
+          start_date?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          billing_cycle?: string;
+          canceled_at?: string | null;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          mercado_pago_preapproval_id?: string | null;
+          next_billing_date?: string | null;
+          plan_id?: string;
+          start_date?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey";
+            columns: ["plan_id"];
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       termos_garantia: {
         Row: {
@@ -3473,7 +3573,6 @@ export type Database = {
           {
             foreignKeyName: "user_empresas_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -3535,21 +3634,18 @@ export type Database = {
           {
             foreignKeyName: "venda_itens_aparelho_id_fkey";
             columns: ["aparelho_id"];
-            isOneToOne: false;
             referencedRelation: "aparelhos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "venda_itens_produto_id_fkey";
             columns: ["produto_id"];
-            isOneToOne: false;
             referencedRelation: "produtos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "venda_itens_venda_id_fkey";
             columns: ["venda_id"];
-            isOneToOne: false;
             referencedRelation: "vendas";
             referencedColumns: ["id"];
           },
@@ -3599,7 +3695,6 @@ export type Database = {
           {
             foreignKeyName: "vendas_cliente_id_fkey";
             columns: ["cliente_id"];
-            isOneToOne: false;
             referencedRelation: "clientes";
             referencedColumns: ["id"];
           },
@@ -3612,20 +3707,33 @@ export type Database = {
           created_at: string | null;
           feliz_aniversario: boolean | null;
           feliz_aniversario_texto: string | null;
+          ia_agradecer_pesquisa: boolean;
+          ia_pesquisa_personalizada: boolean;
           id: string;
           instancia_id: string | null;
           lembrete_tecnico: boolean | null;
           lembrete_tecnico_texto: string | null;
+          notif_aniversario_auto: boolean;
+          notif_boas_vindas_auto: boolean;
+          notif_boas_vindas_auto_desde: string | null;
           notif_nfe_emitida: boolean | null;
           notif_nfe_emitida_texto: string | null;
           notif_os_criada: boolean | null;
           notif_os_criada_texto: string | null;
           notif_os_editada: boolean | null;
           notif_os_editada_texto: string | null;
+          notif_os_pronta: boolean;
+          notif_os_pronta_texto: string;
+          notif_pesquisa_auto: boolean;
+          notif_pesquisa_auto_desde: string | null;
+          notif_pesquisa_venda_auto: boolean;
+          notif_pesquisa_venda_auto_desde: string | null;
+          notif_relatorio_auto: boolean;
           pesquisa_pos_os: boolean | null;
           pesquisa_pos_os_texto: string | null;
           pesquisa_pos_venda: boolean | null;
           pesquisa_pos_venda_texto: string | null;
+          relatorio_numero: string | null;
           relatorio_semanal_ia: boolean | null;
           relatorio_semanal_ia_texto: string | null;
           status: string | null;
@@ -3638,20 +3746,33 @@ export type Database = {
           created_at?: string | null;
           feliz_aniversario?: boolean | null;
           feliz_aniversario_texto?: string | null;
+          ia_agradecer_pesquisa?: boolean;
+          ia_pesquisa_personalizada?: boolean;
           id?: string;
           instancia_id?: string | null;
           lembrete_tecnico?: boolean | null;
           lembrete_tecnico_texto?: string | null;
+          notif_aniversario_auto?: boolean;
+          notif_boas_vindas_auto?: boolean;
+          notif_boas_vindas_auto_desde?: string | null;
           notif_nfe_emitida?: boolean | null;
           notif_nfe_emitida_texto?: string | null;
           notif_os_criada?: boolean | null;
           notif_os_criada_texto?: string | null;
           notif_os_editada?: boolean | null;
           notif_os_editada_texto?: string | null;
+          notif_os_pronta?: boolean;
+          notif_os_pronta_texto?: string;
+          notif_pesquisa_auto?: boolean;
+          notif_pesquisa_auto_desde?: string | null;
+          notif_pesquisa_venda_auto?: boolean;
+          notif_pesquisa_venda_auto_desde?: string | null;
+          notif_relatorio_auto?: boolean;
           pesquisa_pos_os?: boolean | null;
           pesquisa_pos_os_texto?: string | null;
           pesquisa_pos_venda?: boolean | null;
           pesquisa_pos_venda_texto?: string | null;
+          relatorio_numero?: string | null;
           relatorio_semanal_ia?: boolean | null;
           relatorio_semanal_ia_texto?: string | null;
           status?: string | null;
@@ -3664,20 +3785,33 @@ export type Database = {
           created_at?: string | null;
           feliz_aniversario?: boolean | null;
           feliz_aniversario_texto?: string | null;
+          ia_agradecer_pesquisa?: boolean;
+          ia_pesquisa_personalizada?: boolean;
           id?: string;
           instancia_id?: string | null;
           lembrete_tecnico?: boolean | null;
           lembrete_tecnico_texto?: string | null;
+          notif_aniversario_auto?: boolean;
+          notif_boas_vindas_auto?: boolean;
+          notif_boas_vindas_auto_desde?: string | null;
           notif_nfe_emitida?: boolean | null;
           notif_nfe_emitida_texto?: string | null;
           notif_os_criada?: boolean | null;
           notif_os_criada_texto?: string | null;
           notif_os_editada?: boolean | null;
           notif_os_editada_texto?: string | null;
+          notif_os_pronta?: boolean;
+          notif_os_pronta_texto?: string;
+          notif_pesquisa_auto?: boolean;
+          notif_pesquisa_auto_desde?: string | null;
+          notif_pesquisa_venda_auto?: boolean;
+          notif_pesquisa_venda_auto_desde?: string | null;
+          notif_relatorio_auto?: boolean;
           pesquisa_pos_os?: boolean | null;
           pesquisa_pos_os_texto?: string | null;
           pesquisa_pos_venda?: boolean | null;
           pesquisa_pos_venda_texto?: string | null;
+          relatorio_numero?: string | null;
           relatorio_semanal_ia?: boolean | null;
           relatorio_semanal_ia_texto?: string | null;
           status?: string | null;
@@ -3728,6 +3862,8 @@ export type Database = {
       whatsapp_messages: {
         Row: {
           attachments: Json;
+          avaliacao: string | null;
+          avaliacao_resolvida: boolean;
           connection_id: string | null;
           contact_name: string | null;
           content: string | null;
@@ -3738,6 +3874,7 @@ export type Database = {
           id: string;
           metadata: Json | null;
           os_id: string | null;
+          pesquisa_msg_id: string | null;
           phone_number: string;
           scheduled_at: string | null;
           sent_by: string | null;
@@ -3747,6 +3884,8 @@ export type Database = {
         };
         Insert: {
           attachments?: Json;
+          avaliacao?: string | null;
+          avaliacao_resolvida?: boolean;
           connection_id?: string | null;
           contact_name?: string | null;
           content?: string | null;
@@ -3757,6 +3896,7 @@ export type Database = {
           id?: string;
           metadata?: Json | null;
           os_id?: string | null;
+          pesquisa_msg_id?: string | null;
           phone_number: string;
           scheduled_at?: string | null;
           sent_by?: string | null;
@@ -3766,6 +3906,8 @@ export type Database = {
         };
         Update: {
           attachments?: Json;
+          avaliacao?: string | null;
+          avaliacao_resolvida?: boolean;
           connection_id?: string | null;
           contact_name?: string | null;
           content?: string | null;
@@ -3776,6 +3918,7 @@ export type Database = {
           id?: string;
           metadata?: Json | null;
           os_id?: string | null;
+          pesquisa_msg_id?: string | null;
           phone_number?: string;
           scheduled_at?: string | null;
           sent_by?: string | null;
@@ -3787,15 +3930,19 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_messages_connection_id_fkey";
             columns: ["connection_id"];
-            isOneToOne: false;
             referencedRelation: "whatsapp_connections";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "whatsapp_messages_os_id_fkey";
             columns: ["os_id"];
-            isOneToOne: false;
             referencedRelation: "ordens_servico";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "whatsapp_messages_pesquisa_msg_id_fkey";
+            columns: ["pesquisa_msg_id"];
+            referencedRelation: "whatsapp_messages";
             referencedColumns: ["id"];
           },
         ];
@@ -3961,6 +4108,30 @@ export type Database = {
       };
     };
     Functions: {
+      abrir_caixa: {
+        Args: { p_empresa_id: string; p_valor_abertura: number };
+        Returns: {
+          aberto_em: string;
+          aberto_por: string | null;
+          diferenca: number | null;
+          fechado_em: string | null;
+          fechado_por: string | null;
+          id: string;
+          observacoes: string | null;
+          resumo: Json | null;
+          status: string;
+          user_id: string;
+          valor_abertura: number;
+          valor_contado: number | null;
+          valor_esperado: number | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "caixa_sessoes";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       aceitar_convite: {
         Args: { p_codigo: string };
         Returns: {
@@ -3977,6 +4148,38 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      ajustar_estoque: {
+        Args: {
+          p_motivo: string;
+          p_produto_id: string;
+          p_quantidade: number;
+          p_tipo: string;
+        };
+        Returns: {
+          categoria: string | null;
+          codigo_barras: string | null;
+          comissao_percentual: number;
+          created_at: string;
+          descricao: string | null;
+          estoque_minimo: number;
+          exibir_no_catalogo: boolean | null;
+          fornecedor_id: string | null;
+          id: string;
+          nome: string;
+          preco_custo: number;
+          preco_venda: number;
+          quantidade: number;
+          sku: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "produtos";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       alterar_bloqueio_crediario: {
         Args: {
           p_bloquear: boolean;
@@ -3986,6 +4189,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      caixa_forma_normalizada: { Args: { p_forma: string }; Returns: string };
       cancelar_contrato_crediario: {
         Args: { p_contrato_id: string; p_motivo: string };
         Returns: undefined;
@@ -3998,8 +4202,11 @@ export type Database = {
           categoria_id: string | null;
           created_at: string;
           created_by: string;
+          custo_tecnico: number;
+          custo_tecnico_nome: string | null;
           descricao: string | null;
           id: string;
+          lancamento_custo_tecnico_id: string | null;
           motivo_cancelamento: string | null;
           numero: number;
           observacoes: string | null;
@@ -4055,6 +4262,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      cancelar_venda: { Args: { p_venda_id: string }; Returns: undefined };
       cancelar_venda_aparelho: {
         Args: { p_motivo?: string; p_venda_id: string };
         Returns: {
@@ -4197,10 +4405,7 @@ export type Database = {
         Args: { p_template_id: string };
         Returns: undefined;
       };
-      descontar_credito_ia: {
-        Args: { p_empresa_id: string };
-        Returns: boolean;
-      };
+      descontar_credito_ia: { Args: { p_empresa_id: string }; Returns: boolean };
       devolver_aparelho: {
         Args: { p_aparelho_id: string; p_condicao?: string; p_motivo: string };
         Returns: {
@@ -4241,10 +4446,21 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      devolver_estoque_venda: {
+        Args: { p_descricao: string; p_tipo: string; p_venda_id: string };
+        Returns: undefined;
+      };
       empresa_role: { Args: { p_empresa_id: string }; Returns: string };
+      excluir_venda: { Args: { p_venda_id: string }; Returns: undefined };
+      faturar_compra: {
+        Args: { p_compra_id: string; p_status: string };
+        Returns: undefined;
+      };
       faturar_os: {
         Args: {
           p_categoria_id: string;
+          p_custo_tecnico?: number;
+          p_custo_tecnico_nome?: string;
           p_descricao?: string;
           p_observacoes?: string;
           p_os_id: string;
@@ -4258,8 +4474,11 @@ export type Database = {
           categoria_id: string | null;
           created_at: string;
           created_by: string;
+          custo_tecnico: number;
+          custo_tecnico_nome: string | null;
           descricao: string | null;
           id: string;
+          lancamento_custo_tecnico_id: string | null;
           motivo_cancelamento: string | null;
           numero: number;
           observacoes: string | null;
@@ -4275,10 +4494,39 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fechar_caixa: {
+        Args: {
+          p_observacoes: string;
+          p_sessao_id: string;
+          p_valor_contado: number;
+        };
+        Returns: {
+          aberto_em: string;
+          aberto_por: string | null;
+          diferenca: number | null;
+          fechado_em: string | null;
+          fechado_por: string | null;
+          id: string;
+          observacoes: string | null;
+          resumo: Json | null;
+          status: string;
+          user_id: string;
+          valor_abertura: number;
+          valor_contado: number | null;
+          valor_esperado: number | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "caixa_sessoes";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       garantir_templates_padrao: {
         Args: { p_user_id: string };
         Returns: undefined;
       };
+      generate_referral_code: { Args: never; Returns: string };
       get_empresa_membros: {
         Args: { p_empresa_id: string };
         Returns: {
@@ -4289,15 +4537,43 @@ export type Database = {
           user_id: string;
         }[];
       };
-      pode_finalizar_seminovo: {
-        Args: { p_empresa_id: string };
-        Returns: boolean;
-      };
       has_permission: {
         Args: { p_acao: string; p_empresa_id: string; p_modulo: string };
         Returns: boolean;
       };
+      has_plan_feature: {
+        Args: { p_empresa_id: string; p_feature: string };
+        Returns: boolean;
+      };
       meu_cliente_id: { Args: never; Returns: string };
+      movimentar_caixa: {
+        Args: {
+          p_motivo: string;
+          p_sessao_id: string;
+          p_tipo: string;
+          p_valor: number;
+        };
+        Returns: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          motivo: string | null;
+          sessao_id: string;
+          tipo: string;
+          user_id: string;
+          valor: number;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "caixa_movimentos";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      pode_finalizar_seminovo: {
+        Args: { p_empresa_id: string };
+        Returns: boolean;
+      };
       pode_ver_custo_aparelho: {
         Args: { p_empresa_id: string };
         Returns: boolean;
@@ -4308,6 +4584,10 @@ export type Database = {
       };
       recalcular_status_pagamento_os: {
         Args: { p_os_id: string };
+        Returns: undefined;
+      };
+      receber_compra: {
+        Args: { p_compra_id: string; p_status?: string };
         Returns: undefined;
       };
       receber_parcela_faturamento: {
@@ -4370,6 +4650,55 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      registrar_venda: {
+        Args: {
+          p_categoria?: string;
+          p_cliente_id?: string;
+          p_created_at?: string;
+          p_data?: string;
+          p_desconto?: number;
+          p_empresa_id: string;
+          p_forma_pagamento?: string;
+          p_itens: Json;
+          p_observacoes?: string;
+        };
+        Returns: {
+          cliente_id: string | null;
+          created_at: string;
+          desconto: number;
+          forma_pagamento: string;
+          id: string;
+          numero: number;
+          observacoes: string | null;
+          origem: string;
+          status: string;
+          total: number;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "vendas";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      relatorio_semanal_dados: {
+        Args: { p_empresa_id: string; p_fim: string; p_inicio: string };
+        Returns: Json;
+      };
+      relatorio_tecnicos: {
+        Args: { p_empresa_id: string; p_fim: string; p_inicio: string };
+        Returns: {
+          comissao: number;
+          custo_terceiro: number;
+          faturamento: number;
+          mao_de_obra: number;
+          pecas: number;
+          qtd_os: number;
+          tecnico: string;
+          tecnico_user_id: string;
+        }[];
+      };
       reservar_aparelho: {
         Args: {
           p_aparelho_id: string;
@@ -4415,6 +4744,8 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      resumo_caixa: { Args: { p_sessao_id: string }; Returns: Json };
+      validar_cpf: { Args: { p_cpf: string }; Returns: boolean };
       vender_aparelho: {
         Args: {
           p_aparelho_id: string;

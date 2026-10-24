@@ -60,8 +60,7 @@ export const vincularContaCliente = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<VinculoResultado> => {
     // Already linked (e.g. logging in again) — nothing to do.
     const { data: existenteRaw } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
+      .from("clientes")
       .select("id")
       .eq("auth_user_id", context.userId)
       .maybeSingle();
@@ -80,11 +79,7 @@ export const vincularContaCliente = createServerFn({ method: "POST" })
     // Match an existing staff-created contact by email or phone, claimed on
     // a first-come-first-served basis (auth_user_id IS NULL) so a second
     // signup can't hijack someone else's already-linked record.
-    let matchQuery = supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
-      .select("id")
-      .is("auth_user_id", null);
+    let matchQuery = supabaseAdmin.from("clientes").select("id").is("auth_user_id", null);
     if (email && telefone) {
       matchQuery = matchQuery.or(`email.eq.${email},telefone.eq.${telefone}`);
     } else if (email) {
@@ -99,8 +94,7 @@ export const vincularContaCliente = createServerFn({ method: "POST" })
 
     if (match) {
       const { error } = await supabaseAdmin
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-        .from("clientes" as any)
+        .from("clientes")
         .update({ auth_user_id: context.userId })
         .eq("id", match.id);
       if (error) throw error;
@@ -111,8 +105,7 @@ export const vincularContaCliente = createServerFn({ method: "POST" })
     if (!empresaId) throw new Error("Nenhuma empresa configurada para vincular este cliente.");
 
     const { data: criado, error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
+      .from("clientes")
       .insert({
         user_id: empresaId,
         auth_user_id: context.userId,
@@ -139,8 +132,7 @@ export const atualizarMeusDados = createServerFn({ method: "POST" })
   .validator((data: unknown) => dadosSchema.parse(data))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const { error } = await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
+      .from("clientes")
       .update({
         nome: data.nome,
         telefone: data.telefone ?? null,
@@ -204,8 +196,7 @@ export const gerarAcessoCliente = createServerFn({ method: "POST" })
   .validator((data: unknown) => gerarAcessoSchema.parse(data))
   .handler(async ({ data, context }): Promise<AcessoClienteResultado> => {
     const { data: clienteRaw, error } = await context.supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-      .from("clientes" as any)
+      .from("clientes")
       .select("id, nome, telefone, auth_user_id")
       .eq("id", data.clienteId)
       .single();
@@ -270,8 +261,7 @@ export const gerarAcessoCliente = createServerFn({ method: "POST" })
       }
 
       const { data: vinculado } = await supabaseAdmin
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-        .from("clientes" as any)
+        .from("clientes")
         .update({ auth_user_id: criado.user.id })
         .eq("id", cliente.id)
         .is("auth_user_id", null) // lost a race with another "gerar acesso" click

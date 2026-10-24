@@ -116,22 +116,15 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
       .eq("ativo", true)
       .maybeSingle(),
 
-    supabaseAdmin
-      .from("os_config" as any)
-      .select("*")
-      .eq("user_id", empresaId)
-      .maybeSingle(),
+    supabaseAdmin.from("os_config").select("*").eq("user_id", empresaId).maybeSingle(),
 
-    supabaseAdmin
-      .from("service_order_photos" as any)
-      .select("*")
-      .eq("service_order_id", osId),
+    supabaseAdmin.from("service_order_photos").select("*").eq("service_order_id", osId),
 
     // Empresa's chosen template (padrão first, otherwise any active one) —
     // same query ordens.tsx's imprimir() uses, so the WhatsApp PDF matches
     // whatever the empresa sees when printing from the browser.
     supabaseAdmin
-      .from("os_templates" as any)
+      .from("os_templates")
       .select("*")
       .eq("user_id", empresaId)
       .eq("ativo", true)
@@ -142,13 +135,9 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
   ]);
   if (erroOs || !os) throw new Error("OS não encontrada para gerar o PDF.");
 
-  const itens = await supabaseAdmin
-    .from("os_itens" as any)
-    .select("*")
-    .eq("os_id", osId);
+  const itens = await supabaseAdmin.from("os_itens").select("*").eq("os_id", osId);
 
-  const template =
-    (((templatesData as any[]) ?? [])[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
+  const template = (templatesData?.[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
   const secoes = new Set<OsTemplateSecao>(secoesOrdenadas(template));
   const corTema = TEMA_RGB[template.tema];
   const corAccent = rgb(corTema.r, corTema.g, corTema.b);
@@ -158,8 +147,6 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
   const fonteNegrito = await pdf.embedFont(StandardFonts.HelveticaBold);
   const w = new Escritor(pdf, fonte, fonteNegrito, corAccent);
 
-  const osAny = os as any;
-  const profileAny = profile as any;
   const tituloDoc = modo === "orcamento" ? "Orçamento" : "Ordem de Serviço";
 
   // Company logo — the HTML template (imprimir()) shows it in the header;
@@ -167,12 +154,12 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
   // the main reason a themed template still looked unbranded here. A
   // fetch() failure (missing/unreachable logo_url) just skips the image
   // instead of failing the whole PDF.
-  if (profileAny?.logo_url) {
+  if (profile?.logo_url) {
     try {
-      const resposta = await fetch(profileAny.logo_url);
+      const resposta = await fetch(profile.logo_url);
       if (resposta.ok) {
         const bytesLogo = new Uint8Array(await resposta.arrayBuffer());
-        const ehPng = (profileAny.logo_url as string).toLowerCase().includes(".png");
+        const ehPng = profile.logo_url.toLowerCase().includes(".png");
         await w.imagem(bytesLogo, ehPng, 120, 48);
         w.espaco(4);
       }
@@ -181,19 +168,19 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
     }
   }
 
-  w.titulo(`${profileAny?.loja || profileAny?.nome || "Assistência Técnica"}`, 16);
-  w.subtitulo(`${tituloDoc} nº ${osAny.numero} — ${dataBR(osAny.created_at)}`, rgb(0.1, 0.1, 0.15));
-  const infoEmpresa = [profileAny?.cnpj_cpf, profileAny?.endereco, profileAny?.whatsapp]
+  w.titulo(`${profile?.loja || profile?.nome || "Assistência Técnica"}`, 16);
+  w.subtitulo(`${tituloDoc} nº ${os.numero} — ${dataBR(os.created_at)}`, rgb(0.1, 0.1, 0.15));
+  const infoEmpresa = [profile?.cnpj_cpf, profile?.endereco, profile?.whatsapp]
     .filter(Boolean)
     .join("  ·  ");
   if (infoEmpresa) w.paragrafo(infoEmpresa, 8, rgb(0.5, 0.5, 0.55));
   w.espaco(6);
   w.linhaDivisoria();
 
-  const listaItens = (itens.data as any[]) ?? [];
-  const checklist = (osAny.checklist_entrada ?? {}) as Record<string, string>;
-  const estadoFisico = (osAny.estado_fisico ?? {}) as Record<string, boolean>;
-  const fotosLista = (fotos as any[]) ?? [];
+  const listaItens = itens.data ?? [];
+  const checklist = (os.checklist_entrada ?? {}) as Record<string, string>;
+  const estadoFisico = (os.estado_fisico ?? {}) as Record<string, boolean>;
+  const fotosLista = fotos ?? [];
   const assinaturaCliente = fotosLista.find((f) => f.category === "assinatura_cliente");
   const assinaturaTecnico = fotosLista.find((f) => f.category === "assinatura_tecnico");
 
@@ -210,31 +197,25 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break; // já desenhado acima, junto com a logo.
 
       case "cliente":
-        w.linhaCampo("Cliente", osAny.clientes?.nome ?? "—");
-        w.linhaCampo("Telefone", osAny.clientes?.telefone ?? "—");
+        w.linhaCampo("Cliente", os.clientes?.nome ?? "—");
+        w.linhaCampo("Telefone", os.clientes?.telefone ?? "—");
         break;
 
       case "aparelho":
-        w.linhaCampo(
-          "Aparelho",
-          [osAny.aparelho, osAny.marca, osAny.modelo].filter(Boolean).join(" "),
-        );
-        if (osAny.cor) w.linhaCampo("Cor", osAny.cor);
-        if (osAny.imei) w.linhaCampo("IMEI", osAny.imei);
-        if (osAny.serial_number) w.linhaCampo("Número de série", osAny.serial_number);
-        w.linhaCampo("Senha (PIN)", osAny.senha_dispositivo || "—");
-        w.linhaCampo(
-          "Padrão",
-          osAny.padrao_desbloqueio ? `Sequência: ${osAny.padrao_desbloqueio}` : "—",
-        );
+        w.linhaCampo("Aparelho", [os.aparelho, os.marca, os.modelo].filter(Boolean).join(" "));
+        if (os.cor) w.linhaCampo("Cor", os.cor);
+        if (os.imei) w.linhaCampo("IMEI", os.imei);
+        if (os.serial_number) w.linhaCampo("Número de série", os.serial_number);
+        w.linhaCampo("Senha (PIN)", os.senha_dispositivo || "—");
+        w.linhaCampo("Padrão", os.padrao_desbloqueio ? `Sequência: ${os.padrao_desbloqueio}` : "—");
         break;
 
       case "defeito":
-        w.linhaCampo("Defeito relatado", osAny.defeito ?? "—");
+        w.linhaCampo("Defeito relatado", os.defeito ?? "—");
         break;
 
       case "diagnostico":
-        w.linhaCampo("Diagnóstico", osAny.diagnostico ?? "—");
+        w.linhaCampo("Diagnóstico", os.diagnostico ?? "—");
         break;
 
       case "garantia":
@@ -244,8 +225,8 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         if (modo !== "orcamento") {
           w.linhaCampo(
             "Garantia",
-            osAny.garantia_dias
-              ? `${osAny.garantia_dias} dias${osAny.garantia_vencimento ? ` — válida até ${dataBR(osAny.garantia_vencimento)}` : ""}`
+            os.garantia_dias
+              ? `${os.garantia_dias} dias${os.garantia_vencimento ? ` — válida até ${dataBR(os.garantia_vencimento)}` : ""}`
               : "—",
           );
         }
@@ -265,10 +246,10 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break;
 
       case "valores":
-        if (Number(osAny.desconto ?? 0) > 0) {
-          w.paragrafo(`Desconto: ${brl(osAny.desconto)}`, 9, rgb(0.4, 0.4, 0.45));
+        if (Number(os.desconto ?? 0) > 0) {
+          w.paragrafo(`Desconto: ${brl(os.desconto)}`, 9, rgb(0.4, 0.4, 0.45));
         }
-        w.subtitulo(`Total: ${brl(osAny.valor)}`);
+        w.subtitulo(`Total: ${brl(os.valor)}`);
         w.espaco(10);
         break;
 
@@ -291,13 +272,13 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
 
       case "estado_fisico": {
         const marcado = Object.keys(estadoFisico).filter((k) => estadoFisico[k]);
-        if (marcado.length || osAny.estado_fisico_obs || osAny.acessorios) {
+        if (marcado.length || os.estado_fisico_obs || os.acessorios) {
           w.subtitulo("Estado físico do aparelho");
           w.paragrafo(
             marcado.map((k) => ESTADO_FISICO_LABELS[k] ?? k).join(", ") || "Sem avarias marcadas.",
           );
-          if (osAny.estado_fisico_obs) w.paragrafo(osAny.estado_fisico_obs, 9, rgb(0.4, 0.4, 0.45));
-          if (osAny.acessorios) w.paragrafo(`Acessórios deixados: ${osAny.acessorios}`);
+          if (os.estado_fisico_obs) w.paragrafo(os.estado_fisico_obs, 9, rgb(0.4, 0.4, 0.45));
+          if (os.acessorios) w.paragrafo(`Acessórios deixados: ${os.acessorios}`);
           w.espaco(6);
         }
         break;
@@ -313,9 +294,9 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
             w.paragrafo(termo.conteudo, 8, rgb(0.35, 0.35, 0.4));
             w.espaco(6);
           }
-          if ((osConfig as any)?.termos_condicoes) {
+          if (osConfig?.termos_condicoes) {
             w.subtitulo("Condições");
-            w.paragrafo((osConfig as any).termos_condicoes, 8, rgb(0.35, 0.35, 0.4));
+            w.paragrafo(osConfig.termos_condicoes, 8, rgb(0.35, 0.35, 0.4));
             w.espaco(6);
           }
         }
@@ -326,7 +307,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
           (f) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
         );
         if (galeria.length) {
-          const legenda = (cat: string) =>
+          const legenda = (cat: string | null) =>
             cat === "entrada" ? "Entrada" : cat === "durante" ? "Durante" : "Saída";
           const baixadas = (
             await Promise.all(
@@ -354,7 +335,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
 
       case "qrcode": {
         const origem = origemPublicaServer();
-        if (!(osConfig as any)?.imprimir_qrcode_cliente || !origem) break;
+        if (!osConfig?.imprimir_qrcode_cliente || !origem) break;
         try {
           const png = await QRCode.toBuffer(`${origem}/consulta/${osId}`, {
             type: "png",

@@ -51,6 +51,37 @@ const CATEGORIA_FATURAMENTO_OS = "Faturamento de OS";
 // usuário escolher — muitas empresas usam "Serviços" —, mas a descrição
 // sempre termina em "— parcela N/M". Assim o filtro "Faturamento de OS"
 // encontra as faturas de OS em qualquer categoria.
+// Uma linha do fluxo de caixa: lançamento gravado ou custo de serviço calculado.
+type LancamentoLinha = {
+  id: string;
+  tipo: string;
+  categoria: string | null;
+  descricao: string;
+  valor: number;
+  data: string;
+  vencimento: string | null;
+  created_at: string;
+  status: string | null;
+  bank_account_id: string | null;
+  bank_accounts?: { banco: string } | null;
+  os_id?: string | null;
+  automatico?: boolean;
+  referencia?: string;
+  grupoOs?: never;
+};
+// Tudo que pertence a uma mesma OS, somado numa linha só.
+type GrupoOs = {
+  id: string;
+  grupoOs: true;
+  numero: number | string | null;
+  receita: number;
+  despesa: number;
+  itens: LancamentoLinha[];
+  created_at: string;
+  data: string;
+  vencimento: string | null;
+};
+
 function ehFaturamentoOs(l: { tipo?: string; descricao?: string | null }) {
   return l.tipo === "entrada" && /— parcela \d+\/\d+$/.test(l.descricao ?? "");
 }
@@ -131,13 +162,13 @@ function Financeiro() {
         created_at: string;
         produtos: { preco_custo: number } | null;
       };
-      const grupos = new Map<string, any>();
+      const grupos = new Map<string, LancamentoLinha>();
       function somar(chave: string, descricao: string, item: Item, referencia: string) {
         const custo = Number(item.quantidade) * Number(item.produtos?.preco_custo ?? 0);
         if (custo <= 0) return;
         const data = format(new Date(item.created_at), "yyyy-MM-dd");
         const id = `custo-${chave}-${data}`;
-        const atual = grupos.get(id) ?? {
+        const atual: LancamentoLinha = grupos.get(id) ?? {
           id,
           automatico: true,
           os_id: null as string | null,
@@ -156,7 +187,7 @@ function Financeiro() {
         if (item.created_at > atual.created_at) atual.created_at = item.created_at;
         grupos.set(id, atual);
       }
-      for (const i of (osItens.data ?? []) as any[]) {
+      for (const i of osItens.data ?? []) {
         const os = i.ordens_servico;
         if (os && ["cancelado", "reprovado"].includes(os.status)) continue;
         somar(`os-${i.os_id}`, `Custo dos serviços — OS Nº ${os?.numero ?? "?"}`, i, "OS");
@@ -165,7 +196,7 @@ function Financeiro() {
         );
         if (grupo) grupo.os_id = i.os_id;
       }
-      for (const i of (vendaItens.data ?? []) as any[]) {
+      for (const i of vendaItens.data ?? []) {
         const venda = i.vendas;
         if (venda?.status === "cancelado") continue;
         somar(
@@ -187,13 +218,13 @@ function Financeiro() {
       queryKey: ["financeiro-vinculos-os"],
       queryFn: async () => {
         const { data, error } = await supabase
-          .from("os_faturamento_parcelas" as any)
+          .from("os_faturamento_parcelas")
           .select(
             "lancamento_id, lancamento_estorno_id, os_faturamentos(os_id, ordens_servico(numero))",
           );
         if (error) throw error;
         const mapa = new Map<string, { osId: string; numero: number | null }>();
-        for (const p of (data ?? []) as any[]) {
+        for (const p of data ?? []) {
           const fat = p.os_faturamentos;
           if (!fat?.os_id) continue;
           const vinculo = { osId: fat.os_id, numero: fat.ordens_servico?.numero ?? null };
@@ -202,11 +233,11 @@ function Financeiro() {
         }
         // Pagamento do técnico lançado no faturamento — despesa da mesma OS.
         const { data: fats, error: erroFats } = await supabase
-          .from("os_faturamentos" as any)
+          .from("os_faturamentos")
           .select("lancamento_custo_tecnico_id, os_id, ordens_servico(numero)")
           .not("lancamento_custo_tecnico_id", "is", null);
         if (erroFats) throw erroFats;
-        for (const f of (fats ?? []) as any[]) {
+        for (const f of fats ?? []) {
           mapa.set(f.lancamento_custo_tecnico_id, {
             osId: f.os_id,
             numero: f.ordens_servico?.numero ?? null,
@@ -218,7 +249,7 @@ function Financeiro() {
 
   const todosLancamentos = useMemo(
     () =>
-      [...lancamentos, ...custosServicos].sort((a: any, b: any) =>
+      ([...lancamentos, ...custosServicos] as LancamentoLinha[]).sort((a, b) =>
         b.created_at.localeCompare(a.created_at),
       ),
     [lancamentos, custosServicos],
@@ -227,27 +258,27 @@ function Financeiro() {
   const { data: categories = [] } = useQuery({
     queryKey: ["finance-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("finance_categories" as any).select("*");
+      const { data, error } = await supabase.from("finance_categories").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["bank-accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("bank_accounts" as any).select("*");
+      const { data, error } = await supabase.from("bank_accounts").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
   const { data: methods = [] } = useQuery({
     queryKey: ["payment-methods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("payment_methods" as any).select("*");
+      const { data, error } = await supabase.from("payment_methods").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -265,7 +296,7 @@ function Financeiro() {
         payment_method_id: form.payment_method_id || null,
         status: form.status,
         vencimento: form.vencimento || null,
-      } as any);
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -286,7 +317,7 @@ function Financeiro() {
   });
 
   const listaFiltrada = useMemo(() => {
-    return todosLancamentos.filter((l: any) => {
+    return todosLancamentos.filter((l) => {
       const matchTipo = filtros.tipo === "todos" || l.tipo === filtros.tipo;
       const matchStatus = filtros.status === "todos" || l.status === filtros.status;
       const matchCategoria =
@@ -319,9 +350,9 @@ function Financeiro() {
   // da OS soma só os lançamentos que passaram no filtro.
   const [osAbertas, setOsAbertas] = useState<Set<string>>(new Set());
   const linhas = useMemo(() => {
-    const porOs = new Map<string, any>();
-    const resultado: any[] = [];
-    for (const l of listaFiltrada as any[]) {
+    const porOs = new Map<string, GrupoOs>();
+    const resultado: (LancamentoLinha | GrupoOs)[] = [];
+    for (const l of listaFiltrada) {
       const vinculo = vinculosOs.get(l.id);
       const osId = l.os_id ?? vinculo?.osId;
       if (!osId) {
@@ -336,7 +367,7 @@ function Financeiro() {
           numero: vinculo?.numero ?? null,
           receita: 0,
           despesa: 0,
-          itens: [] as any[],
+          itens: [],
           created_at: l.created_at,
           data: l.data,
           vencimento: l.vencimento ?? l.data,
@@ -368,7 +399,7 @@ function Financeiro() {
         ...new Set([
           CATEGORIA_FATURAMENTO_OS,
           ...categories.map((c) => c.nome),
-          ...todosLancamentos.map((l: any) => l.categoria),
+          ...todosLancamentos.map((l) => l.categoria),
         ]),
       ]
         .filter(Boolean)
@@ -688,16 +719,16 @@ function Financeiro() {
                       {l.categoria || "—"}
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                      {(l as any).bank_accounts?.banco || "—"}
+                      {l.bank_accounts?.banco || "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {dataBR((l as any).vencimento || l.created_at)}
-                      {(l as any).status === "pendente" && (
+                      {dataBR(l.vencimento || l.created_at)}
+                      {l.status === "pendente" && (
                         <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           Pendente
                         </span>
                       )}
-                      {(l as any).status === "cancelado" && (
+                      {l.status === "cancelado" && (
                         <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
                           Cancelado
                         </span>
@@ -711,10 +742,10 @@ function Financeiro() {
                       {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {(l as any).automatico ? (
+                      {l.automatico ? (
                         <span
                           className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
-                          title={`Calculado do custo dos serviços usados na ${(l as any).referencia}`}
+                          title={`Calculado do custo dos serviços usados na ${l.referencia}`}
                         >
                           Automático
                         </span>
@@ -753,20 +784,18 @@ function LinhaOs({
   brl,
   remover,
 }: {
-  grupo: any;
+  grupo: GrupoOs;
   aberta: boolean;
   alternar: () => void;
   brl: (v: number) => string;
   remover: (id: string) => void;
 }) {
   const lucro = grupo.receita - grupo.despesa;
-  const pendente = grupo.itens.some((i: any) => i.status === "pendente");
-  const cancelado = grupo.itens.every((i: any) => i.status === "cancelado");
+  const pendente = grupo.itens.some((i) => i.status === "pendente");
+  const cancelado = grupo.itens.every((i) => i.status === "cancelado");
   // OS com custo de serviço lançado mas sem faturamento ativo ainda não teve
   // receita — mostrar "Não faturada" em vez de um prejuízo que não existe.
-  const naoFaturada = !grupo.itens.some(
-    (i: any) => i.tipo === "entrada" && i.status !== "cancelado",
-  );
+  const naoFaturada = !grupo.itens.some((i) => i.tipo === "entrada" && i.status !== "cancelado");
   const rotulo = naoFaturada ? "Não faturada" : lucro >= 0 ? "Lucro" : "Prejuízo";
   const corValor = naoFaturada
     ? "text-amber-600 dark:text-amber-400"
@@ -820,7 +849,7 @@ function LinhaOs({
         </td>
       </tr>
       {aberta &&
-        grupo.itens.map((i: any) => (
+        grupo.itens.map((i) => (
           <tr key={i.id} className="bg-secondary/30 text-xs">
             <td className="py-2 pl-12 pr-4">
               <span className="flex items-center gap-2">

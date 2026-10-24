@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { useCurrentUser, useMinhaEmpresa, usePermissoes } from "@/hooks/useCurrentUser";
 import { brl, dataBR, paraCentavos, paraReais } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
@@ -69,6 +70,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
+
+type OsFaturar = Tables<"ordens_servico"> & {
+  clientes: { nome: string; telefone: string | null; email: string | null } | null;
+};
+type FaturamentoAtivo = Tables<"os_faturamentos"> & {
+  parcelas: (Tables<"os_faturamento_parcelas"> & { payment_methods: { nome: string } | null })[];
+  tecnicos: Tables<"os_faturamento_tecnicos">[];
+  categoriaNome: string | undefined;
+};
 
 const OUTRO = "__outro__";
 const hojeISO = () => format(new Date(), "yyyy-MM-dd");
@@ -165,7 +175,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         .eq("id", osId as string)
         .single();
       if (error) throw error;
-      return data as any;
+      return data;
     },
   });
 
@@ -178,7 +188,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         .select("*")
         .eq("os_id", osId as string);
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -192,7 +202,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
     enabled: !!osId && open,
     queryFn: async () => {
       const { data: fat, error } = await supabase
-        .from("os_faturamentos" as any)
+        .from("os_faturamentos")
         .select("*")
         .eq("os_id", osId as string)
         .neq("status", "cancelado")
@@ -203,28 +213,26 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
       if (!fat) return null;
       const [{ data: parcelas }, { data: tecnicos }, { data: categoria }] = await Promise.all([
         supabase
-          .from("os_faturamento_parcelas" as any)
+          .from("os_faturamento_parcelas")
           .select("*, payment_methods(nome)")
-          .eq("faturamento_id", (fat as any).id)
+          .eq("faturamento_id", fat.id)
           .order("numero_parcela"),
-        supabase
-          .from("os_faturamento_tecnicos" as any)
-          .select("*")
-          .eq("faturamento_id", (fat as any).id),
-        (fat as any).categoria_id
+        supabase.from("os_faturamento_tecnicos").select("*").eq("faturamento_id", fat.id),
+        fat.categoria_id
           ? supabase
               .from("finance_categories")
               .select("nome")
-              .eq("id", (fat as any).categoria_id)
+              .eq("id", fat.categoria_id)
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
-      return {
-        ...(fat as any),
+      const ativo: FaturamentoAtivo = {
+        ...fat,
         parcelas: parcelas ?? [],
         tecnicos: tecnicos ?? [],
-        categoriaNome: (categoria as any)?.nome,
+        categoriaNome: categoria?.nome,
       };
+      return ativo;
     },
   });
 
@@ -265,9 +273,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         p_empresa_id: empresaId as string,
       });
       if (error) throw error;
-      return ((data as any[]) ?? []).filter((m) =>
-        ["tecnico", "gerente", "admin"].includes(m.role),
-      );
+      return (data ?? []).filter((m) => ["tecnico", "gerente", "admin"].includes(m.role));
     },
   });
 
@@ -418,9 +424,10 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         if (erroPatch) throw erroPatch;
       }
 
-      const { data, error } = await supabase.rpc("faturar_os" as any, {
-        p_os_id: osId,
-        p_categoria_id: categoriaId || null,
+      // NULL é aceito pelas funções SQL; os tipos gerados não marcam argumentos como anuláveis.
+      const { data, error } = await supabase.rpc("faturar_os", {
+        p_os_id: osId as string,
+        p_categoria_id: (categoriaId || null) as string,
         p_valor_total: totalOs,
         p_parcelas: parcelas.map((p) => ({
           numero_parcela: p.numero_parcela,
@@ -435,10 +442,10 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
           nome_livre: t.membro_user_id ? null : t.nome_livre.trim(),
           valor: t.valor,
         })),
-        p_observacoes: observacoes || null,
-        p_descricao: descricao || null,
+        p_observacoes: (observacoes || null) as string,
+        p_descricao: (descricao || null) as string,
         p_custo_tecnico: custoTecnico > 0 ? custoTecnico : 0,
-        p_custo_tecnico_nome: custoTecnico > 0 ? custoTecnicoNome.trim() || null : null,
+        p_custo_tecnico_nome: (custoTecnico > 0 ? custoTecnicoNome.trim() || null : null) as string,
       });
       if (error) throw error;
       return data;
@@ -463,10 +470,10 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
 
   const receberParcela = useMutation({
     mutationFn: async (parcelaId: string) => {
-      const { error } = await supabase.rpc("receber_parcela_faturamento" as any, {
+      const { error } = await supabase.rpc("receber_parcela_faturamento", {
         p_parcela_id: parcelaId,
         p_data_recebimento: hojeISO(),
-        p_forma_pagamento_id: null,
+        p_forma_pagamento_id: null as unknown as string,
       });
       if (error) throw error;
     },
@@ -484,9 +491,9 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
 
   const cancelarFaturamento = useMutation({
     mutationFn: async (motivo: string) => {
-      const { error } = await supabase.rpc("cancelar_faturamento_os" as any, {
+      const { error } = await supabase.rpc("cancelar_faturamento_os", {
         p_faturamento_id: faturamento!.id,
-        p_motivo: motivo.trim() || null,
+        p_motivo: (motivo.trim() || null) as string,
       });
       if (error) throw error;
     },
@@ -507,7 +514,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
     if (!janela) return;
     const linhasParcelas = faturamento.parcelas
       .map(
-        (p: any) => `<tr>
+        (p) => `<tr>
           <td>${p.numero_parcela}/${p.total_parcelas}</td>
           <td>${brl(p.valor)}</td>
           <td>${dataBR(p.vencimento)}</td>
@@ -517,9 +524,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
       )
       .join("");
     const linhasTecnicos = faturamento.tecnicos
-      .map(
-        (t: any) => `<tr><td>${t.nome_livre ?? t.membro_user_id}</td><td>${brl(t.valor)}</td></tr>`,
-      )
+      .map((t) => `<tr><td>${t.nome_livre ?? t.membro_user_id}</td><td>${brl(t.valor)}</td></tr>`)
       .join("");
     janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
       <title>Faturamento OS ${os.numero}</title>
@@ -1054,7 +1059,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                             <SelectValue placeholder="Selecione o técnico" />
                           </SelectTrigger>
                           <SelectContent>
-                            {membros.map((m: any) => (
+                            {membros.map((m) => (
                               <SelectItem key={m.user_id} value={m.user_id}>
                                 {m.email}
                               </SelectItem>
@@ -1275,8 +1280,8 @@ function FaturamentoDetalhe({
   motivoCancelamento,
   setMotivoCancelamento,
 }: {
-  os: any;
-  faturamento: any;
+  os: OsFaturar;
+  faturamento: FaturamentoAtivo;
   receberParcela: ReturnType<typeof useMutation<void, Error, string>>;
   cancelarFaturamento: ReturnType<typeof useMutation<void, Error, string>>;
   imprimirRecibo: () => void;
@@ -1313,7 +1318,7 @@ function FaturamentoDetalhe({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {faturamento.parcelas.map((p: any) => (
+              {faturamento.parcelas.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     {p.numero_parcela}/{p.total_parcelas}
@@ -1355,7 +1360,7 @@ function FaturamentoDetalhe({
           </Table>
         </div>
         <div className="grid gap-3 md:hidden">
-          {faturamento.parcelas.map((p: any) => (
+          {faturamento.parcelas.map((p) => (
             <div key={p.id} className="space-y-1 rounded-lg border border-border p-3">
               <p className="text-sm font-bold">
                 Parcela {p.numero_parcela}/{p.total_parcelas} — {fmt(p.valor)}
@@ -1410,7 +1415,7 @@ function FaturamentoDetalhe({
         <section className="rounded-xl border border-border bg-card p-4">
           <h3 className="mb-3 text-sm font-bold">Divisão entre técnicos</h3>
           <div className="grid gap-2 sm:grid-cols-2">
-            {faturamento.tecnicos.map((t: any) => (
+            {faturamento.tecnicos.map((t) => (
               <div
                 key={t.id}
                 className="flex justify-between rounded-lg border border-border p-2 text-sm"

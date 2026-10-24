@@ -78,7 +78,6 @@ export function AssinaturaDigitalModal({
   useEffect(() => {
     if (!open) return;
     limparCanvas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tipo]);
 
   function posicaoNoCanvas(e: React.PointerEvent<HTMLCanvasElement>) {

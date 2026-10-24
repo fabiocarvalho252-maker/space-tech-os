@@ -21,8 +21,7 @@ export function PurchasesTab({ cliente }: { cliente: MeuCliente }) {
     queryKey: ["minha-conta-vendas", cliente.id, filtro],
     queryFn: async (): Promise<MinhaVenda[]> => {
       let query = supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendas.origem not in the generated Database type yet
-        .from("vendas" as any)
+        .from("vendas")
         .select("id, numero, created_at, total, status, origem, venda_itens(descricao, quantidade)")
         .eq("cliente_id", cliente.id)
         .order("created_at", { ascending: false })

@@ -30,8 +30,7 @@ export const Route = createFileRoute("/minha-conta")({
 
     const buscarCliente = () =>
       supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-        .from("clientes" as any)
+        .from("clientes")
         .select("id")
         .eq("auth_user_id", data.session!.user.id)
         .maybeSingle();
@@ -63,8 +62,7 @@ function MinhaConta() {
     queryFn: async (): Promise<MeuCliente> => {
       const { data: user } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-        .from("clientes" as any)
+        .from("clientes")
         .select("id, user_id, nome, telefone, email, documento, endereco")
         .eq("auth_user_id", user.user!.id)
         .single();

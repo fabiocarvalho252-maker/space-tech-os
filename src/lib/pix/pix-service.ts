@@ -19,8 +19,7 @@ type ConfigPagamento = { accessToken: string; webhookSecret: string | null };
 
 async function obterConfig(empresaId: string): Promise<ConfigPagamento | null> {
   const { data: dataRaw, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mercado_pago_webhook_secret not in the generated Database type yet
-    .from("pagamento_config" as any)
+    .from("pagamento_config")
     .select("mercado_pago_access_token, mercado_pago_webhook_secret")
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -143,8 +142,7 @@ const STATUS_MP_PARA_COBRANCA: Record<string, "pendente" | "paga" | "cancelada" 
  */
 export async function reconciliarPagamento(mpId: string): Promise<void> {
   const { data: cobrancaRaw, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lancamento_id not in the generated Database type yet
-    .from("cobrancas" as any)
+    .from("cobrancas")
     .select(
       "id, user_id, valor, status, lancamento_id, cliente_id, os_id, venda_id, crediario_parcela_id, created_at, clientes(nome)",
     )
@@ -193,8 +191,7 @@ export async function reconciliarPagamento(mpId: string): Promise<void> {
   }
 
   const { error: erroUpdate } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lancamento_id not in the generated Database type yet
-    .from("cobrancas" as any)
+    .from("cobrancas")
     .update({ status: novoStatus, lancamento_id: lancamentoId })
     .eq("id", cobranca.id);
   if (erroUpdate) throw erroUpdate;
@@ -241,8 +238,7 @@ export async function verificarPagamentoCobranca(
   empresaId: string,
 ): Promise<void> {
   const { data: cobranca, error } = await supabaseAdmin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mp_id not in the generated Database type yet
-    .from("cobrancas" as any)
+    .from("cobrancas")
     .select("mp_id, user_id")
     .eq("id", cobrancaId)
     .maybeSingle();

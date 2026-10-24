@@ -9,8 +9,7 @@ import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.function
 // a staff uid (never linked as auth_user_id) just gets null.
 async function ehClienteVinculado(uid: string): Promise<boolean> {
   const { data } = await supabase
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth_user_id not in the generated Database type yet
-    .from("clientes" as any)
+    .from("clientes")
     .select("id")
     .eq("auth_user_id", uid)
     .maybeSingle();

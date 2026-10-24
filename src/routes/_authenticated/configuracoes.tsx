@@ -4,6 +4,7 @@ import { enviarLogoEmpresa } from "@/lib/logo-empresa";
 import { termosOsPadrao } from "@/lib/termos-padrao";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 
@@ -107,7 +108,7 @@ function Configuracoes() {
         setMpForm({
           access_token: data.mercado_pago_access_token || "",
           public_key: data.mercado_pago_public_key || "",
-          webhook_secret: (data as any).mercado_pago_webhook_secret || "",
+          webhook_secret: data.mercado_pago_webhook_secret || "",
         });
       return data;
     },
@@ -120,11 +121,11 @@ function Configuracoes() {
       setEmpresaForm({
         loja: profile.loja || "",
         nome: profile.nome || "",
-        whatsapp: (profile as any).whatsapp || "",
-        endereco: (profile as any).endereco || "",
-        cidade: (profile as any).cidade || "",
-        cnpj_cpf: (profile as any).cnpj_cpf || "",
-        logo_url: (profile as any).logo_url || "",
+        whatsapp: profile.whatsapp || "",
+        endereco: profile.endereco || "",
+        cidade: profile.cidade || "",
+        cnpj_cpf: profile.cnpj_cpf || "",
+        logo_url: profile.logo_url || "",
       });
     }
   }, [profile]);
@@ -139,7 +140,7 @@ function Configuracoes() {
           mercado_pago_public_key: mpForm.public_key,
           mercado_pago_webhook_secret: mpForm.webhook_secret || null,
           updated_at: new Date().toISOString(),
-        } as any,
+        },
         { onConflict: "user_id" },
       );
       if (error) throw error;
@@ -165,7 +166,7 @@ function Configuracoes() {
           cnpj_cpf: empresaForm.cnpj_cpf,
           logo_url: empresaForm.logo_url,
           updated_at: new Date().toISOString(),
-        } as any)
+        })
         .eq("id", user.id);
       if (error) throw error;
     },
@@ -186,8 +187,8 @@ function Configuracoes() {
       setEmpresaForm((prev) => ({ ...prev, logo_url: publicUrl }));
       toast.success("Logotipo enviado com sucesso!");
       qc.invalidateQueries({ queryKey: ["profile"] });
-    } catch (error: any) {
-      toast.error("Erro ao enviar logotipo: " + error.message);
+    } catch (error) {
+      toast.error("Erro ao enviar logotipo: " + (error as Error).message);
     } finally {
       setIsUploading(false);
     }
@@ -196,9 +197,9 @@ function Configuracoes() {
   const { data: categories = [], refetch: refetchCats } = useQuery({
     queryKey: ["finance-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("finance_categories" as any).select("*");
+      const { data, error } = await supabase.from("finance_categories").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -206,9 +207,9 @@ function Configuracoes() {
   const { data: accounts = [], refetch: refetchAccounts } = useQuery({
     queryKey: ["bank-accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("bank_accounts" as any).select("*");
+      const { data, error } = await supabase.from("bank_accounts").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -216,9 +217,9 @@ function Configuracoes() {
   const { data: methods = [], refetch: refetchMethods } = useQuery({
     queryKey: ["payment-methods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("payment_methods" as any).select("*");
+      const { data, error } = await supabase.from("payment_methods").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -226,12 +227,9 @@ function Configuracoes() {
   const { data: osConfig, refetch: refetchOsConfig } = useQuery({
     queryKey: ["os-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("os_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("os_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -239,9 +237,9 @@ function Configuracoes() {
   const { data: checklists = [], refetch: refetchChecklists } = useQuery({
     queryKey: ["os-checklists"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("os_checklists" as any).select("*");
+      const { data, error } = await supabase.from("os_checklists").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -249,9 +247,9 @@ function Configuracoes() {
   const { data: statusFlows = [], refetch: refetchFlows } = useQuery({
     queryKey: ["os-status-flows"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("os_status_flows" as any).select("*");
+      const { data, error } = await supabase.from("os_status_flows").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -259,12 +257,9 @@ function Configuracoes() {
   const { data: saleConfig, refetch: refetchSaleConfig } = useQuery({
     queryKey: ["sale-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sale_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("sale_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -272,9 +267,9 @@ function Configuracoes() {
   const { data: saleStatusFlows = [], refetch: refetchSaleFlows } = useQuery({
     queryKey: ["sale-status-flows"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sale_status_flows" as any).select("*");
+      const { data, error } = await supabase.from("sale_status_flows").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -282,12 +277,9 @@ function Configuracoes() {
   const { data: purchaseConfig, refetch: refetchPurchaseConfig } = useQuery({
     queryKey: ["purchase-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchase_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("purchase_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -295,9 +287,9 @@ function Configuracoes() {
   const { data: purchaseStatusFlows = [], refetch: refetchPurchaseFlows } = useQuery({
     queryKey: ["purchase-status-flows"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("purchase_status_flows" as any).select("*");
+      const { data, error } = await supabase.from("purchase_status_flows").select("*");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -305,12 +297,9 @@ function Configuracoes() {
   const { data: estoqueConfig, refetch: refetchEstoqueConfig } = useQuery({
     queryKey: ["estoque-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("estoque_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("estoque_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -319,7 +308,7 @@ function Configuracoes() {
     mutationFn: async (estoque_minimo_padrao: number) => {
       if (!user) return;
       const { error } = await supabase
-        .from("estoque_config" as any)
+        .from("estoque_config")
         .upsert(
           { user_id: empresaId!, estoque_minimo_padrao, updated_at: new Date().toISOString() },
           { onConflict: "user_id" },
@@ -336,12 +325,9 @@ function Configuracoes() {
   const { data: categoriasProduto = [], refetch: refetchCategoriasProduto } = useQuery({
     queryKey: ["produto-categorias"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produto_categorias" as any)
-        .select("*")
-        .order("nome");
+      const { data, error } = await supabase.from("produto_categorias").select("*").order("nome");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!user,
   });
@@ -353,7 +339,7 @@ function Configuracoes() {
       if (!user) return;
       if (!nome.trim()) throw new Error("Informe o nome da categoria.");
       const { error } = await supabase
-        .from("produto_categorias" as any)
+        .from("produto_categorias")
         .insert({ user_id: empresaId!, nome: nome.trim() });
       if (error) throw error;
     },
@@ -366,10 +352,7 @@ function Configuracoes() {
 
   const removerCategoria = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("produto_categorias" as any)
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("produto_categorias").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => refetchCategoriasProduto(),
@@ -379,12 +362,9 @@ function Configuracoes() {
   const { data: fiscalConfig, refetch: refetchFiscalConfig } = useQuery({
     queryKey: ["fiscal-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fiscal_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("fiscal_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -393,7 +373,7 @@ function Configuracoes() {
     mutationFn: async (serie_padrao: string) => {
       if (!user) return;
       if (!serie_padrao.trim()) throw new Error("Informe a série.");
-      const { error } = await supabase.from("fiscal_config" as any).upsert(
+      const { error } = await supabase.from("fiscal_config").upsert(
         {
           user_id: empresaId!,
           serie_padrao: serie_padrao.trim(),
@@ -413,20 +393,17 @@ function Configuracoes() {
   const { data: smtpConfig, refetch: refetchSmtp } = useQuery({
     queryKey: ["smtp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("smtp_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("smtp_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
 
   const salvarSmtp = useMutation({
-    mutationFn: async (formData: any) => {
+    mutationFn: async (formData: Omit<TablesInsert<"smtp_config">, "user_id">) => {
       if (!user) return;
-      const { error } = await supabase.from("smtp_config" as any).upsert(
+      const { error } = await supabase.from("smtp_config").upsert(
         {
           user_id: empresaId!,
           ...formData,
@@ -446,12 +423,9 @@ function Configuracoes() {
   const { data: whatsappConfig, refetch: refetchWhatsapp } = useQuery({
     queryKey: ["whatsapp-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("whatsapp_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
@@ -472,20 +446,21 @@ function Configuracoes() {
   const { data: catalogoConfig, refetch: refetchCatalogo } = useQuery({
     queryKey: ["catalogo-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("catalogo_config" as any)
-        .select("*")
-        .maybeSingle();
+      const { data, error } = await supabase.from("catalogo_config").select("*").maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!user,
   });
 
+  // As listas de opções (mensagens do WhatsApp, catálogo) leem a coluna pelo nome.
+  const camposWhatsapp = whatsappConfig as Record<string, unknown> | null | undefined;
+  const camposCatalogo = catalogoConfig as Record<string, unknown> | null | undefined;
+
   const salvarCatalogo = useMutation({
-    mutationFn: async (formData: any) => {
+    mutationFn: async (formData: Partial<TablesInsert<"catalogo_config">>) => {
       if (!user) return;
-      const { error } = await supabase.from("catalogo_config" as any).upsert(
+      const { error } = await supabase.from("catalogo_config").upsert(
         {
           user_id: empresaId!,
           ...formData,
@@ -785,12 +760,12 @@ function Configuracoes() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
-                        const { error } = await supabase.from("bank_accounts" as any).insert({
+                        const { error } = await supabase.from("bank_accounts").insert({
                           user_id: empresaId!,
-                          banco: formData.get("banco"),
-                          agencia: formData.get("agencia"),
-                          conta: formData.get("conta"),
-                          tipo: formData.get("tipo"),
+                          banco: formData.get("banco") as string,
+                          agencia: formData.get("agencia") as string,
+                          conta: formData.get("conta") as string,
+                          tipo: formData.get("tipo") as string,
                           saldo_inicial: Number(formData.get("saldo")),
                         });
                         if (error) toast.error(error.message);
@@ -825,7 +800,7 @@ function Configuracoes() {
                 </Dialog>
               </div>
               <div className="space-y-3">
-                {accounts.map((acc: any) => (
+                {accounts.map((acc) => (
                   <div
                     key={acc.id}
                     className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
@@ -841,7 +816,7 @@ function Configuracoes() {
                       size="icon"
                       onClick={async () => {
                         const { error } = await supabase
-                          .from("bank_accounts" as any)
+                          .from("bank_accounts")
                           .delete()
                           .eq("id", acc.id);
                         if (error) toast.error(error.message);
@@ -874,13 +849,13 @@ function Configuracoes() {
                       type="number"
                       min="1"
                       max="31"
-                      value={(profile as any)?.billing_day || 5}
+                      value={profile?.billing_day || 5}
                       onChange={async (e) => {
                         const val = parseInt(e.target.value);
                         if (isNaN(val)) return;
                         const { error } = await supabase
                           .from("profiles")
-                          .update({ billing_day: val } as any)
+                          .update({ billing_day: val })
                           .eq("id", user!.id);
                         if (!error) qc.invalidateQueries({ queryKey: ["profile"] });
                       }}
@@ -920,10 +895,10 @@ function Configuracoes() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
-                        const { error } = await supabase.from("finance_categories" as any).insert({
+                        const { error } = await supabase.from("finance_categories").insert({
                           user_id: empresaId!,
-                          nome: formData.get("nome"),
-                          tipo: formData.get("tipo"),
+                          nome: formData.get("nome") as string,
+                          tipo: formData.get("tipo") as string,
                         });
                         if (error) toast.error(error.message);
                         else {
@@ -953,7 +928,7 @@ function Configuracoes() {
                 </Dialog>
               </div>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                {categories.map((cat: any) => (
+                {categories.map((cat) => (
                   <div
                     key={cat.id}
                     className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border"
@@ -970,10 +945,7 @@ function Configuracoes() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={async () => {
-                          await supabase
-                            .from("finance_categories" as any)
-                            .delete()
-                            .eq("id", cat.id);
+                          await supabase.from("finance_categories").delete().eq("id", cat.id);
                           refetchCats();
                         }}
                       >
@@ -1003,9 +975,9 @@ function Configuracoes() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
-                        const { error } = await supabase.from("payment_methods" as any).insert({
+                        const { error } = await supabase.from("payment_methods").insert({
                           user_id: empresaId!,
-                          nome: formData.get("nome"),
+                          nome: formData.get("nome") as string,
                           taxa: Number(formData.get("taxa")),
                         });
                         if (error) toast.error(error.message);
@@ -1030,7 +1002,7 @@ function Configuracoes() {
                 </Dialog>
               </div>
               <div className="space-y-2">
-                {methods.map((method: any) => (
+                {methods.map((method) => (
                   <div
                     key={method.id}
                     className="flex items-center justify-between p-2 px-3 rounded-lg bg-background border border-border"
@@ -1043,10 +1015,7 @@ function Configuracoes() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={async () => {
-                          await supabase
-                            .from("payment_methods" as any)
-                            .delete()
-                            .eq("id", method.id);
+                          await supabase.from("payment_methods").delete().eq("id", method.id);
                           refetchMethods();
                         }}
                       >
@@ -1077,7 +1046,7 @@ function Configuracoes() {
                     defaultValue={osConfig?.termos_condicoes || ""}
                     onBlur={async (e) => {
                       const val = e.target.value;
-                      const { error } = await supabase.from("os_config" as any).upsert(
+                      const { error } = await supabase.from("os_config").upsert(
                         {
                           user_id: empresaId!,
                           termos_condicoes: val,
@@ -1095,7 +1064,7 @@ function Configuracoes() {
                       className="text-primary hover:underline"
                       onClick={async () => {
                         const defaultText = termosOsPadrao(osConfig?.dias_garantia_padrao || 90);
-                        const { error } = await supabase.from("os_config" as any).upsert(
+                        const { error } = await supabase.from("os_config").upsert(
                           {
                             user_id: empresaId!,
                             termos_condicoes: defaultText,
@@ -1143,9 +1112,9 @@ function Configuracoes() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
-                        const { error } = await supabase.from("os_checklists" as any).insert({
+                        const { error } = await supabase.from("os_checklists").insert({
                           user_id: empresaId!,
-                          nome: formData.get("nome"),
+                          nome: formData.get("nome") as string,
                           itens: [],
                         });
                         if (error) toast.error(error.message);
@@ -1171,7 +1140,7 @@ function Configuracoes() {
               </div>
 
               <div className="space-y-3">
-                {checklists.map((check: any) => (
+                {checklists.map((check) => (
                   <div
                     key={check.id}
                     className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
@@ -1194,7 +1163,7 @@ function Configuracoes() {
                         className="h-8 w-8"
                         onClick={async () => {
                           const { error } = await supabase
-                            .from("os_checklists" as any)
+                            .from("os_checklists")
                             .delete()
                             .eq("id", check.id);
                           if (!error) refetchChecklists();
@@ -1230,7 +1199,7 @@ function Configuracoes() {
                     checked={osConfig?.exibir_fotos_impressao || false}
                     onCheckedChange={async (val) => {
                       await supabase
-                        .from("os_config" as any)
+                        .from("os_config")
                         .upsert(
                           { user_id: empresaId!, exibir_fotos_impressao: val },
                           { onConflict: "user_id" },
@@ -1250,7 +1219,7 @@ function Configuracoes() {
                     checked={osConfig?.imprimir_duas_vias || false}
                     onCheckedChange={async (val) => {
                       await supabase
-                        .from("os_config" as any)
+                        .from("os_config")
                         .upsert(
                           { user_id: empresaId!, imprimir_duas_vias: val },
                           { onConflict: "user_id" },
@@ -1270,7 +1239,7 @@ function Configuracoes() {
                     checked={osConfig?.imprimir_qrcode_cliente || false}
                     onCheckedChange={async (val) => {
                       await supabase
-                        .from("os_config" as any)
+                        .from("os_config")
                         .upsert(
                           { user_id: empresaId!, imprimir_qrcode_cliente: val },
                           { onConflict: "user_id" },
@@ -1285,7 +1254,7 @@ function Configuracoes() {
                     type="number"
                     value={osConfig?.dias_garantia_padrao || 90}
                     onChange={async (e) => {
-                      await supabase.from("os_config" as any).upsert(
+                      await supabase.from("os_config").upsert(
                         {
                           user_id: empresaId!,
                           dias_garantia_padrao: Number(e.target.value),
@@ -1334,7 +1303,7 @@ function Configuracoes() {
                               checked={isAtivo}
                               onCheckedChange={async (checked) => {
                                 if (checked) {
-                                  await supabase.from("os_status_flows" as any).upsert(
+                                  await supabase.from("os_status_flows").upsert(
                                     {
                                       user_id: empresaId!,
                                       origem: origem.value,
@@ -1344,14 +1313,11 @@ function Configuracoes() {
                                     { onConflict: "user_id,origem,destino" },
                                   );
                                 } else {
-                                  await supabase
-                                    .from("os_status_flows" as any)
-                                    .delete()
-                                    .match({
-                                      user_id: empresaId!,
-                                      origem: origem.value,
-                                      destino: destino.value,
-                                    });
+                                  await supabase.from("os_status_flows").delete().match({
+                                    user_id: empresaId!,
+                                    origem: origem.value,
+                                    destino: destino.value,
+                                  });
                                 }
                                 refetchFlows();
                               }}
@@ -1386,7 +1352,7 @@ function Configuracoes() {
                     value={saleConfig?.tipo_caixa || "venda_rapida"}
                     onChange={async (e) => {
                       await supabase
-                        .from("sale_config" as any)
+                        .from("sale_config")
                         .upsert(
                           { user_id: empresaId!, tipo_caixa: e.target.value },
                           { onConflict: "user_id" },
@@ -1409,7 +1375,7 @@ function Configuracoes() {
                       value={saleConfig?.status_padrao_venda || "aberto"}
                       onChange={async (e) => {
                         await supabase
-                          .from("sale_config" as any)
+                          .from("sale_config")
                           .upsert(
                             { user_id: empresaId!, status_padrao_venda: e.target.value },
                             { onConflict: "user_id" },
@@ -1431,7 +1397,7 @@ function Configuracoes() {
                       value={saleConfig?.status_padrao_os || "recebido"}
                       onChange={async (e) => {
                         await supabase
-                          .from("sale_config" as any)
+                          .from("sale_config")
                           .upsert(
                             { user_id: empresaId!, status_padrao_os: e.target.value },
                             { onConflict: "user_id" },
@@ -1455,7 +1421,7 @@ function Configuracoes() {
                       checked={saleConfig?.permitir_desconto ?? true}
                       onCheckedChange={async (val) => {
                         await supabase
-                          .from("sale_config" as any)
+                          .from("sale_config")
                           .upsert(
                             { user_id: empresaId!, permitir_desconto: val },
                             { onConflict: "user_id" },
@@ -1470,7 +1436,7 @@ function Configuracoes() {
                       checked={saleConfig?.editar_preco_carrinho ?? true}
                       onCheckedChange={async (val) => {
                         await supabase
-                          .from("sale_config" as any)
+                          .from("sale_config")
                           .upsert(
                             { user_id: empresaId!, editar_preco_carrinho: val },
                             { onConflict: "user_id" },
@@ -1488,7 +1454,7 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.teto_desconto_percentual || 100}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert(
+                        await supabase.from("sale_config").upsert(
                           {
                             user_id: empresaId!,
                             teto_desconto_percentual: Number(e.target.value),
@@ -1505,7 +1471,7 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.dias_garantia_padrao || 90}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert(
+                        await supabase.from("sale_config").upsert(
                           {
                             user_id: empresaId!,
                             dias_garantia_padrao: Number(e.target.value),
@@ -1532,7 +1498,7 @@ function Configuracoes() {
                   value={saleConfig?.texto_proposta || ""}
                   onChange={async (e) => {
                     await supabase
-                      .from("sale_config" as any)
+                      .from("sale_config")
                       .upsert(
                         { user_id: empresaId!, texto_proposta: e.target.value },
                         { onConflict: "user_id" },
@@ -1546,7 +1512,7 @@ function Configuracoes() {
                     <button
                       className="text-primary hover:underline"
                       onClick={async () => {
-                        await supabase.from("sale_config" as any).upsert(
+                        await supabase.from("sale_config").upsert(
                           {
                             user_id: empresaId!,
                             texto_proposta: osConfig?.termos_condicoes || "",
@@ -1564,7 +1530,7 @@ function Configuracoes() {
                       onClick={async () => {
                         const def = `Formas de pagamento: Pix, dinheiro, cartão de débito ou crédito.\nParcelamento: em até 3x no cartão.\nPrazo de entrega: até 5 dias úteis após a confirmação do pedido.\nValidade desta proposta: 7 dias.\nGarantia: 90 dias contra defeito de fabricação.\n\nEsta proposta é uma previsão de valores, não uma cobrança. Os valores valem para os produtos e as quantidades descritos e podem mudar se o pedido for alterado ou se algum item estiver indisponível no estoque.`;
                         await supabase
-                          .from("sale_config" as any)
+                          .from("sale_config")
                           .upsert(
                             { user_id: empresaId!, texto_proposta: def },
                             { onConflict: "user_id" },
@@ -1594,7 +1560,7 @@ function Configuracoes() {
                       type="number"
                       value={saleConfig?.proximo_numero_venda || 1}
                       onChange={async (e) => {
-                        await supabase.from("sale_config" as any).upsert(
+                        await supabase.from("sale_config").upsert(
                           {
                             user_id: empresaId!,
                             proximo_numero_venda: Number(e.target.value),
@@ -1635,7 +1601,7 @@ function Configuracoes() {
                                 checked={isAtivo}
                                 onCheckedChange={async (checked) => {
                                   if (checked) {
-                                    await supabase.from("sale_status_flows" as any).upsert(
+                                    await supabase.from("sale_status_flows").upsert(
                                       {
                                         user_id: empresaId!,
                                         origem: origem.value,
@@ -1645,14 +1611,11 @@ function Configuracoes() {
                                       { onConflict: "user_id,origem,destino" },
                                     );
                                   } else {
-                                    await supabase
-                                      .from("sale_status_flows" as any)
-                                      .delete()
-                                      .match({
-                                        user_id: empresaId!,
-                                        origem: origem.value,
-                                        destino: destino.value,
-                                      });
+                                    await supabase.from("sale_status_flows").delete().match({
+                                      user_id: empresaId!,
+                                      origem: origem.value,
+                                      destino: destino.value,
+                                    });
                                   }
                                   refetchSaleFlows();
                                 }}
@@ -1665,7 +1628,7 @@ function Configuracoes() {
                                 value={flow?.cor || "#3b82f6"}
                                 onChange={async (e) => {
                                   await supabase
-                                    .from("sale_status_flows" as any)
+                                    .from("sale_status_flows")
                                     .update({ cor: e.target.value })
                                     .match({
                                       user_id: empresaId!,
@@ -1705,7 +1668,7 @@ function Configuracoes() {
                     className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     value={purchaseConfig?.situacao_faturar || ""}
                     onChange={async (e) => {
-                      await supabase.from("purchase_config" as any).upsert(
+                      await supabase.from("purchase_config").upsert(
                         {
                           user_id: empresaId!,
                           situacao_faturar: e.target.value === "" ? null : e.target.value,
@@ -1765,7 +1728,7 @@ function Configuracoes() {
                                 checked={isAtivo}
                                 onCheckedChange={async (checked) => {
                                   if (checked) {
-                                    await supabase.from("purchase_status_flows" as any).upsert(
+                                    await supabase.from("purchase_status_flows").upsert(
                                       {
                                         user_id: empresaId!,
                                         from_status: origem.value,
@@ -1775,14 +1738,11 @@ function Configuracoes() {
                                       { onConflict: "user_id,from_status,to_status" },
                                     );
                                   } else {
-                                    await supabase
-                                      .from("purchase_status_flows" as any)
-                                      .delete()
-                                      .match({
-                                        user_id: empresaId!,
-                                        from_status: origem.value,
-                                        to_status: destino.value,
-                                      });
+                                    await supabase.from("purchase_status_flows").delete().match({
+                                      user_id: empresaId!,
+                                      from_status: origem.value,
+                                      to_status: destino.value,
+                                    });
                                   }
                                   refetchPurchaseFlows();
                                 }}
@@ -1799,7 +1759,7 @@ function Configuracoes() {
                                   value={flow?.color || "#3b82f6"}
                                   onChange={async (e) => {
                                     await supabase
-                                      .from("purchase_status_flows" as any)
+                                      .from("purchase_status_flows")
                                       .update({ color: e.target.value })
                                       .match({
                                         user_id: empresaId!,
@@ -1988,13 +1948,13 @@ function Configuracoes() {
                     e.preventDefault();
                     const fd = new FormData(e.currentTarget);
                     salvarSmtp.mutate({
-                      host: fd.get("host"),
+                      host: fd.get("host") as string,
                       port: Number(fd.get("port")),
-                      user: fd.get("user"),
-                      password: fd.get("password"),
-                      from_email: fd.get("from_email"),
-                      from_name: fd.get("from_name"),
-                      encryption: fd.get("encryption"),
+                      user: fd.get("user") as string,
+                      password: fd.get("password") as string,
+                      from_email: fd.get("from_email") as string,
+                      from_name: fd.get("from_name") as string,
+                      encryption: fd.get("encryption") as string,
                     });
                   }}
                   className="space-y-4"
@@ -2311,13 +2271,16 @@ function Configuracoes() {
                           >
                             {item.uso === "auto" && (
                               <Switch
-                                checked={whatsappConfig?.[item.key] ?? false}
+                                checked={
+                                  (camposWhatsapp?.[item.key] as boolean | null | undefined) ??
+                                  false
+                                }
                                 onCheckedChange={async (val) => {
-                                  await supabase.from("whatsapp_config" as any).upsert(
+                                  await supabase.from("whatsapp_config").upsert(
                                     {
                                       user_id: empresaId!,
                                       [item.key]: val,
-                                    },
+                                    } as TablesInsert<"whatsapp_config">,
                                     { onConflict: "user_id" },
                                   );
                                   refetchWhatsapp();
@@ -2358,7 +2321,7 @@ function Configuracoes() {
                                   placeholder="DDD + número (vazio = WhatsApp do cadastro da empresa)"
                                   defaultValue={whatsappConfig?.relatorio_numero || ""}
                                   onBlur={async (e) => {
-                                    await supabase.from("whatsapp_config" as any).upsert(
+                                    await supabase.from("whatsapp_config").upsert(
                                       {
                                         user_id: empresaId!,
                                         relatorio_numero: e.target.value.trim() || null,
@@ -2384,14 +2347,15 @@ function Configuracoes() {
                                 <Textarea
                                   className="min-h-[100px] text-sm"
                                   defaultValue={
-                                    whatsappConfig?.[item.textoKey ?? `${item.key}_texto`] || ""
+                                    (camposWhatsapp?.[item.textoKey ?? `${item.key}_texto`] as
+                                      string | null) || ""
                                   }
                                   onBlur={async (e) => {
-                                    await supabase.from("whatsapp_config" as any).upsert(
+                                    await supabase.from("whatsapp_config").upsert(
                                       {
                                         user_id: empresaId!,
                                         [item.textoKey ?? `${item.key}_texto`]: e.target.value,
-                                      },
+                                      } as TablesInsert<"whatsapp_config">,
                                       { onConflict: "user_id" },
                                     );
                                     refetchWhatsapp();
@@ -2689,7 +2653,9 @@ function Configuracoes() {
                           <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                         </div>
                         <Switch
-                          checked={catalogoConfig?.[item.key] ?? false}
+                          checked={
+                            (camposCatalogo?.[item.key] as boolean | null | undefined) ?? false
+                          }
                           onCheckedChange={(val) => salvarCatalogo.mutate({ [item.key]: val })}
                         />
                       </div>
