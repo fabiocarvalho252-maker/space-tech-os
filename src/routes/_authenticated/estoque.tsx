@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
+import JsBarcode from "jsbarcode";
 import {
   AlertCircle,
   ArrowDown,
@@ -85,6 +86,26 @@ function situacaoEstoque(p: Produto) {
   return { label: "Normal", tone: "success" as const, icon: undefined };
 }
 
+const escHtml = (t: string) =>
+  t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// Código de barras em SVG: EAN-13/EAN-8 quando o código é um EAN válido,
+// senão Code 128 (aceita o SKU). O leitor do PDV acha o produto pelo código
+// de barras e, se não houver, pelo SKU.
+function barcodeSvg(codigo: string): string | null {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const formatos = /^\d{13}$/.test(codigo) ? ["EAN13"] : /^\d{8}$/.test(codigo) ? ["EAN8"] : [];
+  for (const format of [...formatos, "CODE128"]) {
+    try {
+      JsBarcode(svg, codigo, { format, height: 40, width: 1.6, fontSize: 12, margin: 0 });
+      return svg.outerHTML;
+    } catch {
+      // EAN com dígito verificador errado: tenta o próximo formato.
+    }
+  }
+  return null;
+}
+
 function imprimirEtiquetas(produtos: Produto[]) {
   if (!produtos.length) {
     toast.error("Nenhum produto para gerar etiqueta.");
@@ -94,12 +115,14 @@ function imprimirEtiquetas(produtos: Produto[]) {
   if (!janela) return;
   const etiquetas = produtos
     .map((p) => {
-      const qr = renderToString(<QRCodeSVG value={p.sku || p.id} size={72} />);
-      return `<div class="etq">
-        <div class="qr">${qr}</div>
+      const codigo = (p.codigo_barras || p.sku || "").trim();
+      const barras = codigo ? barcodeSvg(codigo) : null;
+      const desenho = barras ?? renderToString(<QRCodeSVG value={p.id} size={72} />);
+      return `<div class="etq${barras ? " barras" : ""}">
+        <div class="codigo">${desenho}</div>
         <div class="info">
-          <strong>${p.nome}</strong>
-          <span>${p.sku ? "SKU: " + p.sku : ""}</span>
+          <strong>${escHtml(p.nome)}</strong>
+          ${p.sku && p.sku !== codigo ? `<span>SKU: ${escHtml(p.sku)}</span>` : ""}
           <span class="preco">${brl(p.preco_venda)}</span>
         </div>
       </div>`;
@@ -111,6 +134,8 @@ function imprimirEtiquetas(produtos: Produto[]) {
       body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#fff}
       .grade{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
       .etq{display:flex;align-items:center;gap:8px;border:1px dashed #999;border-radius:8px;padding:8px;break-inside:avoid}
+      .etq.barras{flex-direction:column-reverse;align-items:stretch;text-align:center}
+      .codigo svg{max-width:100%;height:auto}
       .info{display:flex;flex-direction:column;font-size:11px;line-height:1.3}
       .preco{font-weight:800;font-size:13px}
       @media print{.etq{border:1px solid #ccc}}

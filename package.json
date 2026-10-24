@@ -58,6 +58,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "jpeg-js": "^0.4.4",
+    "jsbarcode": "^3.11.6",
     "jszip": "^3.10.1",
     "lucide-react": "^0.575.0",
     "nodemailer": "^9.0.5",

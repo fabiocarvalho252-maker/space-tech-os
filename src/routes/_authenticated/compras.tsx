@@ -240,20 +240,19 @@ function Compras() {
         if (error) throw error;
       }
 
+      // Faturar: a saída no financeiro é gravada no banco (faturar_compra),
+      // uma vez por compra e junto com a mudança de status.
       const situacaoFaturar = purchaseConfig?.situacao_faturar || "faturado";
-      const patch: Record<string, unknown> = { status };
       if (status === situacaoFaturar && !compra?.faturado_em) {
-        patch["faturado_em"] = new Date().toISOString();
-        await supabase.from("lancamentos").insert({
-          user_id: empresaId!,
-          tipo: "saida",
-          categoria: "Compra de fornecedor",
-          descricao: `Compra #${id.slice(0, 8)}`,
-          valor: compra?.valor_total ?? 0,
+        const { error } = await supabase.rpc("faturar_compra" as any, {
+          p_compra_id: id,
+          p_status: status,
         });
+        if (error) throw error;
+        return;
       }
 
-      const { error } = await supabase.from("compras" as any).update(patch).eq("id", id);
+      const { error } = await supabase.from("compras" as any).update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
