@@ -39,15 +39,23 @@ texto_ia() {
   resposta=$(curl -sS --max-time 25 -X POST \
     "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL:-gemini-flash-lite-latest}:generateContent" \
     -H "x-goog-api-key: $GEMINI_API_KEY" -H "Content-Type: application/json" -d "$corpo") || return 1
-  jq -er '.candidates[0].content.parts[0].text // empty' <<<"$resposta" | tr -s '\n' ' ' | sed 's/^ *//; s/ *$//'
+  if ! jq -er '.candidates[0].content.parts[0].text // empty' <<<"$resposta" | tr -s '\n' ' ' | sed 's/^ *//; s/ *$//'; then
+    echo "IA: $(jq -r '.error.message // .candidates[0].finishReason // "sem texto"' <<<"$resposta" 2>/dev/null | head -c 200)" >&2
+    return 1
+  fi
 }
 
 origem="fixo"
 TEXTO="$TEXTO_FIXO"
-if gerado=$(texto_ia) && [[ -n "$gerado" && ${#gerado} -le 400 ]]; then
-  TEXTO="$gerado 👉 $LINK"
-  origem="IA"
-fi
+# O plano gratuito do Gemini às vezes recusa por sobrecarga/limite: tenta 3 vezes.
+for tentativa in 1 2 3; do
+  if gerado=$(texto_ia) && [[ -n "$gerado" && ${#gerado} -le 400 ]]; then
+    TEXTO="$gerado 👉 $LINK"
+    origem="IA"
+    break
+  fi
+  ((tentativa < 3)) && sleep 5
+done
 
 # LEMBRETE_SIMULAR=1 só mostra o texto, sem enviar (para testar a IA).
 if [[ -n "${LEMBRETE_SIMULAR:-}" ]]; then
