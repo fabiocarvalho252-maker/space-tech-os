@@ -102,8 +102,16 @@ export const enviarMensagemWhatsapp = createServerFn({ method: "POST" })
 
 export const listarMensagensWhatsapp = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<WhatsappMensagem[]> => {
-    return whatsappService.listarMensagensRecentes(await empresaDoUsuario(context, "clientes"));
+  .validator((data: unknown) =>
+    z
+      .object({ direcao: z.enum(["todas", "inbound", "outbound"]).default("todas") })
+      .parse(data ?? {}),
+  )
+  .handler(async ({ data, context }): Promise<WhatsappMensagem[]> => {
+    return whatsappService.listarMensagensRecentes(
+      await empresaDoUsuario(context, "clientes"),
+      data.direcao,
+    );
   });
 
 const notificacaoOsSchema = z.object({

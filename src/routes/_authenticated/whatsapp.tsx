@@ -74,9 +74,10 @@ function WhatsappPage() {
   const conexao = statusQuery.data ?? null;
   const status = conexao?.status ?? "desconectado";
 
+  const [direcao, setDirecao] = useState<"todas" | "inbound" | "outbound">("todas");
   const mensagensQuery = useQuery({
-    queryKey: ["whatsapp-mensagens"],
-    queryFn: () => listarMensagensWhatsapp(),
+    queryKey: ["whatsapp-mensagens", direcao],
+    queryFn: () => listarMensagensWhatsapp({ data: { direcao } }),
     refetchInterval: status === "conectado" ? 15000 : false,
   });
 
@@ -254,9 +255,31 @@ function WhatsappPage() {
 
         <section className="lg:col-span-7">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
-              Mensagens recentes
-            </h3>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Mensagens recentes
+              </h3>
+              <div className="flex gap-1 rounded-xl bg-muted p-1">
+                {(
+                  [
+                    ["todas", "Todas"],
+                    ["outbound", "Enviadas"],
+                    ["inbound", "Recebidas"],
+                  ] as const
+                ).map(([valor, rotulo]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setDirecao(valor)}
+                    className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                      direcao === valor ? "bg-background shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+            </div>
             {mensagensQuery.isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }, (_, i) => (
@@ -292,17 +315,43 @@ function WhatsappPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold truncate">
-                          {m.contact_name || maskPhoneBR(m.phone_number)}
+                          {m.contact_name || telefoneExibicao(m.phone_number)}
                         </span>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {new Date(m.created_at).toLocaleString("pt-BR")}
                         </span>
                       </div>
+                      {m.direction === "outbound" && (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          {tipoMensagem(m.template_id) && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              {tipoMensagem(m.template_id)}
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              m.status === "enviado"
+                                ? "bg-green-500/10 text-green-600"
+                                : m.status === "falhou"
+                                  ? "bg-destructive/10 text-destructive"
+                                  : "bg-amber-500/10 text-amber-600"
+                            }`}
+                          >
+                            {m.status === "enviado"
+                              ? "Enviada"
+                              : m.status === "falhou"
+                                ? "Falhou"
+                                : m.status === "agendado"
+                                  ? `Agendada${m.scheduled_at ? ` para ${new Date(m.scheduled_at).toLocaleString("pt-BR")}` : ""}`
+                                  : "Enviando"}
+                          </span>
+                        </div>
+                      )}
                       <p className="text-sm text-muted-foreground break-words">
                         {m.content || "(sem texto)"}
                       </p>
                       {m.status === "falhou" && (
-                        <p className="text-[10px] text-destructive">Falha no envio</p>
+                        <p className="text-[10px] text-destructive">{motivoFalha(m.error)}</p>
                       )}
                     </div>
                   </div>
@@ -354,4 +403,39 @@ function WhatsappPage() {
       />
     </div>
   );
+}
+
+// Qual mensagem automática/modelo gerou o envio (template_id gravado).
+function tipoMensagem(templateId: string | null): string | null {
+  if (!templateId) return null;
+  if (templateId === "os_pronta") return "OS pronta · automático";
+  if (templateId === "pesquisa_auto") return "Pesquisa pós-OS · automático";
+  if (templateId.startsWith("pos_venda_")) return "Pesquisa pós-venda · automático";
+  if (templateId.startsWith("aniversario_")) return "Aniversário · automático";
+  if (templateId.startsWith("boas_vindas_")) return "Boas-vindas · automático";
+  if (templateId.startsWith("relatorio_semanal_")) return "Resumo semanal · automático";
+  if (templateId === "pos_atendimento") return "Pesquisa pós-OS";
+  if (templateId === "nova_os") return "OS criada";
+  if (templateId === "os_atualizada") return "OS atualizada";
+  if (templateId === "pronto_retirar") return "Pronto para retirar";
+  if (templateId === "aguardando_peca") return "Aguardando peça";
+  if (templateId === "em_analise") return "Em análise";
+  if (templateId === "orcamento") return "Orçamento";
+  return "Notificação de OS";
+}
+
+// Traduz o erro técnico da Evolution API para algo que a loja entenda.
+function motivoFalha(erro: string | null): string {
+  if (!erro) return "Falha no envio";
+  if (/"exists"\s*:\s*false/.test(erro)) return "Falha: este número não tem WhatsApp";
+  if (/Connection Closed/i.test(erro)) return "Falha: o WhatsApp da loja estava desconectado";
+  if (/não está conectado/i.test(erro)) return "Falha: WhatsApp desconectado";
+  return "Falha no envio";
+}
+
+// Números gravados com o 55 do país: tira antes de formatar, senão o 55
+// aparece no lugar do DDD.
+function telefoneExibicao(numero: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  return maskPhoneBR(digitos.length >= 12 && digitos.startsWith("55") ? digitos.slice(2) : digitos);
 }

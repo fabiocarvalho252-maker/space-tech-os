@@ -499,19 +499,18 @@ export async function processarNotificacoesAgendadasOs(userId: string): Promise<
 
 export async function listarMensagensRecentes(
   userId: string,
+  direcao: "todas" | "inbound" | "outbound" = "todas",
   limite = 50,
 ): Promise<WhatsappMensagem[]> {
-  const { data, error } = await supabaseAdmin
+  let consulta = supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
     .from("whatsapp_messages" as any)
     .select("*")
     .eq("user_id", userId)
-    // Mensagens de grupo gravadas antes do filtro do webhook: o id do grupo
-    // começa com 120363 (novos) ou tem hífen (antigos).
-    .not("phone_number", "like", "120363%")
-    .not("phone_number", "like", "%-%")
     .order("created_at", { ascending: false })
     .limit(limite);
+  if (direcao !== "todas") consulta = consulta.eq("direction", direcao);
+  const { data, error } = await consulta;
   if (error) throw error;
   return (data as unknown as WhatsappMensagem[]) ?? [];
 }
