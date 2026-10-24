@@ -23,7 +23,7 @@ import { teclasDaTela } from "@/lib/atalhos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ClienteSelect } from "@/components/ClienteSelect";
+import { ClienteCampo } from "@/components/ClienteRapido";
 import { CaixaDialog, useCaixa } from "@/components/CaixaDialog";
 import {
   ComprovanteVendaDialog,
@@ -660,7 +660,7 @@ function PDV() {
 
              <div className="space-y-1.5">
                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cliente</Label>
-               <ClienteSelect
+               <ClienteCampo
                  clientes={clientes}
                  value={clienteId ?? ""}
                  onChange={(id) => setClienteId(id || null)}

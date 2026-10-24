@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Search } from "lucide-react";
+import { Check, Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -24,14 +24,18 @@ export function ClienteSelect({
   value,
   onChange,
   semClienteLabel = "Sem cliente vinculado",
+  onNovoCliente,
 }: {
   clientes: { id: string; nome: string }[];
   value: string;
   onChange: (id: string) => void;
   /** Texto da opção sem cliente (OS: "Sem cliente vinculado"; PDV: "Consumidor final"). */
-  semClienteLabel?: string;
+  semClienteLabel?: string | undefined;
+  /** Mostra "+ Cadastrar novo cliente" e recebe o que foi digitado na busca. */
+  onNovoCliente?: (busca: string) => void;
 }) {
   const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
   const selecionado = clientes.find((c) => c.id === value);
   return (
     <Popover open={aberto} onOpenChange={setAberto}>
@@ -52,9 +56,34 @@ export function ClienteSelect({
             normalizar((palavras ?? []).join(" ")).includes(normalizar(busca)) ? 1 : 0
           }
         >
-          <CommandInput placeholder="Digite o nome do cliente..." />
+          <CommandInput
+            placeholder="Digite o nome do cliente..."
+            value={busca}
+            onValueChange={setBusca}
+          />
           <CommandList>
-            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+            {!onNovoCliente && <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>}
+            {onNovoCliente && (
+              // Grupo próprio com forceMount: o grupo dos clientes some quando a
+              // busca não acha ninguém, e este botão precisa continuar visível.
+              <CommandGroup forceMount>
+                <CommandItem
+                  value="novo-cliente"
+                  forceMount
+                  onSelect={() => {
+                    onNovoCliente(busca.trim());
+                    setAberto(false);
+                    setBusca("");
+                  }}
+                  className="font-semibold text-primary"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {busca.trim()
+                    ? `Cadastrar novo cliente "${busca.trim()}"`
+                    : "Cadastrar novo cliente"}
+                </CommandItem>
+              </CommandGroup>
+            )}
             <CommandGroup>
               <CommandItem
                 value="sem-cliente"

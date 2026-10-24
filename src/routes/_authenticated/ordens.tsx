@@ -73,7 +73,7 @@ import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ClienteSelect } from "@/components/ClienteSelect";
+import { ClienteCampo } from "@/components/ClienteRapido";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -1107,7 +1107,7 @@ function Ordens() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Cliente</Label>
-                  <ClienteSelect
+                  <ClienteCampo
                     clientes={clientes}
                     value={form.cliente_id}
                     onChange={(id) => setForm({ ...form, cliente_id: id })}
@@ -1476,7 +1476,7 @@ function Ordens() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Cliente</Label>
-                  <ClienteSelect
+                  <ClienteCampo
                     clientes={clientes}
                     value={form.cliente_id}
                     onChange={(id) => setForm({ ...form, cliente_id: id })}
