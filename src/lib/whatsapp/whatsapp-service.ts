@@ -1126,3 +1126,108 @@ export async function enviarBoasVindas(empresaId: string): Promise<number> {
   }
   return total;
 }
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/**
+ * Resumo semanal da loja (Configurações > WhatsApp, desligado por padrão)
+ * para o número do dono — o informado na configuração ou o WhatsApp do
+ * cadastro da empresa. Cobre a semana anterior (segunda a domingo, horário
+ * de Brasília) e sai a partir de segunda às 9h, na primeira vez que alguém
+ * abrir Ordens de Serviço na semana; um por semana.
+ */
+export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean> {
+  if (!evolutionConfigurado()) return false;
+  const hora = horaDeBrasilia();
+  if (hora < 9 || hora >= 20) return false;
+
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_relatorio_auto, relatorio_numero")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as {
+    notif_relatorio_auto: boolean;
+    relatorio_numero: string | null;
+  } | null;
+  if (!cfg?.notif_relatorio_auto) return false;
+
+  // Segunda-feira 00:00 desta semana em Brasília (UTC-3, sem horário de verão).
+  const { ano, mesDia } = hojeEmBrasilia();
+  const hoje = new Date(`${ano}-${mesDia}T00:00:00-03:00`);
+  const diasDesdeSegunda = (hoje.getUTCDay() + 6) % 7; // 03:00 UTC cai no mesmo dia
+  const fim = new Date(hoje.getTime() - diasDesdeSegunda * 86400_000);
+  const inicio = new Date(fim.getTime() - 7 * 86400_000);
+  const segunda = new Date(fim.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  const templateId = `relatorio_semanal_${segunda}`;
+
+  const { count } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+    .from("whatsapp_messages" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", empresaId)
+    .eq("template_id", templateId);
+  if (count) return false;
+
+  const { data: perfil } = await supabaseAdmin
+    .from("profiles")
+    .select("whatsapp")
+    .eq("id", empresaId)
+    .maybeSingle();
+  const telefone = (cfg.relatorio_numero || perfil?.whatsapp || "").replace(/\D/g, "");
+  if (telefone.length < 10) return false;
+
+  const conexao = await obterConexao(empresaId);
+  if (!conexao || conexao.status !== "conectado") return false;
+
+  const { data: dados, error } = await supabaseAdmin.rpc("relatorio_semanal_dados" as any, {
+    p_empresa_id: empresaId,
+    p_inicio: inicio.toISOString(),
+    p_fim: fim.toISOString(),
+  });
+  if (error) throw error;
+  const d = dados as Record<string, number>;
+  const n = (k: string) => Number(d?.[k] ?? 0);
+
+  const dia = (t: Date) =>
+    t.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    });
+  const ultimoDia = new Date(fim.getTime() - 86400_000);
+  const resultado = n("receitas") - n("despesas");
+  const linhas = [
+    `📊 *Resumo da semana — ${await nomeDaLoja(empresaId)}*`,
+    `${dia(inicio)} a ${dia(ultimoDia)}`,
+    "",
+    "*Ordens de serviço*",
+    `• Abertas na semana: ${n("os_abertas")}`,
+    `• Entregues: ${n("os_entregues")}`,
+    `• Faturado em OS: ${brl(n("faturamento_os"))}`,
+    `• Em andamento agora: ${n("os_em_andamento")} (prontas para retirar: ${n("os_prontas")})`,
+    "",
+    "*Vendas*",
+    `• ${n("vendas_qtd")} venda(s): ${brl(n("vendas_total"))}`,
+    "",
+    "*Financeiro (pago)*",
+    `• Entradas: ${brl(n("receitas"))}`,
+    `• Saídas: ${brl(n("despesas"))}`,
+    `• Resultado: ${brl(resultado)}`,
+  ];
+  if (n("a_receber_vencido") > 0)
+    linhas.push(`• A receber vencido: ${brl(n("a_receber_vencido"))}`);
+  linhas.push("", `👥 Clientes novos: ${n("clientes_novos")}`);
+  if (n("estoque_baixo") > 0) linhas.push(`📦 Produtos no estoque mínimo: ${n("estoque_baixo")}`);
+
+  const envio = await enviarAutomatico({
+    empresaId,
+    conexao,
+    numeroCompleto: paraE164BR(telefone),
+    nome: null,
+    mensagem: linhas.join("\n"),
+    templateId,
+  });
+  return envio === "enviado";
+}

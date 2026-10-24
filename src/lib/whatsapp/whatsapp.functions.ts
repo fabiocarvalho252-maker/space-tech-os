@@ -145,6 +145,7 @@ export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method:
     await whatsappService.enviarAniversarios(empresaId);
     await whatsappService.enviarPesquisasPosVenda(empresaId);
     await whatsappService.enviarBoasVindas(empresaId);
+    await whatsappService.enviarRelatorioSemanal(empresaId);
     const processadas = await whatsappService.processarNotificacoesAgendadasOs(empresaId);
     return { processadas };
   });

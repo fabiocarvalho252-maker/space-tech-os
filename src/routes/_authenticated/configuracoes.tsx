@@ -2226,6 +2226,12 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_relatorio_auto",
+                        label: "Resumo semanal da loja para o dono",
+                        key: "notif_relatorio_auto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_aniversario_auto",
                         label: "Feliz aniversário para o cliente",
                         key: "notif_aniversario_auto",
@@ -2255,12 +2261,6 @@ function Configuracoes() {
                         label: "Pesquisa de satisfação pós-OS",
                         key: "pesquisa_pos_os",
                         uso: "manual",
-                      },
-                      {
-                        id: "relatorio_semanal_ia",
-                        label: "Gestão: Relatório Semanal de Desempenho (via IA)",
-                        key: "relatorio_semanal_ia",
-                        uso: "breve",
                       },
                       {
                         id: "lembrete_tecnico",
@@ -2317,36 +2317,68 @@ function Configuracoes() {
                         </summary>
                         <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">
-                              Texto da Mensagem
-                            </Label>
-                            <Textarea
-                              className="min-h-[100px] text-sm"
-                              defaultValue={
-                                whatsappConfig?.[item.textoKey ?? `${item.key}_texto`] || ""
-                              }
-                              onBlur={async (e) => {
-                                await supabase.from("whatsapp_config" as any).upsert(
-                                  {
-                                    user_id: empresaId!,
-                                    [item.textoKey ?? `${item.key}_texto`]: e.target.value,
-                                  },
-                                  { onConflict: "user_id" },
-                                );
-                                refetchWhatsapp();
-                              }}
-                            />
-                            <p className="text-[10px] text-muted-foreground">
-                              Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"}, {"{{status}}"}
-                              , {"{{tecnico}}"}
-                              {item.key === "notif_os_pronta" && (
-                                <>
-                                  , {"{{aparelho}}"}, {"{{link}}"}
-                                </>
-                              )}
-                              {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}
-                              {item.uso === "auto" && <>, {"{{loja}}"}</>}.
-                            </p>
+                            {item.key === "notif_relatorio_auto" ? (
+                              <>
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                                  WhatsApp que recebe o resumo
+                                </Label>
+                                <Input
+                                  inputMode="tel"
+                                  placeholder="DDD + número (vazio = WhatsApp do cadastro da empresa)"
+                                  defaultValue={whatsappConfig?.relatorio_numero || ""}
+                                  onBlur={async (e) => {
+                                    await supabase.from("whatsapp_config" as any).upsert(
+                                      {
+                                        user_id: empresaId!,
+                                        relatorio_numero: e.target.value.trim() || null,
+                                      },
+                                      { onConflict: "user_id" },
+                                    );
+                                    refetchWhatsapp();
+                                  }}
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                  Toda segunda-feira, a partir das 9h (quando alguém abrir Ordens de
+                                  Serviço), chega o resumo da semana anterior: OS abertas e
+                                  entregues, faturamento, vendas, entradas e saídas pagas, contas a
+                                  receber vencidas, clientes novos e estoque baixo. O ideal é o
+                                  celular pessoal do dono.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                                  Texto da Mensagem
+                                </Label>
+                                <Textarea
+                                  className="min-h-[100px] text-sm"
+                                  defaultValue={
+                                    whatsappConfig?.[item.textoKey ?? `${item.key}_texto`] || ""
+                                  }
+                                  onBlur={async (e) => {
+                                    await supabase.from("whatsapp_config" as any).upsert(
+                                      {
+                                        user_id: empresaId!,
+                                        [item.textoKey ?? `${item.key}_texto`]: e.target.value,
+                                      },
+                                      { onConflict: "user_id" },
+                                    );
+                                    refetchWhatsapp();
+                                  }}
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                  Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"},{" "}
+                                  {"{{status}}"}, {"{{tecnico}}"}
+                                  {item.key === "notif_os_pronta" && (
+                                    <>
+                                      , {"{{aparelho}}"}, {"{{link}}"}
+                                    </>
+                                  )}
+                                  {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}
+                                  {item.uso === "auto" && <>, {"{{loja}}"}</>}.
+                                </p>
+                              </>
+                            )}
                             {item.key === "notif_os_pronta" && (
                               <p className="text-[11px] text-muted-foreground">
                                 Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
