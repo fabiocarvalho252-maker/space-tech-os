@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { enviarLogoEmpresa } from "@/lib/logo-empresa";
+import { termosOsPadrao } from "@/lib/termos-padrao";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -179,28 +181,8 @@ function Configuracoes() {
 
     try {
       setIsUploading(true);
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage.from("logos").upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("logos").getPublicUrl(filePath);
-
+      const publicUrl = await enviarLogoEmpresa(file, user.id);
       setEmpresaForm((prev) => ({ ...prev, logo_url: publicUrl }));
-
-      // Update profile immediately
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ logo_url: publicUrl } as any)
-        .eq("id", user.id);
-
-      if (updateError) throw updateError;
-
       toast.success("Logotipo enviado com sucesso!");
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (error: any) {
@@ -1116,7 +1098,7 @@ function Configuracoes() {
                     <button
                       className="text-primary hover:underline"
                       onClick={async () => {
-                        const defaultText = `Parcelamento: em até 3x no cartão.\nPrazo de execução: até 5 dias úteis após a aprovação.\nValidade deste orçamento: 7 dias.\nGarantia: 90 dias sobre o serviço executado.\n\nEste orçamento é uma previsão de valores, não uma cobrança. Se durante a execução aparecer outro problema, você é avisado antes e nada é feito sem a sua aprovação. A aprovação autoriza a execução dos serviços e a aplicação das peças listadas.`;
+                        const defaultText = termosOsPadrao(osConfig?.dias_garantia_padrao || 90);
                         const { error } = await supabase
                           .from("os_config" as any)
                           .upsert(

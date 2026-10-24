@@ -2848,6 +2848,7 @@ export type Database = {
           ia_creditos: number
           id: string
           logo_url: string | null
+          onboarding_concluido_em: string | null
           loja: string | null
           nome: string | null
           plan_id: string | null
@@ -2869,6 +2870,7 @@ export type Database = {
           ia_creditos?: number
           id: string
           logo_url?: string | null
+          onboarding_concluido_em?: string | null
           loja?: string | null
           nome?: string | null
           plan_id?: string | null
@@ -2890,6 +2892,7 @@ export type Database = {
           ia_creditos?: number
           id?: string
           logo_url?: string | null
+          onboarding_concluido_em?: string | null
           loja?: string | null
           nome?: string | null
           plan_id?: string | null

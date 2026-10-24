@@ -106,16 +106,28 @@ export async function buscarCnpj(cnpj: string): Promise<DadosCnpj> {
   };
 }
 
-export async function buscarCep(cep: string): Promise<string> {
+export type DadosCep = { logradouro: string; bairro: string; cidade: string; uf: string };
+
+export async function buscarCepDetalhado(cep: string): Promise<DadosCep> {
   const digitos = somenteDigitos(cep);
   const res = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
   if (!res.ok) throw new Error("Não foi possível consultar o CEP agora. Tente novamente.");
   const d = await res.json();
   if (d.erro) throw new Error("CEP não encontrado.");
+  return {
+    logradouro: d.logradouro ?? "",
+    bairro: d.bairro ?? "",
+    cidade: d.localidade ?? "",
+    uf: d.uf ?? "",
+  };
+}
+
+export async function buscarCep(cep: string): Promise<string> {
+  const d = await buscarCepDetalhado(cep);
   return juntar([
     d.logradouro,
     d.bairro,
-    juntar([d.localidade, d.uf], " - "),
-    `CEP ${formatarCep(digitos)}`,
+    juntar([d.cidade, d.uf], " - "),
+    `CEP ${formatarCep(cep)}`,
   ]);
 }

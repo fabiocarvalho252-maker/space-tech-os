@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
+import { Route as BemVindoRouteImport } from './routes/bem-vindo'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
@@ -60,6 +61,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AssinaturaRoute = AssinaturaRouteImport.update({
   id: '/assinatura',
   path: '/assinatura',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BemVindoRoute = BemVindoRouteImport.update({
+  id: '/bem-vindo',
+  path: '/bem-vindo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadastroRoute = CadastroRouteImport.update({
@@ -249,6 +255,7 @@ const AuthenticatedOrdensFaturarOsIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
+  '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assinatura': typeof AssinaturaRoute
+  '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/assinatura': typeof AssinaturaRoute
+  '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/assinatura'
+    | '/bem-vindo'
     | '/cadastro'
     | '/login'
     | '/minha-conta'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/assinatura'
+    | '/bem-vindo'
     | '/cadastro'
     | '/login'
     | '/minha-conta'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/assinatura'
+    | '/bem-vindo'
     | '/cadastro'
     | '/login'
     | '/minha-conta'
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AssinaturaRoute: typeof AssinaturaRoute
+  BemVindoRoute: typeof BemVindoRoute
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
   MinhaContaRoute: typeof MinhaContaRoute
@@ -519,6 +532,13 @@ declare module '@tanstack/react-router' {
       path: '/assinatura'
       fullPath: '/assinatura'
       preLoaderRoute: typeof AssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bem-vindo': {
+      id: '/bem-vindo'
+      path: '/bem-vindo'
+      fullPath: '/bem-vindo'
+      preLoaderRoute: typeof BemVindoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cadastro': {
@@ -840,6 +860,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AssinaturaRoute: AssinaturaRoute,
+  BemVindoRoute: BemVindoRoute,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
   MinhaContaRoute: MinhaContaRoute,

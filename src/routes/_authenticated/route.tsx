@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated")({
 
     const { data: empresaProfile } = await supabase
       .from("profiles")
-      .select("created_at, plano, acesso_ate")
+      .select("created_at, plano, acesso_ate, onboarding_concluido_em")
       .eq("id", empresaId)
       .maybeSingle();
 
@@ -39,6 +39,13 @@ export const Route = createFileRoute("/_authenticated")({
     });
     if (prazo.tipo === "suspenso" || (prazo.tipo !== "sem_vencimento" && prazo.expirado)) {
       throw redirect({ to: "/assinatura" });
+    }
+
+    // Primeiro acesso do dono de uma empresa recém-cadastrada: configura
+    // logo, dados e garantia em /bem-vindo antes de usar o sistema. Um
+    // funcionário convidado (empresaId de outra pessoa) nunca cai aqui.
+    if (empresaId === user.id && empresaProfile && !empresaProfile.onboarding_concluido_em) {
+      throw redirect({ to: "/bem-vindo" });
     }
 
     return { user };
