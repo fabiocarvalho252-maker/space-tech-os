@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
+import { GerarTermoGarantiaIA } from "@/components/GerarTermoGarantiaIA";
 import { dataBR } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
@@ -50,6 +51,26 @@ function Garantia() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ titulo: "", conteudo: "" });
   const [verTermo, setVerTermo] = useState<Termo | null>(null);
+  const { data: profile } = useProfile();
+  const { data: diasPadrao = 90 } = useQuery({
+    queryKey: ["os-config-dias", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("os_config")
+        .select("dias_garantia_padrao")
+        .eq("user_id", empresaId!)
+        .maybeSingle();
+      return data?.dias_garantia_padrao ?? 90;
+    },
+  });
+  // "Garantia 6 meses"/"180 DIAS" no título vale mais que o padrão da empresa.
+  const diasDoTitulo = (() => {
+    const dias = /(\d+)\s*dias/i.exec(form.titulo);
+    if (dias) return Number(dias[1]);
+    const meses = /(\d+)\s*mes(es)?/i.exec(form.titulo);
+    return meses ? Number(meses[1]) * 30 : null;
+  })();
   const [confirmDesativar, setConfirmDesativar] = useState<Termo | null>(null);
 
   const { data: termos = [], isLoading } = useQuery({
@@ -181,6 +202,11 @@ function Garantia() {
                 </div>
                 <div className="space-y-2">
                   <Label>Conteúdo das Cláusulas</Label>
+                  <GerarTermoGarantiaIA
+                    loja={(profile as any)?.loja ?? ""}
+                    dias={diasDoTitulo ?? diasPadrao}
+                    onGerado={(texto) => setForm((f) => ({ ...f, conteudo: texto }))}
+                  />
                   <Textarea
                     placeholder="Descreva aqui os termos da garantia..."
                     className="min-h-[200px] resize-none"

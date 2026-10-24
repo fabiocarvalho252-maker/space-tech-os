@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildSampleOsRenderData, renderOsTemplateHtml, type RenderOsData } from "@/lib/os-template-render";
 import { OsTemplateThumbnail } from "@/components/os-templates/OsTemplateThumbnail";
+import { GerarTermoGarantiaIA } from "@/components/GerarTermoGarantiaIA";
 import type { OsTemplateDbRow } from "@/components/os-templates/types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -623,6 +624,14 @@ function BemVindo() {
                       </button>
                     )}
                   </div>
+                  <GerarTermoGarantiaIA
+                    loja={empresa.loja}
+                    dias={garantia}
+                    onGerado={(texto) => {
+                      setTermoEditado(true);
+                      setTermo(texto);
+                    }}
+                  />
                   <textarea
                     value={termo}
                     onChange={(e) => {
