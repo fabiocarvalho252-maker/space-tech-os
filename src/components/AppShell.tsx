@@ -46,6 +46,7 @@ import { TrialBanner } from "@/components/TrialBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { SuporteWhatsapp } from "@/components/SuporteWhatsapp";
+import { InstalarAppMobile } from "@/components/InstalarAppMobile";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
@@ -300,6 +301,10 @@ export function AppShell() {
               >
                 <MonitorDown className="h-5 w-5" /> Baixar app (Windows)
               </a>
+              <InstalarAppMobile
+                onDone={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+              />
               <button
                 onClick={sair}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"

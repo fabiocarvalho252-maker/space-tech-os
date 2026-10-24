@@ -79,7 +79,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#5b2be0" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "SPACE TECH" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { title: "SpaceTech — Sistema para assistência técnica" },
       {
         name: "description",
@@ -98,6 +103,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -136,6 +143,12 @@ function RootComponent() {
       root.classList.add(systemTheme);
     } else {
       root.classList.add(theme);
+    }
+
+    // App instalável (PWA): só no build de produção, para não interferir no
+    // hot reload do `vite dev` nem no preview do Lovable.
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
     const { data } = supabase.auth.onAuthStateChange((event) => {
