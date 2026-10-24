@@ -12,6 +12,7 @@ import {
   EvolutionApiError,
   conectarInstancia,
   criarInstancia,
+  apagarInstancia,
   desconectarInstancia,
   reiniciarInstancia,
   enviarMensagemMidia,
@@ -73,6 +74,33 @@ async function upsertConexao(
   return data as unknown as WhatsappConexao;
 }
 
+// A Evolution continua dizendo "open" quando a sessão do Baileys morreu
+// (todo envio volta "Connection Closed"). Quando um envio dá esse erro, a
+// conexão vira "erro" com esta mensagem e fica assim — mesmo que a Evolution
+// diga "open" — até reiniciar, reconectar ou um envio dar certo.
+export const SESSAO_CAIDA =
+  "A sessão do WhatsApp caiu: as mensagens não estão saindo. Clique em Reiniciar conexão; se continuar, desconecte e leia o QR Code de novo.";
+
+async function registrarSaudeEnvio(
+  conexao: { id: string; status: string },
+  erro: string | null,
+): Promise<void> {
+  const caiu = !!erro && /Connection Closed/i.test(erro);
+  if (caiu && conexao.status !== "erro") {
+    await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+      .from("whatsapp_connections" as any)
+      .update({ status: "erro", last_error: SESSAO_CAIDA })
+      .eq("id", conexao.id);
+  } else if (!erro && conexao.status === "erro") {
+    await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+      .from("whatsapp_connections" as any)
+      .update({ status: "conectado", last_error: null })
+      .eq("id", conexao.id);
+  }
+}
+
 /** Current connection row for this empresa (creates none — just reads). */
 export async function obterStatusSalvo(userId: string): Promise<WhatsappConexao | null> {
   return obterConexao(userId);
@@ -118,6 +146,13 @@ export async function atualizarStatus(userId: string): Promise<WhatsappConexao |
   if (!existente) return null;
 
   const resultado = await statusInstancia(existente.instance_name);
+  if (
+    resultado.state === "open" &&
+    existente.status === "erro" &&
+    existente.last_error === SESSAO_CAIDA
+  ) {
+    return existente;
+  }
   const status =
     resultado.state === "open"
       ? "conectado"
@@ -148,6 +183,11 @@ export async function reiniciar(userId: string): Promise<WhatsappConexao | null>
   if (!existente) return null;
   await reiniciarInstancia(existente.instance_name);
   await new Promise((r) => setTimeout(r, 5000));
+  // Reiniciar zera a marca de sessão caída; se o próximo envio falhar de
+  // novo, registrarSaudeEnvio volta a marcar.
+  if (existente.status === "erro") {
+    await upsertConexao(userId, existente.instance_name, { status: "conectado", last_error: null });
+  }
   return atualizarStatus(userId);
 }
 
@@ -157,8 +197,19 @@ export async function desconectar(userId: string): Promise<WhatsappConexao | nul
   const existente = await obterConexao(userId);
   if (!existente) return null;
 
-  await desconectarInstancia(existente.instance_name);
+  // Com a sessão morta a Evolution recusa o logout; aí apaga a instância
+  // (o próximo "Conectar" cria de novo e mostra o QR Code). Em qualquer caso
+  // o sistema marca como desconectado — senão o botão nunca funcionaria.
+  try {
+    await desconectarInstancia(existente.instance_name);
+  } catch (e) {
+    console.error("Logout da instância WhatsApp falhou, apagando a instância:", e);
+    await apagarInstancia(existente.instance_name).catch((erro) =>
+      console.error("Também não foi possível apagar a instância:", erro),
+    );
+  }
   return upsertConexao(userId, existente.instance_name, {
+    last_error: null,
     status: "desconectado",
     qr_code: null,
     phone_number: null,
@@ -189,14 +240,17 @@ export async function enviarMensagem(
   const numeroCompleto = paraE164BR(numero);
   let status: "enviado" | "falhou" = "enviado";
   let evolutionMessageId: string | null = null;
+  let erroEnvio: string | null = null;
   try {
     const resultado = await enviarMensagemTexto(conexao.instance_name, numeroCompleto, texto);
     evolutionMessageId = resultado.messageId;
   } catch (e) {
     status = "falhou";
     if (!(e instanceof EvolutionApiError)) throw e;
+    erroEnvio = e.message;
     console.error("Falha ao enviar mensagem WhatsApp via Evolution API:", e.message);
   }
+  await registrarSaudeEnvio(conexao, erroEnvio);
 
   const { data, error } = await supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet, see types.ts header
@@ -279,6 +333,7 @@ async function executarEnvio(params: {
       if (!(e instanceof EvolutionApiError)) throw e;
       erroTexto = e.message;
     }
+    await registrarSaudeEnvio(params.conexao, erroTexto);
   }
 
   const attachments: WhatsappAnexoRegistro[] = [];
@@ -903,7 +958,7 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
  */
 async function enviarAutomatico(params: {
   empresaId: string;
-  conexao: { id: string; instance_name: string };
+  conexao: { id: string; instance_name: string; status: string };
   numeroCompleto: string;
   nome: string | null;
   mensagem: string;
@@ -943,6 +998,7 @@ async function enviarAutomatico(params: {
     status = "falhou";
     erro = e instanceof Error ? e.message : String(e);
   }
+  await registrarSaudeEnvio(params.conexao, erro);
   await supabaseAdmin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
     .from("whatsapp_messages" as any)

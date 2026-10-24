@@ -199,8 +199,8 @@ function WhatsappPage() {
                   <p className="mt-3 text-xs text-destructive">{conexao.last_error}</p>
                 )}
 
-                <div className="mt-4 flex gap-2">
-                  {!conectado ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {status === "desconectado" || status === "conectando" ? (
                     <Button
                       className="bg-green-600 hover:bg-green-700 gap-2"
                       disabled={conectar.isPending}
