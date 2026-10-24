@@ -496,6 +496,10 @@ export async function listarMensagensRecentes(
     .from("whatsapp_messages" as any)
     .select("*")
     .eq("user_id", userId)
+    // Mensagens de grupo gravadas antes do filtro do webhook: o id do grupo
+    // começa com 120363 (novos) ou tem hífen (antigos).
+    .not("phone_number", "like", "120363%")
+    .not("phone_number", "like", "%-%")
     .order("created_at", { ascending: false })
     .limit(limite);
   if (error) throw error;

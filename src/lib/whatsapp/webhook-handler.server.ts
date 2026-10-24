@@ -92,6 +92,11 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         return new Response("ok", { status: 200 });
       }
       const remoteJid = texto(key["remoteJid"]);
+      // Grupos, status e canais não são conversa com cliente — só enchiam a
+      // tabela (eram ~86% das mensagens guardadas) e a lista de recentes.
+      if (remoteJid && /@(g\.us|broadcast|newsletter)$/.test(remoteJid)) {
+        return new Response("ok", { status: 200 });
+      }
       const numero = remoteJid?.split("@")[0] ?? "desconhecido";
       const conteudo = extrairTextoMensagem(data["message"]);
       const evolutionMessageId = texto(key["id"]) ?? null;
