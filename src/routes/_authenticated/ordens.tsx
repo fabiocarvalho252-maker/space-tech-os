@@ -58,10 +58,7 @@ import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
-import {
-  avisarOsProntaFn,
-  processarNotificacoesAgendadasWhatsAppFn,
-} from "@/lib/whatsapp/whatsapp.functions";
+import { avisarOsProntaFn } from "@/lib/whatsapp/whatsapp.functions";
 import {
   renderOsTemplateHtml,
   FALLBACK_TEMPLATE,
@@ -132,7 +129,15 @@ const vazio = {
   itens: [] as any[],
 };
 
-const ACESSORIOS_COMUNS = ["Chip", "Capinha", "Carregador", "Cabo", "Película", "Cartão de memória", "Caixa"];
+const ACESSORIOS_COMUNS = [
+  "Chip",
+  "Capinha",
+  "Carregador",
+  "Cabo",
+  "Película",
+  "Cartão de memória",
+  "Caixa",
+];
 
 // Acessórios ficam como texto livre ("Chip, Capinha"); os botões só
 // acrescentam ou tiram o item da lista.
@@ -142,7 +147,9 @@ function alternarAcessorio(texto: string, item: string): string {
     .map((t) => t.trim())
     .filter(Boolean);
   const tem = lista.some((t) => t.toLowerCase() === item.toLowerCase());
-  return (tem ? lista.filter((t) => t.toLowerCase() !== item.toLowerCase()) : [...lista, item]).join(", ");
+  return (
+    tem ? lista.filter((t) => t.toLowerCase() !== item.toLowerCase()) : [...lista, item]
+  ).join(", ");
 }
 
 function AcessoriosCampo({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -159,7 +166,9 @@ function AcessoriosCampo({ value, onChange }: { value: string; onChange: (v: str
               type="button"
               onClick={() => onChange(alternarAcessorio(value, a))}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                ativo ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary"
+                ativo
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:border-primary"
               }`}
             >
               {a}
@@ -468,22 +477,6 @@ function Ordens() {
     () => Array.from(new Set([...CORES_CONHECIDAS, ...valoresUsados("cor")])).sort(),
     [ordens],
   );
-
-  // Não existe fila/worker real para "Agendar na fila" no WhatsApp — a
-  // melhor aproximação sem infraestrutura nova é disparar o que já venceu
-  // sempre que alguém abrir a tela de Ordens.
-  useQuery({
-    queryKey: ["whatsapp-notificacoes-agendadas-flush"],
-    queryFn: async () => {
-      const resultado = await processarNotificacoesAgendadasWhatsAppFn();
-      if (resultado.processadas > 0) {
-        qc.invalidateQueries({ queryKey: ["os-historico"] });
-      }
-      return resultado;
-    },
-    staleTime: 5 * 60_000,
-    enabled: !!user,
-  });
 
   useEffect(() => {
     if (!searchParams.os || !ordens.length) return;

@@ -49,6 +49,7 @@ import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useC
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
+import { processarNotificacoesAgendadasWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -120,6 +121,26 @@ export function AppShell() {
   const { data: permissoes } = usePermissoes();
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Mensagens automáticas e agendadas do WhatsApp (OS pronta fica de fora:
+  // sai na hora da troca de status). Não há cron no servidor, então quem
+  // estiver com o sistema aberto, em qualquer tela, dispara a rodada a cada
+  // 10 minutos; o servidor não repete mensagem já enviada.
+  useQuery({
+    queryKey: ["whatsapp-automacoes"],
+    queryFn: async () => {
+      const resultado = await processarNotificacoesAgendadasWhatsAppFn();
+      if (resultado.processadas > 0) {
+        queryClient.invalidateQueries({ queryKey: ["os-historico"] });
+      }
+      return resultado;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+    refetchIntervalInBackground: true,
+    retry: false,
+  });
 
   useEffect(() => {
     setOpen(false);

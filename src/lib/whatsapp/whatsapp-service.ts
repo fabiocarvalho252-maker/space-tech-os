@@ -418,9 +418,9 @@ export async function enviarNotificacaoOs(params: {
 /**
  * Flushes any "agendado" notification whose scheduled_at has already
  * passed — the closest thing to a queue worker this project has, run
- * opportunistically whenever someone loads Ordens (see ordens.tsx). Silently
+ * opportunistically every 10 minutes while the system is open (AppShell). Silently
  * no-ops (leaves rows as "agendado") if the empresa's WhatsApp isn't
- * connected, so nothing is lost — it just waits for the next visit.
+ * connected, so nothing is lost — it just waits for the next run.
  */
 export async function processarNotificacoesAgendadasOs(userId: string): Promise<number> {
   if (!evolutionConfigurado()) return 0;
@@ -686,7 +686,7 @@ export async function avisarOsPronta(params: {
 
 // Janela do envio automático da pesquisa: entregue há pelo menos 20 h (o
 // cliente já usou o aparelho) e no máximo há 7 dias; só sai das 9h às 20h de
-// Brasília, porque o envio acontece quando alguém abre Ordens de Serviço.
+// Brasília, porque o envio acontece com o sistema aberto (AppShell).
 const PESQUISA_HORAS_MIN = 20;
 const PESQUISA_DIAS_MAX = 7;
 
@@ -822,7 +822,7 @@ function hojeEmBrasilia(): { ano: number; mesDia: string } {
 /**
  * Mensagem de aniversário automática (Configurações > WhatsApp, desligada por
  * padrão) para os clientes com data de nascimento hoje. Sai das 9h às 20h de
- * Brasília, quando alguém abre Ordens de Serviço; uma por número por ano —
+ * Brasília, com o sistema aberto (AppShell); uma por número por ano —
  * a linha é gravada antes do envio e o índice único barra a segunda tela.
  * Quem faz aniversário em 29/02 recebe em 28/02 nos anos não bissextos.
  */
@@ -945,7 +945,7 @@ async function enviarAutomatico(params: {
  * Pesquisa pós-venda automática (Configurações > WhatsApp, desligada por
  * padrão): uma mensagem por venda finalizada/faturada com cliente, entre 20 h
  * e 7 dias depois da venda e só para vendas feitas depois de ligar a opção.
- * Das 9h às 20h de Brasília, quando alguém abre Ordens de Serviço.
+ * Das 9h às 20h de Brasília, com o sistema aberto (AppShell).
  */
 export async function enviarPesquisasPosVenda(empresaId: string): Promise<number> {
   if (!evolutionConfigurado()) return 0;
@@ -1042,7 +1042,7 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
  * Boas-vindas automáticas (Configurações > WhatsApp, desligada por padrão)
  * para clientes cadastrados com telefone depois de ligar a opção — de
  * qualquer tela (Clientes, OS, PDV). Uma por cliente, das 9h às 20h, quando
- * alguém abre Ordens de Serviço; quem foi cadastrado à noite recebe no dia
+ * o sistema está aberto; quem foi cadastrado à noite recebe no dia
  * seguinte, até 7 dias depois do cadastro.
  */
 export async function enviarBoasVindas(empresaId: string): Promise<number> {
@@ -1133,8 +1133,7 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
  * Resumo semanal da loja (Configurações > WhatsApp, desligado por padrão)
  * para o número do dono — o informado na configuração ou o WhatsApp do
  * cadastro da empresa. Cobre a semana anterior (segunda a domingo, horário
- * de Brasília) e sai a partir de segunda às 9h, na primeira vez que alguém
- * abrir Ordens de Serviço na semana; um por semana.
+ * de Brasília) e sai a partir de segunda às 9h, na primeira rodada da semana; um por semana.
  */
 export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean> {
   if (!evolutionConfigurado()) return false;

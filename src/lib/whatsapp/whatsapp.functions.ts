@@ -134,8 +134,9 @@ export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
     });
   });
 
-// Opportunistic "queue worker" — there is no cron in this project, so this
-// is called once when Ordens de Serviço loads (see ordens.tsx) to flush any
+// Opportunistic "queue worker" — there is no cron in this project, so
+// AppShell calls this every 10 minutes while the system is open on any
+// screen: it queues/sends the automatic messages and flushes any
 // notification whose scheduled_at has already passed.
 export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

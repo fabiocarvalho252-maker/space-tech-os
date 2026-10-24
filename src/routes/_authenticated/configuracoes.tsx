@@ -2338,8 +2338,8 @@ function Configuracoes() {
                                   }}
                                 />
                                 <p className="text-[11px] text-muted-foreground">
-                                  Toda segunda-feira, a partir das 9h (quando alguém abrir Ordens de
-                                  Serviço), chega o resumo da semana anterior: OS abertas e
+                                  Toda segunda-feira, a partir das 9h (com o sistema aberto em algum
+                                  computador), chega o resumo da semana anterior: OS abertas e
                                   entregues, faturamento, vendas, entradas e saídas pagas, contas a
                                   receber vencidas, clientes novos e estoque baixo. O ideal é o
                                   celular pessoal do dono.
@@ -2389,23 +2389,23 @@ function Configuracoes() {
                             {item.key === "notif_pesquisa_venda_auto" && (
                               <p className="text-[11px] text-muted-foreground">
                                 Vai uma vez por venda finalizada com cliente e telefone, entre 20
-                                horas e 7 dias depois da compra, das 9h às 20h, quando alguém abrir
-                                Ordens de Serviço. Só vale para vendas feitas depois de ligar a
+                                horas e 7 dias depois da compra, das 9h às 20h, com o sistema aberto
+                                em algum computador. Só vale para vendas feitas depois de ligar a
                                 opção.
                               </p>
                             )}
                             {item.key === "notif_boas_vindas_auto" && (
                               <p className="text-[11px] text-muted-foreground">
                                 Vai uma vez para cada cliente cadastrado com telefone depois de
-                                ligar a opção — em Clientes, na OS ou no PDV —, das 9h às 20h,
-                                quando alguém abrir Ordens de Serviço. Quem foi cadastrado à noite
+                                ligar a opção — em Clientes, na OS ou no PDV —, das 9h às 20h, com o
+                                sistema aberto em algum computador. Quem foi cadastrado à noite
                                 recebe no dia seguinte.
                               </p>
                             )}
                             {item.key === "notif_aniversario_auto" && (
                               <p className="text-[11px] text-muted-foreground">
-                                Vai no dia do aniversário, das 9h às 20h, quando alguém abrir Ordens
-                                de Serviço — uma vez por ano. Só para clientes com data de
+                                Vai no dia do aniversário, das 9h às 20h, com o sistema aberto em
+                                algum computador — uma vez por ano. Só para clientes com data de
                                 nascimento e telefone no cadastro (Clientes → editar).
                               </p>
                             )}
@@ -2413,9 +2413,9 @@ function Configuracoes() {
                               <p className="text-[11px] text-muted-foreground">
                                 Usa o mesmo texto da pesquisa manual pós-OS. Vai uma vez por OS
                                 entregue, entre 20 horas e 7 dias depois da entrega, das 9h às 20h,
-                                quando alguém abrir Ordens de Serviço. Só vale para entregas feitas
-                                depois de ligar a opção, e não repete se a pesquisa já foi enviada à
-                                mão.
+                                com o sistema aberto em algum computador. Só vale para entregas
+                                feitas depois de ligar a opção, e não repete se a pesquisa já foi
+                                enviada à mão.
                               </p>
                             )}
                           </div>
