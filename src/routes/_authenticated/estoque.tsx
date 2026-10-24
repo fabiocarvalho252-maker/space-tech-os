@@ -141,7 +141,7 @@ function imprimirEtiquetas(produtos: Produto[]) {
       @media print{.etq{border:1px solid #ccc}}
     </style></head><body>
     <div class="grade">${etiquetas}</div>
-    <script>window.onload=()=>window.print()<\/script>
+    <script>window.onload=()=>window.print()</script>
     </body></html>`);
   janela.document.close();
 }

@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClienteCampo } from "@/components/ClienteRapido";
-import { CaixaDialog, useCaixa } from "@/components/CaixaDialog";
+import { CaixaDialog } from "@/components/CaixaDialog";
+import { useCaixa } from "@/hooks/useCaixa";
 import {
   ComprovanteVendaDialog,
   type VendaParaComprovante,

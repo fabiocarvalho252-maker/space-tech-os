@@ -22,13 +22,13 @@ export function PatternLock({ value, onChange, className }: PatternLockProps) {
 
   // Parse initial value
   useEffect(() => {
-    if (value && path.length === 0) {
-      const initialPath = value
-        .split("")
-        .map(Number)
-        .filter((n) => !isNaN(n));
-      if (initialPath.length > 0) setPath(initialPath);
-    }
+    if (!value) return;
+    const initialPath = value
+      .split("")
+      .map(Number)
+      .filter((n) => !isNaN(n));
+    // Só preenche se ainda não há desenho — não sobrescreve o que o usuário fez.
+    if (initialPath.length > 0) setPath((atual) => (atual.length === 0 ? initialPath : atual));
   }, [value]);
 
   const getDotPos = (index: number) => {

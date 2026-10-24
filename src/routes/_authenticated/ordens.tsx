@@ -50,8 +50,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database, Tables } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { OsFotos } from "@/components/OsFotos";
-import { NovaOsFotos, enviarFotosEntrada, type LadoFoto } from "@/components/NovaOsFotos";
-import { AparelhoCard3D, useLadosAparelho, useLadosAparelhos } from "@/components/AparelhoCard3D";
+import { NovaOsFotos } from "@/components/NovaOsFotos";
+import { enviarFotosEntrada, type LadoFoto } from "@/lib/os-fotos-entrada";
+import { AparelhoCard3D } from "@/components/AparelhoCard3D";
+import { useLadosAparelho, useLadosAparelhos } from "@/hooks/useLadosAparelho";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
@@ -122,6 +124,10 @@ type ItemNovaOs = {
   quantidade: number;
   preco_unitario: number;
 };
+
+// Valores já digitados em OS anteriores, para sugerir no autocompletar.
+const valoresUsados = (ordens: OsListada[], campo: "aparelho" | "marca" | "modelo" | "cor") =>
+  ordens.map((o) => o[campo]).filter((v): v is string => !!v);
 
 const vazio = {
   cliente_id: "",
@@ -469,23 +475,21 @@ function Ordens() {
 
   const { data: ladosOsEditada } = useLadosAparelho(editOpen ? selectedOsId : null);
 
-  const valoresUsados = (campo: "aparelho" | "marca" | "modelo" | "cor") =>
-    ordens.map((o) => o[campo]).filter((v): v is string => !!v);
-
   const sugestoesAparelho = useMemo(
-    () => Array.from(new Set([...CATEGORIAS_CONHECIDAS, ...valoresUsados("aparelho")])).sort(),
+    () =>
+      Array.from(new Set([...CATEGORIAS_CONHECIDAS, ...valoresUsados(ordens, "aparelho")])).sort(),
     [ordens],
   );
   const sugestoesMarca = useMemo(
-    () => Array.from(new Set([...MARCAS_CONHECIDAS, ...valoresUsados("marca")])).sort(),
+    () => Array.from(new Set([...MARCAS_CONHECIDAS, ...valoresUsados(ordens, "marca")])).sort(),
     [ordens],
   );
   const sugestoesModelo = useMemo(
-    () => Array.from(new Set(valoresUsados("modelo"))).sort(),
+    () => Array.from(new Set(valoresUsados(ordens, "modelo"))).sort(),
     [ordens],
   );
   const sugestoesCor = useMemo(
-    () => Array.from(new Set([...CORES_CONHECIDAS, ...valoresUsados("cor")])).sort(),
+    () => Array.from(new Set([...CORES_CONHECIDAS, ...valoresUsados(ordens, "cor")])).sort(),
     [ordens],
   );
 

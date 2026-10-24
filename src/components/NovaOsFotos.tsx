@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Camera, ImagePlus, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { randomId } from "@/lib/utils";
+import type { LadoFoto } from "@/lib/os-fotos-entrada";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
@@ -10,7 +9,6 @@ import { Label } from "@/components/ui/label";
 // o mesmo caminho/categoria que a galeria da OS (OsFotos) usa.
 // Também reaproveitada na compra de seminovo (CadastroSeminovoModal), que
 // sobe os arquivos no próprio bucket depois de criar o aparelho.
-export type LadoFoto = "frente" | "traseira";
 
 export function NovaOsFotos({
   fotos,
@@ -137,28 +135,4 @@ export function NovaOsFotos({
       )}
     </div>
   );
-}
-
-export async function enviarFotosEntrada(
-  empresaId: string,
-  osId: string,
-  fotos: File[],
-  lados?: Map<File, LadoFoto>,
-) {
-  for (const file of fotos) {
-    const ext = file.name.split(".").pop() || "jpg";
-    // Prefixo = id da empresa (RLS do storage checa esse segmento) — mesma
-    // regra do upload em OsFotos.
-    const path = `${empresaId}/${osId}/${randomId()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("os-fotos").upload(path, file);
-    if (upErr) throw upErr;
-    const { error } = await supabase.from("service_order_photos").insert({
-      user_id: empresaId,
-      service_order_id: osId,
-      url: path,
-      category: "entrada",
-      lado: lados?.get(file) ?? null,
-    });
-    if (error) throw error;
-  }
 }

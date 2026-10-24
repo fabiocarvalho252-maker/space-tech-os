@@ -549,7 +549,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
           ? `<h3>Divisão entre técnicos</h3><table><thead><tr><th>Técnico</th><th>Valor</th></tr></thead><tbody>${linhasTecnicos}</tbody></table>`
           : ""
       }
-      <script>window.onload=()=>window.print()<\/script>
+      <script>window.onload=()=>window.print()</script>
       </body></html>`);
     janela.document.close();
   }

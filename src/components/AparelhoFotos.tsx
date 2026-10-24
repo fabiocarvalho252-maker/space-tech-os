@@ -29,7 +29,7 @@ const BUCKET = "aparelhos-fotos";
 export type AparelhoFotoTipo =
   "front" | "back" | "side" | "screen" | "imei" | "box" | "accessories" | "other";
 
-export const APARELHO_FOTO_TIPO_LABEL: Record<AparelhoFotoTipo, string> = {
+const APARELHO_FOTO_TIPO_LABEL: Record<AparelhoFotoTipo, string> = {
   front: "Frente",
   back: "Traseira",
   side: "Lateral",

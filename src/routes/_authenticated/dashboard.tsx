@@ -41,6 +41,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 // (e entregue/paga), e reprovada não vai ser executada — antes só
 // entregue/cancelado contavam, e o quadro de "em aberto" mostrava faturadas.
 const STATUS_FECHADOS = ["entregue", "faturado", "cancelado", "reprovado"];
+// Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
+// nenhuma, então o custo deles também não pode ser descontado do lucro.
+const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
 
 function intervaloDoPeriodo(
   periodo: Periodo,
@@ -168,36 +171,36 @@ function Dashboard() {
   // ele categorizado como produto físico ou como serviço. Excluir os itens
   // tipo "servico" aqui zerava o CMV inteiro para uma assistência que só
   // cadastra peças dentro de Serviços (nunca em Produtos).
-  // Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
-  // nenhuma, então o custo deles também não pode ser descontado do lucro.
-  const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
   // O custo dos serviços (produtos com categoria "Serviço") fica separado do
   // CMV das peças/produtos para aparecer no próprio card — é o mesmo valor
   // que o Financeiro mostra como saída automática "Custo dos serviços".
   // `custoPorDia` alimenta o gráfico, que também desconta esses custos.
-  let cmv = 0;
-  let custoServicos = 0;
-  const custoPorDia = new Map<string, number>();
-  function somarCusto(produtoId: string | null, quantidade: number, criadoEm: string) {
-    const produto = produtoId ? produtosById.get(produtoId) : null;
-    if (!produto) return;
-    const custo = Number(quantidade) * Number(produto.preco_custo ?? 0);
-    if (produto.categoria === "Serviço") custoServicos += custo;
-    else cmv += custo;
-    const dia = format(new Date(criadoEm), "yyyy-MM-dd");
-    custoPorDia.set(dia, (custoPorDia.get(dia) ?? 0) + custo);
-  }
-  for (const i of data?.osItens ?? []) {
-    const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
-      .ordens_servico?.status;
-    if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
-    somarCusto(i.produto_id, i.quantidade, i.created_at);
-  }
-  for (const i of data?.vendaItens ?? []) {
-    const statusVenda = (i as unknown as { vendas?: { status?: string } | null }).vendas?.status;
-    if (statusVenda === "cancelado") continue;
-    somarCusto(i.produto_id, i.quantidade, i.created_at);
-  }
+  const { cmv, custoServicos, custoPorDia } = useMemo(() => {
+    let cmv = 0;
+    let custoServicos = 0;
+    const custoPorDia = new Map<string, number>();
+    function somarCusto(produtoId: string | null, quantidade: number, criadoEm: string) {
+      const produto = produtoId ? produtosById.get(produtoId) : null;
+      if (!produto) return;
+      const custo = Number(quantidade) * Number(produto.preco_custo ?? 0);
+      if (produto.categoria === "Serviço") custoServicos += custo;
+      else cmv += custo;
+      const dia = format(new Date(criadoEm), "yyyy-MM-dd");
+      custoPorDia.set(dia, (custoPorDia.get(dia) ?? 0) + custo);
+    }
+    for (const i of data?.osItens ?? []) {
+      const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
+        .ordens_servico?.status;
+      if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
+      somarCusto(i.produto_id, i.quantidade, i.created_at);
+    }
+    for (const i of data?.vendaItens ?? []) {
+      const statusVenda = (i as unknown as { vendas?: { status?: string } | null }).vendas?.status;
+      if (statusVenda === "cancelado") continue;
+      somarCusto(i.produto_id, i.quantidade, i.created_at);
+    }
+    return { cmv, custoServicos, custoPorDia };
+  }, [data?.osItens, data?.vendaItens, produtosById]);
   const lucroLiquido = receita - cmv - custoServicos - despesas;
   const margem = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
 

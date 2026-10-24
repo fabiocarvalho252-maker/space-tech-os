@@ -1,6 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { formatFinancialValue } from "@/lib/format";
+import {
+  FinancialVisibilityContext,
+  type FinancialVisibilityContextValue,
+} from "@/hooks/useFinancialVisibility";
 
 const STORAGE_KEY = "space-tech-financial-values-visible";
 
@@ -9,16 +13,6 @@ function lerPreferenciaInicial(): boolean {
   const salvo = window.localStorage.getItem(STORAGE_KEY);
   return salvo === null ? true : salvo === "true";
 }
-
-type FinancialVisibilityContextValue = {
-  isFinancialValuesVisible: boolean;
-  toggleFinancialValues: () => void;
-  showFinancialValues: () => void;
-  hideFinancialValues: () => void;
-  formatFinancialValue: (value: number | string | null | undefined) => string;
-};
-
-const FinancialVisibilityContext = createContext<FinancialVisibilityContextValue | null>(null);
 
 export function FinancialVisibilityProvider({ children }: { children: ReactNode }) {
   const [isFinancialValuesVisible, setIsFinancialValuesVisible] = useState(lerPreferenciaInicial);
@@ -59,12 +53,4 @@ export function FinancialVisibilityProvider({ children }: { children: ReactNode 
       {children}
     </FinancialVisibilityContext.Provider>
   );
-}
-
-export function useFinancialVisibility() {
-  const ctx = useContext(FinancialVisibilityContext);
-  if (!ctx) {
-    throw new Error("useFinancialVisibility deve ser usado dentro de FinancialVisibilityProvider");
-  }
-  return ctx;
 }

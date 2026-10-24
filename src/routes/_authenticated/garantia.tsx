@@ -165,7 +165,7 @@ function Garantia() {
       h1{font-size:18px;border-bottom:2px solid #4f46e5;padding-bottom:10px}
       p{white-space:pre-line;font-size:13px}</style></head><body>
       <h1>${termo.titulo}</h1><p>${termo.conteudo}</p>
-      <script>window.onload=()=>window.print()<\/script></body></html>`);
+      <script>window.onload=()=>window.print()</script></body></html>`);
     janela.document.close();
   }
 
