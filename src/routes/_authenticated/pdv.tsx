@@ -12,7 +12,8 @@ import {
   Check,
   Package,
   Wrench,
-  ClipboardList
+  ClipboardList,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClienteSelect } from "@/components/ClienteSelect";
+import { CaixaDialog, useCaixa } from "@/components/CaixaDialog";
 import {
   ComprovanteVendaDialog,
   type VendaParaComprovante,
@@ -134,6 +136,10 @@ function PDV() {
   const [comprovante, setComprovante] = useState<VendaParaComprovante | null>(null);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [valorRecebidoInput, setValorRecebidoInput] = useState("");
+  const { caixa, controleAtivo } = useCaixa(empresaId);
+  const [caixaDialogAberto, setCaixaDialogAberto] = useState(false);
+  // Com "Controle de caixa" ligado em Configurações, só vende com caixa aberto.
+  const caixaBloqueado = controleAtivo && !caixa;
   const buscaRef = useRef<HTMLInputElement>(null);
   const buscaPainelRef = useRef<HTMLInputElement>(null);
 
@@ -202,6 +208,7 @@ function PDV() {
     mutationFn: async () => {
       if (!carrinho.length) throw new Error("Carrinho vazio");
       if (!user) throw new Error("Usuário não autenticado");
+      if (caixaBloqueado) throw new Error("Abra o caixa antes de finalizar a venda");
       if (formaPagamento === "Dinheiro" && valorRecebidoInput && valorRecebido < total) {
         throw new Error("Valor recebido é menor que o total");
       }
@@ -302,7 +309,7 @@ function PDV() {
   // As funções mudam a cada render; o listener lê sempre a versão atual.
   const teclaRef = useRef<(e: KeyboardEvent) => void>(() => {});
   teclaRef.current = (e: KeyboardEvent) => {
-    if (comprovante) return;
+    if (comprovante || caixaDialogAberto) return;
     if (e.key === "F2") {
       e.preventDefault();
       if (finalizarAberto) return;
@@ -452,8 +459,19 @@ function PDV() {
             </p>
           </div>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="flex items-center justify-end gap-2 text-sm font-medium">
+        <div className="flex shrink-0 items-center gap-3 text-right">
+          <Button
+            variant="outline"
+            className="h-10 gap-2 rounded-xl"
+            onClick={() => setCaixaDialogAberto(true)}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${caixa ? "bg-emerald-500" : controleAtivo ? "bg-red-500" : "bg-muted-foreground/40"}`}
+            />
+            <Wallet className="h-4 w-4" />
+            {caixa ? "Caixa aberto" : "Caixa"}
+          </Button>
+          <div className="hidden items-center justify-end gap-2 text-sm font-medium sm:flex">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span>{dataFormatada}</span>
             <span className="text-muted-foreground">|</span>
@@ -495,6 +513,16 @@ function PDV() {
               ))}
             </div>
           </div>
+
+          {caixaBloqueado && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+              <Wallet className="h-4 w-4 shrink-0 text-amber-600" />
+              <span className="flex-1">O caixa está fechado. Abra o caixa para começar a vender.</span>
+              <Button size="sm" onClick={() => setCaixaDialogAberto(true)}>
+                Abrir caixa
+              </Button>
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
@@ -680,6 +708,7 @@ function PDV() {
       </div>
 
       <ComprovanteVendaDialog venda={comprovante} onClose={() => setComprovante(null)} />
+      <CaixaDialog open={caixaDialogAberto} onOpenChange={setCaixaDialogAberto} empresaId={empresaId} />
 
       <Dialog open={painelAberto} onOpenChange={(o) => !finalizar.isPending && setPainelAberto(o)}>
         {/* Tela cheia no celular, com total e "Finalizar" fixos no rodapé. */}

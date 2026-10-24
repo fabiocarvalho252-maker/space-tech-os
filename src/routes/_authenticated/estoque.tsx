@@ -11,6 +11,7 @@ import {
   Copy,
   Eye,
   History,
+  PackagePlus,
   Package,
   Pencil,
   Plus,
@@ -33,6 +34,7 @@ import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HistoricoEstoqueDialog } from "@/components/HistoricoEstoqueDialog";
+import { AjustarEstoqueDialog } from "@/components/AjustarEstoqueDialog";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({
@@ -130,6 +132,7 @@ function Estoque() {
   const [produtoAtual, setProdutoAtual] = useState<Produto | null>(null);
   const [confirmExcluir, setConfirmExcluir] = useState<Produto | null>(null);
   const [historico, setHistorico] = useState<Produto | null>(null);
+  const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>({ campo: "nome", direcao: "asc" });
   const [pagina, setPagina] = useState(1);
 
@@ -472,6 +475,9 @@ function Estoque() {
                         <IconAction label="Visualizar" onClick={() => abrirVer(p)}>
                           <Eye className="h-4 w-4" />
                         </IconAction>
+                        <IconAction label="Ajustar estoque" onClick={() => setAjuste(p)}>
+                          <PackagePlus className="h-4 w-4" />
+                        </IconAction>
                         <IconAction label="Histórico de estoque" onClick={() => setHistorico(p)}>
                           <History className="h-4 w-4" />
                         </IconAction>
@@ -610,6 +616,7 @@ function Estoque() {
       </Dialog>
 
       <HistoricoEstoqueDialog produto={historico} onOpenChange={(v) => !v && setHistorico(null)} />
+      <AjustarEstoqueDialog produto={ajuste} onOpenChange={(v) => !v && setAjuste(null)} />
 
       <ConfirmDialog
         open={!!confirmExcluir}
