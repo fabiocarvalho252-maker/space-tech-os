@@ -40,7 +40,15 @@ export const Route = createFileRoute("/_authenticated/clientes")({
   component: Clientes,
 });
 
-const vazio = { nome: "", telefone: "", email: "", documento: "", endereco: "", observacoes: "" };
+const vazio = {
+  nome: "",
+  telefone: "",
+  email: "",
+  documento: "",
+  data_nascimento: "",
+  endereco: "",
+  observacoes: "",
+};
 
 function Clientes() {
   const qc = useQueryClient();
@@ -80,6 +88,7 @@ function Clientes() {
       telefone: c.telefone ?? "",
       email: c.email ?? "",
       documento: c.documento ?? "",
+      data_nascimento: c.data_nascimento ?? "",
       endereco: c.endereco ?? "",
       observacoes: c.observacoes ?? "",
     });
@@ -157,11 +166,12 @@ function Clientes() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do cliente");
+      const dados = { ...form, data_nascimento: form.data_nascimento || null };
       if (editId) {
-        const { error } = await supabase.from("clientes").update(form).eq("id", editId);
+        const { error } = await supabase.from("clientes").update(dados).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("clientes").insert({ ...form, user_id: empresaId! });
+        const { error } = await supabase.from("clientes").insert({ ...dados, user_id: empresaId! });
         if (error) throw error;
       }
     },
@@ -277,6 +287,15 @@ function Clientes() {
                   value={form.email}
                   onChange={(v) => setForm({ ...form, email: v })}
                 />
+                <div className="space-y-1.5">
+                  <Label>Data de nascimento</Label>
+                  <Input
+                    type="date"
+                    value={form.data_nascimento}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label>CEP</Label>
                   <div className="relative">

@@ -449,6 +449,7 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           created_at: string
+          data_nascimento: string | null
           documento: string | null
           email: string | null
           endereco: string | null
@@ -462,6 +463,7 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           created_at?: string
+          data_nascimento?: string | null
           documento?: string | null
           email?: string | null
           endereco?: string | null
@@ -475,6 +477,7 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           created_at?: string
+          data_nascimento?: string | null
           documento?: string | null
           email?: string | null
           endereco?: string | null

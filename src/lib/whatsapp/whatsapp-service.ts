@@ -795,3 +795,106 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   }
   return enfileiradas;
 }
+
+function hojeEmBrasilia(): { ano: number; mesDia: string } {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date()); // AAAA-MM-DD
+  return { ano: Number(partes.slice(0, 4)), mesDia: partes.slice(5) };
+}
+
+/**
+ * Mensagem de aniversário automática (Configurações > WhatsApp, desligada por
+ * padrão) para os clientes com data de nascimento hoje. Sai das 9h às 20h de
+ * Brasília, quando alguém abre Ordens de Serviço; uma por número por ano —
+ * a linha é gravada antes do envio e o índice único barra a segunda tela.
+ * Quem faz aniversário em 29/02 recebe em 28/02 nos anos não bissextos.
+ */
+export async function enviarAniversarios(empresaId: string): Promise<number> {
+  if (!evolutionConfigurado()) return 0;
+  const hora = horaDeBrasilia();
+  if (hora < 9 || hora >= 20) return 0;
+
+  const { data: config } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- colunas novas fora do Database type
+    .from("whatsapp_config" as any)
+    .select("notif_aniversario_auto, feliz_aniversario_texto")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const cfg = config as unknown as {
+    notif_aniversario_auto: boolean;
+    feliz_aniversario_texto: string | null;
+  } | null;
+  if (!cfg?.notif_aniversario_auto || !cfg.feliz_aniversario_texto?.trim()) return 0;
+
+  const { ano, mesDia } = hojeEmBrasilia();
+  const bissexto = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0;
+  const datasHoje = mesDia === "02-28" && !bissexto ? ["02-28", "02-29"] : [mesDia];
+
+  const { data: clientes } = await supabaseAdmin
+    .from("clientes")
+    .select("nome, telefone, data_nascimento")
+    .eq("user_id", empresaId)
+    .not("data_nascimento", "is", null);
+  const aniversariantes = (clientes ?? []).filter((c) =>
+    datasHoje.includes((c.data_nascimento ?? "").slice(5, 10)),
+  );
+  if (!aniversariantes.length) return 0;
+
+  const conexao = await obterConexao(empresaId);
+  if (!conexao || conexao.status !== "conectado") return 0;
+
+  let enviadas = 0;
+  for (const cliente of aniversariantes.slice(0, 30)) {
+    const telefone = (cliente.telefone ?? "").replace(/\D/g, "");
+    if (telefone.length < 10) continue;
+    const numeroCompleto = paraE164BR(telefone);
+    const primeiroNome = (cliente.nome ?? "").trim().split(/\s+/)[0] || "";
+    const mensagem = cfg.feliz_aniversario_texto
+      .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
+      .replace(/\{\{\s*(numero|status|tecnico)\s*\}\}/g, "")
+      .replace(/Parabéns\s*,?\s*!/g, "Parabéns!");
+
+    const { data: reserva, error } = await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+      .from("whatsapp_messages" as any)
+      .insert({
+        user_id: empresaId,
+        connection_id: conexao.id,
+        direction: "outbound",
+        phone_number: numeroCompleto,
+        contact_name: cliente.nome,
+        content: mensagem,
+        status: "pendente",
+        template_id: `aniversario_${ano}`,
+      })
+      .select("id")
+      .single();
+    // 23505: já enviado este ano (ou outra tela está enviando agora).
+    if (error) {
+      if (error.code === "23505") continue;
+      throw error;
+    }
+
+    let status: "enviado" | "falhou" = "enviado";
+    let evolutionMessageId: string | null = null;
+    let erro: string | null = null;
+    try {
+      const resultado = await enviarMensagemTexto(conexao.instance_name, numeroCompleto, mensagem);
+      evolutionMessageId = resultado.messageId;
+    } catch (e) {
+      status = "falhou";
+      erro = e instanceof Error ? e.message : String(e);
+    }
+    await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in the generated Database type yet
+      .from("whatsapp_messages" as any)
+      .update({ status, evolution_message_id: evolutionMessageId, error: erro })
+      .eq("id", (reserva as unknown as { id: string }).id);
+    if (status === "enviado") enviadas++;
+  }
+  return enviadas;
+}

@@ -2212,6 +2212,13 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_aniversario_auto",
+                        label: "Feliz aniversário para o cliente",
+                        key: "notif_aniversario_auto",
+                        textoKey: "feliz_aniversario_texto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_os_criada",
                         label: "OS criada",
                         key: "notif_os_criada",
@@ -2251,12 +2258,6 @@ function Configuracoes() {
                         id: "relatorio_semanal_ia",
                         label: "Gestão: Relatório Semanal de Desempenho (via IA)",
                         key: "relatorio_semanal_ia",
-                        uso: "breve",
-                      },
-                      {
-                        id: "feliz_aniversario",
-                        label: "Relacionamento: Mensagem de Feliz Aniversário",
-                        key: "feliz_aniversario",
                         uso: "breve",
                       },
                       {
@@ -2348,6 +2349,13 @@ function Configuracoes() {
                                 Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
                                 pela lista ou pela edição da OS. Precisa do WhatsApp conectado e do
                                 telefone do cliente cadastrado.
+                              </p>
+                            )}
+                            {item.key === "notif_aniversario_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Vai no dia do aniversário, das 9h às 20h, quando alguém abrir Ordens
+                                de Serviço — uma vez por ano. Só para clientes com data de
+                                nascimento e telefone no cadastro (Clientes → editar).
                               </p>
                             )}
                             {item.key === "notif_pesquisa_auto" && (
