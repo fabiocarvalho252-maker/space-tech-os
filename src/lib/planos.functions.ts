@@ -12,6 +12,14 @@ const PLANOS_SOLICITAVEIS = ["mensal", "anual", "vitalicio"] as const;
 
 const schema = z.object({ plano: z.enum(PLANOS_SOLICITAVEIS) });
 
+const NOME_PLANO: Record<string, string> = {
+  trial: "Teste grátis",
+  mensal: "Mensal",
+  anual: "Anual",
+  vitalicio: "Vitalício",
+  suspenso: "Suspenso",
+};
+
 export const solicitarPlano = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => schema.parse(data))
@@ -29,10 +37,29 @@ export const solicitarPlano = createServerFn({ method: "POST" })
       membership?.[0]?.empresa_id ??
       context.userId;
 
-    const { error } = await supabaseAdmin
+    const { data: perfil, error } = await supabaseAdmin
       .from("profiles")
       .update({ plano_solicitado: data.plano, plano_solicitado_em: new Date().toISOString() })
-      .eq("id", empresaId);
+      .eq("id", empresaId)
+      .select("loja, nome, plano, acesso_ate")
+      .single();
     if (error) throw error;
+
+    // Avisa o dono da plataforma no WhatsApp para aprovar no /admin.
+    const pago = ["mensal", "anual", "vitalicio"].includes(perfil.plano);
+    const ate = perfil.acesso_ate
+      ? ` até ${new Date(perfil.acesso_ate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
+      : "";
+    const { avisarDonoDaPlataforma } = await import("@/lib/whatsapp/whatsapp-service");
+    await avisarDonoDaPlataforma(
+      `aviso_plano_pedido_${empresaId}_${Date.now()}`,
+      [
+        `🆕 *${pago ? "Pedido de renovação" : "Pedido de plano"}* — ${perfil.loja || perfil.nome || "Loja sem nome"}`,
+        `Pediu: plano ${NOME_PLANO[data.plano]}`,
+        `Plano atual: ${NOME_PLANO[perfil.plano] ?? perfil.plano}${ate}`,
+        "",
+        `Aprovar no painel: ${import.meta.env["VITE_SITE_URL"] ?? ""}/admin`,
+      ].join("\n"),
+    );
     return { ok: true };
   });

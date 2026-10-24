@@ -12,7 +12,11 @@
 // x-signature validation uses MERCADOPAGO_WEBHOOK_SECRET (platform-level,
 // process.env — not a per-empresa secret like the Pix webhook's).
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { reconciliarAssinatura, reconciliarPagamentoAssinatura } from "./subscription-service";
+import {
+  reconciliarAssinatura,
+  reconciliarPagamentoAssinatura,
+  reconciliarPagamentoCartao,
+} from "./subscription-service";
 
 function extrairDataId(url: URL, corpo: Record<string, unknown>): string | null {
   const daQuery = url.searchParams.get("data.id");
@@ -88,7 +92,9 @@ export async function handleMercadoPagoSubscriptionWebhook(request: Request): Pr
   try {
     if (tipo === "subscription_preapproval") {
       await reconciliarAssinatura(dataId);
-    } else if (tipo === "subscription_authorized_payment" || tipo === "payment") {
+    } else if (tipo === "subscription_authorized_payment") {
+      await reconciliarPagamentoCartao(dataId);
+    } else if (tipo === "payment") {
       await reconciliarPagamentoAssinatura(dataId);
     }
     return new Response("ok", { status: 200 });

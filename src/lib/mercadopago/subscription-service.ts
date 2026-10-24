@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { MercadoPagoProvider, type PaymentGateway } from "./payment-gateway";
 import { comTaxaRepassada } from "./fees";
+import { avisarDonoDaPlataforma } from "@/lib/whatsapp/whatsapp-service";
 import {
   aplicarDescontoIndicacao,
   marcarReferralComoPendente,
@@ -178,9 +179,48 @@ export async function iniciarAssinatura(
   return { paymentMethod: "pix", qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 };
 }
 
+type PagamentoAviso = { metodo: "Pix" | "cartão"; valor: number | null };
+
+/** Avisa o dono da plataforma no WhatsApp que um plano foi pago/renovado. */
+async function avisarPagamentoPlano(
+  tipo: "pago" | "renovado",
+  subscriptionId: string,
+  chave: string,
+  pagamento: PagamentoAviso,
+) {
+  const { data } = await supabaseAdmin
+    .from("subscriptions")
+    .select("billing_cycle, next_billing_date, plans(name), profiles:empresa_id(loja, nome)")
+    .eq("id", subscriptionId)
+    .maybeSingle();
+  const plano = (data?.plans as { name: string } | null)?.name ?? "—";
+  const empresa = data?.profiles as { loja: string | null; nome: string | null } | null;
+  const ciclo = data?.billing_cycle === "yearly" ? "anual" : "mensal";
+  const valor = pagamento.valor
+    ? ` — ${pagamento.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+    : "";
+  const proxima = data?.next_billing_date
+    ? `Próxima cobrança: ${new Date(data.next_billing_date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+    : null;
+  await avisarDonoDaPlataforma(
+    `aviso_plano_${tipo}_${chave}`,
+    [
+      `${tipo === "pago" ? "💰 *Plano pago*" : "🔁 *Renovação paga*"} — ${empresa?.loja || empresa?.nome || "Loja sem nome"}`,
+      `Plano ${plano} (${ciclo}) no ${pagamento.metodo}${valor}`,
+      tipo === "pago" ? "Plano liberado automaticamente." : "Assinatura segue ativa.",
+      ...(proxima ? [proxima] : []),
+    ].join("\n"),
+  );
+}
+
 /** Ativa a assinatura e libera o plano — único lugar que faz isso, chamado
  * só depois de uma reconciliação bem-sucedida (nunca direto de um webhook). */
-async function ativarAssinatura(subscriptionId: string, planId: string, empresaId: string) {
+async function ativarAssinatura(
+  subscriptionId: string,
+  planId: string,
+  empresaId: string,
+  pagamento: PagamentoAviso,
+) {
   const agora = new Date();
   await supabaseAdmin
     .from("subscriptions")
@@ -210,6 +250,8 @@ async function ativarAssinatura(subscriptionId: string, planId: string, empresaI
       console.error("[Referrals] Falha ao consumir desconto de indicação:", erro);
     }
   }
+
+  await avisarPagamentoPlano("pago", subscriptionId, subscriptionId, pagamento);
 }
 
 /** Re-consulta o Mercado Pago pelo preapproval id — nunca confia no status
@@ -228,7 +270,10 @@ export async function reconciliarAssinatura(mpPreapprovalId: string): Promise<vo
   if (status === subscription.status) return; // já reconciliado
 
   if (status === "active" && subscription.status !== "active") {
-    await ativarAssinatura(subscription.id, subscription.plan_id, subscription.empresa_id);
+    await ativarAssinatura(subscription.id, subscription.plan_id, subscription.empresa_id, {
+      metodo: "cartão",
+      valor: null,
+    });
     return;
   }
 
@@ -241,7 +286,7 @@ export async function reconciliarAssinatura(mpPreapprovalId: string): Promise<vo
 export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promise<void> {
   const { data: payment } = await supabaseAdmin
     .from("subscription_payments")
-    .select("id, subscription_id, status, subscriptions(id, empresa_id, plan_id, status)")
+    .select("id, subscription_id, status, amount, subscriptions(id, empresa_id, plan_id, status)")
     .eq("mercado_pago_payment_id", mpPaymentId)
     .maybeSingle();
   if (!payment) return;
@@ -263,14 +308,87 @@ export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promi
     plan_id: string;
     status: string;
   } | null;
-  if (status === "paid" && subscription && subscription.status !== "active") {
-    await ativarAssinatura(subscription.id, subscription.plan_id, subscription.empresa_id);
+  if (status === "paid" && subscription) {
+    // Antes do aviso, para ele já mostrar a próxima cobrança.
     await supabaseAdmin
       .from("subscriptions")
       .update({
         next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
       })
       .eq("id", subscription.id);
+    const pagamento = { metodo: "Pix", valor: Number(payment.amount) } as const;
+    if (subscription.status !== "active") {
+      await ativarAssinatura(
+        subscription.id,
+        subscription.plan_id,
+        subscription.empresa_id,
+        pagamento,
+      );
+    } else {
+      await avisarPagamentoPlano("renovado", subscription.id, payment.id, pagamento);
+    }
+  }
+}
+
+/** Cobrança mensal/anual de uma assinatura no cartão (webhook
+ * subscription_authorized_payment). Re-consulta o Mercado Pago, registra o
+ * pagamento aprovado em subscription_payments (uma vez só) e avança a
+ * próxima cobrança. A 1ª cobrança é a da ativação (aviso "plano pago" vem de
+ * reconciliarAssinatura); as seguintes avisam o dono como renovação. */
+export async function reconciliarPagamentoCartao(mpAuthorizedPaymentId: string): Promise<void> {
+  const gateway = obterGateway();
+  const cobranca = await gateway.getCardRecurringPayment(mpAuthorizedPaymentId);
+  if (cobranca.status !== "paid" || !cobranca.preapprovalId) return;
+
+  const { data: subscription } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id, status, billing_cycle")
+    .eq("mercado_pago_preapproval_id", cobranca.preapprovalId)
+    .maybeSingle();
+  if (!subscription) return; // não é nossa
+
+  const { count: anteriores } = await supabaseAdmin
+    .from("subscription_payments")
+    .select("id", { count: "exact", head: true })
+    .eq("subscription_id", subscription.id)
+    .eq("payment_method", "credit_card")
+    .eq("status", "paid");
+
+  const { data: registrado, error } = await supabaseAdmin
+    .from("subscription_payments")
+    .insert({
+      subscription_id: subscription.id,
+      amount: cobranca.amount,
+      payment_method: "credit_card",
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      // Prefixo: ids de cobrança do cartão e de pagamento Pix são de espaços
+      // diferentes no Mercado Pago e dividem esta coluna única.
+      mercado_pago_payment_id: `ap-${mpAuthorizedPaymentId}`,
+      external_reference: `ST-AP-${mpAuthorizedPaymentId}`,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") return; // webhook repetido — já registrado
+    throw error;
+  }
+  await registrarEvento(subscription.id, "MP_CARD_PAYMENT_PAID", {
+    mpId: mpAuthorizedPaymentId,
+    amount: cobranca.amount,
+  });
+
+  const dias = subscription.billing_cycle === "yearly" ? 365 : 30;
+  await supabaseAdmin
+    .from("subscriptions")
+    .update({ next_billing_date: new Date(Date.now() + dias * 24 * 60 * 60_000).toISOString() })
+    .eq("id", subscription.id);
+
+  if (anteriores && subscription.status === "active") {
+    await avisarPagamentoPlano("renovado", subscription.id, registrado.id, {
+      metodo: "cartão",
+      valor: cobranca.amount,
+    });
   }
 }
 

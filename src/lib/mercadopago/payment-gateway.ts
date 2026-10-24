@@ -3,7 +3,12 @@
 // today (MercadoPagoProvider), but the interface exists so a future
 // provider swap doesn't mean rewriting subscription-service.ts.
 import { criarPagamentoPix, buscarPagamento } from "@/lib/pix/mercadopago-api";
-import { criarPreapproval, buscarPreapproval, cancelarPreapproval } from "./mercadopago-api";
+import {
+  criarPreapproval,
+  buscarPreapproval,
+  cancelarPreapproval,
+  buscarPagamentoAutorizado,
+} from "./mercadopago-api";
 import { mapMercadoPagoPaymentStatus, mapMercadoPagoSubscriptionStatus } from "./status";
 
 export type CreatePixPaymentInput = {
@@ -46,6 +51,9 @@ export interface PaymentGateway {
     mpId: string,
   ): Promise<{ status: string; externalReference: string | null }>;
   cancelSubscription(mpId: string): Promise<void>;
+  getCardRecurringPayment(
+    mpId: string,
+  ): Promise<{ preapprovalId: string | null; amount: number; status: string }>;
 }
 
 export class MercadoPagoProvider implements PaymentGateway {
@@ -106,5 +114,16 @@ export class MercadoPagoProvider implements PaymentGateway {
 
   async cancelSubscription(mpId: string): Promise<void> {
     await cancelarPreapproval(this.accessToken, mpId);
+  }
+
+  async getCardRecurringPayment(
+    mpId: string,
+  ): Promise<{ preapprovalId: string | null; amount: number; status: string }> {
+    const r = await buscarPagamentoAutorizado(this.accessToken, mpId);
+    return {
+      preapprovalId: r.preapprovalId,
+      amount: r.valor,
+      status: r.statusPagamento ? mapMercadoPagoPaymentStatus(r.statusPagamento) : "pending",
+    };
   }
 }

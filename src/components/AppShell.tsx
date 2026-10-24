@@ -50,6 +50,8 @@ import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useC
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
+import { listarPedidosPlanoPendentesFn } from "@/lib/site-admin.functions";
+import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
 import {
   listarReclamacoesPesquisaFn,
   processarNotificacoesAgendadasWhatsAppFn,
@@ -478,22 +480,39 @@ type Notificacao = {
 };
 
 function useNotificacoes() {
+  const { data: user } = useCurrentUser();
+  // Pedidos de plano das lojas: só a conta do operador do site vê.
+  const souOperador = user?.email === SITE_ADMIN_EMAIL;
   return useQuery({
-    queryKey: ["notificacoes-header"],
+    queryKey: ["notificacoes-header", souOperador],
     queryFn: async () => {
-      const [{ data: produtos }, { count: osAguardando }, reclamacoes] = await Promise.all([
-        supabase.from("produtos").select("id, nome, quantidade, estoque_minimo"),
-        supabase
-          .from("ordens_servico")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "aguardando_aprovacao"),
-        // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
-        listarReclamacoesPesquisaFn().catch(() => []),
-      ]);
+      const [{ data: produtos }, { count: osAguardando }, reclamacoes, pedidosPlano] =
+        await Promise.all([
+          supabase.from("produtos").select("id, nome, quantidade, estoque_minimo"),
+          supabase
+            .from("ordens_servico")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "aguardando_aprovacao"),
+          // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
+          listarReclamacoesPesquisaFn().catch(() => []),
+          souOperador ? listarPedidosPlanoPendentesFn().catch(() => []) : Promise.resolve([]),
+        ]);
 
       const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
 
       const itens: Notificacao[] = [];
+      if (pedidosPlano.length > 0) {
+        itens.push({
+          id: "pedidos-plano",
+          titulo: `${pedidosPlano.length} pedido${pedidosPlano.length > 1 ? "s" : ""} de plano pendente${pedidosPlano.length > 1 ? "s" : ""}`,
+          descricao: pedidosPlano
+            .slice(0, 3)
+            .map((p) => `${p.loja} (${p.plano})`)
+            .join(", "),
+          to: "/admin",
+          icon: CreditCard,
+        });
+      }
       if (baixoEstoque.length > 0) {
         itens.push({
           id: "estoque-baixo",

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
 import {
   atualizarStatusSistema,
   conectarSistema,
@@ -27,7 +28,7 @@ function origemPublicaServer(): string {
 // company admin can be granted — there is no "site owner" role/flag in the
 // schema, and adding one just for a single person isn't worth the surface
 // area. Authorization is enforced here, server-side, not by hiding a link.
-export const SITE_ADMIN_EMAIL = "admin@spacetech.app";
+export { SITE_ADMIN_EMAIL };
 
 export function checarSiteAdmin(claims: Record<string, unknown>) {
   if (claims["email"] !== SITE_ADMIN_EMAIL) {
@@ -643,4 +644,24 @@ export const enviarMensagemReativacaoFn = createServerFn({ method: "POST" })
       throw e;
     }
     return { ok: true, via: "loja" };
+  });
+
+export type PedidoPlanoPendente = { loja: string; plano: string };
+
+/** Pedidos de plano ainda não atendidos — para o sininho do operador. */
+export const listarPedidosPlanoPendentesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<PedidoPlanoPendente[]> => {
+    checarSiteAdmin(context.claims);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("loja, nome, plano_solicitado")
+      .not("plano_solicitado", "is", null)
+      .order("plano_solicitado_em", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((p) => ({
+      loja: p.loja || p.nome || "Loja sem nome",
+      plano: p.plano_solicitado as string,
+    }));
   });

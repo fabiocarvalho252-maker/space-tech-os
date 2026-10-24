@@ -120,3 +120,28 @@ export async function cancelarPreapproval(accessToken: string, mpId: string): Pr
     status: "cancelled",
   });
 }
+
+export type PagamentoAutorizadoConsultado = {
+  preapprovalId: string | null;
+  valor: number;
+  /** Status do pagamento gerado pela cobrança (approved, rejected...), se já houver. */
+  statusPagamento: string | null;
+};
+
+/** Cobrança recorrente de uma assinatura no cartão (webhook
+ * subscription_authorized_payment) — cada mês gera uma destas. */
+export async function buscarPagamentoAutorizado(
+  accessToken: string,
+  id: string,
+): Promise<PagamentoAutorizadoConsultado> {
+  const data = await chamar<{
+    preapproval_id?: string;
+    transaction_amount?: number;
+    payment?: { status?: string } | null;
+  }>(accessToken, "GET", `/authorized_payments/${encodeURIComponent(id)}`);
+  return {
+    preapprovalId: data.preapproval_id ?? null,
+    valor: Number(data.transaction_amount ?? 0),
+    statusPagamento: data.payment?.status ?? null,
+  };
+}

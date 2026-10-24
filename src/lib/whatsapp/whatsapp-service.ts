@@ -7,6 +7,7 @@
 // explicit `.eq("user_id", userId)` rather than relying on a user JWT, since
 // some callers (the webhook) have no user session at all.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
 import { salvarPdfOsNoStorage } from "@/lib/os-pdf.server";
 import {
   EvolutionApiError,
@@ -1511,6 +1512,65 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
     templateId,
   });
   return envio === "enviado";
+}
+
+// A empresa do operador do site (conta do /admin): é por ela que saem os
+// avisos da plataforma (pedidos e pagamentos de plano). Resolvida uma vez.
+let empresaDoOperador: string | null = null;
+async function obterEmpresaDoOperador(): Promise<string | null> {
+  if (empresaDoOperador) return empresaDoOperador;
+  const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  empresaDoOperador = data.users.find((u) => u.email === SITE_ADMIN_EMAIL)?.id ?? null;
+  return empresaDoOperador;
+}
+
+/**
+ * Avisa o dono da plataforma no WhatsApp (pedido de plano, plano pago,
+ * renovação). Sai pela conexão de WhatsApp da empresa do operador para o
+ * "número do dono" de Configurações > WhatsApp (o mesmo do resumo semanal).
+ * `templateId` único por acontecimento evita aviso repetido quando o
+ * Mercado Pago reenvia o webhook. Nunca lança: o aviso não pode atrapalhar o
+ * pedido ou o pagamento que o originou.
+ */
+export async function avisarDonoDaPlataforma(templateId: string, mensagem: string): Promise<void> {
+  try {
+    if (!evolutionConfigurado()) return;
+    const empresaId = await obterEmpresaDoOperador();
+    if (!empresaId) return;
+
+    const [{ data: config }, { data: perfil }] = await Promise.all([
+      supabaseAdmin
+        .from("whatsapp_config")
+        .select("relatorio_numero")
+        .eq("user_id", empresaId)
+        .maybeSingle(),
+      supabaseAdmin.from("profiles").select("whatsapp").eq("id", empresaId).maybeSingle(),
+    ]);
+    const telefone = (config?.relatorio_numero || perfil?.whatsapp || "").replace(/\D/g, "");
+    if (telefone.length < 10) {
+      console.warn("[Aviso plataforma] Sem número do dono em Configurações > WhatsApp.");
+      return;
+    }
+
+    const conexao = await obterConexao(empresaId);
+    if (!conexao || conexao.status !== "conectado") {
+      console.warn("[Aviso plataforma] WhatsApp da empresa do operador desconectado.");
+      return;
+    }
+
+    const envio = await enviarAutomatico({
+      empresaId,
+      conexao,
+      numeroCompleto: paraE164BR(telefone),
+      nome: null,
+      mensagem,
+      templateId,
+    });
+    if (envio === "falhou") console.warn(`[Aviso plataforma] Falha ao enviar ${templateId}.`);
+  } catch (erro) {
+    console.error("[Aviso plataforma] Erro ao avisar o dono:", erro);
+  }
 }
 
 export type ReclamacaoPesquisa = {
