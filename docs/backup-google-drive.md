@@ -21,8 +21,12 @@ Brasília), via `POST /api/backup-drive/cron`.
    - Tipo de usuário: **Externo**.
    - Nome do app: `SPACE TECH OS`; e-mail de suporte; domínio autorizado:
      `srmpretech.online`.
-   - Escopos: `.../auth/drive.file`, `openid`, `email` (não são escopos
-     sensíveis, não exigem verificação do Google).
+   - **Acesso a dados**: adicione os escopos `.../auth/drive.file`, `openid` e
+     `.../auth/userinfo.email` e salve (não são sensíveis, não exigem
+     verificação). Sem registrar, o Google corta o drive.file em silêncio e a
+     conexão falha com "É preciso marcar a permissão de acesso ao Google Drive".
+   - **Branding**: links de `https://srmpretech.online/privacidade` e
+     `https://srmpretech.online/termos` (obrigatórios para publicar).
    - **Público → Publicar app** ("Em produção"). Em modo "Teste" o Google
      derruba a conexão a cada 7 dias e só deixa entrar e-mails cadastrados.
 4. **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth**:
