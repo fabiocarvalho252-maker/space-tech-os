@@ -20,6 +20,7 @@ import {
   apagarAntigos,
   enviarArquivo,
   garantirPasta,
+  revogar,
   tokenDeAcesso,
 } from "./google-drive.server";
 
@@ -38,6 +39,24 @@ const INTERVALO_AUTOMATICO_MS = 20 * 3_600_000;
 export type ResultadoBackup = { arquivo: string; tamanho: number; apagados: number };
 
 const emAndamento = new Set<string>();
+
+/**
+ * Cancela no Google a autorização de um token que saiu do sistema — só se
+ * nenhuma outra conexão usa a mesma conta Google. O Google cancela a
+ * autorização inteira da conta para o app, não só aquele token: revogar o
+ * de uma empresa derrubaria as outras conexões da mesma conta.
+ */
+export async function revogarSeNinguemMaisUsa(
+  refreshToken: string,
+  email: string | null,
+): Promise<void> {
+  if (!email) return;
+  const { count } = await supabaseAdmin
+    .from("backup_google_drive")
+    .select("id", { count: "exact", head: true })
+    .eq("email", email);
+  if (count === 0) await revogar(refreshToken);
+}
 
 function carimbo(d = new Date()): string {
   const p = new Intl.DateTimeFormat("en-CA", {

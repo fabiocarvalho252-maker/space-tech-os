@@ -112,15 +112,15 @@ export const desconectarDrive = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const id = await exigirDono(context, data.escopo);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { revogar } = await import("./google-drive.server");
+    const { revogarSeNinguemMaisUsa } = await import("./backup.server");
     const { data: c } = await supabaseAdmin
       .from("backup_google_drive")
-      .select("refresh_token")
+      .select("refresh_token, email")
       .eq("id", id)
       .maybeSingle();
     const { error } = await supabaseAdmin.from("backup_google_drive").delete().eq("id", id);
     if (error) throw error;
-    if (c) await revogar(c.refresh_token);
+    if (c) await revogarSeNinguemMaisUsa(c.refresh_token, c.email);
     return { ok: true };
   });
 

@@ -9,8 +9,8 @@
 //   contas inativas.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { ID_PLATAFORMA, rodarBackupsAgendados } from "./backup.server";
-import { GoogleDriveError, lerState, revogar, trocarCodigo } from "./google-drive.server";
+import { ID_PLATAFORMA, revogarSeNinguemMaisUsa, rodarBackupsAgendados } from "./backup.server";
+import { GoogleDriveError, lerState, trocarCodigo } from "./google-drive.server";
 
 function voltar(id: string | null, resultado: "conectado" | "erro", motivo?: string): Response {
   const destino = new URLSearchParams({ drive: resultado });
@@ -48,7 +48,10 @@ export async function handleGoogleDriveCallback(request: Request): Promise<Respo
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
-    if (anterior && anterior.refresh_token !== refreshToken) await revogar(anterior.refresh_token);
+    // Mesma conta Google: revogar o token antigo derrubaria o novo junto.
+    if (anterior && anterior.email !== email) {
+      await revogarSeNinguemMaisUsa(anterior.refresh_token, anterior.email);
+    }
     return voltar(state.id, "conectado");
   } catch (erro) {
     console.error("[Backup Drive] Falha ao conectar:", erro instanceof Error ? erro.message : erro);
