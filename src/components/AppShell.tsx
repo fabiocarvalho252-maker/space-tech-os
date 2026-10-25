@@ -37,7 +37,6 @@ import {
   HandCoins,
   MonitorDown,
   MessageSquareWarning,
-  FileUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -119,7 +118,6 @@ const NAV = [
   { to: "/indicacoes", label: "Programa de Indicações", icon: Gift, modulo: null },
   { to: "/usuarios", label: "Usuários", icon: UserCog, modulo: "configuracoes" },
   { to: "/configuracoes", label: "Configurações", icon: Settings, modulo: "configuracoes" },
-  { to: "/importar", label: "Importar dados", icon: FileUp, modulo: "configuracoes" },
 ] as const;
 
 export function AppShell() {
