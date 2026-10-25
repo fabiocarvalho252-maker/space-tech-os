@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CONTATO_WHATSAPP, CONTATO_WHATSAPP_LINK, PaginaLegal } from "@/components/PaginaLegal";
+import {
+  CONTATO_WHATSAPP,
+  CONTATO_WHATSAPP_LINK,
+  PaginaLegal,
+  RESPONSAVEL,
+} from "@/components/PaginaLegal";
 
 export const Route = createFileRoute("/privacidade")({
   head: () => ({
@@ -23,6 +28,10 @@ function Privacidade() {
         A empresa que assina o sistema (assistência técnica, loja) é a controladora dos dados dos
         seus próprios clientes. O SPACE TECH OS atua como operador: armazena e processa esses dados
         apenas para prestar o serviço contratado.
+      </p>
+      <p>
+        O SPACE TECH OS é mantido por <strong>{RESPONSAVEL}</strong>, responsável pelos dados das
+        contas das empresas e pelo atendimento sobre esta política.
       </p>
 
       <h2>2. Dados que tratamos</h2>
@@ -120,7 +129,7 @@ function Privacidade() {
 
       <h2>9. Contato</h2>
       <p>
-        Dúvidas sobre esta política ou sobre seus dados: WhatsApp{" "}
+        Dúvidas sobre esta política ou sobre seus dados: {RESPONSAVEL}, pelo WhatsApp{" "}
         <a href={CONTATO_WHATSAPP_LINK} className="text-primary underline">
           {CONTATO_WHATSAPP}
         </a>

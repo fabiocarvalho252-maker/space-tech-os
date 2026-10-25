@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { LogoMark, LogoWord } from "@/components/Logo";
 
+export const RESPONSAVEL = "SPACE TECH, de Fabio de Carvalho, Juazeiro-BA";
 export const CONTATO_WHATSAPP = "(74) 99929-4500";
 export const CONTATO_WHATSAPP_LINK = "https://wa.me/5574999294500";
 

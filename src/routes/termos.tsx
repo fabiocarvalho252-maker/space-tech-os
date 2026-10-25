@@ -1,5 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CONTATO_WHATSAPP, CONTATO_WHATSAPP_LINK, PaginaLegal } from "@/components/PaginaLegal";
+import {
+  CONTATO_WHATSAPP,
+  CONTATO_WHATSAPP_LINK,
+  PaginaLegal,
+  RESPONSAVEL,
+} from "@/components/PaginaLegal";
 
 export const Route = createFileRoute("/termos")({
   head: () => ({
@@ -13,8 +18,8 @@ function Termos() {
     <PaginaLegal titulo="Termos de Uso" atualizadoEm="25/10/2026">
       <p>
         Estes termos regulam o uso do SPACE TECH OS, sistema online de gestão para assistências
-        técnicas disponível em srmpretech.online. Ao criar uma conta ou usar o sistema, você
-        concorda com eles.
+        técnicas disponível em srmpretech.online, mantido por <strong>{RESPONSAVEL}</strong>. Ao
+        criar uma conta ou usar o sistema, você concorda com eles.
       </p>
 
       <h2>1. O serviço</h2>
@@ -82,7 +87,7 @@ function Termos() {
 
       <h2>9. Contato</h2>
       <p>
-        WhatsApp{" "}
+        {RESPONSAVEL} — WhatsApp{" "}
         <a href={CONTATO_WHATSAPP_LINK} className="text-primary underline">
           {CONTATO_WHATSAPP}
         </a>
