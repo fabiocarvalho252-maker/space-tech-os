@@ -141,19 +141,6 @@ function Compras() {
     enabled: !!user,
   });
 
-  const { data: statusFlows = [] } = useQuery({
-    queryKey: ["purchase-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchase_status_flows")
-        .select("*")
-        .eq("is_active", true);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   function fecharDialog() {
     setOpen(false);
     setFornecedorId("");
@@ -217,18 +204,8 @@ function Compras() {
   });
 
   const mudarStatus = useMutation({
-    mutationFn: async ({ id, status, origem }: { id: string; status: string; origem: string }) => {
-      if (statusFlows.length > 0) {
-        const permitido = statusFlows.some(
-          (f) => f.from_status === origem && f.to_status === status,
-        );
-        if (!permitido) {
-          throw new Error(
-            `Transição de ${statusLabel(origem)} para ${statusLabel(status)} não permitida no seu fluxo.`,
-          );
-        }
-      }
-
+    // Qualquer status pode ir para qualquer outro: compras não seguem fluxo.
+    mutationFn: async ({ id, status }: { id: string; status: string; origem: string }) => {
       const compra = compras.find((c) => c.id === id);
 
       // Entrada automática no estoque ao marcar como recebido — feita no

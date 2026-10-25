@@ -40,7 +40,6 @@ import {
   Calendar,
   Settings,
   ArrowRight,
-  ChevronRight,
   QrCode,
   FileText,
   Printer,
@@ -60,7 +59,7 @@ import {
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
-import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
+import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -262,30 +261,10 @@ function Configuracoes() {
     enabled: !!user,
   });
 
-  const { data: saleStatusFlows = [], refetch: refetchSaleFlows } = useQuery({
-    queryKey: ["sale-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("sale_status_flows").select("*");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const { data: purchaseConfig, refetch: refetchPurchaseConfig } = useQuery({
     queryKey: ["purchase-config"],
     queryFn: async () => {
       const { data, error } = await supabase.from("purchase_config").select("*").maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: purchaseStatusFlows = [], refetch: refetchPurchaseFlows } = useQuery({
-    queryKey: ["purchase-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("purchase_status_flows").select("*");
       if (error) throw error;
       return data;
     },
@@ -1450,11 +1429,11 @@ function Configuracoes() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft lg:col-span-2">
-              <div className="flex items-center justify-between mb-6">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+              <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-bold flex items-center gap-2">
                   <ArrowRight className="h-5 w-5 text-primary" />
-                  Fluxo entre Status de Vendas
+                  Numeração das vendas
                 </h2>
                 <div className="flex items-center gap-4">
                   <div className="space-y-1">
@@ -1476,79 +1455,6 @@ function Configuracoes() {
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {STATUS_VENDAS.map((origem) => (
-                  <div
-                    key={origem.value}
-                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
-                  >
-                    <h3 className="font-bold text-sm flex items-center gap-2">
-                      <ChevronRight className="h-4 w-4 text-primary" />
-                      De: {origem.label}
-                    </h3>
-                    <div className="space-y-2">
-                      {STATUS_VENDAS.filter((s) => s.value !== origem.value).map((destino) => {
-                        const flow = saleStatusFlows.find(
-                          (f) => f.origem === origem.value && f.destino === destino.value,
-                        );
-                        const isAtivo = flow?.ativo ?? false;
-                        return (
-                          <div
-                            key={destino.value}
-                            className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium">Para: {destino.label}</span>
-                              <Switch
-                                checked={isAtivo}
-                                onCheckedChange={async (checked) => {
-                                  if (checked) {
-                                    await supabase.from("sale_status_flows").upsert(
-                                      {
-                                        user_id: empresaId!,
-                                        origem: origem.value,
-                                        destino: destino.value,
-                                        ativo: true,
-                                      },
-                                      { onConflict: "user_id,origem,destino" },
-                                    );
-                                  } else {
-                                    await supabase.from("sale_status_flows").delete().match({
-                                      user_id: empresaId!,
-                                      origem: origem.value,
-                                      destino: destino.value,
-                                    });
-                                  }
-                                  refetchSaleFlows();
-                                }}
-                              />
-                            </div>
-                            {isAtivo && (
-                              <Input
-                                type="color"
-                                className="h-6 w-full p-0 border-none bg-transparent"
-                                value={flow?.cor || "#3b82f6"}
-                                onChange={async (e) => {
-                                  await supabase
-                                    .from("sale_status_flows")
-                                    .update({ cor: e.target.value })
-                                    .match({
-                                      user_id: empresaId!,
-                                      origem: origem.value,
-                                      destino: destino.value,
-                                    });
-                                  refetchSaleFlows();
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
               </div>
             </section>
           </div>
@@ -1590,97 +1496,6 @@ function Configuracoes() {
                     ))}
                   </select>
                 </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft lg:col-span-2">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <ArrowRight className="h-5 w-5 text-primary" />
-                  Fluxo entre Status de Compras
-                </h2>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                A listagem de compras usa apenas as transições ativas. Desligue para ocultar no menu
-                Alterar status.
-              </p>
-
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {STATUS_COMPRAS.map((origem) => (
-                  <div
-                    key={origem.value}
-                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
-                  >
-                    <h3 className="font-bold text-sm flex items-center gap-2">
-                      <ChevronRight className="h-4 w-4 text-primary" />
-                      De: {origem.label}
-                    </h3>
-                    <div className="space-y-2">
-                      {STATUS_COMPRAS.filter((s) => s.value !== origem.value).map((destino) => {
-                        const flow = purchaseStatusFlows.find(
-                          (f) => f.from_status === origem.value && f.to_status === destino.value,
-                        );
-                        const isAtivo = flow?.is_active ?? false;
-                        return (
-                          <div
-                            key={destino.value}
-                            className="flex flex-col gap-2 p-2 rounded-lg bg-background border border-border"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium">Para: {destino.label}</span>
-                              <Switch
-                                checked={isAtivo}
-                                onCheckedChange={async (checked) => {
-                                  if (checked) {
-                                    await supabase.from("purchase_status_flows").upsert(
-                                      {
-                                        user_id: empresaId!,
-                                        from_status: origem.value,
-                                        to_status: destino.value,
-                                        is_active: true,
-                                      },
-                                      { onConflict: "user_id,from_status,to_status" },
-                                    );
-                                  } else {
-                                    await supabase.from("purchase_status_flows").delete().match({
-                                      user_id: empresaId!,
-                                      from_status: origem.value,
-                                      to_status: destino.value,
-                                    });
-                                  }
-                                  refetchPurchaseFlows();
-                                }}
-                              />
-                            </div>
-                            {isAtivo && (
-                              <div className="space-y-1">
-                                <Label className="text-[10px] text-muted-foreground uppercase">
-                                  Cor
-                                </Label>
-                                <Input
-                                  type="color"
-                                  className="h-6 w-full p-0 border-none bg-transparent"
-                                  value={flow?.color || "#3b82f6"}
-                                  onChange={async (e) => {
-                                    await supabase
-                                      .from("purchase_status_flows")
-                                      .update({ color: e.target.value })
-                                      .match({
-                                        user_id: empresaId!,
-                                        from_status: origem.value,
-                                        to_status: destino.value,
-                                      });
-                                    refetchPurchaseFlows();
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
               </div>
             </section>
           </div>

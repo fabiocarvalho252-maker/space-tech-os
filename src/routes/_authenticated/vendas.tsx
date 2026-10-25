@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { dataBR, STATUS_VENDAS, statusLabel } from "@/lib/format";
+import { dataBR, STATUS_VENDAS } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { hojeISO } from "@/lib/crediario";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -119,19 +119,6 @@ function Vendas() {
       if (error) throw error;
       return data ?? [];
     },
-  });
-
-  const { data: statusFlows = [] } = useQuery({
-    queryKey: ["sale-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sale_status_flows")
-        .select("*")
-        .eq("ativo", true);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
   });
 
   const { data: itensDetalhe = [] } = useQuery({
@@ -260,14 +247,7 @@ function Vendas() {
       if (origem === "cancelado") {
         throw new Error("Venda cancelada não pode ser reaberta. Registre uma nova venda.");
       }
-      if (origem && statusFlows && statusFlows.length > 0) {
-        const permitido = statusFlows.some((f) => f.origem === origem && f.destino === status);
-        if (!permitido) {
-          throw new Error(
-            `Transição de ${statusLabel(origem)} para ${statusLabel(status)} não permitida no fluxo.`,
-          );
-        }
-      }
+      // Fora isso, qualquer status pode ir para qualquer outro (sem fluxo).
 
       // Cancelar uma venda precisa desfazer os dois efeitos colaterais que a
       // criação dela causou: devolver ao estoque as unidades de produto
