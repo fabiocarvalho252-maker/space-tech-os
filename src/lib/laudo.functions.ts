@@ -1,12 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const schema = z.object({
-  texto: z.string().min(1),
+  texto: z.string().min(1).max(10_000),
   modo: z.enum(["revisar", "melhorar"]),
 });
 
 export const ajustarLaudo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data }) => {
     const apiKey = process.env["LOVABLE_API_KEY"];

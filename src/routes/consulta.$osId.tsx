@@ -23,8 +23,8 @@ function ConsultaPublica() {
   } = useQuery({
     queryKey: ["os-publica", osId],
     queryFn: async () => {
-      // consultar_os_publica() aceita tanto o UUID (o que o QR Code
-      // codifica) quanto o número sequencial da OS, e roda com
+      // consultar_os_publica() aceita só o UUID (o que o QR Code e o
+      // link do WhatsApp levam; nunca o número sequencial), e roda com
       // SECURITY DEFINER — ordens_servico não tem nenhuma policy de RLS
       // liberada para o papel "anon", então uma consulta direta na tabela
       // sempre voltava vazia para um cliente sem login.

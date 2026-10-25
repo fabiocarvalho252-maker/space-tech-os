@@ -335,19 +335,20 @@ function PainelCliente() {
   }
 
   async function consultarPorNumero() {
-    const osRef = prompt("Informe o número ou ID da Ordem de Serviço:");
-    if (!osRef) return;
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(osRef);
-    let query = supabase.from("ordens_servico").select("id, numero");
-    query = isUuid ? query.eq("id", osRef) : query.eq("numero", Number(osRef) || -1);
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) {
-      toast.error("Ordem de Serviço não encontrada", {
-        description: "Verifique o número informado e tente novamente.",
+    const resposta = prompt("Cole o link ou o código da Ordem de Serviço (QR Code ou WhatsApp):");
+    if (!resposta) return;
+    // Só pelo código (UUID): pelo número sequencial daria para ver OS de
+    // qualquer loja (ver consultar_os_publica).
+    const osId = resposta.match(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    )?.[0];
+    if (!osId) {
+      toast.error("Código da Ordem de Serviço inválido", {
+        description: "Use o link do QR Code impresso na OS ou o enviado pelo WhatsApp.",
       });
       return;
     }
-    navigate({ to: `/consulta/${osRef}` });
+    navigate({ to: `/consulta/${osId}` });
   }
 
   return (
