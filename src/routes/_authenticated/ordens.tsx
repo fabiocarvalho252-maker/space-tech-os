@@ -1038,7 +1038,7 @@ function Ordens() {
       ordens.filter(
         (o) =>
           o.responsavel_user_id === user?.id &&
-          !["entregue", "faturado", "cancelado", "reprovado"].includes(o.status),
+          !["pronto", "entregue", "faturado", "cancelado", "reprovado"].includes(o.status),
       ).length,
     [ordens, user?.id],
   );
