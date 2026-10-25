@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 
 const RECURSOS_PROFISSIONAL = [
-  "Nota Fiscal",
   "IA Profissional",
   "IA Financeira",
   "IA de Vendas",

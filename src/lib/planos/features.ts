@@ -75,7 +75,6 @@ export const FEATURES_EXIBICAO: { feature: string; label: string }[] = [
   { feature: "DRE", label: "DRE" },
   { feature: "RELATORIOS_BASICOS", label: "Relatórios básicos" },
   { feature: "WHATSAPP", label: "WhatsApp" },
-  { feature: "NOTA_FISCAL", label: "Nota Fiscal" },
   { feature: "IA_BASICA", label: "IA Básica" },
   { feature: "IA_PROFISSIONAL", label: "IA Profissional" },
   { feature: "IA_FINANCEIRA", label: "IA Financeira" },

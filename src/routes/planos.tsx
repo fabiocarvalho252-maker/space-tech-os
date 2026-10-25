@@ -83,7 +83,7 @@ function Planos() {
   });
 
   // Só lista recursos que algum plano ativo oferece — com o Profissional
-  // desativado, as linhas exclusivas dele (IA avançada, Nota Fiscal...)
+  // desativado, as linhas exclusivas dele (IA avançada...)
   // apareceriam só como "X" no Básico.
   const featuresVisiveis = FEATURES_EXIBICAO.filter((f) =>
     (planos ?? []).some((p) => p.features.has(f.feature)),

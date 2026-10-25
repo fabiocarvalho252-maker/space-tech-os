@@ -37,8 +37,6 @@ import { Route as AuthenticatedGarantiaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedIaSpacetechRouteImport } from './routes/_authenticated/ia-spacetech'
 import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticated/importar'
 import { Route as AuthenticatedIndicacoesRouteImport } from './routes/_authenticated/indicacoes'
-import { Route as AuthenticatedMeuContadorRouteImport } from './routes/_authenticated/meu-contador'
-import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedOrdensRouteImport } from './routes/_authenticated/ordens'
 import { Route as AuthenticatedPdvRouteImport } from './routes/_authenticated/pdv'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
@@ -196,17 +194,6 @@ const AuthenticatedIndicacoesRoute = AuthenticatedIndicacoesRouteImport.update({
   path: '/indicacoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedMeuContadorRoute =
-  AuthenticatedMeuContadorRouteImport.update({
-    id: '/meu-contador',
-    path: '/meu-contador',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedNotasRoute = AuthenticatedNotasRouteImport.update({
-  id: '/notas',
-  path: '/notas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedOrdensRoute = AuthenticatedOrdensRouteImport.update({
   id: '/ordens',
   path: '/ordens',
@@ -305,8 +292,6 @@ export interface FileRoutesByFullPath {
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/indicacoes': typeof AuthenticatedIndicacoesRoute
-  '/meu-contador': typeof AuthenticatedMeuContadorRoute
-  '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -349,8 +334,6 @@ export interface FileRoutesByTo {
   '/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
   '/importar': typeof AuthenticatedImportarRoute
   '/indicacoes': typeof AuthenticatedIndicacoesRoute
-  '/meu-contador': typeof AuthenticatedMeuContadorRoute
-  '/notas': typeof AuthenticatedNotasRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -395,8 +378,6 @@ export interface FileRoutesById {
   '/_authenticated/ia-spacetech': typeof AuthenticatedIaSpacetechRoute
   '/_authenticated/importar': typeof AuthenticatedImportarRoute
   '/_authenticated/indicacoes': typeof AuthenticatedIndicacoesRoute
-  '/_authenticated/meu-contador': typeof AuthenticatedMeuContadorRoute
-  '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/ordens': typeof AuthenticatedOrdensRoute
   '/_authenticated/pdv': typeof AuthenticatedPdvRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -441,8 +422,6 @@ export interface FileRouteTypes {
     | '/ia-spacetech'
     | '/importar'
     | '/indicacoes'
-    | '/meu-contador'
-    | '/notas'
     | '/ordens'
     | '/pdv'
     | '/relatorios'
@@ -485,8 +464,6 @@ export interface FileRouteTypes {
     | '/ia-spacetech'
     | '/importar'
     | '/indicacoes'
-    | '/meu-contador'
-    | '/notas'
     | '/ordens'
     | '/pdv'
     | '/relatorios'
@@ -530,8 +507,6 @@ export interface FileRouteTypes {
     | '/_authenticated/ia-spacetech'
     | '/_authenticated/importar'
     | '/_authenticated/indicacoes'
-    | '/_authenticated/meu-contador'
-    | '/_authenticated/notas'
     | '/_authenticated/ordens'
     | '/_authenticated/pdv'
     | '/_authenticated/relatorios'
@@ -760,20 +735,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndicacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/meu-contador': {
-      id: '/_authenticated/meu-contador'
-      path: '/meu-contador'
-      fullPath: '/meu-contador'
-      preLoaderRoute: typeof AuthenticatedMeuContadorRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/notas': {
-      id: '/_authenticated/notas'
-      path: '/notas'
-      fullPath: '/notas'
-      preLoaderRoute: typeof AuthenticatedNotasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/ordens': {
       id: '/_authenticated/ordens'
       path: '/ordens'
@@ -886,8 +847,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIaSpacetechRoute: typeof AuthenticatedIaSpacetechRoute
   AuthenticatedImportarRoute: typeof AuthenticatedImportarRoute
   AuthenticatedIndicacoesRoute: typeof AuthenticatedIndicacoesRoute
-  AuthenticatedMeuContadorRoute: typeof AuthenticatedMeuContadorRoute
-  AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedOrdensRoute: typeof AuthenticatedOrdensRoute
   AuthenticatedPdvRoute: typeof AuthenticatedPdvRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -920,8 +879,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIaSpacetechRoute: AuthenticatedIaSpacetechRoute,
   AuthenticatedImportarRoute: AuthenticatedImportarRoute,
   AuthenticatedIndicacoesRoute: AuthenticatedIndicacoesRoute,
-  AuthenticatedMeuContadorRoute: AuthenticatedMeuContadorRoute,
-  AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedOrdensRoute: AuthenticatedOrdensRoute,
   AuthenticatedPdvRoute: AuthenticatedPdvRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,

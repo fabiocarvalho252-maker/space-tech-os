@@ -164,12 +164,6 @@ export const LANDING_PADRAO: LandingConteudo = {
         emBreve: false,
       },
       {
-        icone: "receipt",
-        titulo: "Nota Fiscal",
-        descricao: "Organize suas operações fiscais.",
-        emBreve: true,
-      },
-      {
         icone: "sparkles",
         titulo: "Inteligência Artificial",
         descricao: "Tenha recursos inteligentes para acelerar sua rotina.",

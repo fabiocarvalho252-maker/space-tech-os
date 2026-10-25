@@ -5,7 +5,6 @@ import {
   Plus,
   Printer,
   Trash2,
-  FileCheck,
   Package,
   ShoppingCart,
   Minus,
@@ -2245,15 +2244,6 @@ const ListaOs = memo(function ListaOs({
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
-                      title="Emitir Nota Fiscal"
-                    >
-                      <FileCheck className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
                       onClick={() => acoes.current.enviarOs(os)}
                       title="Enviar OS (PDF)"
                     >
@@ -2363,15 +2353,6 @@ const ListaOs = memo(function ListaOs({
                 title="Copiar Link Área do Cliente"
               >
                 <QrCode className="h-4 w-4 text-primary" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => navigate({ to: "/notas", search: { osId: os.id } })}
-                title="Emitir Nota Fiscal"
-              >
-                <FileCheck className="h-4 w-4 text-primary" />
               </Button>
               <Button
                 variant="outline"

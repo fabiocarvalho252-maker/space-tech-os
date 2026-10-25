@@ -31,7 +31,6 @@ import {
   Percent,
   Bell,
   Clock,
-  Calculator,
   Boxes,
   Gift,
   HandCoins,
@@ -80,7 +79,6 @@ const RELATORIOS_ITENS: ItemMenu[] = [
   { label: "Ordem de Serviço", to: "/relatorios", hash: "ordens", icon: FileCheck },
   { label: "Financeiro - DRE", to: "/relatorios", hash: "financeiro", icon: Wallet },
   { label: "Contas Bancárias", emBreve: true, icon: CreditCard },
-  { label: "Meu Contador", to: "/meu-contador", icon: Calculator },
   { label: "Comissões", emBreve: true, icon: Percent },
 ];
 
@@ -110,7 +108,6 @@ const NAV = [
   { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "configuracoes" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
   { to: "/crediario", label: "Crediário", icon: HandCoins, modulo: "crediario" },
-  { to: "/notas", label: "Notas Fiscais", icon: FileCheck, modulo: "notas" },
   { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, modulo: "relatorios" },
   { to: "/ia-spacetech", label: "IA SPACE TECH", icon: Bot, modulo: null },
