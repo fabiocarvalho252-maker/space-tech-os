@@ -55,8 +55,10 @@ import {
   Copy,
   Tag,
   FileStack,
+  HardDrive,
 } from "lucide-react";
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
+import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -82,6 +84,12 @@ function Configuracoes() {
   const empresaId = useEmpresaId();
   const { data: profile } = useProfile();
   const qc = useQueryClient();
+  // ?aba=backup abre direto numa aba (ex.: volta do Google Drive).
+  const [aba, setAba] = useState("empresa");
+  useEffect(() => {
+    const inicial = new URLSearchParams(window.location.search).get("aba");
+    if (inicial) setAba(inicial);
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showToken, setShowToken] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -490,6 +498,7 @@ function Configuracoes() {
     { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
     { id: "fiscal", label: "Fiscal", icon: FileCheck },
     { id: "catalogo", label: "Catálogo", icon: Layout },
+    { id: "backup", label: "Backup", icon: HardDrive },
     { id: "funcionarios", label: "Acesso de Funcionários", icon: Users2 },
   ];
 
@@ -500,7 +509,7 @@ function Configuracoes() {
         subtitle="Gerencie as preferências e integrações do seu sistema"
       />
 
-      <Tabs defaultValue="empresa" className="space-y-6">
+      <Tabs value={aba} onValueChange={setAba} className="space-y-6">
         <div className="w-full overflow-x-auto pb-2">
           <TabsList className="flex h-auto w-max bg-transparent p-0 gap-2">
             {tabs.map((tab) => (
@@ -2743,6 +2752,13 @@ function Configuracoes() {
           </section>
         </TabsContent>
 
+        {/* Backup */}
+        <TabsContent value="backup" className="space-y-6 outline-none">
+          <div className="max-w-3xl">
+            <BackupGoogleDriveCard escopo="empresa" />
+          </div>
+        </TabsContent>
+
         {/* Acesso de Funcionários */}
         <TabsContent value="funcionarios" className="space-y-6 outline-none">
           <section className="max-w-2xl mx-auto space-y-6 text-center">
@@ -2779,6 +2795,7 @@ function Configuracoes() {
                 "whatsapp",
                 "fiscal",
                 "catalogo",
+                "backup",
                 "funcionarios",
               ].includes(t.id),
           )

@@ -7,6 +7,7 @@ import { handlePixWebhook } from "./lib/pix/webhook-handler.server";
 import { handleMercadoPagoSubscriptionWebhook } from "./lib/mercadopago/webhook-handler.server";
 import { handleCrediarioCron } from "./lib/crediario/cron-handler.server";
 import { handleContasInativasCron } from "./lib/contas-inativas-cron.server";
+import { handleBackupDriveCron, handleGoogleDriveCallback } from "./lib/backup/rotas.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -96,6 +97,19 @@ function isContasInativasCronRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/contas-inativas/cron";
 }
 
+// Volta do Google (navegação vinda de accounts.google.com, sem a mesma
+// origem) e a rotina diária chamada por scripts/backup-banco.sh. Ver
+// src/lib/backup/rotas.server.ts.
+function isGoogleDriveCallbackRequest(request: Request): boolean {
+  if (request.method !== "GET") return false;
+  return new URL(request.url).pathname === "/api/google-drive/callback";
+}
+
+function isBackupDriveCronRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/backup-drive/cron";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -113,6 +127,12 @@ export default {
       }
       if (isContasInativasCronRequest(request)) {
         return await handleContasInativasCron(request);
+      }
+      if (isGoogleDriveCallbackRequest(request)) {
+        return await handleGoogleDriveCallback(request);
+      }
+      if (isBackupDriveCronRequest(request)) {
+        return await handleBackupDriveCron(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

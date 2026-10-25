@@ -345,6 +345,57 @@ export type Database = {
           },
         ];
       };
+      backup_google_drive: {
+        Row: {
+          automatico: boolean;
+          created_at: string;
+          email: string | null;
+          id: string;
+          incluir_fotos: boolean;
+          pasta_id: string | null;
+          refresh_token: string;
+          ultimo_arquivo: string | null;
+          ultimo_backup_em: string | null;
+          ultimo_erro: string | null;
+          ultimo_status: string | null;
+          ultimo_tamanho: number | null;
+          updated_at: string;
+          user_id: string | null;
+        };
+        Insert: {
+          automatico?: boolean;
+          created_at?: string;
+          email?: string | null;
+          id: string;
+          incluir_fotos?: boolean;
+          pasta_id?: string | null;
+          refresh_token: string;
+          ultimo_arquivo?: string | null;
+          ultimo_backup_em?: string | null;
+          ultimo_erro?: string | null;
+          ultimo_status?: string | null;
+          ultimo_tamanho?: number | null;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          automatico?: boolean;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          incluir_fotos?: boolean;
+          pasta_id?: string | null;
+          refresh_token?: string;
+          ultimo_arquivo?: string | null;
+          ultimo_backup_em?: string | null;
+          ultimo_erro?: string | null;
+          ultimo_status?: string | null;
+          ultimo_tamanho?: number | null;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       bank_accounts: {
         Row: {
           agencia: string | null;
@@ -2370,6 +2421,7 @@ export type Database = {
       profiles: {
         Row: {
           acesso_ate: string | null;
+          aviso_inatividade_enviado_em: string | null;
           billing_day: number | null;
           cidade: string | null;
           cnpj_cpf: string | null;
@@ -2387,12 +2439,12 @@ export type Database = {
           plano_solicitado_em: string | null;
           status: string;
           trial_aviso_enviado_em: string | null;
-          aviso_inatividade_enviado_em: string | null;
           updated_at: string;
           whatsapp: string | null;
         };
         Insert: {
           acesso_ate?: string | null;
+          aviso_inatividade_enviado_em?: string | null;
           billing_day?: number | null;
           cidade?: string | null;
           cnpj_cpf?: string | null;
@@ -2410,12 +2462,12 @@ export type Database = {
           plano_solicitado_em?: string | null;
           status?: string;
           trial_aviso_enviado_em?: string | null;
-          aviso_inatividade_enviado_em?: string | null;
           updated_at?: string;
           whatsapp?: string | null;
         };
         Update: {
           acesso_ate?: string | null;
+          aviso_inatividade_enviado_em?: string | null;
           billing_day?: number | null;
           cidade?: string | null;
           cnpj_cpf?: string | null;
@@ -2433,7 +2485,6 @@ export type Database = {
           plano_solicitado_em?: string | null;
           status?: string;
           trial_aviso_enviado_em?: string | null;
-          aviso_inatividade_enviado_em?: string | null;
           updated_at?: string;
           whatsapp?: string | null;
         };
@@ -4192,6 +4243,15 @@ export type Database = {
         };
         Returns: undefined;
       };
+      backup_arquivos_empresa: {
+        Args: { p_empresa: string };
+        Returns: {
+          bucket_id: string;
+          name: string;
+          tamanho: number;
+        }[];
+      };
+      backup_tabelas_empresa: { Args: never; Returns: string[] };
       caixa_forma_normalizada: { Args: { p_forma: string }; Returns: string };
       cancelar_contrato_crediario: {
         Args: { p_contrato_id: string; p_motivo: string };

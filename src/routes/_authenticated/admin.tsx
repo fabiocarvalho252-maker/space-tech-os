@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
+import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { IndicadoresCard } from "@/components/admin/IndicadoresCard";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -406,6 +407,8 @@ function AdminDoSite() {
       )}
 
       <WhatsappSistemaCard souAdmin={souAdmin} />
+
+      <BackupGoogleDriveCard escopo="plataforma" />
 
       <PlanosCard souAdmin={souAdmin} />
 
