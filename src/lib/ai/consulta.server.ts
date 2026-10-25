@@ -4,6 +4,7 @@
 // AI_PROVIDER (provider.server.ts) and charges one IA credit, refunded if
 // the call fails. Kept apart from provider.server.ts because grounding and
 // inline images are Gemini-specific and the chat there needs tool calling.
+import { consumirUsoIA, devolverUsoIA } from "./uso-diario.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { chamarProvedorIA, IAIndisponivelError } from "./provider.server";
@@ -229,7 +230,7 @@ export async function consultarIA(
     texto: string;
     imagens?: Imagem[];
     pesquisar?: boolean;
-    // Use the paid AI_PROVIDER first (1 credit) when accuracy matters more
+    // Use the paid AI_PROVIDER first when accuracy matters more
     // than cost — e.g. identifying a phone from photos, where the free
     // Flash-Lite often guesses wrong. Falls back to Gemini if it fails.
     preferirPago?: boolean;
@@ -251,6 +252,25 @@ export async function consultarIA(
     throw e;
   }
 
+  try {
+    await consumirUsoIA(context.userId);
+  } catch (e) {
+    if (e instanceof IAIndisponivelError) throw new Error(e.message);
+    throw e;
+  }
+  try {
+    return await responderConsulta(context.userId, params, imagens);
+  } catch (e) {
+    await devolverUsoIA(context.userId);
+    throw e;
+  }
+}
+
+async function responderConsulta(
+  userId: string,
+  params: Parameters<typeof consultarIA>[1],
+  imagens: Imagem[],
+): Promise<RespostaConsulta> {
   const geminiKey = process.env["GEMINI_API_KEY"];
   const inicio = Date.now();
   const log = (via: string, r: RespostaConsulta) => {
@@ -260,9 +280,11 @@ export async function consultarIA(
     return r;
   };
 
-  if (params.preferirPago && process.env["AI_API_KEY"]) {
+  // Com AI_PROVIDER=gemini o "pago" é o próprio Gemini pela rota OpenAI, que
+  // não leva as fotos — aí a chamada direta ao Gemini (abaixo) é a melhor.
+  if (params.preferirPago && process.env["AI_API_KEY"] && process.env["AI_PROVIDER"] !== "gemini") {
     try {
-      return log("pago", await chamarProvedorPago(context.userId, { ...params, imagens }));
+      return log("pago", await chamarProvedorPago(userId, { ...params, imagens }));
     } catch (e) {
       if (!geminiKey) throw e;
       console.error("[ia] pago falhou, usando gemini:", e instanceof Error ? e.message : e);
@@ -270,7 +292,7 @@ export async function consultarIA(
   }
 
   if (geminiKey) {
-    if (!dentroDoLimiteGemini(context.userId)) {
+    if (!dentroDoLimiteGemini(userId)) {
       throw new Error("Muitas consultas em pouco tempo — aguarde um instante.");
     }
     return log(
@@ -285,5 +307,5 @@ export async function consultarIA(
     );
   }
 
-  return log("pago", await chamarProvedorPago(context.userId, { ...params, imagens }));
+  return log("pago", await chamarProvedorPago(userId, { ...params, imagens }));
 }

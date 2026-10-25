@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TOOLS } from "./tools.server";
+import { consumirUsoIA, devolverUsoIA } from "./uso-diario.server";
 import { ACOES_TOOLS, ehProposta, executarAcao } from "./acoes.server";
 import { acaoIASchema, type AcaoIA } from "./types";
 import * as whatsappService from "@/lib/whatsapp/whatsapp-service";
@@ -93,6 +94,14 @@ export const enviarMensagemIA = createServerFn({ method: "POST" })
         { role: "user", content: data.mensagem },
       ];
 
+      // 1 uso por mensagem do usuário, não por rodada de ferramenta.
+      try {
+        await consumirUsoIA(context.userId);
+      } catch (e) {
+        if (e instanceof IAIndisponivelError) return { resposta: null, erro: e.message };
+        throw e;
+      }
+
       const acoes: AcaoIA[] = [];
       try {
         for (let rodada = 0; rodada < MAX_RODADAS_FERRAMENTA; rodada++) {
@@ -140,6 +149,8 @@ export const enviarMensagemIA = createServerFn({ method: "POST" })
         };
       } catch (e) {
         if (e instanceof IAIndisponivelError) {
+          // A IA não respondeu: o uso do dia volta para a empresa.
+          await devolverUsoIA(context.userId);
           return { resposta: null, erro: e.message };
         }
         throw e;

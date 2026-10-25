@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { chamarProvedorIA, IAIndisponivelError } from "@/lib/ai/provider.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { consumirUsoIA, devolverUsoIA } from "@/lib/ai/uso-diario.server";
 import { requireFeature, FeatureIndisponivelError } from "@/lib/planos/features";
 
 const schema = z.object({
@@ -42,6 +43,12 @@ export const gerarComIA = createServerFn({ method: "POST" })
     }
 
     try {
+      await consumirUsoIA(context.userId);
+    } catch (e) {
+      if (e instanceof IAIndisponivelError) throw new Error(e.message);
+      throw e;
+    }
+    try {
       const resposta = await chamarProvedorIA({
         systemPrompt: `${INSTRUCOES[data.tipo]} Responda apenas com o texto final, sem comentários.`,
         mensagens: [{ role: "user", content: data.entrada }],
@@ -52,6 +59,7 @@ export const gerarComIA = createServerFn({ method: "POST" })
       }
       return { texto: resposta.text };
     } catch (e) {
+      await devolverUsoIA(context.userId);
       if (e instanceof IAIndisponivelError) throw new Error(e.message);
       throw e;
     }
