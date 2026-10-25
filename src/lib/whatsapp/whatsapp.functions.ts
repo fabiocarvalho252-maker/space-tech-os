@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import * as whatsappService from "./whatsapp-service";
+import * as fila from "./fila.server";
 import type { WhatsappConexao, WhatsappMensagem } from "./types";
 
 const anexosSchema = z.object({ os: z.boolean(), orcamento: z.boolean() });
@@ -168,19 +169,14 @@ export const enviarNotificacaoOsWhatsAppFn = createServerFn({ method: "POST" })
     });
   });
 
-// Opportunistic "queue worker" — there is no cron in this project, so
-// AppShell calls this every 10 minutes while the system is open on any
-// screen: it queues/sends the automatic messages and flushes any
-// notification whose scheduled_at has already passed.
+// Complemento do worker do servidor (/api/whatsapp/fila/cron): com o
+// sistema aberto, o AppShell chama a cada 10 minutos — gera as mensagens
+// automáticas e manda o que a fila já deixa sair.
 export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ processadas: number }> => {
     const empresaId = await empresaDoUsuario(context);
-    await whatsappService.enfileirarPesquisasPosOs(empresaId);
-    await whatsappService.enviarAniversarios(empresaId);
-    await whatsappService.enviarPesquisasPosVenda(empresaId);
-    await whatsappService.enviarBoasVindas(empresaId);
-    await whatsappService.enviarRelatorioSemanal(empresaId);
+    await whatsappService.rodarAutomacoes(empresaId);
     const processadas = await whatsappService.processarNotificacoesAgendadasOs(empresaId);
     return { processadas };
   });
@@ -204,4 +200,105 @@ export const avisarOsProntaFn = createServerFn({ method: "POST" })
       sentBy: context.userId,
       origem: process.env["VITE_SITE_URL"] || origemAtual(),
     });
+  });
+
+// ---- Fila WhatsApp (/whatsapp-fila) ----
+
+const idSchema = z.object({ id: z.guid() });
+
+export const resumoFilaFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<fila.ResumoFila> =>
+    fila.resumoFila(await empresaDoUsuario(context, "configuracoes", "ver")),
+  );
+
+export const listarFilaFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z.object({ aba: z.enum(["agendadas", "falhas", "enviadas", "canceladas"]) }).parse(data),
+  )
+  .handler(async ({ data, context }): Promise<fila.ItemFila[]> =>
+    fila.listarFila(await empresaDoUsuario(context, "configuracoes", "ver"), data.aba),
+  );
+
+export const enviarAgoraFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => idSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ status: "enviado" | "falhou" }> => ({
+    status: await fila.enviarAgora(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+      data.id,
+    ),
+  }));
+
+export const reagendarFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z.object({ id: z.guid(), quando: z.string().datetime() }).parse(data),
+  )
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await fila.reagendar(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+      data.id,
+      data.quando,
+    );
+    return { ok: true };
+  });
+
+export const editarTextoFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z.object({ id: z.guid(), texto: z.string().trim().min(1).max(4000) }).parse(data),
+  )
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await fila.editarTexto(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+      data.id,
+      data.texto,
+    );
+    return { ok: true };
+  });
+
+export const cancelarFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => idSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await fila.cancelar(await empresaDoUsuario(context, "configuracoes", "gerenciar"), data.id);
+    return { ok: true };
+  });
+
+export const reenviarFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => idSchema.parse(data))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await fila.reenviar(await empresaDoUsuario(context, "configuracoes", "gerenciar"), data.id);
+    return { ok: true };
+  });
+
+export const reenviarFalhasFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ quantidade: number }> => ({
+    quantidade: await fila.reenviarTodasFalhas(
+      await empresaDoUsuario(context, "configuracoes", "gerenciar"),
+    ),
+  }));
+
+export const salvarRegrasFilaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z
+      .object({
+        intervaloSeg: z.number().int().min(5).max(600),
+        horaInicio: z.number().int().min(0).max(23),
+        horaFim: z.number().int().min(1).max(24),
+        limiteHora: z.number().int().min(1).max(500),
+      })
+      .refine((r) => r.horaFim > r.horaInicio, {
+        message: "O horário final precisa ser depois do inicial.",
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    await fila.salvarRegras(await empresaDoUsuario(context, "configuracoes", "gerenciar"), data);
+    return { ok: true };
   });

@@ -90,7 +90,7 @@ const SISTEMA_ITENS: ItemMenu[] = [
   { label: "Permissões", to: "/usuarios", icon: Lock },
   { label: "Emails", to: "/configuracoes", icon: Mail },
   { label: "Migrar de Outro Sistema", to: "/importar", icon: ArrowLeftRight },
-  { label: "Fila WhatsApp", emBreve: true, icon: MessageSquare },
+  { label: "Fila WhatsApp", to: "/whatsapp-fila", icon: MessageSquare },
 ];
 
 const NAV = [
@@ -196,7 +196,7 @@ export function AppShell() {
   const nav = (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3">
       {itensVisiveis.map((item) => {
-        const active = pathname.startsWith(item.to);
+        const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
         return (
           <Link
             key={item.to}

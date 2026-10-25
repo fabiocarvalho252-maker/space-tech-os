@@ -8,6 +8,7 @@ import { handleMercadoPagoSubscriptionWebhook } from "./lib/mercadopago/webhook-
 import { handleCrediarioCron } from "./lib/crediario/cron-handler.server";
 import { handleContasInativasCron } from "./lib/contas-inativas-cron.server";
 import { handleBackupDriveCron, handleGoogleDriveCallback } from "./lib/backup/rotas.server";
+import { handleWhatsappFilaCron } from "./lib/whatsapp/fila-cron.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -110,6 +111,13 @@ function isBackupDriveCronRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/backup-drive/cron";
 }
 
+// Worker da Fila WhatsApp, chamado a cada minuto por scripts/whatsapp-fila.sh
+// — sem sessão. Autenticado por token; ver src/lib/whatsapp/fila-cron.server.ts.
+function isWhatsappFilaCronRequest(request: Request): boolean {
+  if (request.method !== "POST") return false;
+  return new URL(request.url).pathname === "/api/whatsapp/fila/cron";
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -133,6 +141,9 @@ export default {
       }
       if (isBackupDriveCronRequest(request)) {
         return await handleBackupDriveCron(request);
+      }
+      if (isWhatsappFilaCronRequest(request)) {
+        return await handleWhatsappFilaCron(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

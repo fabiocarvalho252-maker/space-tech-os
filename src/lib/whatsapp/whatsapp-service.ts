@@ -50,7 +50,7 @@ function webhookUrlPara(instanceName: string, origin: string): string {
   return url.toString();
 }
 
-async function obterConexao(userId: string): Promise<WhatsappConexao | null> {
+export async function obterConexao(userId: string): Promise<WhatsappConexao | null> {
   const { data, error } = await supabaseAdmin
 
     .from("whatsapp_connections")
@@ -83,7 +83,7 @@ async function upsertConexao(
 export const SESSAO_CAIDA =
   "A sessão do WhatsApp caiu: as mensagens não estão saindo. Clique em Reiniciar conexão; se continuar, desconecte e leia o QR Code de novo.";
 
-async function registrarSaudeEnvio(
+export async function registrarSaudeEnvio(
   conexao: { id: string; status: string },
   erro: string | null,
 ): Promise<void> {
@@ -275,7 +275,7 @@ export async function enviarMensagem(
 export type AnexosSolicitados = { os: boolean; orcamento: boolean };
 export type AgendamentoInput = { tipo: "agora" } | { tipo: "fila"; scheduledAt: string };
 
-async function registrarHistoricoOs(
+export async function registrarHistoricoOs(
   userId: string,
   osId: string | null,
   evento: string,
@@ -297,7 +297,7 @@ function anexosPendentes(anexos: AnexosSolicitados, osNumero: number): WhatsappA
   return lista;
 }
 
-type ResultadoEnvio = {
+export type ResultadoEnvio = {
   status: "enviado" | "falhou";
   attachments: WhatsappAnexoRegistro[];
   error: string | null;
@@ -312,7 +312,7 @@ type ResultadoEnvio = {
  * counts as "enviado" overall — the client did receive something — with the
  * failure surfaced in `error` instead of hiding it.
  */
-async function executarEnvio(params: {
+export async function executarEnvio(params: {
   conexao: WhatsappConexao;
   numeroCompleto: string;
   mensagem: string;
@@ -483,86 +483,161 @@ export async function enviarNotificacaoOs(params: {
   return data as unknown as WhatsappMensagem;
 }
 
+export type MotivoEsperaFila =
+  "vazia" | "fora_do_horario" | "limite_hora" | "intervalo" | "desconectado";
+
 /**
- * Flushes any "agendado" notification whose scheduled_at has already
- * passed — the closest thing to a queue worker this project has, run
- * opportunistically every 10 minutes while the system is open (AppShell). Silently
- * no-ops (leaves rows as "agendado") if the empresa's WhatsApp isn't
- * connected, so nothing is lost — it just waits for the next run.
+ * Envia uma mensagem que a fila já reservou (status "pendente") e grava o
+ * resultado. Com OS e anexos pedidos, gera e manda os PDFs (executarEnvio);
+ * senão, só o texto.
  */
-export async function processarNotificacoesAgendadasOs(userId: string): Promise<number> {
-  if (!evolutionConfigurado()) return 0;
-
-  const { data: pendentes, error } = await supabaseAdmin
-
+export async function enviarItemReservado(
+  mensagemId: string,
+  conexao: WhatsappConexao,
+): Promise<"enviado" | "falhou"> {
+  const { data, error } = await supabaseAdmin
     .from("whatsapp_messages")
     .select("*")
-    .eq("user_id", userId)
-    .eq("status", "agendado")
-    .lte("scheduled_at", new Date().toISOString());
-  if (error || !pendentes?.length) return 0;
+    .eq("id", mensagemId)
+    .single();
+  if (error) throw error;
+  const msg = data as unknown as WhatsappMensagem;
+  const anexosAtuais = (msg.attachments ?? []) as WhatsappAnexoRegistro[];
 
-  const conexao = await obterConexao(userId);
-  if (!conexao || conexao.status !== "conectado") return 0;
-
-  let processadas = 0;
-  for (const msg of pendentes) {
-    if (!msg.os_id) continue;
-    // Reserva a mensagem (agendado → pendente) antes de enviar: com duas
-    // telas abertas, só quem conseguir a reserva envia.
-    const { data: reservada } = await supabaseAdmin
-
-      .from("whatsapp_messages")
-      .update({ status: "pendente" })
-      .eq("id", msg.id)
-      .eq("status", "agendado")
-      .select("id");
-    if (!reservada?.length) continue;
-    const { data: osRow } = await supabaseAdmin
-      .from("ordens_servico")
-      .select("numero")
-      .eq("id", msg.os_id)
-      .maybeSingle();
-    if (!osRow) continue;
-
-    const anexosAtuais = (msg.attachments ?? []) as WhatsappAnexoRegistro[];
-    const anexos: AnexosSolicitados = {
-      os: anexosAtuais.some((a) => a.tipo === "os"),
-      orcamento: anexosAtuais.some((a) => a.tipo === "orcamento"),
-    };
-    const resultado = await executarEnvio({
-      conexao,
-      numeroCompleto: msg.phone_number,
-      mensagem: msg.content ?? "",
-      osId: msg.os_id,
-      empresaId: userId,
-      osNumero: osRow.numero,
-      anexos,
-    });
-
-    await supabaseAdmin
-
-      .from("whatsapp_messages")
-      .update({
-        status: resultado.status,
-        evolution_message_id: resultado.evolutionMessageId,
-        attachments: resultado.attachments,
-        error: resultado.error,
-      })
-      .eq("id", msg.id);
-
-    if (resultado.status === "enviado") {
-      await registrarHistoricoOs(
-        userId,
-        msg.os_id,
-        "whatsapp_enviado",
-        "Notificação WhatsApp enviada (agendada)",
-        msg.sent_by ?? userId,
-      );
+  let resultado: ResultadoEnvio;
+  try {
+    const osRow = msg.os_id
+      ? (
+          await supabaseAdmin
+            .from("ordens_servico")
+            .select("numero")
+            .eq("id", msg.os_id)
+            .maybeSingle()
+        ).data
+      : null;
+    if (msg.os_id && osRow && anexosAtuais.length) {
+      resultado = await executarEnvio({
+        conexao,
+        numeroCompleto: msg.phone_number,
+        mensagem: msg.content ?? "",
+        osId: msg.os_id,
+        empresaId: msg.user_id,
+        osNumero: osRow.numero,
+        anexos: {
+          os: anexosAtuais.some((a) => a.tipo === "os"),
+          orcamento: anexosAtuais.some((a) => a.tipo === "orcamento"),
+        },
+      });
+    } else {
+      let evolutionMessageId: string | null = null;
+      let erro: string | null = null;
+      try {
+        const r = await enviarMensagemTexto(
+          conexao.instance_name,
+          msg.phone_number,
+          msg.content ?? "",
+        );
+        evolutionMessageId = r.messageId;
+      } catch (e) {
+        if (!(e instanceof EvolutionApiError)) throw e;
+        erro = e.message;
+      }
+      await registrarSaudeEnvio(conexao, erro);
+      resultado = {
+        status: erro ? "falhou" : "enviado",
+        attachments: anexosAtuais,
+        error: erro,
+        evolutionMessageId,
+      };
     }
-    processadas++;
+  } catch (e) {
+    resultado = {
+      status: "falhou",
+      attachments: anexosAtuais,
+      error: e instanceof Error ? e.message : String(e),
+      evolutionMessageId: null,
+    };
   }
-  return processadas;
+
+  await supabaseAdmin
+    .from("whatsapp_messages")
+    .update({
+      status: resultado.status,
+      connection_id: conexao.id,
+      evolution_message_id: resultado.evolutionMessageId,
+      attachments: resultado.attachments,
+      error: resultado.error,
+    })
+    .eq("id", mensagemId);
+
+  if (resultado.status === "enviado" && msg.os_id) {
+    await registrarHistoricoOs(
+      msg.user_id,
+      msg.os_id,
+      "whatsapp_enviado",
+      "Notificação WhatsApp enviada (fila)",
+      msg.sent_by ?? msg.user_id,
+    );
+  }
+  return resultado.status;
+}
+
+/**
+ * Worker da fila (mensagens "agendado" já vencidas). Cada envio passa pela
+ * reserva no banco (whatsapp_fila_reservar), que aplica o horário permitido,
+ * o limite por hora e o intervalo mínimo entre mensagens da empresa — com um
+ * lock por empresa, então o worker do servidor e as telas abertas nunca
+ * mandam em rajada. Com `tempoMaxMs`, espera o intervalo e continua até o
+ * tempo acabar (worker do cron); sem, manda só o que já pode sair agora.
+ * WhatsApp desconectado: nada sai e as mensagens esperam.
+ */
+export async function processarFila(
+  empresaId: string,
+  opcoes: { tempoMaxMs?: number } = {},
+): Promise<{ enviadas: number; motivo: MotivoEsperaFila }> {
+  if (!evolutionConfigurado()) return { enviadas: 0, motivo: "desconectado" };
+  const conexao = await obterConexao(empresaId);
+  if (!conexao || conexao.status !== "conectado") return { enviadas: 0, motivo: "desconectado" };
+
+  const limite = Date.now() + (opcoes.tempoMaxMs ?? 0);
+  let enviadas = 0;
+  for (;;) {
+    const { data, error } = await supabaseAdmin.rpc("whatsapp_fila_reservar", {
+      p_empresa: empresaId,
+    });
+    if (error) throw error;
+    const r = data?.[0];
+    if (r?.mensagem_id) {
+      await enviarItemReservado(r.mensagem_id, conexao);
+      enviadas++;
+      continue;
+    }
+    const motivo = (r?.motivo ?? "vazia") as MotivoEsperaFila;
+    const espera = (r?.espera_seg ?? 0) * 1000;
+    if (motivo === "intervalo" && Date.now() + espera <= limite) {
+      await new Promise((resolver) => setTimeout(resolver, espera));
+      continue;
+    }
+    return { enviadas, motivo };
+  }
+}
+
+/** Compatibilidade: a tela aberta (AppShell) só manda o que já pode sair. */
+export async function processarNotificacoesAgendadasOs(userId: string): Promise<number> {
+  return (await processarFila(userId)).enviadas;
+}
+
+/**
+ * Mensagens automáticas da empresa (pesquisas, aniversário, boas-vindas,
+ * resumo semanal). Rodam pelo worker do servidor a cada 10 minutos e também
+ * com o sistema aberto; cada uma tem sua própria trava contra repetição.
+ */
+export async function rodarAutomacoes(empresaId: string): Promise<void> {
+  await enfileirarPesquisasPosOs(empresaId);
+  await enviarAniversarios(empresaId);
+  await enviarPesquisasPosVenda(empresaId);
+  await enviarBoasVindas(empresaId);
+  await enviarRelatorioSemanal(empresaId);
 }
 
 export async function listarMensagensRecentes(
@@ -924,8 +999,8 @@ export async function avisarOsPronta(params: {
 }
 
 // Janela do envio automático da pesquisa: entregue há pelo menos 20 h (o
-// cliente já usou o aparelho) e no máximo há 7 dias; só sai das 9h às 20h de
-// Brasília, porque o envio acontece com o sistema aberto (AppShell).
+// cliente já usou o aparelho) e no máximo há 7 dias; só é gerada das 9h às
+// 20h de Brasília (o envio em si segue o horário da fila da empresa).
 const PESQUISA_HORAS_MIN = 20;
 const PESQUISA_DIAS_MAX = 7;
 
@@ -1104,9 +1179,9 @@ function hojeEmBrasilia(): { ano: number; mesDia: string } {
 
 /**
  * Mensagem de aniversário automática (Configurações > WhatsApp, desligada por
- * padrão) para os clientes com data de nascimento hoje. Sai das 9h às 20h de
- * Brasília, com o sistema aberto (AppShell); uma por número por ano —
- * a linha é gravada antes do envio e o índice único barra a segunda tela.
+ * padrão) para os clientes com data de nascimento hoje. Gerada das 9h às 20h
+ * de Brasília (worker do servidor ou sistema aberto) e enviada pela fila;
+ * uma por número por ano — o índice único barra a repetição.
  * Quem faz aniversário em 29/02 recebe em 28/02 nos anos não bissextos.
  */
 export async function enviarAniversarios(empresaId: string): Promise<number> {
@@ -1163,16 +1238,18 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
       nome: cliente.nome,
       mensagem,
       templateId: `aniversario_${ano}`,
+      fila: true,
     });
-    if (resultado === "enviado") enviadas++;
+    if (resultado === "enviado" || resultado === "enfileirada") enviadas++;
   }
   return enviadas;
 }
 
 /**
- * Envio das mensagens automáticas sem OS (aniversário, pós-venda): grava a
- * linha como "pendente" antes de enviar — o índice único do template barra
- * a segunda tela aberta — e depois registra o resultado.
+ * Envio das mensagens automáticas sem OS: grava a linha antes de enviar — o
+ * índice único do template barra a repetição. Com `fila`, só grava como
+ * "agendado" e quem envia é processarFila; sem, envia na hora (respostas e
+ * avisos para o dono da loja).
  */
 async function enviarAutomatico(params: {
   empresaId: string;
@@ -1182,7 +1259,9 @@ async function enviarAutomatico(params: {
   mensagem: string;
   templateId: string;
   osId?: string | null;
-}): Promise<"enviado" | "falhou" | "repetida"> {
+  /** Mensagens em quantidade para clientes: entram na fila (intervalo, horário, limite). */
+  fila?: boolean;
+}): Promise<"enviado" | "falhou" | "repetida" | "enfileirada"> {
   const { data: reserva, error } = await supabaseAdmin
 
     .from("whatsapp_messages")
@@ -1193,7 +1272,8 @@ async function enviarAutomatico(params: {
       phone_number: params.numeroCompleto,
       contact_name: params.nome,
       content: params.mensagem,
-      status: "pendente",
+      status: params.fila ? "agendado" : "pendente",
+      scheduled_at: params.fila ? new Date().toISOString() : null,
       template_id: params.templateId,
       os_id: params.osId ?? null,
     })
@@ -1203,6 +1283,7 @@ async function enviarAutomatico(params: {
     if (error.code === "23505") return "repetida";
     throw error;
   }
+  if (params.fila) return "enfileirada";
 
   let status: "enviado" | "falhou" = "enviado";
   let evolutionMessageId: string | null = null;
@@ -1231,7 +1312,7 @@ async function enviarAutomatico(params: {
  * Pesquisa pós-venda automática (Configurações > WhatsApp, desligada por
  * padrão): uma mensagem por venda finalizada/faturada com cliente, entre 20 h
  * e 7 dias depois da venda e só para vendas feitas depois de ligar a opção.
- * Das 9h às 20h de Brasília, com o sistema aberto (AppShell).
+ * Gerada das 9h às 20h de Brasília e enviada pela fila.
  */
 export async function enviarPesquisasPosVenda(empresaId: string): Promise<number> {
   if (!evolutionConfigurado()) return 0;
@@ -1315,8 +1396,9 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
       nome: cliente?.nome ?? null,
       mensagem,
       templateId,
+      fila: true,
     });
-    if (resultado === "enviado") total++;
+    if (resultado === "enviado" || resultado === "enfileirada") total++;
   }
   return total;
 }
@@ -1324,9 +1406,9 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
 /**
  * Boas-vindas automáticas (Configurações > WhatsApp, desligada por padrão)
  * para clientes cadastrados com telefone depois de ligar a opção — de
- * qualquer tela (Clientes, OS, PDV). Uma por cliente, das 9h às 20h, quando
- * o sistema está aberto; quem foi cadastrado à noite recebe no dia
- * seguinte, até 7 dias depois do cadastro.
+ * qualquer tela (Clientes, OS, PDV). Uma por cliente, gerada das 9h às 20h e
+ * enviada pela fila; quem foi cadastrado à noite recebe no dia seguinte, até
+ * 7 dias depois do cadastro.
  */
 export async function enviarBoasVindas(empresaId: string): Promise<number> {
   if (!evolutionConfigurado()) return 0;
@@ -1404,8 +1486,9 @@ export async function enviarBoasVindas(empresaId: string): Promise<number> {
       nome: cliente.nome,
       mensagem,
       templateId,
+      fila: true,
     });
-    if (resultado === "enviado") total++;
+    if (resultado === "enviado" || resultado === "enfileirada") total++;
   }
   return total;
 }

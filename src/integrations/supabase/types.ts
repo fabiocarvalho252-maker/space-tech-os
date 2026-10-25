@@ -3829,6 +3829,10 @@ export type Database = {
           created_at: string | null;
           feliz_aniversario: boolean | null;
           feliz_aniversario_texto: string | null;
+          fila_hora_fim: number;
+          fila_hora_inicio: number;
+          fila_intervalo_seg: number;
+          fila_limite_hora: number;
           ia_agradecer_pesquisa: boolean;
           ia_pesquisa_personalizada: boolean;
           id: string;
@@ -3868,6 +3872,10 @@ export type Database = {
           created_at?: string | null;
           feliz_aniversario?: boolean | null;
           feliz_aniversario_texto?: string | null;
+          fila_hora_fim?: number;
+          fila_hora_inicio?: number;
+          fila_intervalo_seg?: number;
+          fila_limite_hora?: number;
           ia_agradecer_pesquisa?: boolean;
           ia_pesquisa_personalizada?: boolean;
           id?: string;
@@ -3907,6 +3915,10 @@ export type Database = {
           created_at?: string | null;
           feliz_aniversario?: boolean | null;
           feliz_aniversario_texto?: string | null;
+          fila_hora_fim?: number;
+          fila_hora_inicio?: number;
+          fila_intervalo_seg?: number;
+          fila_limite_hora?: number;
           ia_agradecer_pesquisa?: boolean;
           ia_pesquisa_personalizada?: boolean;
           id?: string;
@@ -3991,6 +4003,7 @@ export type Database = {
           content: string | null;
           created_at: string;
           direction: string;
+          enviado_em: string | null;
           error: string | null;
           evolution_message_id: string | null;
           id: string;
@@ -4013,6 +4026,7 @@ export type Database = {
           content?: string | null;
           created_at?: string;
           direction: string;
+          enviado_em?: string | null;
           error?: string | null;
           evolution_message_id?: string | null;
           id?: string;
@@ -4035,6 +4049,7 @@ export type Database = {
           content?: string | null;
           created_at?: string;
           direction?: string;
+          enviado_em?: string | null;
           error?: string | null;
           evolution_message_id?: string | null;
           id?: string;
@@ -4933,6 +4948,26 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      whatsapp_fila_regras: {
+        Args: { p_empresa: string };
+        Returns: {
+          envios_ultima_hora: number;
+          hora_atual: number;
+          hora_fim: number;
+          hora_inicio: number;
+          intervalo_seg: number;
+          limite_hora: number;
+          ultimo_envio: string;
+        }[];
+      };
+      whatsapp_fila_reservar: {
+        Args: { p_empresa: string };
+        Returns: {
+          espera_seg: number;
+          mensagem_id: string;
+          motivo: string;
+        }[];
       };
     };
     Enums: {
