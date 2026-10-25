@@ -77,7 +77,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { salvarImpersonacao } from "@/lib/impersonation";
 import { buildWaMeLink } from "@/lib/whatsapp";
 import {
-  ajustarCreditosIA,
   alterarEmailEmpresa,
   alterarPlanoEmpresa,
   atualizarPlano,
@@ -2008,7 +2007,6 @@ function EmpresaDetalheDialog({
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [novoEmail, setNovoEmail] = useState("");
-  const [quantidadeCreditos, setQuantidadeCreditos] = useState("10");
   const [confirmExcluirOpen, setConfirmExcluirOpen] = useState(false);
 
   // Re-seed local form state whenever a different empresa is opened.
@@ -2054,15 +2052,6 @@ function EmpresaDetalheDialog({
       qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
       qc.invalidateQueries({ queryKey: ["site-admin-desconto-indicacao"] });
       qc.invalidateQueries({ queryKey: ["site-admin-indicadores"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const ajustarCreditos = useMutation({
-    mutationFn: (delta: number) => ajustarCreditosIA({ data: { empresaId: empresa!.id, delta } }),
-    onSuccess: (res) => {
-      toast.success(`Créditos de IA atualizados: ${res.iaCreditos}.`);
-      qc.invalidateQueries({ queryKey: ["site-admin-empresas"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2255,56 +2244,6 @@ function EmpresaDetalheDialog({
           >
             {salvarPlano.isPending ? "Salvando..." : "Salvar plano"}
           </Button>
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-border p-3">
-          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Créditos de IA
-          </Label>
-          <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
-            <span>
-              Saldo atual: <strong>{empresa.iaCreditos}</strong> crédito
-              {empresa.iaCreditos === 1 ? "" : "s"}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[10, 50, 100].map((qtd) => (
-              <Button
-                key={qtd}
-                size="sm"
-                variant="outline"
-                disabled={ajustarCreditos.isPending}
-                onClick={() => ajustarCreditos.mutate(qtd)}
-              >
-                +{qtd}
-              </Button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              value={quantidadeCreditos}
-              onChange={(e) => setQuantidadeCreditos(e.target.value)}
-              className="w-24"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={ajustarCreditos.isPending || !Number(quantidadeCreditos)}
-              onClick={() => ajustarCreditos.mutate(Number(quantidadeCreditos))}
-            >
-              Adicionar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={ajustarCreditos.isPending || !Number(quantidadeCreditos)}
-              onClick={() => ajustarCreditos.mutate(-Number(quantidadeCreditos))}
-            >
-              Remover
-            </Button>
-          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border border-border p-3">

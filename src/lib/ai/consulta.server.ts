@@ -7,7 +7,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { chamarProvedorIA, IAIndisponivelError } from "./provider.server";
-import { verificarEDescontarCreditoIA, estornarCreditoIA } from "./creditos.server";
 import { requireFeature, FeatureIndisponivelError } from "@/lib/planos/features";
 
 export type Imagem = { mime: "image/jpeg" | "image/png" | "image/webp"; base64: string };
@@ -190,18 +189,10 @@ async function chamarChatGPT(params: {
   }
 }
 
-// Charges one IA credit and refunds it if no answer comes back — same rule
-// as ia.functions.ts.
 async function chamarProvedorPago(
   userId: string,
   params: { systemPrompt: string; texto: string; imagens: Imagem[] },
 ): Promise<RespostaConsulta> {
-  try {
-    await verificarEDescontarCreditoIA(userId);
-  } catch (e) {
-    if (e instanceof IAIndisponivelError) throw new Error(e.message);
-    throw e;
-  }
   try {
     const resposta = await chamarProvedorIA({
       systemPrompt: params.systemPrompt,
@@ -226,7 +217,6 @@ async function chamarProvedorPago(
     }
     return { texto: resposta.text, fontes: [] };
   } catch (e) {
-    await estornarCreditoIA(userId);
     if (e instanceof IAIndisponivelError) throw new Error(e.message);
     throw e;
   }

@@ -4,15 +4,21 @@
 //   - "anthropic": Anthropic Messages API directly.
 //   - "omniroute" / "openai": any OpenAI-compatible /chat/completions endpoint
 //     (OmniRoute gateway by default, see infra/omniroute/), at AI_BASE_URL.
+//   - "gemini": Google Gemini through its OpenAI-compatible endpoint, with
+//     GEMINI_API_KEY (the same key as the free tier used in consulta.server.ts)
+//     and GEMINI_CHAT_MODEL.
 //
 // Callers always keep the conversation in Anthropic's shape (tool_use /
 // tool_result content blocks); the OpenAI-compatible path translates that
 // history on every call, so switching providers never changes the callers.
 
 export class IAIndisponivelError extends Error {
-  constructor(motivo: string) {
+  /** Modelo ocupado/fora do ar: vale tentar outro modelo do mesmo provedor. */
+  retentavel: boolean;
+  constructor(motivo: string, retentavel = false) {
     super(motivo);
     this.name = "IAIndisponivelError";
+    this.retentavel = retentavel;
   }
 }
 
@@ -25,8 +31,27 @@ export type ProviderResponse =
   // next call, so it's intentionally opaque here rather than normalized.
   | { kind: "tool_calls"; calls: ProviderToolCall[]; assistantRaw: unknown };
 
+const GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+// O Gemini gratuito vive com modelo "em alta demanda" (503): se um falhar,
+// tenta o próximo antes de desistir.
+const GEMINI_CHAT_MODELOS = [
+  "gemini-3-flash-preview",
+  "gemini-flash-latest",
+  "gemini-flash-lite-latest",
+];
+// Um modelo que trava não pode segurar o chat: passa para o próximo.
+const TIMEOUT_CHAMADA_MS = 25_000;
+
 function configuracao() {
   const provider = process.env["AI_PROVIDER"] || "anthropic";
+  if (provider === "gemini") {
+    return {
+      provider,
+      model: process.env["GEMINI_CHAT_MODEL"] || GEMINI_CHAT_MODELOS[0]!,
+      apiKey: process.env["GEMINI_API_KEY"],
+      baseUrl: GEMINI_OPENAI_URL,
+    };
+  }
   const model = process.env["AI_MODEL"] || "claude-sonnet-5";
   const apiKey = process.env["AI_API_KEY"];
   const baseUrl = (process.env["AI_BASE_URL"] || "http://127.0.0.1:20128/v1").replace(/\/+$/, "");
@@ -46,6 +71,20 @@ export async function chamarProvedorIA(params: {
     );
   }
   if (provider === "anthropic") return chamarAnthropic({ ...params, model, apiKey });
+  if (provider === "gemini") {
+    const modelos = [...new Set([model, ...GEMINI_CHAT_MODELOS])];
+    let ultimoErro: unknown;
+    for (const modelo of modelos) {
+      try {
+        return await chamarOpenAICompativel({ ...params, model: modelo, apiKey, baseUrl });
+      } catch (e) {
+        ultimoErro = e;
+        if (!(e instanceof IAIndisponivelError && e.retentavel)) throw e;
+        console.error(`[ia] gemini ${modelo}: ${e.message}`);
+      }
+    }
+    throw ultimoErro;
+  }
   if (provider === "omniroute" || provider === "openai") {
     return chamarOpenAICompativel({ ...params, model, apiKey, baseUrl });
   }
@@ -134,6 +173,7 @@ function paraMensagensOpenAI(systemPrompt: string, mensagens: any[]): any[] {
           id: b.id,
           type: "function",
           function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
+          ...(b.extra_content ? { extra_content: b.extra_content } : {}),
         }));
       saida.push({
         role: "assistant",
@@ -166,6 +206,7 @@ async function chamarOpenAICompativel(params: {
   try {
     res = await fetch(`${params.baseUrl}/chat/completions`, {
       method: "POST",
+      signal: AbortSignal.timeout(TIMEOUT_CHAMADA_MS),
       headers: {
         authorization: `Bearer ${params.apiKey}`,
         "content-type": "application/json",
@@ -185,16 +226,27 @@ async function chamarOpenAICompativel(params: {
       }),
     });
   } catch {
-    throw new IAIndisponivelError("IA indisponível: não foi possível conectar ao gateway de IA.");
+    throw new IAIndisponivelError(
+      "IA indisponível: não foi possível conectar ao provedor de IA.",
+      true,
+    );
   }
 
   if (res.status === 401 || res.status === 403) {
     throw new IAIndisponivelError("IA indisponível: credenciais do provedor inválidas.");
   }
   if (res.status === 429) {
-    throw new IAIndisponivelError("Limite de uso da IA atingido. Tente novamente em instantes.");
+    throw new IAIndisponivelError(
+      "Limite de uso da IA atingido. Tente novamente em instantes.",
+      true,
+    );
   }
-  if (!res.ok) throw new IAIndisponivelError("IA indisponível no momento.");
+  if (!res.ok) {
+    throw new IAIndisponivelError(
+      "IA indisponível no momento.",
+      res.status === 404 || res.status >= 500,
+    );
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const json: any = await res.json();
@@ -210,15 +262,27 @@ async function chamarOpenAICompativel(params: {
       } catch {
         // Argumentos malformados viram {} — a ferramenta responde com erro de validação.
       }
-      return { id: c.id, name: c.function?.name, input };
+      return { id: c.id, name: c.function?.name, input, extra: c.extra_content };
     });
     // Replayed by chat.functions.ts as the assistant turn — kept in
     // Anthropic block shape so history stays provider-agnostic.
     const assistantRaw = [
       ...(mensagem.content ? [{ type: "text", text: mensagem.content }] : []),
-      ...calls.map((c) => ({ type: "tool_use", id: c.id, name: c.name, input: c.input })),
+      // extra_content carrega a thought_signature do Gemini 3, que precisa
+      // voltar intacta na próxima rodada.
+      ...calls.map((c) => ({
+        type: "tool_use",
+        id: c.id,
+        name: c.name,
+        input: c.input,
+        ...(c.extra ? { extra_content: c.extra } : {}),
+      })),
     ];
-    return { kind: "tool_calls", calls, assistantRaw };
+    return {
+      kind: "tool_calls",
+      calls: calls.map(({ id, name, input }) => ({ id, name, input })),
+      assistantRaw,
+    };
   }
 
   const texto = typeof mensagem.content === "string" ? mensagem.content.trim() : "";

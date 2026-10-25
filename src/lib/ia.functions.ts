@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { chamarProvedorIA, IAIndisponivelError } from "@/lib/ai/provider.server";
-import { verificarEDescontarCreditoIA, estornarCreditoIA } from "@/lib/ai/creditos.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireFeature, FeatureIndisponivelError } from "@/lib/planos/features";
 
@@ -43,12 +42,6 @@ export const gerarComIA = createServerFn({ method: "POST" })
     }
 
     try {
-      await verificarEDescontarCreditoIA(context.userId);
-    } catch (e) {
-      if (e instanceof IAIndisponivelError) throw new Error(e.message);
-      throw e;
-    }
-    try {
       const resposta = await chamarProvedorIA({
         systemPrompt: `${INSTRUCOES[data.tipo]} Responda apenas com o texto final, sem comentários.`,
         mensagens: [{ role: "user", content: data.entrada }],
@@ -59,10 +52,6 @@ export const gerarComIA = createServerFn({ method: "POST" })
       }
       return { texto: resposta.text };
     } catch (e) {
-      // A credit was already spent above — refund it since the empresa
-      // didn't get an answer back (provider outage, no credit on the
-      // platform's own Anthropic account, etc).
-      await estornarCreditoIA(context.userId);
       if (e instanceof IAIndisponivelError) throw new Error(e.message);
       throw e;
     }
