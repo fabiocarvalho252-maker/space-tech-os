@@ -577,6 +577,7 @@ export type Database = {
           email: string | null;
           endereco: string | null;
           id: string;
+          importacao_id: string | null;
           nome: string;
           observacoes: string | null;
           telefone: string | null;
@@ -591,6 +592,7 @@ export type Database = {
           email?: string | null;
           endereco?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome: string;
           observacoes?: string | null;
           telefone?: string | null;
@@ -605,13 +607,21 @@ export type Database = {
           email?: string | null;
           endereco?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome?: string;
           observacoes?: string | null;
           telefone?: string | null;
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "clientes_importacao_id_fkey";
+            columns: ["importacao_id"];
+            referencedRelation: "importacoes";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       cobrancas: {
         Row: {
@@ -1406,6 +1416,7 @@ export type Database = {
           email: string | null;
           endereco: string | null;
           id: string;
+          importacao_id: string | null;
           nome_fantasia: string | null;
           observacoes: string | null;
           razao_social: string;
@@ -1420,6 +1431,7 @@ export type Database = {
           email?: string | null;
           endereco?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome_fantasia?: string | null;
           observacoes?: string | null;
           razao_social: string;
@@ -1434,6 +1446,7 @@ export type Database = {
           email?: string | null;
           endereco?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome_fantasia?: string | null;
           observacoes?: string | null;
           razao_social?: string;
@@ -1441,6 +1454,52 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
           whatsapp?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_importacao_id_fkey";
+            columns: ["importacao_id"];
+            referencedRelation: "importacoes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      importacoes: {
+        Row: {
+          arquivo: string | null;
+          created_at: string;
+          criado_por: string | null;
+          desfeita_em: string | null;
+          desfeita_mantidos: number | null;
+          id: string;
+          inseridos: number;
+          pulados: number;
+          tipo: string;
+          user_id: string;
+        };
+        Insert: {
+          arquivo?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          desfeita_em?: string | null;
+          desfeita_mantidos?: number | null;
+          id?: string;
+          inseridos?: number;
+          pulados?: number;
+          tipo: string;
+          user_id: string;
+        };
+        Update: {
+          arquivo?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          desfeita_em?: string | null;
+          desfeita_mantidos?: number | null;
+          id?: string;
+          inseridos?: number;
+          pulados?: number;
+          tipo?: string;
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -2365,6 +2424,7 @@ export type Database = {
           exibir_no_catalogo: boolean | null;
           fornecedor_id: string | null;
           id: string;
+          importacao_id: string | null;
           nome: string;
           preco_custo: number;
           preco_venda: number;
@@ -2383,6 +2443,7 @@ export type Database = {
           exibir_no_catalogo?: boolean | null;
           fornecedor_id?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome: string;
           preco_custo?: number;
           preco_venda?: number;
@@ -2401,6 +2462,7 @@ export type Database = {
           exibir_no_catalogo?: boolean | null;
           fornecedor_id?: string | null;
           id?: string;
+          importacao_id?: string | null;
           nome?: string;
           preco_custo?: number;
           preco_venda?: number;
@@ -2414,6 +2476,12 @@ export type Database = {
             foreignKeyName: "produtos_fornecedor_id_fkey";
             columns: ["fornecedor_id"];
             referencedRelation: "fornecedores";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "produtos_importacao_id_fkey";
+            columns: ["importacao_id"];
+            referencedRelation: "importacoes";
             referencedColumns: ["id"];
           },
         ];
@@ -4219,6 +4287,7 @@ export type Database = {
           exibir_no_catalogo: boolean | null;
           fornecedor_id: string | null;
           id: string;
+          importacao_id: string | null;
           nome: string;
           preco_custo: number;
           preco_venda: number;
@@ -4469,6 +4538,13 @@ export type Database = {
         Returns: undefined;
       };
       descontar_credito_ia: { Args: { p_empresa_id: string }; Returns: boolean };
+      desfazer_importacao: {
+        Args: { p_importacao: string };
+        Returns: {
+          apagados: number;
+          mantidos: number;
+        }[];
+      };
       devolver_aparelho: {
         Args: { p_aparelho_id: string; p_condicao?: string; p_motivo: string };
         Returns: {

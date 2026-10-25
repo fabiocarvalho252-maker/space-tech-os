@@ -75,7 +75,7 @@ function celulaCsv(valor: unknown): string {
 function paraCsv(linhas: Record<string, unknown>[]): string {
   const colunas = [...new Set(linhas.flatMap((l) => Object.keys(l)))];
   const corpo = linhas.map((l) => colunas.map((c) => celulaCsv(l[c])).join(";"));
-  return "﻿" + [colunas.join(";"), ...corpo].join("\r\n");
+  return "\uFEFF" + [colunas.join(";"), ...corpo].join("\r\n");
 }
 
 async function lerTabela(
