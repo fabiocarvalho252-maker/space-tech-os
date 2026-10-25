@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { Loader2, Send } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Mic, Send, Square } from "lucide-react";
+import { toast } from "sonner";
 import { AIMessage } from "./AIMessage";
+import { AcaoCard } from "./AcaoCard";
 import { AISuggestions } from "./AISuggestions";
-import type { ChatMessage } from "@/lib/ai/types";
-import { enviarMensagemIA } from "@/lib/ai/chat.functions";
+import type { AcaoIA, ChatMessage } from "@/lib/ai/types";
+import { enviarMensagemIA, executarAcaoIA } from "@/lib/ai/chat.functions";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDitado } from "./useDitado";
 
 const MAX_HISTORICO_ENVIADO = 12;
 const CHAVE_HISTORICO = "spacetech_ia_historico";
@@ -41,6 +44,8 @@ export function AIChat() {
   const { data: usuario } = useCurrentUser();
   const [mensagens, setMensagens] = useState<ChatMessage[]>([]);
   const [texto, setTexto] = useState("");
+  const [executandoIndice, setExecutandoIndice] = useState<number | null>(null);
+  const qc = useQueryClient();
   const listaRef = useRef<HTMLDivElement>(null);
   const diaCarregadoRef = useRef<string | null>(null);
 
@@ -70,14 +75,28 @@ export function AIChat() {
 
   const enviar = useMutation({
     mutationFn: async (mensagem: string) => {
-      const historico = mensagens.slice(-MAX_HISTORICO_ENVIADO);
+      // Cartões de ação ficam só na tela; para a IA vai o texto da conversa.
+      const historico = mensagens
+        .filter((m) => !m.acao && m.content)
+        .map(({ role, content }) => ({ role, content }))
+        .slice(-MAX_HISTORICO_ENVIADO);
       return enviarMensagemIA({ data: { mensagem, historico } });
     },
     onSuccess: (res) => {
       if (res.erro) {
         setMensagens((prev) => [...prev, { role: "assistant", content: `⚠️ ${res.erro}` }]);
-      } else if (res.resposta) {
-        setMensagens((prev) => [...prev, { role: "assistant", content: res.resposta! }]);
+      } else {
+        const cartoes: ChatMessage[] = (res.acoes ?? []).map((acao) => ({
+          role: "assistant",
+          content: "",
+          acao,
+          acaoEstado: "pendente",
+        }));
+        setMensagens((prev) => [
+          ...prev,
+          ...(res.resposta ? [{ role: "assistant" as const, content: res.resposta }] : []),
+          ...cartoes,
+        ]);
       }
     },
     onError: (e: Error) => {
@@ -103,13 +122,56 @@ export function AIChat() {
     enviar.mutate(conteudo);
   }
 
+  function marcarAcao(indice: number, estado: "feita" | "cancelada") {
+    setMensagens((prev) => prev.map((m, i) => (i === indice ? { ...m, acaoEstado: estado } : m)));
+  }
+
+  async function confirmarAcao(indice: number, acao: AcaoIA) {
+    setExecutandoIndice(indice);
+    try {
+      const res = await executarAcaoIA({ data: acao });
+      if (res.ok) marcarAcao(indice, "feita");
+      setMensagens((prev) => [
+        ...prev,
+        { role: "assistant", content: res.ok ? `✅ ${res.mensagem}` : `⚠️ ${res.mensagem}` },
+      ]);
+      if (res.ok) {
+        for (const chave of ["ordens", "clientes", "dashboard"]) {
+          qc.invalidateQueries({ queryKey: [chave] });
+        }
+      }
+    } catch (e) {
+      setMensagens((prev) => [
+        ...prev,
+        { role: "assistant", content: `⚠️ Não consegui concluir: ${(e as Error).message}` },
+      ]);
+    } finally {
+      setExecutandoIndice(null);
+    }
+  }
+
+  // Fala vira texto no navegador e sai direto como pergunta, igual a digitar.
+  const ditado = useDitado({ aoConcluir: enviarTexto, aoErro: (m) => toast.error(m) });
+
   return (
     <div className="flex h-full flex-col">
       <div ref={listaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {mensagens.length === 0 ? (
           <AISuggestions onEscolher={enviarTexto} />
         ) : (
-          mensagens.map((m, i) => <AIMessage key={i} mensagem={m} />)
+          mensagens.map((m, i) =>
+            m.acao ? (
+              <AcaoCard
+                key={i}
+                mensagem={{ ...m, acao: m.acao }}
+                executando={executandoIndice === i}
+                onConfirmar={() => confirmarAcao(i, m.acao!)}
+                onCancelar={() => marcarAcao(i, "cancelada")}
+              />
+            ) : (
+              <AIMessage key={i} mensagem={m} />
+            ),
+          )
         )}
         {enviar.isPending && (
           <div className="flex items-center gap-2 pl-9 text-xs text-muted-foreground">
@@ -127,20 +189,36 @@ export function AIChat() {
         }}
       >
         <input
-          value={texto}
+          value={ditado.ouvindo ? ditado.parcial : texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Digite uma pergunta..."
+          readOnly={ditado.ouvindo}
+          placeholder={ditado.ouvindo ? "Ouvindo... fale sua pergunta" : "Digite uma pergunta..."}
           maxLength={1000}
-          className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
         />
-        <Button
-          type="submit"
-          size="icon"
-          className="h-10 w-10 shrink-0"
-          disabled={enviar.isPending || !texto.trim()}
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+        {ditado.suportado && (ditado.ouvindo || !texto.trim()) ? (
+          <Button
+            type="button"
+            size="icon"
+            variant={ditado.ouvindo ? "destructive" : "outline"}
+            className={`h-10 w-10 shrink-0 ${ditado.ouvindo ? "animate-pulse" : ""}`}
+            disabled={enviar.isPending && !ditado.ouvindo}
+            onClick={ditado.ouvindo ? ditado.parar : ditado.iniciar}
+            aria-label={ditado.ouvindo ? "Parar e enviar" : "Falar com a IA"}
+            title={ditado.ouvindo ? "Parar e enviar" : "Falar com a IA"}
+          >
+            {ditado.ouvindo ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            disabled={enviar.isPending || !texto.trim()}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        )}
       </form>
     </div>
   );
