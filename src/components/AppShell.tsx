@@ -90,7 +90,7 @@ const SISTEMA_ITENS: ItemMenu[] = [
   { label: "Usuários", to: "/usuarios", icon: UserCog },
   { label: "Permissões", to: "/usuarios", icon: Lock },
   { label: "Emails", to: "/configuracoes", icon: Mail },
-  { label: "Migrar de Outro Sistema", emBreve: true, icon: ArrowLeftRight },
+  { label: "Migrar de Outro Sistema", to: "/importar", icon: ArrowLeftRight },
   { label: "Fila WhatsApp", emBreve: true, icon: MessageSquare },
 ];
 
