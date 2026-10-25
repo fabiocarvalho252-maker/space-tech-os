@@ -61,6 +61,18 @@ type LinhaAgendamento = {
 // filtering system built here.
 
 const LIMITE_PADRAO = 10;
+
+// "OS abertas" = ainda em andamento na bancada. Pronto (aguardando retirada),
+// entregue, faturado, reprovado e cancelado não contam.
+const STATUS_OS_ABERTAS = [
+  "recebido",
+  "em_analise",
+  "orcamento",
+  "aguardando_aprovacao",
+  "aprovado",
+  "em_reparo",
+  "aguardando_peca",
+];
 const LIMITE_MAXIMO = 20;
 
 function limitar(valor: unknown): number {
@@ -152,7 +164,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "get_ordens_servico",
-    description: `Lista ordens de serviço com filtros opcionais por status, aparelho ou nome do cliente. Status válidos: ${STATUS_OS.map((s) => `${s.value} (${s.label})`).join(", ")}.`,
+    description: `Lista ordens de serviço com filtros opcionais por status, aparelho ou nome do cliente, e devolve o total que bate com os filtros. Para "OS abertas" / "em andamento" use somente_abertas=true (${STATUS_OS_ABERTAS.join(", ")}); OS "pronto" estão aguardando retirada e NÃO são abertas. Status válidos: ${STATUS_OS.map((s) => `${s.value} (${s.label})`).join(", ")}.`,
     input_schema: {
       type: "object",
       properties: {
@@ -162,6 +174,10 @@ export const TOOLS: ToolDef[] = [
         },
         aparelho: { type: "string", description: "Filtro parcial pelo aparelho/modelo" },
         cliente_nome: { type: "string", description: "Filtro parcial pelo nome do cliente" },
+        somente_abertas: {
+          type: "boolean",
+          description: "true = só OS em andamento (antes de ficarem prontas)",
+        },
         limite: { type: "integer" },
       },
     },
@@ -170,20 +186,22 @@ export const TOOLS: ToolDef[] = [
         .from("ordens_servico")
         .select(
           "numero, aparelho, marca, modelo, defeito, valor, status, responsavel, created_at, clientes(nome)",
+          { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .limit(limitar(args["limite"]));
       if (args["status"]) query = query.eq("status", String(args["status"]));
+      else if (args["somente_abertas"] === true) query = query.in("status", STATUS_OS_ABERTAS);
       const aparelho = textoBusca(args["aparelho"]);
       if (aparelho) query = query.ilike("aparelho", `%${aparelho}%`);
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
       let linhas = (data ?? []) as unknown as LinhaOS[];
       const clienteNome = textoBusca(args["cliente_nome"]).toLowerCase();
       if (clienteNome) {
         linhas = linhas.filter((o) => (o.clientes?.nome ?? "").toLowerCase().includes(clienteNome));
       }
-      return linhas.map((o) => ({
+      const ordens = linhas.map((o) => ({
         numero: o.numero,
         aparelho: o.aparelho,
         marca: o.marca,
@@ -196,6 +214,13 @@ export const TOOLS: ToolDef[] = [
         cliente: o.clientes?.nome ?? null,
         criado_em: o.created_at,
       }));
+      // O filtro por cliente é feito aqui, depois do limite: aí o total do
+      // banco não vale, só o que sobrou na lista.
+      return {
+        total: clienteNome ? ordens.length : (count ?? ordens.length),
+        mostrando: ordens.length,
+        ordens,
+      };
     },
   },
   {
