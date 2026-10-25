@@ -145,7 +145,7 @@ export const atualizarMeusDados = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const gerarAcessoSchema = z.object({ clienteId: z.string().uuid() });
+const gerarAcessoSchema = z.object({ clienteId: z.guid() });
 
 export type AcessoClienteResultado = {
   link: string;

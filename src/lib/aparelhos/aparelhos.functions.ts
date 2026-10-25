@@ -71,7 +71,7 @@ export const listarAparelhosComCustoFn = createServerFn({ method: "GET" })
     return { aparelhos, podeVerCusto };
   });
 
-const obterAparelhoSchema = z.object({ aparelhoId: z.string().uuid() });
+const obterAparelhoSchema = z.object({ aparelhoId: z.guid() });
 
 export const obterAparelhoComCustoFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -87,7 +87,7 @@ export const obterAparelhoComCustoFn = createServerFn({ method: "GET" })
     return { aparelho: podeVerCusto ? aparelho : { ...aparelho, preco_custo: 0 }, podeVerCusto };
   });
 
-const gerarComprovanteSchema = z.object({ vendaId: z.string().uuid() });
+const gerarComprovanteSchema = z.object({ vendaId: z.guid() });
 
 /** Same "share sheet" pattern as os-pdf-share.functions.ts's gerarPdfOsCompartilharFn. */
 export const gerarComprovanteAparelhoCompartilharFn = createServerFn({ method: "POST" })
@@ -99,7 +99,7 @@ export const gerarComprovanteAparelhoCompartilharFn = createServerFn({ method: "
     return { base64: Buffer.from(bytes).toString("base64") };
   });
 
-const gerarTermoGarantiaSchema = z.object({ garantiaId: z.string().uuid() });
+const gerarTermoGarantiaSchema = z.object({ garantiaId: z.guid() });
 
 export const gerarTermoGarantiaAparelhoCompartilharFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { gerarPdfComprovanteVenda } from "@/lib/venda-pdf.server";
 
-const gerarComprovanteVendaSchema = z.object({ vendaId: z.string().uuid() });
+const gerarComprovanteVendaSchema = z.object({ vendaId: z.guid() });
 
 export const gerarComprovanteVendaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

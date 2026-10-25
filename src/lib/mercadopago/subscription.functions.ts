@@ -30,7 +30,7 @@ async function resolverEmpresaId(userId: string, supabase: typeof supabaseAdmin)
 }
 
 const iniciarSchema = z.object({
-  planId: z.string().uuid(),
+  planId: z.guid(),
   billingCycle: z.enum(["monthly", "yearly"]),
   paymentMethod: z.enum(["pix", "credit_card"]),
 });
@@ -58,7 +58,7 @@ export const iniciarAssinaturaFn = createServerFn({ method: "POST" })
 
 export const cancelarAssinaturaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ subscriptionId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ subscriptionId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const empresaId = await resolverEmpresaId(context.userId, context.supabase);
     await cancelarAssinatura(data.subscriptionId, empresaId);

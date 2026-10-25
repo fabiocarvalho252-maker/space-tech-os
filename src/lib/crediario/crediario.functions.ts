@@ -25,7 +25,7 @@ async function empresaDaParcela(supabase: SupabaseClient<Database>, parcelaId: s
   return data.user_id;
 }
 
-const parcelaSchema = z.object({ parcelaId: z.string().uuid() });
+const parcelaSchema = z.object({ parcelaId: z.guid() });
 
 export const gerarPixParcelaCrediarioFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -54,7 +54,7 @@ export const enviarCobrancaWhatsappCrediarioFn = createServerFn({ method: "POST"
 
 export const gerarContratoCrediarioPdfFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ contratoId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ contratoId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ base64: string }> => {
     const { data: contrato } = await context.supabase
       .from("crediario_contratos")

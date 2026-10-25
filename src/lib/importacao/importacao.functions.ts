@@ -120,7 +120,7 @@ const valorSchema = z.union([z.string().max(2000), z.number(), z.boolean(), z.nu
 
 const loteSchema = z.object({
   tipo: z.enum(["clientes", "fornecedores", "produtos", "servicos"]),
-  importacaoId: z.string().uuid().nullable(),
+  importacaoId: z.guid().nullable(),
   arquivo: z.string().max(200),
   linhas: z.array(z.record(z.string().max(40), valorSchema)).max(LOTE_MAXIMO),
 });
@@ -304,7 +304,7 @@ export const listarImportacoes = createServerFn({ method: "GET" })
 
 export const desfazerImportacao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ importacaoId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ importacaoId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ apagados: number; mantidos: number }> => {
     const { data: r, error } = await context.supabase.rpc("desfazer_importacao", {
       p_importacao: data.importacaoId,

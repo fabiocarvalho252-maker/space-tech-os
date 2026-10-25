@@ -23,7 +23,7 @@ async function resolverEmpresaId(
   return memberships.find((m) => m.empresa_id !== userId)?.empresa_id ?? memberships[0]!.empresa_id;
 }
 
-const gerarComprovanteSchema = z.object({ seminovoId: z.string().uuid() });
+const gerarComprovanteSchema = z.object({ seminovoId: z.guid() });
 
 export const gerarComprovanteSeminovoCompartilharFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

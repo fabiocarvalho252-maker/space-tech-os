@@ -123,7 +123,7 @@ const PLANOS_PAGOS = [...PLANOS_COM_VALIDADE, "vitalicio"] as const;
 const BONUS_CREDITOS_IA_POR_PLANO = 10;
 
 const planoSchema = z.object({
-  empresaId: z.string().uuid(),
+  empresaId: z.guid(),
   plano: z.enum(["trial", "mensal", "anual", "vitalicio", "suspenso"]),
   acessoAte: z.string().nullable(),
   // Renovação mensal: descontar os créditos de indicação disponíveis
@@ -198,7 +198,7 @@ export type DescontoIndicacaoEmpresa = {
 
 export const obterDescontoIndicacaoEmpresa = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ empresaId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<DescontoIndicacaoEmpresa> => {
     checarSiteAdmin(context.claims);
     const indicacoes = await import("@/lib/referrals/commission-service");
@@ -213,7 +213,7 @@ export const obterDescontoIndicacaoEmpresa = createServerFn({ method: "GET" })
   });
 
 const creditosIASchema = z.object({
-  empresaId: z.string().uuid(),
+  empresaId: z.guid(),
   delta: z
     .number()
     .int()
@@ -258,7 +258,7 @@ function gerarSenhaAleatoria(): string {
 // memberships, etc). There is no undo.
 export const excluirEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ empresaId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     checarSiteAdmin(context.claims);
     if (data.empresaId === context.userId) {
@@ -272,7 +272,7 @@ export const excluirEmpresa = createServerFn({ method: "POST" })
 
 export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ empresaId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ senha: string }> => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -285,7 +285,7 @@ export const resetarSenhaEmpresa = createServerFn({ method: "POST" })
   });
 
 const alterarEmailEmpresaSchema = z.object({
-  empresaId: z.string().uuid(),
+  empresaId: z.guid(),
   email: z.string().trim().toLowerCase().email("Informe um e-mail válido."),
 });
 
@@ -326,7 +326,7 @@ export const alterarEmailEmpresa = createServerFn({ method: "POST" })
 // session, not changing how the empresa logs in.
 export const entrarComoEmpresa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ empresaId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ empresaId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ link: string }> => {
     checarSiteAdmin(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -434,7 +434,7 @@ export const listarPlanosDoSite = createServerFn({ method: "GET" })
 // continua significando "não configurado"; só o admin, digitando um valor
 // de verdade, faz esse plano ficar contratável de fato.
 const atualizarPlanoSchema = z.object({
-  planoId: z.string().uuid(),
+  planoId: z.guid(),
   monthlyPrice: z.number().nonnegative().nullable(),
   annualPrice: z.number().nonnegative().nullable(),
   annualDiscountPct: z.number().min(0).max(100).nullable(),
@@ -460,7 +460,7 @@ export const atualizarPlano = createServerFn({ method: "POST" })
   });
 
 const atualizarPlanoFeatureSchema = z.object({
-  planoId: z.string().uuid(),
+  planoId: z.guid(),
   feature: z.string().min(1),
   enabled: z.boolean(),
 });
@@ -482,8 +482,8 @@ export const atualizarPlanoFeature = createServerFn({ method: "POST" })
   });
 
 const alterarPlanoEmpresaSchema = z.object({
-  empresaId: z.string().uuid(),
-  planoId: z.string().uuid(),
+  empresaId: z.guid(),
+  planoId: z.guid(),
 });
 
 // Muda o tier (Básico/Profissional) de uma empresa específica — distinto de
@@ -512,7 +512,7 @@ export const alterarPlanoEmpresa = createServerFn({ method: "POST" })
 // empresa — quem pede é o operador da SPACE TECH), revisada/editada pelo
 // admin na tela e só então enviada pelo número do sistema.
 
-const reativacaoSchema = z.object({ empresaId: z.string().uuid() });
+const reativacaoSchema = z.object({ empresaId: z.guid() });
 
 async function carregarEmpresaParaReativacao(empresaId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -603,7 +603,7 @@ Responda apenas com o texto da mensagem, sem aspas e sem comentários.`,
   });
 
 const enviarReativacaoSchema = z.object({
-  empresaId: z.string().uuid(),
+  empresaId: z.guid(),
   texto: z.string().trim().min(1).max(2000),
 });
 

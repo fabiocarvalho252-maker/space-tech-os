@@ -131,7 +131,7 @@ export const listarReclamacoesPesquisaFn = createServerFn({ method: "GET" })
 
 export const resolverReclamacaoPesquisaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ id: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     await whatsappService.resolverReclamacaoPesquisa(
       await empresaDoUsuario(context, "clientes"),
@@ -141,7 +141,7 @@ export const resolverReclamacaoPesquisaFn = createServerFn({ method: "POST" })
   });
 
 const notificacaoOsSchema = z.object({
-  osId: z.string().uuid(),
+  osId: z.guid(),
   numero: z.string().trim().min(8).max(20),
   mensagem: z.string().trim().max(4096),
   templateId: z.string().nullable(),
@@ -190,7 +190,7 @@ export const processarNotificacoesAgendadasWhatsAppFn = createServerFn({ method:
 // o aviso, e o envio sai pela conexão da empresa dona da OS.
 export const avisarOsProntaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: unknown) => z.object({ osId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ osId: z.guid() }).parse(data))
   .handler(async ({ data, context }): Promise<whatsappService.ResultadoAvisoPronta> => {
     const { data: os } = await context.supabase
       .from("ordens_servico")

@@ -14,7 +14,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { gerarPdfOs } from "@/lib/os-pdf.server";
 
 const gerarPdfOsCompartilharSchema = z.object({
-  osId: z.string().uuid(),
+  osId: z.guid(),
   modo: z.enum(["os", "orcamento"]),
 });
 

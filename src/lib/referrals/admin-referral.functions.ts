@@ -61,7 +61,7 @@ export const obterConfiguracaoIndicacoesFn = createServerFn({ method: "GET" })
 // nunca 0. NULL continua significando "não configurado" (mesma convenção
 // de plans.monthly_price).
 const atualizarConfigSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().trim().min(1).max(100),
   active: z.boolean(),
   description: z.string().trim().max(500).nullable(),
@@ -137,7 +137,7 @@ export const listarRegrasIndicacaoPorPlanoFn = createServerFn({ method: "GET" })
   });
 
 const atualizarRegraSchema = z.object({
-  planId: z.string().uuid(),
+  planId: z.guid(),
   commissionType: z.enum(["FIXED", "PERCENTAGE"]),
   commissionValue: z.number().nonnegative().nullable(),
   active: z.boolean(),
@@ -331,7 +331,7 @@ export const listarIndicadoresFn = createServerFn({ method: "GET" })
   });
 
 const bonificacaoSchema = z.object({
-  empresaId: z.string().uuid(),
+  empresaId: z.guid(),
   valor: z.number().positive().max(100000),
   chavePix: z.string().trim().max(140).optional(),
   nota: z.string().trim().max(500).optional(),
