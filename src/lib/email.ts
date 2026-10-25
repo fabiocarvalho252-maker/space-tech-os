@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 /**
  * SMTP email service. Server-only — never import this from a route
@@ -51,10 +51,10 @@ export function smtpConfigurado(): boolean {
   return lerConfigSmtp() !== null;
 }
 
-let transporterCache: nodemailer.Transporter | null = null;
+let transporterCache: Transporter | null = null;
 let transporterCacheKey = "";
 
-function obterTransporter(config: SmtpConfig): nodemailer.Transporter {
+function obterTransporter(config: SmtpConfig): Transporter {
   const chave = `${config.host}:${config.port}:${config.user}`;
   if (transporterCache && transporterCacheKey === chave) return transporterCache;
 
