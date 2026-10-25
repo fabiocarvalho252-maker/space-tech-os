@@ -252,16 +252,6 @@ function Configuracoes() {
     enabled: !!user,
   });
 
-  const { data: statusFlows = [], refetch: refetchFlows } = useQuery({
-    queryKey: ["os-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("os_status_flows").select("*");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const { data: saleConfig, refetch: refetchSaleConfig } = useQuery({
     queryKey: ["sale-config"],
     queryFn: async () => {
@@ -1242,69 +1232,6 @@ function Configuracoes() {
                     }}
                   />
                 </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-soft lg:col-span-2">
-              <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                <ArrowRight className="h-5 w-5 text-primary" />
-                Fluxo entre Status
-              </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Defina quais transições de status são permitidas na listagem.
-              </p>
-
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {STATUS_OS.map((origem) => (
-                  <div
-                    key={origem.value}
-                    className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border"
-                  >
-                    <h3 className="font-bold text-sm flex items-center gap-2">
-                      <ChevronRight className="h-4 w-4 text-primary" />
-                      De: {origem.label}
-                    </h3>
-                    <div className="space-y-2">
-                      {STATUS_OS.filter((s) => s.value !== origem.value).map((destino) => {
-                        const isAtivo = statusFlows.some(
-                          (f) =>
-                            f.origem === origem.value && f.destino === destino.value && f.ativo,
-                        );
-                        return (
-                          <div
-                            key={destino.value}
-                            className="flex items-center justify-between gap-4 p-2 rounded-lg bg-background border border-border"
-                          >
-                            <span className="text-xs font-medium">Para: {destino.label}</span>
-                            <Switch
-                              checked={isAtivo}
-                              onCheckedChange={async (checked) => {
-                                if (checked) {
-                                  await supabase.from("os_status_flows").upsert(
-                                    {
-                                      user_id: empresaId!,
-                                      origem: origem.value,
-                                      destino: destino.value,
-                                      ativo: true,
-                                    },
-                                    { onConflict: "user_id,origem,destino" },
-                                  );
-                                } else {
-                                  await supabase.from("os_status_flows").delete().match({
-                                    user_id: empresaId!,
-                                    origem: origem.value,
-                                    destino: destino.value,
-                                  });
-                                }
-                                refetchFlows();
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
               </div>
             </section>
           </div>

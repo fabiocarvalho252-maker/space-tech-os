@@ -153,8 +153,6 @@ export const ACOES_TOOLS: ToolDef[] = [
       if (!os) return { erro: `OS #${args["numero"]} não encontrada.` };
       if (os.status === status)
         return { erro: `A OS #${os.numero} já está como ${statusLabel(status)}.` };
-      const erroFluxo = await conferirFluxo(supabase, os.status, status);
-      if (erroFluxo) return { erro: erroFluxo };
       return {
         proposta: {
           tipo: "mudar_status_os",
@@ -168,21 +166,6 @@ export const ACOES_TOOLS: ToolDef[] = [
     },
   },
 ];
-
-// Mesma regra da tela de OS: com fluxos configurados, só transições
-// cadastradas; cancelar é sempre permitido.
-async function conferirFluxo(supabase: Supa, origem: string, destino: string) {
-  if (destino === "cancelado") return null;
-  const { data: fluxos, error } = await supabase
-    .from("os_status_flows")
-    .select("origem, destino")
-    .eq("ativo", true);
-  if (error) throw error;
-  if (!fluxos?.length) return null;
-  return fluxos.some((f) => f.origem === origem && f.destino === destino)
-    ? null
-    : `Transição de ${statusLabel(origem)} para ${statusLabel(destino)} não permitida no seu fluxo.`;
-}
 
 async function inserirCliente(
   supabase: Supa,
@@ -244,8 +227,6 @@ export async function executarAcao(
         .maybeSingle();
       if (erroOs) throw erroOs;
       if (!os) throw new Error("OS não encontrada.");
-      const erroFluxo = await conferirFluxo(supabase, os.status, acao.status_novo);
-      if (erroFluxo) throw new Error(erroFluxo);
       const { data: alterada, error } = await supabase
         .from("ordens_servico")
         .update({ status: acao.status_novo })

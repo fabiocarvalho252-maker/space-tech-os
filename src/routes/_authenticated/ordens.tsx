@@ -687,16 +687,6 @@ function Ordens() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const { data: statusFlows = [] } = useQuery({
-    queryKey: ["os-status-flows"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("os_status_flows").select("*").eq("ativo", true);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const { data: historico = [] } = useQuery({
     queryKey: ["os-historico", selectedOsId],
     queryFn: async () => {
@@ -731,21 +721,9 @@ function Ordens() {
   }
 
   const mudarStatus = useMutation({
-    mutationFn: async ({ id, status, origem }: { id: string; status: string; origem?: string }) => {
-      // Validar fluxo se houver fluxos configurados. Cancelar é sempre
-      // permitido independente do fluxo configurado — é uma saída de
-      // emergência, não uma etapa do fluxo normal, e o cadastro de fluxos
-      // (Configurações > Fluxo entre Status) nunca inclui "cancelado" como
-      // destino por padrão, o que travava o cancelamento de qualquer OS.
-      if (origem && status !== "cancelado" && statusFlows.length > 0) {
-        const permitido = statusFlows.some((f) => f.origem === origem && f.destino === status);
-        if (!permitido) {
-          throw new Error(
-            `Transição de ${statusLabel(origem)} para ${statusLabel(status)} não permitida no seu fluxo.`,
-          );
-        }
-      }
-
+    // Qualquer status pode ir para qualquer outro: a loja não precisa seguir
+    // uma sequência (o antigo "Fluxo entre Status" foi retirado).
+    mutationFn: async ({ id, status }: { id: string; status: string; origem?: string }) => {
       const { error } = await supabase.from("ordens_servico").update({ status }).eq("id", id);
       if (error) throw error;
     },
