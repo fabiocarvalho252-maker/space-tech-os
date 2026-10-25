@@ -37,10 +37,11 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-// OS que já saíram do fluxo de atendimento: faturada também foi concluída
-// (e entregue/paga), e reprovada não vai ser executada — antes só
-// entregue/cancelado contavam, e o quadro de "em aberto" mostrava faturadas.
-const STATUS_FECHADOS = ["entregue", "faturado", "cancelado", "reprovado"];
+// OS fora do quadro "em aberto": faturada também foi concluída (e
+// entregue/paga), reprovada não vai ser executada, e pronta só aguarda
+// retirada — mesma regra da SPACE TECH IA (STATUS_OS_ABERTAS em
+// src/lib/ai/tools.server.ts), para os dois mostrarem o mesmo número.
+const STATUS_FECHADOS = ["pronto", "entregue", "faturado", "cancelado", "reprovado"];
 // Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
 // nenhuma, então o custo deles também não pode ser descontado do lucro.
 const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
