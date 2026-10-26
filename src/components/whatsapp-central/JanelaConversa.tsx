@@ -61,6 +61,7 @@ import {
 import type { ContextoConversa, Conversa, MensagemCentral } from "@/lib/whatsapp/central.server";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { useAcoesOs, type AcaoOs } from "./AcoesOs";
+import { RespostasRapidasDialog } from "./RespostasRapidasDialog";
 import {
   type AcessoCentral,
   SecaoAcoesRapidas,
@@ -724,6 +725,7 @@ function Composer({
   const [legenda, setLegenda] = useState("");
   const [resumo, setResumo] = useState<string | null>(null);
   const [modelosAbertos, setModelosAbertos] = useState(false);
+  const [gerenciarModelos, setGerenciarModelos] = useState(false);
   const inputImagem = useRef<HTMLInputElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -854,6 +856,26 @@ function Composer({
 
   return (
     <div className="relative border-t border-border p-2 sm:p-3">
+      {modelosAbertos && listaModelos.length === 0 && !respostas.isLoading && (
+        <div className="absolute bottom-full left-2 right-2 z-10 mb-1 rounded-xl border border-border bg-popover p-4 text-center shadow-lg">
+          <p className="text-sm font-semibold">Nenhuma resposta rápida ainda</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Salve textos que você manda sempre (horário, endereço, formas de pagamento…) e use com
+            um clique ou digitando / e o atalho.
+          </p>
+          <Button
+            size="sm"
+            className="mt-3"
+            onClick={() => {
+              setModelosAbertos(false);
+              setGerenciarModelos(true);
+            }}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> Criar resposta rápida
+          </Button>
+        </div>
+      )}
+
       {listaModelos.length > 0 && (
         <ul
           className="absolute bottom-full left-2 right-2 z-10 mb-1 max-h-64 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg"
@@ -873,8 +895,27 @@ function Composer({
               </button>
             </li>
           ))}
+          {modelosAbertos && (
+            <li className="border-t border-border pt-1">
+              <button
+                className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-primary hover:bg-accent"
+                onClick={() => {
+                  setModelosAbertos(false);
+                  setGerenciarModelos(true);
+                }}
+              >
+                Gerenciar respostas rápidas…
+              </button>
+            </li>
+          )}
         </ul>
       )}
+
+      <RespostasRapidasDialog
+        open={gerenciarModelos}
+        onOpenChange={setGerenciarModelos}
+        podeEditar
+      />
 
       <input
         ref={inputImagem}

@@ -41,9 +41,12 @@ export function nomeMembro(equipe: Membro[] | undefined, id: string | null): str
 }
 
 export function iniciais(nome: string): string {
+  // Por código (não por unidade UTF-16): nome com emoji não vira "�".
   const partes = nome.trim().split(/\s+/).filter(Boolean);
-  const letras = (partes[0]?.[0] ?? "") + (partes.length > 1 ? (partes.at(-1)?.[0] ?? "") : "");
-  return letras.toUpperCase() || "?";
+  const primeira = (p: string | undefined) =>
+    Array.from(p ?? "").find((c) => /[\p{L}\p{N}]/u.test(c)) ?? "";
+  const letras = primeira(partes[0]) + (partes.length > 1 ? primeira(partes.at(-1)) : "");
+  return letras.toUpperCase() || Array.from(nome.trim())[0] || "?";
 }
 
 export function tamanhoArquivo(bytes: number | null): string {
