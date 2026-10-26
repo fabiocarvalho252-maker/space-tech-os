@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   Plus,
   Settings,
+  ShieldCheck,
   Wifi,
   Zap,
 } from "lucide-react";
@@ -21,9 +22,10 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { IconeWhatsapp } from "@/components/SuporteWhatsapp";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { podeVer, usePermissoes } from "@/hooks/useCurrentUser";
+import { podeVer, useEmpresaId, usePermissoes } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/utils";
-import { acessoCentralFn } from "@/lib/whatsapp/central.functions";
+import { acessoCentralFn, contarFiltrosFn } from "@/lib/whatsapp/central.functions";
+import { useTempoReal } from "@/components/whatsapp-central/useTempoReal";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 import { AcoesOsProvider } from "@/components/whatsapp-central/AcoesOs";
@@ -64,6 +66,14 @@ function CentralWhatsapp() {
   const [novoAberto, setNovoAberto] = useState(false);
 
   const acesso = useQuery({ queryKey: QK.acesso, queryFn: () => acessoCentralFn(), retry: false });
+  const tempoReal = useTempoReal(useEmpresaId());
+  // Mesma consulta dos filtros da lista (cache compartilhado).
+  const contagem = useQuery({
+    queryKey: QK.filtros,
+    queryFn: () => contarFiltrosFn(),
+    refetchInterval: 10_000,
+    enabled: acesso.isSuccess,
+  });
   const status = useQuery({
     queryKey: ["whatsapp-status"],
     queryFn: () => statusWhatsapp(),
@@ -131,6 +141,7 @@ function CentralWhatsapp() {
                 {status.data?.phone_number
                   ? formatarTelefone(status.data.phone_number)
                   : "WhatsApp da loja (QR Code)"}
+                {tempoReal ? " · ao vivo" : ""}
               </p>
             </div>
             {!status.isLoading && status.data?.status !== "conectado" && podeConfigurar && (
@@ -142,6 +153,14 @@ function CentralWhatsapp() {
             )}
           </div>
 
+          {!!contagem.data?.aprovacao && (
+            <Button asChild variant="outline" className="border-violet-500/40 text-violet-400">
+              <Link to="/whatsapp-fila" search={{ aba: "aprovacao" }}>
+                <ShieldCheck className="mr-1.5 h-4 w-4" />
+                {contagem.data.aprovacao} aguardando aprovação
+              </Link>
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">

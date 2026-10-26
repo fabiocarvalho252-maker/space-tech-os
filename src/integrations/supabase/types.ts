@@ -3824,6 +3824,12 @@ export type Database = {
       };
       whatsapp_config: {
         Row: {
+          aprovacao_automacoes: string[];
+          notif_cobranca_lembrete_auto: boolean;
+          cobranca_lembrete_texto: string;
+          notif_cobranca_paga_auto: boolean;
+          cobranca_paga_texto: string;
+          notif_cobranca_desde: string | null;
           boas_vindas: boolean | null;
           boas_vindas_texto: string | null;
           created_at: string | null;
@@ -3867,6 +3873,12 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          aprovacao_automacoes?: string[];
+          notif_cobranca_lembrete_auto?: boolean;
+          cobranca_lembrete_texto?: string;
+          notif_cobranca_paga_auto?: boolean;
+          cobranca_paga_texto?: string;
+          notif_cobranca_desde?: string | null;
           boas_vindas?: boolean | null;
           boas_vindas_texto?: string | null;
           created_at?: string | null;
@@ -3910,6 +3922,12 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          aprovacao_automacoes?: string[];
+          notif_cobranca_lembrete_auto?: boolean;
+          cobranca_lembrete_texto?: string;
+          notif_cobranca_paga_auto?: boolean;
+          cobranca_paga_texto?: string;
+          notif_cobranca_desde?: string | null;
           boas_vindas?: boolean | null;
           boas_vindas_texto?: string | null;
           created_at?: string | null;
@@ -4032,6 +4050,9 @@ export type Database = {
       };
       whatsapp_conversas: {
         Row: {
+          opt_out_em: string | null;
+          foto_url: string | null;
+          foto_atualizada_em: string | null;
           atribuida_a: string | null;
           chave_telefone: string;
           cliente_id: string | null;
@@ -4051,6 +4072,9 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          opt_out_em?: string | null;
+          foto_url?: string | null;
+          foto_atualizada_em?: string | null;
           atribuida_a?: string | null;
           chave_telefone: string;
           cliente_id?: string | null;
@@ -4070,6 +4094,9 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          opt_out_em?: string | null;
+          foto_url?: string | null;
+          foto_atualizada_em?: string | null;
           atribuida_a?: string | null;
           chave_telefone?: string;
           cliente_id?: string | null;

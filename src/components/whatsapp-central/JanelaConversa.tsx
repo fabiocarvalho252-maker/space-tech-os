@@ -61,6 +61,7 @@ import {
 import type { ContextoConversa, Conversa, MensagemCentral } from "@/lib/whatsapp/central.server";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { useAcoesOs, type AcaoOs } from "./AcoesOs";
+import { Avatar } from "./Avatar";
 import { RespostasRapidasDialog } from "./RespostasRapidasDialog";
 import {
   type AcessoCentral,
@@ -142,9 +143,7 @@ export function JanelaConversa({
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-          {nome ? iniciais(nome) : ""}
-        </div>
+        <Avatar nome={nome} foto={conversa?.foto_url} className="h-10 w-10 text-sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">{nome || "…"}</p>
           <p className="truncate text-xs text-muted-foreground">

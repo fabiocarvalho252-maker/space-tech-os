@@ -26,7 +26,13 @@ export type JsonValue =
 
 export type WhatsappMensagemDirecao = "inbound" | "outbound";
 export type WhatsappMensagemStatus =
-  "pendente" | "enviado" | "falhou" | "recebido" | "agendado" | "cancelado";
+  | "pendente"
+  | "enviado"
+  | "falhou"
+  | "recebido"
+  | "agendado"
+  | "cancelado"
+  | "aguardando_aprovacao";
 
 export type WhatsappAnexoRegistro = {
   tipo: "os" | "orcamento";

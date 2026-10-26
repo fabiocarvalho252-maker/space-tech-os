@@ -16,6 +16,7 @@ import { consumirUsoIA, devolverUsoIA } from "@/lib/ai/uso-diario.server";
 import {
   EvolutionApiError,
   baixarMidiaRecebida,
+  buscarFotoPerfil,
   enviarMensagemMidia,
   enviarMensagemTexto,
   evolutionConfigurado,
@@ -23,6 +24,13 @@ import {
 import { MIDIA_MAX_BYTES_PADRAO, detectarFormato, nomeSeguro, validarAnexo } from "./midia";
 import type { MensagemWebhook } from "./webhook-parse";
 import { chaveTelefone, paraE164BR } from "./telefone";
+import {
+  RESPOSTA_PARAR,
+  RESPOSTA_VOLTAR,
+  chaveAutomacao as chaveAutomacaoTs,
+  pedidoDeParar,
+  pedidoDeVoltar,
+} from "./automacoes";
 import { obterConexao, registrarSaudeEnvio, WhatsappNaoConfiguradoError } from "./whatsapp-service";
 
 export const BUCKET_MIDIA = "whatsapp-midia";
@@ -59,6 +67,9 @@ export type Conversa = {
   ultima_mensagem_em: string | null;
   ultima_mensagem_preview: string | null;
   ultima_direcao: "inbound" | "outbound" | null;
+  /** Cliente pediu PARAR: não recebe automáticas (atendimento normal continua). */
+  opt_out_em: string | null;
+  foto_url: string | null;
 };
 
 export type MensagemCentral = {
@@ -92,13 +103,58 @@ export class ConversaError extends Error {
 }
 
 const CAMPOS_CONVERSA =
-  "id, phone_number, contact_name, cliente_id, status, atribuida_a, prioridade, etiquetas, nao_lidas, ultima_mensagem_em, ultima_mensagem_preview, ultima_direcao, clientes(nome)";
+  "id, phone_number, contact_name, cliente_id, status, atribuida_a, prioridade, etiquetas, nao_lidas, ultima_mensagem_em, ultima_mensagem_preview, ultima_direcao, opt_out_em, foto_url, foto_atualizada_em, clientes(nome)";
 
-type ConversaRow = Omit<Conversa, "cliente_nome"> & { clientes: { nome: string } | null };
+type ConversaRow = Omit<Conversa, "cliente_nome"> & {
+  clientes: { nome: string } | null;
+  foto_atualizada_em: string | null;
+};
 
 function paraConversa(r: ConversaRow): Conversa {
-  const { clientes, ...resto } = r;
+  const { clientes, foto_atualizada_em: _f, ...resto } = r;
   return { ...resto, cliente_nome: clientes?.nome ?? null };
+}
+
+// A URL da foto do WhatsApp expira; busca de novo depois de 3 dias.
+const FOTO_VALIDADE_MS = 3 * 86400_000;
+const fotosEmAndamento = new Set<string>();
+
+/**
+ * Busca as fotos de perfil que faltam (ou venceram) das conversas listadas,
+ * em segundo plano — a lista não espera; a foto aparece na próxima consulta.
+ */
+function atualizarFotos(empresaId: string, linhas: ConversaRow[]): void {
+  const vencidas = linhas
+    .filter(
+      (c) =>
+        !fotosEmAndamento.has(c.id) &&
+        (!c.foto_atualizada_em ||
+          Date.now() - new Date(c.foto_atualizada_em).getTime() > FOTO_VALIDADE_MS),
+    )
+    .slice(0, 8);
+  if (!vencidas.length || !evolutionConfigurado()) return;
+  for (const c of vencidas) fotosEmAndamento.add(c.id);
+  void (async () => {
+    try {
+      const conexao = await obterConexao(empresaId);
+      if (!conexao || conexao.status !== "conectado") return;
+      for (const c of vencidas) {
+        let foto: string | null = null;
+        try {
+          foto = await buscarFotoPerfil(conexao.instance_name, paraE164BR(c.phone_number));
+        } catch {
+          continue; // tenta de novo na próxima listagem
+        }
+        await supabaseAdmin
+          .from("whatsapp_conversas")
+          .update({ foto_url: foto, foto_atualizada_em: new Date().toISOString() })
+          .eq("user_id", empresaId)
+          .eq("id", c.id);
+      }
+    } finally {
+      for (const c of vencidas) fotosEmAndamento.delete(c.id);
+    }
+  })();
 }
 
 // Busca vai para um filtro .or() do PostgREST: só letras, números, espaço e
@@ -165,13 +221,15 @@ export async function listarConversas(params: {
 
   const { data, error } = await q;
   if (error) throw error;
-  const linhas = (data as unknown as ConversaRow[]).map(paraConversa);
+  const brutas = data as unknown as ConversaRow[];
+  atualizarFotos(params.empresaId, brutas);
+  const linhas = brutas.map(paraConversa);
   const temMais = linhas.length > params.limite;
   const conversas = temMais ? linhas.slice(0, params.limite) : linhas;
   return { conversas, proximo: temMais ? (conversas.at(-1)?.ultima_mensagem_em ?? null) : null };
 }
 
-export type ContagemFiltros = Record<FiltroConversa, number>;
+export type ContagemFiltros = Record<FiltroConversa, number> & { aprovacao: number };
 
 /** Números ao lado de cada filtro da lista (mesmas regras de listarConversas). */
 export async function contarFiltros(empresaId: string, atorId: string): Promise<ContagemFiltros> {
@@ -181,13 +239,18 @@ export async function contarFiltros(empresaId: string, atorId: string): Promise<
       .select("id", { count: "exact", head: true })
       .eq("user_id", empresaId)
       .not("ultima_mensagem_em", "is", null);
-  const [todas, naoLidas, abertas, aguardando, minhas, encerradas] = await Promise.all([
+  const [todas, naoLidas, abertas, aguardando, minhas, encerradas, aprovacao] = await Promise.all([
     base(),
     base().gt("nao_lidas", 0),
     base().eq("status", "aberta"),
     base().eq("status", "aguardando"),
     base().eq("atribuida_a", atorId).neq("status", "encerrada"),
     base().eq("status", "encerrada"),
+    supabaseAdmin
+      .from("whatsapp_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", empresaId)
+      .eq("status", "aguardando_aprovacao"),
   ]);
   return {
     todas: todas.count ?? 0,
@@ -196,6 +259,7 @@ export async function contarFiltros(empresaId: string, atorId: string): Promise<
     aguardando: aguardando.count ?? 0,
     minhas: minhas.count ?? 0,
     encerradas: encerradas.count ?? 0,
+    aprovacao: aprovacao.count ?? 0,
   };
 }
 
@@ -538,6 +602,14 @@ function descreverEvento(tipo: string, autor: string, detalhes: unknown, equipe:
       return `${autor} mudou a prioridade para ${d["valor"] ?? ""}`;
     case "etiquetas":
       return `${autor} mudou as etiquetas${d["valor"] ? `: ${d["valor"]}` : ""}`;
+    case "opt_out":
+      return d["origem"] === "cliente"
+        ? "O cliente pediu PARAR (sem mensagens automáticas)"
+        : `${autor} desligou as mensagens automáticas`;
+    case "opt_in":
+      return d["origem"] === "cliente"
+        ? "O cliente pediu VOLTAR (mensagens automáticas de novo)"
+        : `${autor} religou as mensagens automáticas`;
     default:
       return `${autor}: ${tipo}`;
   }
@@ -1176,6 +1248,115 @@ export async function aplicarStatusEntrega(
   q = entrega === "lido" ? q.or("entrega.is.null,entrega.eq.entregue") : q.is("entrega", null);
   const { error } = await q;
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------------
+// PARAR / VOLTAR
+// ---------------------------------------------------------------------
+
+/** Liga/desliga as mensagens automáticas para o contato (botão no painel). */
+export async function definirOptOut(
+  empresaId: string,
+  ator: Ator,
+  conversaId: string,
+  optOut: boolean,
+): Promise<void> {
+  await obterConversaRow(empresaId, conversaId);
+  const { error } = await supabaseAdmin
+    .from("whatsapp_conversas")
+    .update({ opt_out_em: optOut ? new Date().toISOString() : null })
+    .eq("user_id", empresaId)
+    .eq("id", conversaId);
+  if (error) throw error;
+  if (optOut) await cancelarAutomaticasPendentes(empresaId, conversaId);
+  await registrarEvento(empresaId, conversaId, ator.id, optOut ? "opt_out" : "opt_in", {
+    origem: "atendente",
+  });
+}
+
+// O que já estava na fila para o contato também não sai.
+async function cancelarAutomaticasPendentes(empresaId: string, conversaId: string): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from("whatsapp_messages")
+    .select("id, template_id")
+    .eq("user_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .in("status", ["agendado", "aguardando_aprovacao"]);
+  const ids = (data ?? []).filter((m) => chaveAutomacaoTs(m.template_id)).map((m) => m.id);
+  if (!ids.length) return;
+  await supabaseAdmin
+    .from("whatsapp_messages")
+    .update({
+      status: "cancelado",
+      error: "O cliente pediu para não receber mensagens automáticas (PARAR).",
+    })
+    .in("id", ids);
+}
+
+/**
+ * Mensagem do cliente que é só "PARAR" (ou VOLTAR): grava a preferência e
+ * confirma uma vez. Chamado pelo webhook depois de registrar a mensagem.
+ */
+export async function tratarPedidoParar(params: {
+  instanceName: string;
+  numero: string;
+  texto: string | null;
+}): Promise<void> {
+  const parar = pedidoDeParar(params.texto);
+  const voltar = !parar && pedidoDeVoltar(params.texto);
+  if (!parar && !voltar) return;
+
+  const { data: conexao } = await supabaseAdmin
+    .from("whatsapp_connections")
+    .select("id, user_id, instance_name, status")
+    .eq("instance_name", params.instanceName)
+    .maybeSingle();
+  if (!conexao) return;
+  const empresaId = conexao.user_id;
+  const { data: conversa } = await supabaseAdmin
+    .from("whatsapp_conversas")
+    .select("id, opt_out_em")
+    .eq("user_id", empresaId)
+    .eq("chave_telefone", chaveTelefone(params.numero))
+    .maybeSingle();
+  if (!conversa) return;
+  // VOLTAR só vale para quem tinha pedido PARAR; PARAR repetido não responde de novo.
+  if (parar === !!conversa.opt_out_em) return;
+
+  await supabaseAdmin
+    .from("whatsapp_conversas")
+    .update({ opt_out_em: parar ? new Date().toISOString() : null })
+    .eq("id", conversa.id);
+  if (parar) await cancelarAutomaticasPendentes(empresaId, conversa.id);
+  await supabaseAdmin.from("whatsapp_conversa_eventos").insert({
+    user_id: empresaId,
+    conversa_id: conversa.id,
+    tipo: parar ? "opt_out" : "opt_in",
+    detalhes: { origem: "cliente" },
+  });
+
+  if (conexao.status !== "conectado") return;
+  const resposta = parar ? RESPOSTA_PARAR : RESPOSTA_VOLTAR;
+  let messageId: string | null = null;
+  let erro: string | null = null;
+  try {
+    messageId = (await enviarMensagemTexto(conexao.instance_name, params.numero, resposta))
+      .messageId;
+  } catch (e) {
+    erro = e instanceof Error ? e.message : String(e);
+  }
+  await supabaseAdmin.from("whatsapp_messages").insert({
+    user_id: empresaId,
+    connection_id: conexao.id,
+    conversa_id: conversa.id,
+    direction: "outbound",
+    phone_number: params.numero,
+    content: resposta,
+    status: erro ? "falhou" : "enviado",
+    error: erro,
+    evolution_message_id: messageId,
+    template_id: parar ? "opt_out_confirmacao" : "opt_in_confirmacao",
+  });
 }
 
 // ---------------------------------------------------------------------

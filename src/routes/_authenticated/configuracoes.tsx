@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
+import { AUTOMACOES } from "@/lib/whatsapp/automacoes";
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -1886,6 +1887,20 @@ function Configuracoes() {
                         uso: "auto",
                       },
                       {
+                        id: "notif_cobranca_lembrete_auto",
+                        label: "Lembrete de cobrança Pix perto do vencimento",
+                        key: "notif_cobranca_lembrete_auto",
+                        textoKey: "cobranca_lembrete_texto",
+                        uso: "auto",
+                      },
+                      {
+                        id: "notif_cobranca_paga_auto",
+                        label: "Confirmação de pagamento recebido",
+                        key: "notif_cobranca_paga_auto",
+                        textoKey: "cobranca_paga_texto",
+                        uso: "auto",
+                      },
+                      {
                         id: "notif_os_criada",
                         label: "OS criada",
                         key: "notif_os_criada",
@@ -1960,6 +1975,42 @@ function Configuracoes() {
                           </div>
                         </summary>
                         <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
+                          {(() => {
+                            const auto = AUTOMACOES.find((a) => a.config === item.key);
+                            if (!auto) return null;
+                            const lista =
+                              (camposWhatsapp?.["aprovacao_automacoes"] as string[] | undefined) ??
+                              [];
+                            const exige = lista.includes(auto.chave);
+                            return (
+                              <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-background/50 p-3">
+                                <Switch
+                                  checked={exige}
+                                  onCheckedChange={async (val) => {
+                                    const nova = val
+                                      ? [...new Set([...lista, auto.chave])]
+                                      : lista.filter((x) => x !== auto.chave);
+                                    await supabase
+                                      .from("whatsapp_config")
+                                      .upsert(
+                                        { user_id: empresaId!, aprovacao_automacoes: nova },
+                                        { onConflict: "user_id" },
+                                      );
+                                    refetchWhatsapp();
+                                  }}
+                                />
+                                <span className="space-y-0.5">
+                                  <span className="block text-sm font-medium">
+                                    Exigir aprovação antes de enviar
+                                  </span>
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    A mensagem fica em WhatsApp → Fila e automações → Aguardando
+                                    aprovação até alguém da equipe aprovar, editar ou rejeitar.
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })()}
                           <div className="space-y-2">
                             {item.key === "ia_pesquisa_personalizada" ? (
                               <p className="text-[11px] text-muted-foreground">
@@ -2031,15 +2082,29 @@ function Configuracoes() {
                                   }}
                                 />
                                 <p className="text-[10px] text-muted-foreground">
-                                  Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"},{" "}
-                                  {"{{status}}"}, {"{{tecnico}}"}
-                                  {item.key === "notif_os_pronta" && (
+                                  {item.key.startsWith("notif_cobranca_") ? (
                                     <>
-                                      , {"{{aparelho}}"}, {"{{link}}"}
+                                      Variáveis disponíveis: {"{{cliente}}"}, {"{{valor}}"},{" "}
+                                      {item.key === "notif_cobranca_lembrete_auto" && (
+                                        <>{"{{vencimento}}"}, </>
+                                      )}
+                                      {"{{loja}}"}.
+                                    </>
+                                  ) : (
+                                    <>
+                                      Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"},{" "}
+                                      {"{{status}}"}, {"{{tecnico}}"}
+                                      {item.key === "notif_os_pronta" && (
+                                        <>
+                                          , {"{{aparelho}}"}, {"{{link}}"}
+                                        </>
+                                      )}
+                                      {item.key === "notif_pesquisa_auto" && (
+                                        <>, {"{{aparelho}}"}</>
+                                      )}
+                                      {item.uso === "auto" && <>, {"{{loja}}"}</>}.
                                     </>
                                   )}
-                                  {item.key === "notif_pesquisa_auto" && <>, {"{{aparelho}}"}</>}
-                                  {item.uso === "auto" && <>, {"{{loja}}"}</>}.
                                 </p>
                               </>
                             )}
@@ -2071,6 +2136,24 @@ function Configuracoes() {
                                 Vai no dia do aniversário, das 9h às 20h, com o sistema aberto em
                                 algum computador — uma vez por ano. Só para clientes com data de
                                 nascimento e telefone no cadastro (Clientes → editar).
+                              </p>
+                            )}
+                            {item.key === "notif_cobranca_lembrete_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Para cobranças Pix (Cobranças) com cliente e telefone, ainda
+                                pendentes, que vencem nas próximas 24 horas: vai o texto e, em
+                                seguida, o Pix copia e cola. Uma vez por cobrança, das 9h às 20h,
+                                pela fila. Se a cobrança for paga ou cancelada antes de a mensagem
+                                sair, ela não é enviada. Só vale para cobranças criadas depois de
+                                ligar. Parcelas do Crediário têm avisos próprios.
+                              </p>
+                            )}
+                            {item.key === "notif_cobranca_paga_auto" && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Quando o Mercado Pago confirma o pagamento de uma cobrança Pix, o
+                                cliente recebe a confirmação (uma vez, pela fila). O envio confere
+                                de novo no sistema que a cobrança está paga — nunca vai por
+                                suposição.
                               </p>
                             )}
                             {item.key === "notif_pesquisa_auto" && (

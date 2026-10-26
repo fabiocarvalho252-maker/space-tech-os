@@ -50,10 +50,16 @@ export const Route = createFileRoute("/_authenticated/whatsapp-fila")({
   head: () => ({
     meta: [{ title: "Fila WhatsApp — SpaceTech" }],
   }),
+  // ?aba=aprovacao vem do aviso de aprovações pendentes da Central de WhatsApp.
+  validateSearch: (search: Record<string, unknown>): { aba?: AbaFila } => {
+    const aba = search["aba"];
+    return aba === "aprovacao" || aba === "falhas" ? { aba } : {};
+  },
   component: FilaWhatsapp,
 });
 
 const ABAS: { id: AbaFila; rotulo: string }[] = [
+  { id: "aprovacao", rotulo: "Aguardando aprovação" },
   { id: "agendadas", rotulo: "Agendadas" },
   { id: "falhas", rotulo: "Com falha" },
   { id: "enviadas", rotulo: "Enviadas" },
@@ -75,6 +81,10 @@ function tipoMensagem(templateId: string | null, osNumero: number | null): strin
   if (t.startsWith("relatorio_semanal_")) return "Resumo semanal";
   if (t.startsWith("agradecimento_")) return "Agradecimento";
   if (t === "os_pronta") return "OS pronta";
+  if (t.startsWith("cobranca_lembrete_")) return "Lembrete de cobrança";
+  if (t.startsWith("cobranca_pix_")) return "Pix copia e cola";
+  if (t.startsWith("cobranca_paga_")) return "Pagamento confirmado";
+  if (t.startsWith("opt_")) return "Resposta ao PARAR/VOLTAR";
   if (osNumero) return "Aviso de OS";
   return "Mensagem";
 }
@@ -99,6 +109,7 @@ function paraInputLocal(iso: string | null): string {
 }
 
 const STATUS_ITEM: Record<ItemFila["status"], { rotulo: string; tom: StatusTone }> = {
+  aguardando_aprovacao: { rotulo: "Aguardando aprovação", tom: "purple" },
   agendado: { rotulo: "Agendada", tom: "info" },
   pendente: { rotulo: "Enviando", tom: "warning" },
   falhou: { rotulo: "Falhou", tom: "danger" },
@@ -110,7 +121,7 @@ function FilaWhatsapp() {
   const qc = useQueryClient();
   const { data: permissoes } = usePermissoes();
   const gerenciar = podeGerenciar(permissoes, "configuracoes");
-  const [aba, setAba] = useState<AbaFila>("agendadas");
+  const [aba, setAba] = useState<AbaFila>(Route.useSearch().aba ?? "agendadas");
   const [editando, setEditando] = useState<ItemFila | null>(null);
   const [texto, setTexto] = useState("");
   const [reagendando, setReagendando] = useState<ItemFila | null>(null);
@@ -269,6 +280,7 @@ function FilaWhatsapp() {
               {ABAS.map((a) => (
                 <TabsTrigger key={a.id} value={a.id}>
                   {a.rotulo}
+                  {a.id === "aprovacao" && !!r?.contagem.aprovacao && ` (${r.contagem.aprovacao})`}
                   {a.id === "agendadas" && !!r?.contagem.agendadas && ` (${r.contagem.agendadas})`}
                   {a.id === "falhas" && !!r?.contagem.falhas && ` (${r.contagem.falhas})`}
                 </TabsTrigger>
@@ -286,13 +298,15 @@ function FilaWhatsapp() {
             <EmptyState
               icon={aba === "falhas" ? CheckCircle2 : CalendarClock}
               title={
-                aba === "agendadas"
-                  ? "Nenhuma mensagem na fila"
-                  : aba === "falhas"
-                    ? "Nenhuma falha"
-                    : aba === "enviadas"
-                      ? "Nenhuma mensagem enviada ainda"
-                      : "Nenhuma mensagem cancelada"
+                aba === "aprovacao"
+                  ? "Nada esperando aprovação"
+                  : aba === "agendadas"
+                    ? "Nenhuma mensagem na fila"
+                    : aba === "falhas"
+                      ? "Nenhuma falha"
+                      : aba === "enviadas"
+                        ? "Nenhuma mensagem enviada ainda"
+                        : "Nenhuma mensagem cancelada"
               }
             />
           ) : (
@@ -332,6 +346,46 @@ function FilaWhatsapp() {
                     <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
                       {m.error}
                     </p>
+                  )}
+                  {gerenciar && m.status === "aguardando_aprovacao" && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="gap-1"
+                        disabled={reenviar.isPending}
+                        onClick={() => reenviar.mutate(m.id)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" /> Aprovar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                        disabled={enviarAgora.isPending}
+                        onClick={() => enviarAgora.mutate(m.id)}
+                      >
+                        <Send className="h-4 w-4" /> Aprovar e enviar agora
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                        onClick={() => {
+                          setEditando(m);
+                          setTexto(m.content ?? "");
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" /> Editar texto
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1 text-destructive"
+                        onClick={() => setCancelando(m)}
+                      >
+                        <XCircle className="h-4 w-4" /> Rejeitar
+                      </Button>
+                    </div>
                   )}
                   {gerenciar && ["agendado", "falhou", "cancelado"].includes(m.status) && (
                     <div className="flex flex-wrap gap-2">

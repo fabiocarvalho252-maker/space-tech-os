@@ -7,11 +7,11 @@ import type { TablesUpdate } from "@/integrations/supabase/types";
 import { type MotivoEsperaFila, enviarItemReservado, obterConexao } from "./whatsapp-service";
 import { evolutionConfigurado } from "./evolution-api";
 
-export type AbaFila = "agendadas" | "falhas" | "enviadas" | "canceladas";
+export type AbaFila = "aprovacao" | "agendadas" | "falhas" | "enviadas" | "canceladas";
 
 export type ItemFila = {
   id: string;
-  status: "agendado" | "pendente" | "falhou" | "enviado" | "cancelado";
+  status: "aguardando_aprovacao" | "agendado" | "pendente" | "falhou" | "enviado" | "cancelado";
   phone_number: string;
   contact_name: string | null;
   content: string | null;
@@ -35,7 +35,13 @@ export type RegrasFila = {
 export type ResumoFila = {
   conectado: boolean;
   regras: RegrasFila;
-  contagem: { agendadas: number; enviando: number; falhas: number; enviadasHoje: number };
+  contagem: {
+    aprovacao: number;
+    agendadas: number;
+    enviando: number;
+    falhas: number;
+    enviadasHoje: number;
+  };
   enviosUltimaHora: number;
   proximoEnvio: string | null;
   /** Por que nada está saindo agora (null = saindo normalmente / fila vazia). */
@@ -43,6 +49,7 @@ export type ResumoFila = {
 };
 
 const STATUS_POR_ABA: Record<AbaFila, ItemFila["status"][]> = {
+  aprovacao: ["aguardando_aprovacao"],
   agendadas: ["agendado", "pendente"],
   falhas: ["falhou"],
   enviadas: ["enviado"],
@@ -90,27 +97,29 @@ function inicioDoDiaBrasilia(): string {
 export async function resumoFila(empresaId: string): Promise<ResumoFila> {
   const conexao = evolutionConfigurado() ? await obterConexao(empresaId) : null;
   const conectado = conexao?.status === "conectado";
-  const [r, agendadas, enviando, falhas, enviadasHoje, proxima, vencidas] = await Promise.all([
-    regras(empresaId),
-    contar(empresaId, ["agendado"]),
-    contar(empresaId, ["pendente"]),
-    contar(empresaId, ["falhou"]),
-    contar(empresaId, ["enviado"], inicioDoDiaBrasilia()),
-    supabaseAdmin
-      .from("whatsapp_messages")
-      .select("scheduled_at")
-      .eq("user_id", empresaId)
-      .eq("status", "agendado")
-      .order("scheduled_at")
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("whatsapp_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", empresaId)
-      .eq("status", "agendado")
-      .lte("scheduled_at", new Date().toISOString()),
-  ]);
+  const [r, aprovacao, agendadas, enviando, falhas, enviadasHoje, proxima, vencidas] =
+    await Promise.all([
+      regras(empresaId),
+      contar(empresaId, ["aguardando_aprovacao"]),
+      contar(empresaId, ["agendado"]),
+      contar(empresaId, ["pendente"]),
+      contar(empresaId, ["falhou"]),
+      contar(empresaId, ["enviado"], inicioDoDiaBrasilia()),
+      supabaseAdmin
+        .from("whatsapp_messages")
+        .select("scheduled_at")
+        .eq("user_id", empresaId)
+        .eq("status", "agendado")
+        .order("scheduled_at")
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("whatsapp_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", empresaId)
+        .eq("status", "agendado")
+        .lte("scheduled_at", new Date().toISOString()),
+    ]);
 
   let espera: MotivoEsperaFila | null = null;
   if ((vencidas.count ?? 0) > 0) {
@@ -123,7 +132,7 @@ export async function resumoFila(empresaId: string): Promise<ResumoFila> {
   return {
     conectado,
     regras: r.regras,
-    contagem: { agendadas, enviando, falhas, enviadasHoje },
+    contagem: { aprovacao, agendadas, enviando, falhas, enviadasHoje },
     enviosUltimaHora: r.enviosUltimaHora,
     proximoEnvio: proxima.data?.scheduled_at ?? null,
     espera,
@@ -140,7 +149,7 @@ export async function listarFila(empresaId: string, aba: AbaFila): Promise<ItemF
     .eq("direction", "outbound")
     .in("status", STATUS_POR_ABA[aba]);
   q =
-    aba === "agendadas"
+    aba === "agendadas" || aba === "aprovacao"
       ? q.order("scheduled_at", { ascending: true })
       : q.order("created_at", { ascending: false });
   const { data, error } = await q.limit(200);
@@ -199,7 +208,7 @@ export async function enviarAgora(empresaId: string, id: string): Promise<"envia
       "O WhatsApp da empresa está desconectado. Conecte em WhatsApp antes de enviar.",
     );
   }
-  await atualizar(empresaId, id, ["agendado", "falhou", "cancelado"], {
+  await atualizar(empresaId, id, ["aguardando_aprovacao", "agendado", "falhou", "cancelado"], {
     status: "pendente",
     enviado_em: new Date().toISOString(),
     error: null,
@@ -216,16 +225,20 @@ export async function reagendar(empresaId: string, id: string, quando: string): 
 }
 
 export async function editarTexto(empresaId: string, id: string, texto: string): Promise<void> {
-  await atualizar(empresaId, id, ["agendado", "falhou", "cancelado"], { content: texto });
+  await atualizar(empresaId, id, ["aguardando_aprovacao", "agendado", "falhou", "cancelado"], {
+    content: texto,
+  });
 }
 
 export async function cancelar(empresaId: string, id: string): Promise<void> {
-  await atualizar(empresaId, id, ["agendado", "falhou"], { status: "cancelado" });
+  await atualizar(empresaId, id, ["aguardando_aprovacao", "agendado", "falhou"], {
+    status: "cancelado",
+  });
 }
 
 /** Põe de volta na fila (respeitando intervalo e horário). */
 export async function reenviar(empresaId: string, id: string): Promise<void> {
-  await atualizar(empresaId, id, ["falhou", "cancelado"], {
+  await atualizar(empresaId, id, ["aguardando_aprovacao", "falhou", "cancelado"], {
     status: "agendado",
     scheduled_at: new Date().toISOString(),
     error: null,

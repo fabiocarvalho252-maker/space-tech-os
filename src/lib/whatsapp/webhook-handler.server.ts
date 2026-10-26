@@ -19,6 +19,7 @@ import {
   aplicarStatusEntrega,
   guardarMidiaRecebida,
   registrarEnviadaPeloCelular,
+  tratarPedidoParar,
 } from "./central.server";
 import { foiEnviadoPorEsteServidor } from "./evolution-api";
 import { lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
@@ -111,6 +112,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
           })) ?? {}),
         }),
       });
+      await tratarPedidoParar({ instanceName, numero: mensagem.numero, texto: mensagem.texto });
     } else if (event.toUpperCase().includes("MESSAGES_UPDATE") || event === "messages.update") {
       // Entregue/lido. Pode vir um objeto ou uma lista, conforme a versão.
       const data = raiz["data"];

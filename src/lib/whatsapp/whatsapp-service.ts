@@ -24,6 +24,8 @@ import {
 } from "./evolution-api";
 import type { JsonValue, WhatsappAnexoRegistro, WhatsappConexao, WhatsappMensagem } from "./types";
 import { avaliarRespostaPesquisa, escreverPesquisaPosOs } from "./ia-pesquisa.server";
+import { chaveAutomacao } from "./automacoes";
+import { enviarAutomacoesCobranca, impedimentoCobranca } from "./cobranca-whatsapp.server";
 
 export class WhatsappNaoConfiguradoError extends Error {
   constructor() {
@@ -483,6 +485,42 @@ export async function enviarNotificacaoOs(params: {
   return data as unknown as WhatsappMensagem;
 }
 
+type RegraAutomacao = "ok" | "opt_out" | "aprovacao";
+
+/** PARAR e aprovação para uma automação (whatsapp_regra_automacao no banco). */
+export async function regraAutomacao(
+  empresaId: string,
+  numero: string,
+  templateId: string,
+): Promise<RegraAutomacao> {
+  const { data, error } = await (
+    supabaseAdmin.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: Error | null }>
+  ).call(supabaseAdmin, "whatsapp_regra_automacao", {
+    p_empresa: empresaId,
+    p_numero: numero,
+    p_template: templateId,
+  });
+  if (error) throw error;
+  return (data as RegraAutomacao | null) ?? "ok";
+}
+
+/**
+ * Última conferência antes de uma mensagem da fila sair. Devolve o motivo
+ * para não enviar, ou null. Mensagem escrita por um atendente (sem
+ * automação) sempre sai.
+ */
+async function impedimentoNaHoraDeEnviar(msg: WhatsappMensagem): Promise<string | null> {
+  const chave = chaveAutomacao(msg.template_id);
+  if (!chave) return null;
+  if ((await regraAutomacao(msg.user_id, msg.phone_number, msg.template_id ?? "")) === "opt_out") {
+    return "O cliente pediu para não receber mensagens automáticas (PARAR).";
+  }
+  return impedimentoCobranca(msg);
+}
+
 export type MotivoEsperaFila =
   "vazia" | "fora_do_horario" | "limite_hora" | "intervalo" | "desconectado";
 
@@ -503,6 +541,17 @@ export async function enviarItemReservado(
   if (error) throw error;
   const msg = data as unknown as WhatsappMensagem;
   const anexosAtuais = (msg.attachments ?? []) as WhatsappAnexoRegistro[];
+
+  // Pode ter mudado desde que entrou na fila: o cliente pediu PARAR, a
+  // cobrança foi paga/cancelada... Nesse caso não sai.
+  const impedimento = await impedimentoNaHoraDeEnviar(msg);
+  if (impedimento) {
+    await supabaseAdmin
+      .from("whatsapp_messages")
+      .update({ status: "cancelado", error: impedimento })
+      .eq("id", mensagemId);
+    return "falhou";
+  }
 
   let resultado: ResultadoEnvio;
   try {
@@ -637,6 +686,7 @@ export async function rodarAutomacoes(empresaId: string): Promise<void> {
   await enviarAniversarios(empresaId);
   await enviarPesquisasPosVenda(empresaId);
   await enviarBoasVindas(empresaId);
+  await enviarAutomacoesCobranca(empresaId);
   await enviarRelatorioSemanal(empresaId);
 }
 
@@ -933,7 +983,14 @@ export type ResultadoAvisoPronta =
   | {
       enviado: false;
       motivo:
-        "desligado" | "sem_telefone" | "ja_enviado" | "nao_pronta" | "desconectado" | "falhou";
+        | "desligado"
+        | "sem_telefone"
+        | "ja_enviado"
+        | "nao_pronta"
+        | "desconectado"
+        | "falhou"
+        | "opt_out"
+        | "aguardando_aprovacao";
     };
 
 /**
@@ -978,8 +1035,11 @@ export async function avisarOsPronta(params: {
     .select("id", { count: "exact", head: true })
     .eq("os_id", params.osId)
     .eq("template_id", "os_pronta")
-    .in("status", ["enviado", "agendado"]);
+    .in("status", ["enviado", "agendado", "aguardando_aprovacao"]);
   if (count) return { enviado: false, motivo: "ja_enviado" };
+
+  const regra = await regraAutomacao(params.empresaId, telefone, "os_pronta");
+  if (regra === "opt_out") return { enviado: false, motivo: "opt_out" };
 
   const conexao = await obterConexao(params.empresaId);
   if (!evolutionConfigurado() || !conexao || conexao.status !== "conectado") {
@@ -1005,9 +1065,14 @@ export async function avisarOsPronta(params: {
     mensagem,
     templateId: "os_pronta",
     anexos: { os: false, orcamento: false },
-    agendamento: { tipo: "agora" },
+    // Com aprovação exigida, entra na fila e o banco segura até alguém aprovar.
+    agendamento:
+      regra === "aprovacao"
+        ? { tipo: "fila", scheduledAt: new Date().toISOString() }
+        : { tipo: "agora" },
     sentBy: params.sentBy,
   });
+  if (regra === "aprovacao") return { enviado: false, motivo: "aguardando_aprovacao" };
   return msg.status === "enviado" ? { enviado: true } : { enviado: false, motivo: "falhou" };
 }
 
@@ -1264,7 +1329,7 @@ export async function enviarAniversarios(empresaId: string): Promise<number> {
  * "agendado" e quem envia é processarFila; sem, envia na hora (respostas e
  * avisos para o dono da loja).
  */
-async function enviarAutomatico(params: {
+export async function enviarAutomatico(params: {
   empresaId: string;
   conexao: { id: string; instance_name: string; status: string };
   numeroCompleto: string;
@@ -1274,7 +1339,7 @@ async function enviarAutomatico(params: {
   osId?: string | null;
   /** Mensagens em quantidade para clientes: entram na fila (intervalo, horário, limite). */
   fila?: boolean;
-}): Promise<"enviado" | "falhou" | "repetida" | "enfileirada"> {
+}): Promise<"enviado" | "falhou" | "repetida" | "enfileirada" | "bloqueada"> {
   const { data: reserva, error } = await supabaseAdmin
 
     .from("whatsapp_messages")
@@ -1290,12 +1355,17 @@ async function enviarAutomatico(params: {
       template_id: params.templateId,
       os_id: params.osId ?? null,
     })
-    .select("id")
+    .select("id, status")
     .single();
   if (error) {
     if (error.code === "23505") return "repetida";
     throw error;
   }
+  // O trigger whatsapp_messages_regras_automacao pode ter cancelado (cliente
+  // pediu PARAR) ou segurado para aprovação.
+  const gravada = reserva as unknown as { id: string; status: string };
+  if (gravada.status === "cancelado") return "bloqueada";
+  if (gravada.status === "aguardando_aprovacao") return "enfileirada";
   if (params.fila) return "enfileirada";
 
   let status: "enviado" | "falhou" = "enviado";

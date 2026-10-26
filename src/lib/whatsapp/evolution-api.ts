@@ -368,3 +368,25 @@ export async function baixarMidiaRecebida(
   if (typeof base64 !== "string" || !base64) return null;
   return { base64, mimetype: typeof data?.mimetype === "string" ? data.mimetype : null };
 }
+
+/**
+ * Foto de perfil do contato (URL do servidor do WhatsApp, que expira em
+ * alguns dias — quem chama guarda a data e busca de novo). null quando o
+ * contato não tem foto ou a esconde.
+ */
+export async function buscarFotoPerfil(
+  instanceName: string,
+  numero: string,
+): Promise<string | null> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await chamar<any>(
+    config,
+    "POST",
+    `/chat/fetchProfilePictureUrl/${encodeURIComponent(instanceName)}`,
+    { number: numero },
+  );
+  const url = data?.profilePictureUrl;
+  return typeof url === "string" && url.startsWith("https://") ? url : null;
+}

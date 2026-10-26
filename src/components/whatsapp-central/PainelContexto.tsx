@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +48,7 @@ import {
 import type { Conversa, ContextoConversa, Membro, OsResumo } from "@/lib/whatsapp/central.server";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { ACOES_OS, useAcoesOs } from "./AcoesOs";
+import { Avatar } from "./Avatar";
 import { OS_FINALIZADAS, QK, iniciais, mensagemDeErro } from "./util";
 
 export type AcessoCentral = {
@@ -172,9 +174,7 @@ export function SecaoCliente({
         Dados do cliente
       </Titulo>
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-base font-bold text-primary">
-          {iniciais(nome)}
-        </div>
+        <Avatar nome={nome} foto={c.foto_url} className="h-12 w-12 text-base" />
         <div className="min-w-0">
           <p className="truncate font-semibold">{nome}</p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -402,6 +402,21 @@ export function SecaoStatus({
   return (
     <section>
       <Titulo icon={ClipboardList}>Status da conversa</Titulo>
+      <label className="mb-3 flex items-start gap-3 rounded-lg border border-border bg-background/40 p-2.5">
+        <Switch
+          checked={!c.opt_out_em}
+          disabled={acao.isPending}
+          onCheckedChange={(v) => acao.mutate({ acao: "opt_out", conversaId, ativo: !v })}
+        />
+        <span>
+          <span className="block text-sm font-medium">Mensagens automáticas</span>
+          <span className="block text-[11px] text-muted-foreground">
+            {c.opt_out_em
+              ? `Desligadas desde ${new Date(c.opt_out_em).toLocaleDateString("pt-BR")} (pedido de PARAR). O atendimento normal continua.`
+              : "Avisos, pesquisas e lembretes. O cliente pode pedir para parar respondendo PARAR."}
+          </span>
+        </span>
+      </label>
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"

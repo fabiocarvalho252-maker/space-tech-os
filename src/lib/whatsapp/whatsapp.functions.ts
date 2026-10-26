@@ -215,7 +215,9 @@ export const resumoFilaFn = createServerFn({ method: "GET" })
 export const listarFilaFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) =>
-    z.object({ aba: z.enum(["agendadas", "falhas", "enviadas", "canceladas"]) }).parse(data),
+    z
+      .object({ aba: z.enum(["aprovacao", "agendadas", "falhas", "enviadas", "canceladas"]) })
+      .parse(data),
   )
   .handler(async ({ data, context }): Promise<fila.ItemFila[]> =>
     fila.listarFila(await empresaDoUsuario(context, "configuracoes", "ver"), data.aba),

@@ -147,3 +147,25 @@ test("lerStatus: entregue/lido e ignora o resto", () => {
   assert.equal(lerStatus({ keyId: "X", status: "SERVER_ACK" }), null);
   assert.equal(lerStatus({ status: "READ" }), null);
 });
+
+import { chaveAutomacao, pedidoDeParar, pedidoDeVoltar } from "../src/lib/whatsapp/automacoes.ts";
+
+test("PARAR só vale como mensagem inteira", () => {
+  for (const t of ["PARAR", "parar.", " Pare! ", "Não quero receber", "SAIR", "stop"]) {
+    assert.equal(pedidoDeParar(t), true, t);
+  }
+  for (const t of ["quero cancelar o conserto", "não para de travar", "pode parar o conserto?", "", null]) {
+    assert.equal(pedidoDeParar(t), false, String(t));
+  }
+  assert.equal(pedidoDeVoltar("Voltar"), true);
+  assert.equal(pedidoDeVoltar("vou voltar amanhã"), false);
+});
+
+test("chaveAutomacao igual à função do banco", () => {
+  assert.equal(chaveAutomacao("os_pronta"), "os_pronta");
+  assert.equal(chaveAutomacao("pos_venda_123"), "pos_venda");
+  assert.equal(chaveAutomacao("cobranca_pix_abc"), "cobranca_lembrete");
+  assert.equal(chaveAutomacao("cobranca_paga_abc"), "cobranca_paga");
+  assert.equal(chaveAutomacao("padrao"), null, "modelo manual da OS não é automação");
+  assert.equal(chaveAutomacao(null), null);
+});

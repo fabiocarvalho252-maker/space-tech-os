@@ -1,13 +1,14 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Loader2, MessageSquare, Search, UserRound } from "lucide-react";
+import { ArrowUpRight, Loader2, MessageSquare, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { contarFiltrosFn, listarConversasFn } from "@/lib/whatsapp/central.functions";
 import type { Conversa, FiltroConversa, Membro } from "@/lib/whatsapp/central.server";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
-import { QK, horaCurta, iniciais, nomeMembro } from "./util";
+import { Avatar } from "./Avatar";
+import { QK, horaCurta, nomeMembro } from "./util";
 
 const FILTROS: { id: FiltroConversa; label: string }[] = [
   { id: "todas", label: "Todas" },
@@ -172,15 +173,12 @@ function ItemConversa({
         ativa ? "border-primary bg-primary/15" : "border-transparent hover:bg-accent/60",
       )}
     >
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-          c.cliente_id ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground",
-        )}
-        aria-hidden
-      >
-        {c.cliente_nome || c.contact_name ? iniciais(nome) : <UserRound className="h-5 w-5" />}
-      </div>
+      <Avatar
+        nome={c.cliente_nome || c.contact_name}
+        foto={c.foto_url}
+        destaque={!!c.cliente_id}
+        className="h-10 w-10 text-sm"
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className={cn("truncate text-sm", c.nao_lidas ? "font-bold" : "font-semibold")}>
@@ -218,6 +216,7 @@ function ItemConversa({
           {c.status === "encerrada" && <Etiqueta tom="neutro">Encerrada</Etiqueta>}
           {c.status === "aguardando" && <Etiqueta tom="neutro">Aguardando cliente</Etiqueta>}
           {c.prioridade === "alta" && <Etiqueta tom="alerta">Prioridade alta</Etiqueta>}
+          {c.opt_out_em && <Etiqueta tom="neutro">Sem automáticas</Etiqueta>}
           {atendente && <Etiqueta tom="roxo">{atendente}</Etiqueta>}
           {c.etiquetas.slice(0, 2).map((e) => (
             <Etiqueta key={e} tom="neutro">

@@ -715,6 +715,12 @@ function Ordens() {
           toast.warning("Aviso de OS pronta não enviado: WhatsApp desconectado");
         } else if (r.motivo === "falhou") {
           toast.warning("Não foi possível enviar o aviso de OS pronta no WhatsApp");
+        } else if (r.motivo === "aguardando_aprovacao") {
+          toast.info("Aviso de OS pronta aguardando aprovação em WhatsApp → Fila e automações");
+        } else if (r.motivo === "opt_out") {
+          toast.info(
+            "Aviso de OS pronta não enviado: o cliente pediu para não receber mensagens automáticas",
+          );
         }
       })
       .catch(() => {});
