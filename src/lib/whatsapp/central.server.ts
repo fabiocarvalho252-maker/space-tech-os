@@ -171,6 +171,34 @@ export async function listarConversas(params: {
   return { conversas, proximo: temMais ? (conversas.at(-1)?.ultima_mensagem_em ?? null) : null };
 }
 
+export type ContagemFiltros = Record<FiltroConversa, number>;
+
+/** Números ao lado de cada filtro da lista (mesmas regras de listarConversas). */
+export async function contarFiltros(empresaId: string, atorId: string): Promise<ContagemFiltros> {
+  const base = () =>
+    supabaseAdmin
+      .from("whatsapp_conversas")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", empresaId)
+      .not("ultima_mensagem_em", "is", null);
+  const [todas, naoLidas, abertas, aguardando, minhas, encerradas] = await Promise.all([
+    base(),
+    base().gt("nao_lidas", 0),
+    base().eq("status", "aberta"),
+    base().eq("status", "aguardando"),
+    base().eq("atribuida_a", atorId).neq("status", "encerrada"),
+    base().eq("status", "encerrada"),
+  ]);
+  return {
+    todas: todas.count ?? 0,
+    nao_lidas: naoLidas.count ?? 0,
+    abertas: abertas.count ?? 0,
+    aguardando: aguardando.count ?? 0,
+    minhas: minhas.count ?? 0,
+    encerradas: encerradas.count ?? 0,
+  };
+}
+
 export async function contarNaoLidas(empresaId: string, atorId: string): Promise<number> {
   // Badge do menu: conversas abertas sem dono ou do próprio atendente.
   const { count, error } = await supabaseAdmin
@@ -475,10 +503,13 @@ export type OsResumo = {
   valor: number | null;
   previsao: string | null;
   created_at: string;
+  defeito: string | null;
+  garantia_dias: number | null;
+  responsavel: string | null;
 };
 
 export type ContextoConversa = {
-  cliente: (ClienteCandidato & { email: string | null }) | null;
+  cliente: (ClienteCandidato & { email: string | null; created_at: string }) | null;
   candidatos: ClienteCandidato[];
   ordens: OsResumo[];
   eventos: Array<{ tipo: string; descricao: string; created_at: string }>;
@@ -559,7 +590,7 @@ export async function contexto(params: {
 
   const { data: cliente } = await supabaseAdmin
     .from("clientes")
-    .select("id, nome, telefone, email")
+    .select("id, nome, telefone, email, created_at")
     .eq("user_id", params.empresaId)
     .eq("id", conversa.cliente_id)
     .maybeSingle();
@@ -568,7 +599,9 @@ export async function contexto(params: {
   if (params.verOrdens && cliente) {
     const { data } = await supabaseAdmin
       .from("ordens_servico")
-      .select("id, numero, aparelho, marca, modelo, status, valor, previsao, created_at")
+      .select(
+        "id, numero, aparelho, marca, modelo, status, valor, previsao, created_at, defeito, garantia_dias, responsavel",
+      )
       .eq("user_id", params.empresaId)
       .eq("cliente_id", cliente.id)
       .order("created_at", { ascending: false })
@@ -672,6 +705,132 @@ async function conexaoAtiva(empresaId: string) {
     );
   }
   return conexao;
+}
+
+export type ArquivoConversa = {
+  id: string;
+  direction: "inbound" | "outbound";
+  midia_tipo: string | null;
+  midia_nome: string | null;
+  midia_tamanho: number | null;
+  created_at: string;
+};
+
+/** Aba "Arquivos": tudo que foi enviado ou recebido com anexo guardado. */
+export async function listarArquivos(
+  empresaId: string,
+  conversaId: string,
+): Promise<ArquivoConversa[]> {
+  const { data, error } = await supabaseAdmin
+    .from("whatsapp_messages")
+    .select("id, direction, midia_tipo, midia_nome, midia_tamanho, created_at")
+    .eq("user_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .not("midia_path", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []) as ArquivoConversa[];
+}
+
+export type AutomacaoConversa = {
+  id: string;
+  template_id: string | null;
+  content: string | null;
+  status: string;
+  error: string | null;
+  scheduled_at: string | null;
+  created_at: string;
+};
+
+/**
+ * Aba "Automação": mensagens que o sistema mandou sozinho para este contato
+ * (fila, OS pronta, pesquisas, aniversário...), inclusive agendadas e falhas.
+ */
+export async function listarAutomacoes(
+  empresaId: string,
+  conversaId: string,
+): Promise<AutomacaoConversa[]> {
+  const { data, error } = await supabaseAdmin
+    .from("whatsapp_messages")
+    .select("id, template_id, content, status, error, scheduled_at, created_at, metadata")
+    .eq("user_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .eq("direction", "outbound")
+    .is("sent_by", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? [])
+    .filter((m) => (m.metadata as { origem?: string } | null)?.origem !== "celular")
+    .map(({ metadata: _m, ...m }) => m);
+}
+
+/**
+ * "Novo atendimento": começa uma conversa com um número (ou cliente) que
+ * ainda não escreveu. A conversa nasce com quem iniciou como responsável.
+ */
+export async function iniciarConversa(params: {
+  empresaId: string;
+  ator: Ator;
+  numero: string;
+  texto: string;
+}): Promise<{ conversaId: string }> {
+  const numero = paraE164BR(params.numero);
+  if (!/^55\d{10,11}$/.test(numero))
+    throw new ConversaError("Telefone inválido. Use DDD + número.");
+  await conexaoAtiva(params.empresaId);
+
+  const chave = chaveTelefone(numero);
+  const { data: existente } = await supabaseAdmin
+    .from("whatsapp_conversas")
+    .select("id, atribuida_a")
+    .eq("user_id", params.empresaId)
+    .eq("chave_telefone", chave)
+    .maybeSingle();
+
+  let conversaId = existente?.id;
+  if (!conversaId) {
+    // Mesma regra do banco: só vincula sozinho quando há um único cliente.
+    const candidatos = await clientesComTelefone(params.empresaId, numero);
+    const { data: criada, error } = await supabaseAdmin
+      .from("whatsapp_conversas")
+      .insert({
+        user_id: params.empresaId,
+        chave_telefone: chave,
+        phone_number: numero,
+        cliente_id: candidatos.length === 1 ? (candidatos[0]?.id ?? null) : null,
+        status: "aguardando",
+        atribuida_a: params.ator.id,
+      })
+      .select("id")
+      .single();
+    if (error?.code === "23505") {
+      const { data: outra } = await supabaseAdmin
+        .from("whatsapp_conversas")
+        .select("id")
+        .eq("user_id", params.empresaId)
+        .eq("chave_telefone", chave)
+        .single();
+      conversaId = outra?.id;
+    } else if (error) {
+      throw error;
+    } else {
+      conversaId = criada.id;
+      await registrarEvento(params.empresaId, conversaId, params.ator.id, "assumiu", { de: null });
+    }
+  }
+  if (!conversaId) throw new ConversaError("Não foi possível abrir a conversa.");
+
+  await enviarTexto({
+    empresaId: params.empresaId,
+    ator: params.ator,
+    conversaId,
+    texto: params.texto,
+    vistoAte: null,
+    forcar: true,
+  });
+  return { conversaId };
 }
 
 export async function enviarTexto(params: {

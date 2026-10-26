@@ -281,3 +281,41 @@ export const sugestaoIAFn = createServerFn({ method: "POST" })
       verOrdens: await pode(context, empresaId, "ordens"),
     });
   });
+
+export const contarFiltrosFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { empresaId, ator } = await acesso(context, "ver");
+    return central.contarFiltros(empresaId, ator.id);
+  });
+
+export const listarArquivosFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ conversaId: id }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { empresaId } = await acesso(context, "ver");
+    return central.listarArquivos(empresaId, data.conversaId);
+  });
+
+export const listarAutomacoesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ conversaId: id }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { empresaId } = await acesso(context, "ver");
+    return central.listarAutomacoes(empresaId, data.conversaId);
+  });
+
+export const iniciarConversaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z
+      .object({
+        numero: z.string().trim().min(10).max(20),
+        texto: z.string().trim().min(1).max(4096),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { empresaId, ator } = await acesso(context, "gerenciar");
+    return central.iniciarConversa({ empresaId, ator, ...data });
+  });

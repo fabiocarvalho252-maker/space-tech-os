@@ -54,10 +54,15 @@ export function WhatsAppSendModal({
   os,
   open,
   onOpenChange,
+  templateInicial,
+  anexosIniciais,
 }: {
   os: WhatsAppOsAlvo | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Abre já com este modelo escolhido (ex.: ações rápidas da Central de WhatsApp). */
+  templateInicial?: string | undefined;
+  anexosIniciais?: { os: boolean; orcamento: boolean } | undefined;
 }) {
   const qc = useQueryClient();
   const { data: profile } = useProfile();
@@ -107,15 +112,15 @@ export function WhatsAppSendModal({
   // stray re-render) doesn't discard anything the user typed.
   useEffect(() => {
     if (!open || !os) return;
-    const primeira = templates[0];
+    const primeira = templates.find((t) => t.id === templateInicial) ?? templates[0];
     setTemplateId(primeira?.id ?? null);
     setTexto(primeira ? preencherVariaveisWhatsApp(primeira.message, variaveis) : "");
     setTelefone(maskPhoneBR(os.clientes?.telefone ?? ""));
     setEditadoManualmente(false);
-    setAnexos({ os: false, orcamento: false });
+    setAnexos(anexosIniciais ?? { os: false, orcamento: false });
     setAgendamento({ tipo: "agora" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, os?.id]);
+  }, [open, os?.id, templateInicial]);
 
   function selecionarTemplate(id: string) {
     setTemplateId(id);

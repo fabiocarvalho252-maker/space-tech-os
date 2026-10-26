@@ -10,7 +10,13 @@ export const QK = {
   mensagens: (id: string) => ["whatsapp-central", "mensagens", id] as const,
   contexto: (id: string) => ["whatsapp-central", "contexto", id] as const,
   respostas: ["whatsapp-central", "respostas"] as const,
+  filtros: ["whatsapp-central", "filtros"] as const,
+  arquivos: (id: string) => ["whatsapp-central", "arquivos", id] as const,
+  automacoes: (id: string) => ["whatsapp-central", "automacoes", id] as const,
 };
+
+/** OS que ainda não terminaram (aparecem em destaque no painel). */
+export const OS_FINALIZADAS = new Set(["entregue", "faturado", "reprovado", "cancelado"]);
 
 /** Hora para a lista: "14:32", "Ontem" ou "12/10". */
 export function horaCurta(iso: string | null): string {

@@ -184,6 +184,13 @@ export const messageTemplates: WhatsAppMessageTemplate[] = [
     message:
       "Olá {cliente}! O orçamento da OS nº {numero_os} ficou em {valor}. Podemos prosseguir?",
   },
+  {
+    id: "garantia",
+    name: "Garantia",
+    builtin: true,
+    message:
+      "Olá {cliente}! O serviço da OS nº {numero_os} tem garantia de {garantia}. Se notar qualquer problema, é só nos chamar por aqui.",
+  },
 ];
 
 // Builds the "sugestões de mensagem" chip bank from messageTemplates,

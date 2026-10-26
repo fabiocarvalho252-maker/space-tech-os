@@ -1,10 +1,10 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Loader2, MessageSquare, Search, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { listarConversasFn } from "@/lib/whatsapp/central.functions";
+import { contarFiltrosFn, listarConversasFn } from "@/lib/whatsapp/central.functions";
 import type { Conversa, FiltroConversa, Membro } from "@/lib/whatsapp/central.server";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { QK, horaCurta, iniciais, nomeMembro } from "./util";
@@ -14,7 +14,7 @@ const FILTROS: { id: FiltroConversa; label: string }[] = [
   { id: "nao_lidas", label: "Não lidas" },
   { id: "abertas", label: "Abertas" },
   { id: "aguardando", label: "Aguardando" },
-  { id: "minhas", label: "Minhas" },
+  { id: "minhas", label: "Atribuídas a mim" },
   { id: "encerradas", label: "Encerradas" },
 ];
 
@@ -38,6 +38,12 @@ export function ListaConversas({
     return () => clearTimeout(t);
   }, [digitado]);
 
+  const contagem = useQuery({
+    queryKey: QK.filtros,
+    queryFn: () => contarFiltrosFn(),
+    refetchInterval: 10_000,
+  });
+
   const consulta = useInfiniteQuery({
     queryKey: QK.conversas(filtro, busca),
     queryFn: ({ pageParam }) => listarConversasFn({ data: { filtro, busca, antesDe: pageParam } }),
@@ -53,6 +59,9 @@ export function ListaConversas({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="space-y-3 border-b border-border p-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-bold">Conversas</h2>
+        </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -63,11 +72,7 @@ export function ListaConversas({
             aria-label="Pesquisar conversas"
           />
         </div>
-        <div
-          className="flex flex-wrap gap-1"
-          role="tablist"
-          aria-label="Filtrar conversas"
-        >
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Filtrar conversas">
           {FILTROS.map((f) => (
             <button
               key={f.id}
@@ -82,6 +87,16 @@ export function ListaConversas({
               )}
             >
               {f.label}
+              {contagem.data && (
+                <span
+                  className={cn(
+                    "ml-1 rounded-full px-1.5 text-[10px]",
+                    filtro === f.id ? "bg-white/20" : "bg-background/60",
+                  )}
+                >
+                  {contagem.data[f.id]}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -153,7 +168,8 @@ function ItemConversa({
       aria-current={ativa ? "true" : undefined}
       className={cn(
         "flex w-full gap-3 px-3 py-3 text-left transition-colors focus-visible:bg-accent focus-visible:outline-none",
-        ativa ? "bg-primary/10" : "hover:bg-accent/60",
+        "border-l-2",
+        ativa ? "border-primary bg-primary/15" : "border-transparent hover:bg-accent/60",
       )}
     >
       <div
@@ -173,12 +189,15 @@ function ItemConversa({
           <span
             className={cn(
               "ml-auto shrink-0 text-[11px]",
-              c.nao_lidas ? "font-semibold text-primary" : "text-muted-foreground",
+              c.nao_lidas ? "font-semibold text-emerald-500" : "text-muted-foreground",
             )}
           >
             {horaCurta(c.ultima_mensagem_em)}
           </span>
         </div>
+        {(c.cliente_nome || c.contact_name) && (
+          <p className="text-[11px] text-muted-foreground">{formatarTelefone(c.phone_number)}</p>
+        )}
         <div className="mt-0.5 flex items-center gap-2">
           <span className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
             {c.ultima_direcao === "outbound" && (
@@ -188,7 +207,7 @@ function ItemConversa({
           </span>
           {c.nao_lidas > 0 && (
             <span
-              className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground"
+              className="ml-auto shrink-0 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
               aria-label={`${c.nao_lidas} não lidas`}
             >
               {c.nao_lidas}
