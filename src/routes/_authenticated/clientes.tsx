@@ -37,6 +37,11 @@ export const Route = createFileRoute("/_authenticated/clientes")({
       { property: "og:description", content: "Gerencie os clientes da sua assistência." },
     ],
   }),
+  // ?busca= vem de outras telas (ex.: Central de WhatsApp → Abrir cadastro).
+  validateSearch: (search: Record<string, unknown>): { busca?: string } => {
+    const busca = search["busca"];
+    return typeof busca === "string" ? { busca } : {};
+  },
   component: Clientes,
 });
 
@@ -53,7 +58,7 @@ const vazio = {
 function Clientes() {
   const qc = useQueryClient();
   const empresaId = useEmpresaId();
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(Route.useSearch().busca ?? "");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(vazio);

@@ -16,6 +16,13 @@ import {
   aplicarQrCodeWebhook,
 } from "./whatsapp-service";
 import {
+  aplicarStatusEntrega,
+  guardarMidiaRecebida,
+  registrarEnviadaPeloCelular,
+} from "./central.server";
+import { foiEnviadoPorEsteServidor } from "./evolution-api";
+import { lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
+import {
   SYSTEM_INSTANCE_NAME,
   aplicarAtualizacaoWebhookSistema,
   aplicarQrCodeWebhookSistema,
@@ -28,27 +35,6 @@ function tokenValido(url: URL): boolean {
   // instance name.
   if (!esperado) return false;
   return url.searchParams.get("token") === esperado;
-}
-
-// Evolution API's webhook payload shape isn't in our control and drifts
-// across self-hosted versions — these two helpers read it defensively
-// (unknown in, narrowed out) instead of trusting/typing it as `any`.
-function objeto(valor: unknown): Record<string, unknown> {
-  return valor != null && typeof valor === "object" ? (valor as Record<string, unknown>) : {};
-}
-
-function texto(valor: unknown): string | undefined {
-  return typeof valor === "string" ? valor : undefined;
-}
-
-function extrairTextoMensagem(mensagem: unknown): string | null {
-  const m = objeto(mensagem);
-  return (
-    texto(m["conversation"]) ??
-    texto(objeto(m["extendedTextMessage"])["text"]) ??
-    texto(m["body"]) ??
-    null
-  );
 }
 
 export async function handleWhatsappWebhook(request: Request): Promise<Response> {
@@ -84,40 +70,54 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
     const event = texto(raiz["event"]) ?? "";
 
     if (event.toUpperCase().includes("MESSAGES_UPSERT") || event === "messages.upsert") {
-      const data = objeto(raiz["data"]);
-      const key = objeto(data["key"]);
-      if (key["fromMe"] === true) {
-        // Echo of our own outgoing message — already logged by
-        // enviarMensagem(), skip to avoid a duplicate row.
-        return new Response("ok", { status: 200 });
-      }
-      const remoteJid = texto(key["remoteJid"]);
+      const mensagem = lerMensagem(objeto(raiz["data"]));
       // Grupos, status e canais não são conversa com cliente — só enchiam a
       // tabela (eram ~86% das mensagens guardadas) e a lista de recentes.
-      if (remoteJid && /@(g\.us|broadcast|newsletter)$/.test(remoteJid)) {
+      if (!mensagem.numero) {
         return new Response("ok", { status: 200 });
       }
-      // Contatos com "@lid" chegam com um código no lugar do telefone; o
-      // número real vem em remoteJidAlt / senderPn (conforme a versão do
-      // Evolution). Sem ele a resposta não casa com o cliente cadastrado.
-      const jidTelefone = remoteJid?.endsWith("@lid")
-        ? [key["remoteJidAlt"], key["senderPn"], data["senderPn"]]
-            .map(texto)
-            .find((j) => j?.endsWith("@s.whatsapp.net"))
-        : undefined;
-      const numero = (jidTelefone ?? remoteJid)?.split("@")[0] ?? "desconhecido";
-      const conteudo = extrairTextoMensagem(data["message"]);
-      const evolutionMessageId = texto(key["id"]) ?? null;
-      const nomeContato = texto(data["pushName"]) ?? null;
+      if (mensagem.fromMe) {
+        // Eco de envio deste servidor: já está gravado por quem enviou.
+        // O resto foi digitado no celular da loja — entra na conversa, mas
+        // só depois de alguns segundos, para não disputar o índice único
+        // com o envio que ainda vai gravar o próprio id.
+        if (mensagem.id && !foiEnviadoPorEsteServidor(mensagem.id)) {
+          setTimeout(() => {
+            if (mensagem.id && foiEnviadoPorEsteServidor(mensagem.id)) return;
+            registrarEnviadaPeloCelular({ instanceName, mensagem }).catch((e) =>
+              console.error(
+                "[whatsapp-central] falha ao gravar mensagem do celular:",
+                e instanceof Error ? e.message : e,
+              ),
+            );
+          }, 8000);
+        }
+        return new Response("ok", { status: 200 });
+      }
 
       await registrarMensagemRecebida({
         instanceName,
-        numero,
-        nomeContato,
-        texto: conteudo,
-        evolutionMessageId,
+        numero: mensagem.numero,
+        nomeContato: mensagem.nomeContato,
+        texto: mensagem.texto,
+        evolutionMessageId: mensagem.id,
         metadata: { event },
+        extras: async (conexao) => ({
+          resposta_a: mensagem.respostaA,
+          ...((await guardarMidiaRecebida({
+            empresaId: conexao.user_id,
+            instanceName,
+            mensagem,
+          })) ?? {}),
+        }),
       });
+    } else if (event.toUpperCase().includes("MESSAGES_UPDATE") || event === "messages.update") {
+      // Entregue/lido. Pode vir um objeto ou uma lista, conforme a versão.
+      const data = raiz["data"];
+      for (const item of Array.isArray(data) ? data : [data]) {
+        const status = lerStatus(objeto(item));
+        if (status) await aplicarStatusEntrega(instanceName, status.id, status.entrega);
+      }
     } else if (event.toUpperCase().includes("CONNECTION_UPDATE") || event === "connection.update") {
       const data = objeto(raiz["data"]);
       const stateRaw = texto(data["state"]) ?? texto(objeto(data["instance"])["state"]) ?? "close";

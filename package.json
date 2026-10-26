@@ -15,7 +15,8 @@
     "desktop:dev": "npm --prefix desktop run dev",
     "desktop:pack": "npm --prefix desktop run pack",
     "desktop:build:win": "npm --prefix desktop run build:win",
-    "desktop:build:linux": "npm --prefix desktop run build:linux"
+    "desktop:build:linux": "npm --prefix desktop run build:linux",
+    "test": "node --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -762,7 +762,7 @@ function BemVindo() {
                     icone={MessageSquare}
                     titulo="Conectar o WhatsApp"
                     texto="Avisar o cliente quando ficar pronto"
-                    onClick={() => concluir("/whatsapp")}
+                    onClick={() => concluir("/whatsapp-conexao")}
                   />
                 </div>
               </div>

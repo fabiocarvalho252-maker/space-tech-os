@@ -1,0 +1,149 @@
+// Testes das partes puras da Central de WhatsApp (sem banco nem Evolution).
+// Rodar: npm test
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { chaveTelefone, formatarTelefone, paraE164BR } from "../src/lib/whatsapp/telefone.ts";
+import { detectarFormato, nomeSeguro, validarAnexo } from "../src/lib/whatsapp/midia.ts";
+import { lerMensagem, lerStatus } from "../src/lib/whatsapp/webhook-parse.ts";
+
+const bytes = (...b: number[]) => new Uint8Array(b);
+const ascii = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
+
+test("chaveTelefone casa com/sem 55 e com/sem o nono dígito", () => {
+  const esperado = "7498125994";
+  assert.equal(chaveTelefone("557498125994"), esperado);
+  assert.equal(chaveTelefone("5574998125994"), esperado);
+  assert.equal(chaveTelefone("(74) 99812-5994"), esperado);
+  assert.equal(chaveTelefone("74 9812-5994"), esperado);
+  assert.notEqual(chaveTelefone("(11) 99812-5994"), esperado, "DDD diferente não pode casar");
+});
+
+test("paraE164BR e formatarTelefone", () => {
+  assert.equal(paraE164BR("(74) 99812-5994"), "5574998125994");
+  assert.equal(paraE164BR("5574998125994"), "5574998125994");
+  assert.equal(formatarTelefone("5574998125994"), "(74) 99812-5994");
+  assert.equal(formatarTelefone("557498125994"), "(74) 9812-5994");
+});
+
+test("detectarFormato usa os bytes, não o nome", () => {
+  assert.equal(detectarFormato(bytes(0xff, 0xd8, 0xff, 0xe0))?.mime, "image/jpeg");
+  assert.equal(detectarFormato(ascii("%PDF-1.7 ..."), "foto.jpg")?.mime, "application/pdf");
+  assert.equal(detectarFormato(ascii("<html><script>"), "nota.pdf"), null, "HTML com nome .pdf");
+  assert.equal(detectarFormato(ascii("MZ\x90\x00"), "boleto.pdf"), null, "executável com nome .pdf");
+  assert.equal(detectarFormato(ascii("<svg onload=alert(1)>"), "a.png"), null, "SVG bloqueado");
+});
+
+test("zip só passa como docx/xlsx", () => {
+  const zip = bytes(0x50, 0x4b, 0x03, 0x04, 0, 0);
+  assert.equal(detectarFormato(zip, "orcamento.docx")?.extensao, "docx");
+  assert.equal(detectarFormato(zip, "planilha.xlsx")?.extensao, "xlsx");
+  assert.equal(detectarFormato(zip, "arquivos.zip"), null);
+  assert.equal(detectarFormato(zip, "app.apk"), null);
+});
+
+test("validarAnexo: tamanho, vazio e nome seguro com extensão real", () => {
+  assert.equal(validarAnexo("a.pdf", new Uint8Array()).ok, false);
+  const grande = new Uint8Array(11);
+  grande.set(ascii("%PDF-"));
+  const r = validarAnexo("a.pdf", grande, 10);
+  assert.equal(r.ok, false);
+  const ok = validarAnexo("../../etc/Orçamento OS 12.jpg", ascii("%PDF-1.4"));
+  assert.ok(ok.ok);
+  if (ok.ok) {
+    assert.equal(ok.nome, "Orçamento OS 12.pdf", "extensão vem do conteúdo, caminho some");
+    assert.equal(ok.tipo, "documento");
+  }
+});
+
+test("nomeSeguro remove caminho e caracteres perigosos", () => {
+  assert.equal(nomeSeguro("C:\\Users\\x\\nota<script>.pdf"), "nota_script_.pdf");
+  assert.equal(nomeSeguro("...."), "arquivo");
+});
+
+test("lerMensagem: texto simples de contato", () => {
+  const m = lerMensagem({
+    key: { id: "ABC", fromMe: false, remoteJid: "5574998125994@s.whatsapp.net" },
+    pushName: "Maria",
+    message: { conversation: "Meu celular ficou pronto?" },
+  });
+  assert.equal(m.numero, "5574998125994");
+  assert.equal(m.texto, "Meu celular ficou pronto?");
+  assert.equal(m.nomeContato, "Maria");
+  assert.equal(m.midia, null);
+  assert.equal(m.fromMe, false);
+});
+
+test("lerMensagem: grupo não vira conversa", () => {
+  const m = lerMensagem({
+    key: { id: "G", fromMe: false, remoteJid: "1203630@g.us" },
+    message: { conversation: "oi" },
+  });
+  assert.equal(m.numero, null);
+});
+
+test("lerMensagem: @lid usa o número real", () => {
+  const m = lerMensagem({
+    key: { id: "L", remoteJid: "123456@lid", remoteJidAlt: "5574998125994@s.whatsapp.net" },
+    message: { conversation: "oi" },
+  });
+  assert.equal(m.numero, "5574998125994");
+});
+
+test("lerMensagem: imagem com legenda, base64 e resposta citada", () => {
+  const m = lerMensagem({
+    key: { id: "IMG1", fromMe: false, remoteJid: "5574998125994@s.whatsapp.net" },
+    messageType: "imageMessage",
+    message: {
+      imageMessage: {
+        caption: "Olha a tela",
+        mimetype: "image/jpeg",
+        contextInfo: { stanzaId: "ORIGINAL" },
+      },
+      base64: "/9j/4AAQ",
+    },
+  });
+  assert.equal(m.texto, "Olha a tela");
+  assert.equal(m.midia?.tipo, "imagem");
+  assert.equal(m.midia?.mime, "image/jpeg");
+  assert.equal(m.midia?.base64, "/9j/4AAQ");
+  assert.equal(m.respostaA, "ORIGINAL");
+});
+
+test("lerMensagem: documento com legenda embrulhado", () => {
+  const m = lerMensagem({
+    key: { id: "DOC1", remoteJid: "5574998125994@s.whatsapp.net" },
+    messageType: "documentWithCaptionMessage",
+    message: {
+      documentWithCaptionMessage: {
+        message: {
+          documentMessage: { fileName: "nota.pdf", mimetype: "application/pdf", caption: "segue" },
+        },
+      },
+    },
+  });
+  assert.equal(m.midia?.tipo, "documento");
+  assert.equal(m.midia?.nome, "nota.pdf");
+  assert.equal(m.texto, "segue");
+});
+
+test("lerMensagem: enviada pelo celular da loja", () => {
+  const m = lerMensagem({
+    key: { id: "ME1", fromMe: true, remoteJid: "5574998125994@s.whatsapp.net" },
+    pushName: "Loja",
+    message: { extendedTextMessage: { text: "Já está pronto!" } },
+  });
+  assert.equal(m.fromMe, true);
+  assert.equal(m.nomeContato, null, "pushName do fromMe é o da loja, não do cliente");
+  assert.equal(m.texto, "Já está pronto!");
+});
+
+test("lerStatus: entregue/lido e ignora o resto", () => {
+  assert.deepEqual(lerStatus({ keyId: "X", status: "DELIVERY_ACK" }), { id: "X", entrega: "entregue" });
+  assert.deepEqual(lerStatus({ keyId: "X", status: "READ" }), { id: "X", entrega: "lido" });
+  assert.deepEqual(lerStatus({ key: { id: "Y" }, update: { status: "PLAYED" } }), {
+    id: "Y",
+    entrega: "lido",
+  });
+  assert.equal(lerStatus({ keyId: "X", status: "SERVER_ACK" }), null);
+  assert.equal(lerStatus({ status: "READ" }), null);
+});

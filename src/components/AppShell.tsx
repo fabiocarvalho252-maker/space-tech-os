@@ -56,6 +56,7 @@ import {
   listarReclamacoesPesquisaFn,
   processarNotificacoesAgendadasWhatsAppFn,
 } from "@/lib/whatsapp/whatsapp.functions";
+import { naoLidasCentralFn } from "@/lib/whatsapp/central.functions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -88,6 +89,7 @@ const SISTEMA_ITENS: ItemMenu[] = [
   { label: "Permissões", to: "/usuarios", icon: Lock },
   { label: "Emails", to: "/configuracoes", icon: Mail },
   { label: "Migrar de Outro Sistema", to: "/importar", icon: ArrowLeftRight },
+  { label: "Conexão WhatsApp", to: "/whatsapp-conexao", icon: MessageSquare },
   { label: "Fila WhatsApp", to: "/whatsapp-fila", icon: MessageSquare },
 ];
 
@@ -105,7 +107,7 @@ const NAV = [
   { to: "/compras", label: "Compras", icon: ShoppingCart, modulo: "compras" },
   { to: "/aparelhos", label: "Aparelhos", icon: Boxes, modulo: "aparelhos" },
   { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
-  { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "configuracoes" },
+  { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "whatsapp" },
   { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
   { to: "/crediario", label: "Crediário", icon: HandCoins, modulo: "crediario" },
   { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },
@@ -190,6 +192,15 @@ export function AppShell() {
 
   const itensVisiveis = NAV.filter((item) => !item.modulo || podeVer(permissoes, item.modulo));
 
+  // Conversas com mensagem nova, sem dono ou do próprio atendente.
+  const { data: whatsappNaoLidas } = useQuery({
+    queryKey: ["whatsapp-central", "nao-lidas"],
+    queryFn: () => naoLidasCentralFn(),
+    enabled: !!user && podeVer(permissoes, "whatsapp"),
+    refetchInterval: 20_000,
+    retry: false,
+  });
+
   const nav = (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3">
       {itensVisiveis.map((item) => {
@@ -208,6 +219,14 @@ export function AppShell() {
           >
             <item.icon className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
             {item.label}
+            {item.to === "/whatsapp" && !!whatsappNaoLidas && (
+              <span
+                className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground"
+                aria-label={`${whatsappNaoLidas} conversas não lidas`}
+              >
+                {whatsappNaoLidas > 99 ? "99+" : whatsappNaoLidas}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -535,7 +554,7 @@ function useNotificacoes() {
             .slice(0, 2)
             .map((r) => `${r.contact_name || "Cliente"}: "${r.content ?? ""}"`)
             .join(" · "),
-          to: "/whatsapp",
+          to: "/whatsapp-conexao",
           icon: MessageSquareWarning,
         });
       }

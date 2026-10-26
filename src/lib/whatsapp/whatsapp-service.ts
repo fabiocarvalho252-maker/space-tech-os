@@ -671,6 +671,8 @@ export async function registrarMensagemRecebida(params: {
   texto: string | null;
   evolutionMessageId: string | null;
   metadata?: JsonValue;
+  /** Colunas da Central de WhatsApp (anexo, mensagem citada). */
+  extras?: (conexao: { user_id: string }) => Promise<Record<string, string | number | null>>;
 }): Promise<{ ok: true } | { ok: false; motivo: string }> {
   const { data: conexao, error: erroConexao } = await supabaseAdmin
 
@@ -682,10 +684,21 @@ export async function registrarMensagemRecebida(params: {
   if (!conexao) return { ok: false, motivo: "Instância desconhecida — nenhuma empresa vinculada." };
 
   const row = conexao as unknown as { id: string; user_id: string };
+  // Reenvio do mesmo webhook: sai antes de guardar o anexo de novo.
+  if (params.evolutionMessageId) {
+    const { data: jaExiste } = await supabaseAdmin
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("evolution_message_id", params.evolutionMessageId)
+      .maybeSingle();
+    if (jaExiste) return { ok: true };
+  }
+  const extras = params.extras ? await params.extras(row) : {};
   const { data: inserida, error } = await supabaseAdmin
 
     .from("whatsapp_messages")
     .insert({
+      ...extras,
       user_id: row.user_id,
       connection_id: row.id,
       direction: "inbound",

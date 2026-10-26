@@ -79,6 +79,55 @@ async function chamar<T>(
   return (await res.json()) as T;
 }
 
+// MESSAGES_UPDATE traz entregue/lido para a Central de WhatsApp.
+const WEBHOOK_EVENTOS = [
+  "MESSAGES_UPSERT",
+  "MESSAGES_UPDATE",
+  "CONNECTION_UPDATE",
+  "QRCODE_UPDATED",
+];
+
+/**
+ * Reaponta o webhook de uma instância que já existe (criarInstancia só
+ * configura na criação). Usado para ligar eventos novos sem pedir QR Code.
+ */
+export async function configurarWebhook(instanceName: string, webhookUrl: string): Promise<void> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  await chamar(config, "POST", `/webhook/set/${encodeURIComponent(instanceName)}`, {
+    webhook: {
+      enabled: true,
+      url: webhookUrl,
+      webhookByEvents: false,
+      webhookBase64: true,
+      events: WEBHOOK_EVENTOS,
+    },
+  });
+}
+
+// Ids das mensagens que este servidor enviou nos últimos minutos. O webhook
+// devolve cada envio como "fromMe"; só os que NÃO estão aqui foram digitados
+// no celular da loja e entram na conversa. Em memória basta: o eco chega em
+// segundos, e o índice único em evolution_message_id cobre o resto.
+const enviadosPorNos = new Map<string, number>();
+const ENVIADOS_TTL_MS = 10 * 60 * 1000;
+
+function lembrarEnvio(messageId: string | null): void {
+  if (!messageId) return;
+  const agora = Date.now();
+  enviadosPorNos.set(messageId, agora);
+  if (enviadosPorNos.size > 500) {
+    for (const [id, quando] of enviadosPorNos) {
+      if (agora - quando > ENVIADOS_TTL_MS) enviadosPorNos.delete(id);
+    }
+  }
+}
+
+export function foiEnviadoPorEsteServidor(messageId: string): boolean {
+  const quando = enviadosPorNos.get(messageId);
+  return quando !== undefined && Date.now() - quando < ENVIADOS_TTL_MS;
+}
+
 export type EvolutionCreateInstanceResult = {
   qrcodeBase64: string | null;
 };
@@ -110,7 +159,7 @@ export async function criarInstancia(
         // rotates the pairing QR every ~20-60s, and without this event our
         // stored qr_code goes stale — the modal keeps showing an expired
         // code that WhatsApp silently rejects on scan.
-        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
+        events: WEBHOOK_EVENTOS,
       },
     });
     const base64 = data?.qrcode?.base64 ?? data?.qrcode ?? null;
@@ -260,14 +309,22 @@ export async function enviarMensagemTexto(
     }),
   );
   const messageId = data?.key?.id ?? null;
-  return { messageId: typeof messageId === "string" ? messageId : null };
+  const id = typeof messageId === "string" ? messageId : null;
+  lembrarEnvio(id);
+  return { messageId: id };
 }
 
 /** Sends a document (PDF, ...) as base64 through the instance's /message/sendMedia endpoint. */
 export async function enviarMensagemMidia(
   instanceName: string,
   numero: string,
-  params: { mediaBase64: string; mimetype: string; fileName: string; caption?: string },
+  params: {
+    mediaBase64: string;
+    mimetype: string;
+    fileName: string;
+    caption?: string;
+    mediatype?: "document" | "image" | "video" | "audio";
+  },
 ): Promise<EvolutionSendResult> {
   const config = configuracao();
   if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
@@ -276,7 +333,7 @@ export async function enviarMensagemMidia(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chamar<any>(config, "POST", `/message/sendMedia/${encodeURIComponent(instanceName)}`, {
       number: n,
-      mediatype: "document",
+      mediatype: params.mediatype ?? "document",
       mimetype: params.mimetype,
       fileName: params.fileName,
       media: params.mediaBase64,
@@ -284,5 +341,30 @@ export async function enviarMensagemMidia(
     }),
   );
   const messageId = data?.key?.id ?? null;
-  return { messageId: typeof messageId === "string" ? messageId : null };
+  const id = typeof messageId === "string" ? messageId : null;
+  lembrarEnvio(id);
+  return { messageId: id };
+}
+
+/**
+ * Baixa uma mídia recebida quando o webhook chegou sem o base64 (arquivo
+ * grande ou versão da Evolution que não embute). A mídia do WhatsApp expira
+ * no servidor deles, então isso só funciona logo depois de chegar.
+ */
+export async function baixarMidiaRecebida(
+  instanceName: string,
+  messageId: string,
+): Promise<{ base64: string; mimetype: string | null } | null> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await chamar<any>(
+    config,
+    "POST",
+    `/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`,
+    { message: { key: { id: messageId } }, convertToMp4: false },
+  );
+  const base64 = data?.base64;
+  if (typeof base64 !== "string" || !base64) return null;
+  return { base64, mimetype: typeof data?.mimetype === "string" ? data.mimetype : null };
 }

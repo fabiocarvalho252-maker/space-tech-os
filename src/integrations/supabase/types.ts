@@ -3993,8 +3993,120 @@ export type Database = {
         };
         Relationships: [];
       };
+      whatsapp_conversa_eventos: {
+        Row: {
+          autor_id: string | null;
+          conversa_id: string;
+          created_at: string;
+          detalhes: Json | null;
+          id: string;
+          tipo: string;
+          user_id: string;
+        };
+        Insert: {
+          autor_id?: string | null;
+          conversa_id: string;
+          created_at?: string;
+          detalhes?: Json | null;
+          id?: string;
+          tipo: string;
+          user_id: string;
+        };
+        Update: {
+          autor_id?: string | null;
+          conversa_id?: string;
+          created_at?: string;
+          detalhes?: Json | null;
+          id?: string;
+          tipo?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversa_eventos_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "whatsapp_conversas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      whatsapp_conversas: {
+        Row: {
+          atribuida_a: string | null;
+          chave_telefone: string;
+          cliente_id: string | null;
+          contact_name: string | null;
+          created_at: string;
+          encerrada_em: string | null;
+          etiquetas: string[];
+          id: string;
+          nao_lidas: number;
+          phone_number: string;
+          prioridade: string;
+          status: string;
+          ultima_direcao: string | null;
+          ultima_mensagem_em: string | null;
+          ultima_mensagem_preview: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          atribuida_a?: string | null;
+          chave_telefone: string;
+          cliente_id?: string | null;
+          contact_name?: string | null;
+          created_at?: string;
+          encerrada_em?: string | null;
+          etiquetas?: string[];
+          id?: string;
+          nao_lidas?: number;
+          phone_number: string;
+          prioridade?: string;
+          status?: string;
+          ultima_direcao?: string | null;
+          ultima_mensagem_em?: string | null;
+          ultima_mensagem_preview?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          atribuida_a?: string | null;
+          chave_telefone?: string;
+          cliente_id?: string | null;
+          contact_name?: string | null;
+          created_at?: string;
+          encerrada_em?: string | null;
+          etiquetas?: string[];
+          id?: string;
+          nao_lidas?: number;
+          phone_number?: string;
+          prioridade?: string;
+          status?: string;
+          ultima_direcao?: string | null;
+          ultima_mensagem_em?: string | null;
+          ultima_mensagem_preview?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversas_cliente_id_fkey";
+            columns: ["cliente_id"];
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       whatsapp_messages: {
         Row: {
+          conversa_id: string | null;
+          entrega: string | null;
+          midia_mime: string | null;
+          midia_nome: string | null;
+          midia_path: string | null;
+          midia_tamanho: number | null;
+          midia_tipo: string | null;
+          resposta_a: string | null;
           attachments: Json;
           avaliacao: string | null;
           avaliacao_resolvida: boolean;
@@ -4018,6 +4130,14 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          conversa_id?: string | null;
+          entrega?: string | null;
+          midia_mime?: string | null;
+          midia_nome?: string | null;
+          midia_path?: string | null;
+          midia_tamanho?: number | null;
+          midia_tipo?: string | null;
+          resposta_a?: string | null;
           attachments?: Json;
           avaliacao?: string | null;
           avaliacao_resolvida?: boolean;
@@ -4041,6 +4161,14 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          conversa_id?: string | null;
+          entrega?: string | null;
+          midia_mime?: string | null;
+          midia_nome?: string | null;
+          midia_path?: string | null;
+          midia_tamanho?: number | null;
+          midia_tipo?: string | null;
+          resposta_a?: string | null;
           attachments?: Json;
           avaliacao?: string | null;
           avaliacao_resolvida?: boolean;
@@ -4083,6 +4211,30 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      whatsapp_respostas_rapidas: {
+        Row: {
+          atalho: string;
+          created_at: string;
+          id: string;
+          texto: string;
+          user_id: string;
+        };
+        Insert: {
+          atalho: string;
+          created_at?: string;
+          id?: string;
+          texto: string;
+          user_id: string;
+        };
+        Update: {
+          atalho?: string;
+          created_at?: string;
+          id?: string;
+          texto?: string;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       whatsapp_otps: {
         Row: {

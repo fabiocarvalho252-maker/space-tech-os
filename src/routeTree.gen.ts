@@ -45,6 +45,7 @@ import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
+import { Route as AuthenticatedWhatsappConexaoRouteImport } from './routes/_authenticated/whatsapp-conexao'
 import { Route as AuthenticatedWhatsappFilaRouteImport } from './routes/_authenticated/whatsapp-fila'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
 import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
@@ -234,6 +235,12 @@ const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
   path: '/whatsapp',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWhatsappConexaoRoute =
+  AuthenticatedWhatsappConexaoRouteImport.update({
+    id: '/whatsapp-conexao',
+    path: '/whatsapp-conexao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWhatsappFilaRoute =
   AuthenticatedWhatsappFilaRouteImport.update({
     id: '/whatsapp-fila',
@@ -300,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
@@ -342,6 +350,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
@@ -386,6 +395,7 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/_authenticated/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/_authenticated/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
@@ -430,6 +440,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/vendas'
     | '/whatsapp'
+    | '/whatsapp-conexao'
     | '/whatsapp-fila'
     | '/consulta/$osId'
     | '/admin/landing'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/vendas'
     | '/whatsapp'
+    | '/whatsapp-conexao'
     | '/whatsapp-fila'
     | '/consulta/$osId'
     | '/admin/landing'
@@ -515,6 +527,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/_authenticated/vendas'
     | '/_authenticated/whatsapp'
+    | '/_authenticated/whatsapp-conexao'
     | '/_authenticated/whatsapp-fila'
     | '/consulta/$osId'
     | '/_authenticated/admin_/landing'
@@ -791,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/whatsapp-conexao': {
+      id: '/_authenticated/whatsapp-conexao'
+      path: '/whatsapp-conexao'
+      fullPath: '/whatsapp-conexao'
+      preLoaderRoute: typeof AuthenticatedWhatsappConexaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/whatsapp-fila': {
       id: '/_authenticated/whatsapp-fila'
       path: '/whatsapp-fila'
@@ -855,6 +875,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+  AuthenticatedWhatsappConexaoRoute: typeof AuthenticatedWhatsappConexaoRoute
   AuthenticatedWhatsappFilaRoute: typeof AuthenticatedWhatsappFilaRoute
   AuthenticatedAdminLandingRoute: typeof AuthenticatedAdminLandingRoute
   AuthenticatedServicosAdicionarRoute: typeof AuthenticatedServicosAdicionarRoute
@@ -887,6 +908,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+  AuthenticatedWhatsappConexaoRoute: AuthenticatedWhatsappConexaoRoute,
   AuthenticatedWhatsappFilaRoute: AuthenticatedWhatsappFilaRoute,
   AuthenticatedAdminLandingRoute: AuthenticatedAdminLandingRoute,
   AuthenticatedServicosAdicionarRoute: AuthenticatedServicosAdicionarRoute,

@@ -1801,7 +1801,7 @@ function Configuracoes() {
                           )}
                       </div>
                       <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 gap-2">
-                        <Link to="/whatsapp">
+                        <Link to="/whatsapp-conexao">
                           <QrCode className="h-4 w-4" />
                           {whatsappStatus === "conectado"
                             ? "Gerenciar conexão"

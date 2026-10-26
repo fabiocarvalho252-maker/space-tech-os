@@ -26,13 +26,13 @@ function origemAtual(): string {
   return new URL(request.url).origin;
 }
 
-type Ctx = { supabase: SupabaseClient<Database>; userId: string };
+export type Ctx = { supabase: SupabaseClient<Database>; userId: string };
 
 // Empresa em que o login trabalha — a mesma regra de useMinhaEmpresa: um
 // convite para outra empresa vence a empresa própria (vazia) do funcionário.
 // Sem isso, funcionário convidado conectava/enviava pela própria conta.
 // Com `modulo`, exige a permissão (has_permission) nessa empresa.
-async function empresaDoUsuario(
+export async function empresaDoUsuario(
   context: Ctx,
   modulo?: string,
   acao: "ver" | "gerenciar" = "ver",

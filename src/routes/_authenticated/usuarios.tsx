@@ -65,6 +65,7 @@ const MODULOS = [
   { value: "financeiro", label: "Financeiro" },
   { value: "cobrancas", label: "Cobranças" },
   { value: "crediario", label: "Crediário" },
+  { value: "whatsapp", label: "WhatsApp (atendimento)" },
   { value: "garantia", label: "Garantias" },
   { value: "relatorios", label: "Relatórios" },
   { value: "configuracoes", label: "Configurações" },

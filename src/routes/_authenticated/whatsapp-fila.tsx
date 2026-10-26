@@ -237,7 +237,7 @@ function FilaWhatsapp() {
           <div>
             <p className="font-medium">{espera}</p>
             {r?.espera === "desconectado" && (
-              <Link to="/whatsapp" className="text-primary underline">
+              <Link to="/whatsapp-conexao" className="text-primary underline">
                 Conectar o WhatsApp
               </Link>
             )}
