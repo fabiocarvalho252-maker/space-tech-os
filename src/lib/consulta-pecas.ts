@@ -92,10 +92,14 @@ export function linkConsultaWhatsapp(numeroNacional: string, mensagem: string): 
   return buildWaMeLink(numeroNacional, mensagem);
 }
 
-export type StatusConsulta = "preparada" | "conversa_aberta" | "respondida";
+// "enviada" só quando o WhatsApp da empresa aceitou a mensagem; pelo wa.me
+// a consulta fica em "conversa_aberta" (o envio é confirmado lá, à mão).
+export type StatusConsulta = "preparada" | "conversa_aberta" | "enviada" | "falhou" | "respondida";
 
 export const STATUS_CONSULTA_LABEL: Record<StatusConsulta, string> = {
   preparada: "Preparada",
   conversa_aberta: "Conversa aberta",
+  enviada: "Enviada",
+  falhou: "Falhou",
   respondida: "Resposta recebida",
 };

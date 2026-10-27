@@ -1,18 +1,22 @@
-// "Consultar Peças": pergunta a um ou vários fornecedores se têm uma peça,
-// abrindo a conversa de cada um no WhatsApp (wa.me) com a mensagem pronta.
-// Navegadores só deixam abrir uma aba por clique, então com vários
-// fornecedores o fluxo é "Abrir próximo", um de cada vez. Abrir a conversa
-// não envia nada — o envio é confirmado pelo usuário no WhatsApp.
+// "Consultar Peças": pergunta a um ou vários fornecedores se têm uma peça.
+// Com o WhatsApp da empresa conectado, envia por ele (Evolution, mesmo
+// caminho da Central) e as respostas chegam em /whatsapp. Sem conexão, cai
+// no wa.me: navegadores só deixam abrir uma aba por clique, então o fluxo é
+// "Abrir próximo", um de cada vez, e o envio é confirmado lá, à mão.
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Loader2,
   MessageCircle,
   PackageSearch,
   RotateCcw,
   Search,
+  Send,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +27,8 @@ import {
   numeroWhatsappFornecedor,
   type NumeroFornecedor,
 } from "@/lib/consulta-pecas";
+import { enviarConsultaPecaFn } from "@/lib/consulta-pecas.functions";
+import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 import { formatarTelefone } from "@/lib/whatsapp/telefone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +50,20 @@ type Envio = {
   nome: string;
   numero: string;
   consultaId: string | null;
-  aberta: boolean;
+  estado: "pendente" | "enviando" | "enviada" | "falhou" | "aberta";
+  erro?: string | null;
+  conversaId?: string;
 };
+
+const ESTADO_LABEL: Record<Envio["estado"], string> = {
+  pendente: "Aguardando envio",
+  enviando: "Enviando...",
+  enviada: "Enviada pelo WhatsApp da empresa",
+  falhou: "Não enviada",
+  aberta: "Conversa aberta no WhatsApp Web",
+};
+
+const PAUSA_ENTRE_ENVIOS_MS = 1500;
 
 const nomeDe = (f: Fornecedor) => f.nome_fantasia?.trim() || f.razao_social;
 
@@ -69,6 +87,13 @@ export function ConsultarPecasDialog({
   const [mensagemEditada, setMensagemEditada] = useState<string | null>(null);
   const [envios, setEnvios] = useState<Envio[] | null>(null);
   const [mensagemDoLote, setMensagemDoLote] = useState("");
+  const [enviandoTodos, setEnviandoTodos] = useState(false);
+  const statusConexao = useQuery({
+    queryKey: ["whatsapp-status"],
+    queryFn: () => statusWhatsapp(),
+    enabled: open,
+    retry: false,
+  });
 
   const contatos = useMemo(
     () =>
@@ -152,7 +177,7 @@ export function ConsultarPecasDialog({
           nome: nomeDe(f),
           numero,
           consultaId: ids.get(f.id) ?? null,
-          aberta: false,
+          estado: "pendente" as const,
         })),
       };
     },
@@ -164,6 +189,14 @@ export function ConsultarPecasDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  function marcar(fornecedorId: string, mudanca: Partial<Envio>) {
+    setEnvios(
+      (lista) =>
+        lista?.map((e) => (e.fornecedorId === fornecedorId ? { ...e, ...mudanca } : e)) ?? null,
+    );
+  }
+
+  // Alternativa sem o WhatsApp da empresa: abre o wa.me (WhatsApp Web/app).
   function abrir(envio: Envio) {
     // window.open precisa sair direto do clique, antes de qualquer await,
     // senão o navegador bloqueia como pop-up.
@@ -172,28 +205,68 @@ export function ConsultarPecasDialog({
       "_blank",
       "noopener,noreferrer",
     );
-    setEnvios(
-      (lista) =>
-        lista?.map((e) => (e.fornecedorId === envio.fornecedorId ? { ...e, aberta: true } : e)) ??
-        null,
-    );
+    if (envio.estado !== "enviada") marcar(envio.fornecedorId, { estado: "aberta" });
     if (envio.consultaId) {
       void supabase
         .from("fornecedor_consultas_pecas")
         .update({ status: "conversa_aberta", conversa_aberta_em: new Date().toISOString() })
         .eq("id", envio.consultaId)
-        .eq("status", "preparada")
+        .in("status", ["preparada", "falhou"])
         .then(() => qc.invalidateQueries({ queryKey: ["fornecedor-consultas-pecas"] }));
     }
   }
 
-  const proximo = envios?.find((e) => !e.aberta);
-  const abertas = envios?.filter((e) => e.aberta).length ?? 0;
+  async function enviarUm(envio: Envio): Promise<boolean> {
+    if (!envio.consultaId) {
+      marcar(envio.fornecedorId, {
+        estado: "falhou",
+        erro: "Consulta não ficou salva; use o WhatsApp Web.",
+      });
+      return false;
+    }
+    marcar(envio.fornecedorId, { estado: "enviando", erro: null });
+    try {
+      const r = await enviarConsultaPecaFn({ data: { consultaId: envio.consultaId } });
+      if (r.ok) {
+        marcar(envio.fornecedorId, { estado: "enviada", conversaId: r.conversaId });
+        return true;
+      }
+      marcar(envio.fornecedorId, { estado: "falhou", erro: r.erro });
+    } catch (e) {
+      marcar(envio.fornecedorId, { estado: "falhou", erro: (e as Error).message });
+    }
+    return false;
+  }
+
+  // Um de cada vez, com uma pausa curta entre eles — o WhatsApp desconfia de
+  // rajadas de mensagens iguais.
+  async function enviarTodos() {
+    if (!envios) return;
+    setEnviandoTodos(true);
+    let enviadas = 0;
+    const pendentes = envios.filter((e) => e.estado === "pendente" || e.estado === "falhou");
+    for (const [i, e] of pendentes.entries()) {
+      if (i > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_ENVIOS_MS));
+      if (await enviarUm(e)) enviadas++;
+    }
+    setEnviandoTodos(false);
+    qc.invalidateQueries({ queryKey: ["fornecedor-consultas-pecas"] });
+    if (enviadas === pendentes.length) toast.success(`${enviadas} consulta(s) enviada(s)`);
+    else toast.warning(`${enviadas} de ${pendentes.length} enviadas. Veja as que falharam.`);
+  }
+
+  const conectado = statusConexao.data?.status === "conectado";
+  const faltamEnviar =
+    envios?.filter((e) => e.estado === "pendente" || e.estado === "falhou").length ?? 0;
+  const proximo = envios?.find((e) => e.estado === "pendente" || e.estado === "falhou");
+  const resolvidas =
+    envios?.filter((e) => e.estado === "enviada" || e.estado === "aberta").length ?? 0;
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
+        if (!v && enviandoTodos) return;
         onOpenChange(v);
         if (!v && envios) reiniciar();
       }}
@@ -357,7 +430,7 @@ export function ConsultarPecasDialog({
               />
               <p className="text-xs text-muted-foreground">
                 A saudação (bom dia / boa tarde / boa noite) segue o horário de Brasília. Você pode
-                ajustar o texto antes de abrir.
+                ajustar o texto antes de enviar.
               </p>
             </div>
 
@@ -377,50 +450,132 @@ export function ConsultarPecasDialog({
             <div className="whitespace-pre-line rounded-xl border border-border bg-secondary/50 p-3 text-sm">
               {mensagemDoLote}
             </div>
-            <div className="flex gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
-              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>
-                Cada clique abre a conversa de um fornecedor com a mensagem pronta. Abrir a conversa
-                <strong> não envia</strong> a mensagem: toque em enviar no WhatsApp e volte aqui
-                para o próximo.
-              </span>
-            </div>
 
-            {proximo ? (
-              <Button className="w-full" onClick={() => abrir(proximo)}>
-                <ArrowRight className="h-4 w-4" />
-                Abrir WhatsApp: {proximo.nome} ({abertas + 1} de {envios.length})
-              </Button>
-            ) : (
-              <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Todas as {envios.length} conversas foram abertas. Confira se enviou cada uma.
+            {statusConexao.isLoading ? (
+              <div className="flex justify-center py-2">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
+            ) : conectado ? (
+              <>
+                <div className="flex gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                  <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    A mensagem sai pelo WhatsApp conectado da empresa
+                    {statusConexao.data?.phone_number
+                      ? ` (${formatarTelefone(statusConexao.data.phone_number)})`
+                      : ""}
+                    . As respostas dos fornecedores chegam na Central de WhatsApp e a consulta é
+                    marcada como respondida sozinha.
+                  </span>
+                </div>
+                {faltamEnviar > 0 ? (
+                  <Button className="w-full" onClick={enviarTodos} disabled={enviandoTodos}>
+                    {enviandoTodos ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {enviandoTodos
+                      ? "Enviando..."
+                      : `Enviar para ${faltamEnviar} fornecedor${faltamEnviar === 1 ? "" : "es"}`}
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    Consultas enviadas. Acompanhe as respostas na Central de WhatsApp.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    O WhatsApp da empresa não está conectado, então a consulta abre no WhatsApp Web.
+                    Abrir a conversa <strong>não envia</strong> a mensagem: toque em enviar lá e
+                    volte para o próximo. Para enviar direto pelo sistema, conecte em{" "}
+                    <Link to="/whatsapp-conexao" className="font-medium text-primary underline">
+                      WhatsApp → Conexão
+                    </Link>
+                    .
+                  </span>
+                </div>
+                {proximo ? (
+                  <Button className="w-full" onClick={() => abrir(proximo)}>
+                    <ArrowRight className="h-4 w-4" />
+                    Abrir WhatsApp: {proximo.nome} ({resolvidas + 1} de {envios.length})
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    Todas as {envios.length} conversas foram abertas. Confira se enviou cada uma.
+                  </div>
+                )}
+              </>
             )}
 
             <div className="divide-y divide-border rounded-xl border border-border">
               {envios.map((e) => (
-                <div key={e.fornecedorId} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                  <div className="min-w-0 flex-1">
+                <div
+                  key={e.fornecedorId}
+                  className="flex flex-wrap items-center gap-2 px-3 py-2.5 text-sm"
+                >
+                  <div className="min-w-0 flex-1 basis-40">
                     <p className="truncate font-medium">{e.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatarTelefone(e.numero)} ·{" "}
-                      {e.aberta ? "Conversa aberta" : "Aguardando abrir"}
+                      {formatarTelefone(e.numero)} · {ESTADO_LABEL[e.estado]}
                     </p>
+                    {e.estado === "falhou" && e.erro && (
+                      <p className="text-xs text-destructive">{e.erro}</p>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant={e.aberta ? "outline" : "default"}
-                    onClick={() => abrir(e)}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    {e.aberta ? "Abrir de novo" : "Abrir WhatsApp"}
-                  </Button>
+                  {e.estado === "enviando" && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {e.estado === "enviada" && e.conversaId && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/whatsapp" search={{ c: e.conversaId }}>
+                        <MessageCircle className="h-4 w-4" /> Ver conversa
+                      </Link>
+                    </Button>
+                  )}
+                  {conectado && e.estado === "falhou" && (
+                    <Button
+                      size="sm"
+                      disabled={enviandoTodos}
+                      onClick={() =>
+                        void enviarUm(e).then(() =>
+                          qc.invalidateQueries({ queryKey: ["fornecedor-consultas-pecas"] }),
+                        )
+                      }
+                    >
+                      <RotateCcw className="h-4 w-4" /> Tentar de novo
+                    </Button>
+                  )}
+                  {e.estado !== "enviada" && e.estado !== "enviando" && (
+                    <Button
+                      size="sm"
+                      variant={conectado || e.estado === "aberta" ? "outline" : "default"}
+                      onClick={() => abrir(e)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      {conectado
+                        ? "WhatsApp Web"
+                        : e.estado === "aberta"
+                          ? "Abrir de novo"
+                          : "Abrir WhatsApp"}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
 
-            <Button variant="outline" className="w-full" onClick={reiniciar}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={reiniciar}
+              disabled={enviandoTodos}
+            >
               <RotateCcw className="h-4 w-4" /> Nova consulta
             </Button>
           </div>

@@ -1466,9 +1466,13 @@ export type Database = {
       };
       fornecedor_consultas_pecas: {
         Row: {
+          chave_telefone: string | null;
           conversa_aberta_em: string | null;
+          conversa_id: string | null;
           created_at: string;
           criado_por: string | null;
+          enviada_em: string | null;
+          erro: string | null;
           fornecedor_id: string | null;
           fornecedor_nome: string;
           id: string;
@@ -1485,8 +1489,11 @@ export type Database = {
         };
         Insert: {
           conversa_aberta_em?: string | null;
+          conversa_id?: string | null;
           created_at?: string;
           criado_por?: string | null;
+          enviada_em?: string | null;
+          erro?: string | null;
           fornecedor_id?: string | null;
           fornecedor_nome: string;
           id?: string;
@@ -1503,8 +1510,11 @@ export type Database = {
         };
         Update: {
           conversa_aberta_em?: string | null;
+          conversa_id?: string | null;
           created_at?: string;
           criado_por?: string | null;
+          enviada_em?: string | null;
+          erro?: string | null;
           fornecedor_id?: string | null;
           fornecedor_nome?: string;
           id?: string;
