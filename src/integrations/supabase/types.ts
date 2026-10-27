@@ -1464,6 +1464,70 @@ export type Database = {
           },
         ];
       };
+      fornecedor_consultas_pecas: {
+        Row: {
+          conversa_aberta_em: string | null;
+          created_at: string;
+          criado_por: string | null;
+          fornecedor_id: string | null;
+          fornecedor_nome: string;
+          id: string;
+          lote_id: string;
+          marca: string | null;
+          mensagem: string;
+          modelo: string;
+          peca: string;
+          qualidade: string | null;
+          respondida_em: string | null;
+          status: string;
+          user_id: string;
+          whatsapp: string;
+        };
+        Insert: {
+          conversa_aberta_em?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          fornecedor_id?: string | null;
+          fornecedor_nome: string;
+          id?: string;
+          lote_id: string;
+          marca?: string | null;
+          mensagem: string;
+          modelo: string;
+          peca: string;
+          qualidade?: string | null;
+          respondida_em?: string | null;
+          status?: string;
+          user_id: string;
+          whatsapp: string;
+        };
+        Update: {
+          conversa_aberta_em?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          fornecedor_id?: string | null;
+          fornecedor_nome?: string;
+          id?: string;
+          lote_id?: string;
+          marca?: string | null;
+          mensagem?: string;
+          modelo?: string;
+          peca?: string;
+          qualidade?: string | null;
+          respondida_em?: string | null;
+          status?: string;
+          user_id?: string;
+          whatsapp?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fornecedor_consultas_pecas_fornecedor_id_fkey";
+            columns: ["fornecedor_id"];
+            referencedRelation: "fornecedores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       importacoes: {
         Row: {
           arquivo: string | null;

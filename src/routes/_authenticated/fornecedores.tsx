@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Trash2, Search, Loader2, AlertTriangle, Pencil } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Search,
+  Loader2,
+  AlertTriangle,
+  Pencil,
+  PackageSearch,
+  History,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -19,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ConsultarPecasDialog } from "@/components/fornecedores/ConsultarPecasDialog";
+import { HistoricoConsultasDialog } from "@/components/fornecedores/HistoricoConsultasDialog";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +72,8 @@ function Fornecedores() {
   const [cep, setCep] = useState("");
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+  const [consultarOpen, setConsultarOpen] = useState(false);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
 
   const { data: fornecedores = [] } = useQuery({
     queryKey: ["fornecedores"],
@@ -210,128 +223,147 @@ function Fornecedores() {
         title="Fornecedores"
         subtitle="Quem abastece o estoque e as peças da sua assistência"
         action={
-          <Dialog
-            open={open}
-            onOpenChange={(v) => {
-              setOpen(v);
-              if (!v) setEditId(null);
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button onClick={abrirNovo}>
-                <Plus className="h-4 w-4" /> Novo fornecedor
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editId ? "Editar fornecedor" : "Novo fornecedor"}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>CNPJ / CPF</Label>
-                  <div className="relative">
-                    <Input
-                      value={form.cnpj_cpf}
-                      onChange={(e) => alterarDocumento(e.target.value)}
-                      placeholder="Digite o CNPJ ou CPF"
-                      inputMode="numeric"
-                    />
-                    {buscandoCnpj && (
-                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          <>
+            <Button variant="outline" onClick={() => setHistoricoOpen(true)}>
+              <History className="h-4 w-4" /> Histórico
+            </Button>
+            <Button variant="outline" onClick={() => setConsultarOpen(true)}>
+              <PackageSearch className="h-4 w-4" /> Consultar peças
+            </Button>
+            <Dialog
+              open={open}
+              onOpenChange={(v) => {
+                setOpen(v);
+                if (!v) setEditId(null);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button onClick={abrirNovo}>
+                  <Plus className="h-4 w-4" /> Novo fornecedor
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editId ? "Editar fornecedor" : "Novo fornecedor"}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>CNPJ / CPF</Label>
+                    <div className="relative">
+                      <Input
+                        value={form.cnpj_cpf}
+                        onChange={(e) => alterarDocumento(e.target.value)}
+                        placeholder="Digite o CNPJ ou CPF"
+                        inputMode="numeric"
+                      />
+                      {buscandoCnpj && (
+                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                    {docCompleto && !docValido && (
+                      <p className="text-xs text-destructive">
+                        {docDigitos.length === 11 ? "CPF inválido" : "CNPJ inválido"}
+                      </p>
                     )}
-                  </div>
-                  {docCompleto && !docValido && (
-                    <p className="text-xs text-destructive">
-                      {docDigitos.length === 11 ? "CPF inválido" : "CNPJ inválido"}
-                    </p>
-                  )}
-                  {docDigitos.length === 14 && docValido && !buscandoCnpj && (
-                    <button
-                      type="button"
-                      onClick={() => preencherPorCnpj(docDigitos)}
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      Buscar dados do CNPJ novamente
-                    </button>
-                  )}
-                  {fornecedorDuplicado && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-                      <span>
-                        Já existe um fornecedor com este documento:{" "}
-                        <strong>{fornecedorDuplicado.razao_social}</strong>
-                      </span>
+                    {docDigitos.length === 14 && docValido && !buscandoCnpj && (
                       <button
                         type="button"
-                        onClick={() => abrirEdicao(fornecedorDuplicado)}
-                        className="ml-auto font-medium text-primary hover:underline"
+                        onClick={() => preencherPorCnpj(docDigitos)}
+                        className="text-xs font-medium text-primary hover:underline"
                       >
-                        Abrir cadastro
+                        Buscar dados do CNPJ novamente
                       </button>
-                    </div>
-                  )}
-                </div>
-                <Campo
-                  label="Razão social"
-                  value={form.razao_social}
-                  onChange={(v) => setForm({ ...form, razao_social: v })}
-                />
-                <Campo
-                  label="Nome fantasia"
-                  value={form.nome_fantasia}
-                  onChange={(v) => setForm({ ...form, nome_fantasia: v })}
-                />
-                <Campo
-                  label="Telefone"
-                  value={form.telefone}
-                  onChange={(v) => setForm({ ...form, telefone: v })}
-                />
-                <Campo
-                  label="WhatsApp"
-                  value={form.whatsapp}
-                  onChange={(v) => setForm({ ...form, whatsapp: v })}
-                />
-                <Campo
-                  label="Email"
-                  value={form.email}
-                  onChange={(v) => setForm({ ...form, email: v })}
-                />
-                <div className="space-y-1.5">
-                  <Label>CEP</Label>
-                  <div className="relative">
-                    <Input
-                      value={cep}
-                      onChange={(e) => alterarCep(e.target.value)}
-                      placeholder="Preenche o endereço"
-                      inputMode="numeric"
-                    />
-                    {buscandoCep && (
-                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
+                    {fornecedorDuplicado && (
+                      <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                        <span>
+                          Já existe um fornecedor com este documento:{" "}
+                          <strong>{fornecedorDuplicado.razao_social}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => abrirEdicao(fornecedorDuplicado)}
+                          className="ml-auto font-medium text-primary hover:underline"
+                        >
+                          Abrir cadastro
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
-                <div className="sm:col-span-2">
                   <Campo
-                    label="Endereço"
-                    value={form.endereco}
-                    onChange={(v) => setForm({ ...form, endereco: v })}
+                    label="Razão social"
+                    value={form.razao_social}
+                    onChange={(v) => setForm({ ...form, razao_social: v })}
                   />
-                </div>
-                <div className="sm:col-span-2 space-y-1.5">
-                  <Label>Observações</Label>
-                  <Textarea
-                    value={form.observacoes}
-                    onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                  <Campo
+                    label="Nome fantasia"
+                    value={form.nome_fantasia}
+                    onChange={(v) => setForm({ ...form, nome_fantasia: v })}
                   />
+                  <Campo
+                    label="Telefone"
+                    value={form.telefone}
+                    onChange={(v) => setForm({ ...form, telefone: v })}
+                  />
+                  <Campo
+                    label="WhatsApp"
+                    value={form.whatsapp}
+                    onChange={(v) => setForm({ ...form, whatsapp: v })}
+                  />
+                  <Campo
+                    label="Email"
+                    value={form.email}
+                    onChange={(v) => setForm({ ...form, email: v })}
+                  />
+                  <div className="space-y-1.5">
+                    <Label>CEP</Label>
+                    <div className="relative">
+                      <Input
+                        value={cep}
+                        onChange={(e) => alterarCep(e.target.value)}
+                        placeholder="Preenche o endereço"
+                        inputMode="numeric"
+                      />
+                      {buscandoCep && (
+                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Campo
+                      label="Endereço"
+                      value={form.endereco}
+                      onChange={(v) => setForm({ ...form, endereco: v })}
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Observações</Label>
+                    <Textarea
+                      value={form.observacoes}
+                      onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                    />
+                  </div>
                 </div>
-              </div>
-              <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-                {editId ? "Salvar alterações" : "Salvar fornecedor"}
-              </Button>
-            </DialogContent>
-          </Dialog>
+                <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+                  {editId ? "Salvar alterações" : "Salvar fornecedor"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </>
         }
       />
+
+      <ConsultarPecasDialog
+        open={consultarOpen}
+        onOpenChange={setConsultarOpen}
+        fornecedores={fornecedores}
+        onEditarFornecedor={(id) => {
+          const f = fornecedores.find((x) => x.id === id);
+          if (f) abrirEdicao(f);
+        }}
+      />
+      <HistoricoConsultasDialog open={historicoOpen} onOpenChange={setHistoricoOpen} />
 
       <div className="relative mb-4 max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
