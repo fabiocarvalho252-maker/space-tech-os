@@ -18,7 +18,9 @@ import { brl, statusLabel } from "@/lib/format";
 import { chaveTelefone } from "./telefone";
 import { pedidoDeParar, pedidoDeVoltar } from "./automacoes";
 import { clientesComTelefone } from "./central.server";
-import { enviarAutomatico } from "./whatsapp-service";
+import { enviarAutomatico, obterEmpresaDoOperador } from "./whatsapp-service";
+import { comTaxaRepassada } from "@/lib/mercadopago/fees";
+import { origemPublicaServer } from "@/lib/site-url.server";
 import * as robo from "./robo";
 
 const HORA = 3_600_000;
@@ -180,8 +182,9 @@ async function processar(params: Params): Promise<void> {
     nome: robo.primeiroNome(conversa.clientes?.nome ?? conversa.contact_name),
     aberto: robo.estaAberto(horario, agora),
     abre: robo.proximaAbertura(horario, agora),
+    planos: empresaId === (await obterEmpresaDoOperador()) ? await planosDoSite() : null,
   };
-  const decisao = robo.decidir(estado, params.texto, agora, params.temMidia);
+  const decisao = robo.decidir(estado, params.texto, agora, params.temMidia, !!ctx.planos);
   if (decisao.tipo === "ignorar") return;
 
   let resposta: string;
@@ -192,8 +195,11 @@ async function processar(params: Params): Promise<void> {
     case "menu":
       resposta = robo.textoMenu(ctx, decisao.saudacao);
       break;
+    case "planos":
+      resposta = robo.textoPlanos(ctx, decisao.saudacao);
+      break;
     case "nao_entendeu":
-      resposta = robo.textoNaoEntendi();
+      resposta = robo.textoNaoEntendi(ctx);
       proxima = { etapa: "menu", dados: { erros: decisao.erros } };
       break;
     case "status":
@@ -279,6 +285,24 @@ async function passarParaEquipe(
     })
     .eq("id", conversa.id);
   await evento(empresaId, conversa.id, registro.tipo, registro.detalhes);
+}
+
+/** Opção 5 do WhatsApp da SPACE TECH: preços do plano ativo mais barato (Pix). */
+async function planosDoSite(): Promise<robo.PlanosSite> {
+  const { data } = await supabaseAdmin
+    .from("plans")
+    .select("monthly_price, annual_price")
+    .eq("active", true)
+    .order("monthly_price", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const preco = (v: number | null | undefined) =>
+    v && v > 0 ? brl(comTaxaRepassada(v, "pix")) : null;
+  return {
+    mensal: preco(data?.monthly_price),
+    anual: preco(data?.annual_price),
+    link: `${origemPublicaServer() || "https://srmpretech.online"}/cadastro`,
+  };
 }
 
 async function nomeDaLoja(empresaId: string): Promise<string> {

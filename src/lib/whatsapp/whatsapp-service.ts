@@ -1686,7 +1686,7 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
 // A empresa do operador do site (conta do /admin): é por ela que saem os
 // avisos da plataforma (pedidos e pagamentos de plano). Resolvida uma vez.
 let empresaDoOperador: string | null = null;
-async function obterEmpresaDoOperador(): Promise<string | null> {
+export async function obterEmpresaDoOperador(): Promise<string | null> {
   if (empresaDoOperador) return empresaDoOperador;
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;

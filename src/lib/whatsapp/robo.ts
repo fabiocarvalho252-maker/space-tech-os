@@ -128,17 +128,20 @@ export function normalizar(texto: string): string {
     .trim();
 }
 
-export type Opcao = 0 | 1 | 2 | 3 | 4;
+export type Opcao = 0 | 1 | 2 | 3 | 4 | 5;
 
 /** Número do menu (também "1.", "1️⃣", "opção 2") ou palavra-chave clara. */
 export function lerOpcao(texto: string | null): Opcao | null {
   const t = normalizar(texto ?? "");
   if (!t) return null;
-  const numero = t.match(/^(?:opcao |op )?([0-4])$/);
+  const numero = t.match(/^(?:opcao |op )?([0-5])$/);
   if (numero) return Number(numero[1]) as Opcao;
   if (/^(menu|inicio|voltar ao menu)$/.test(t)) return 0;
   if (/\b(atendente|humano|pessoa|falar com alguem|falar com voce|vendedor)\b/.test(t)) return 4;
   if (/\bgarantia\b/.test(t)) return 3;
+  // 5 = planos do SPACE TECH (só no WhatsApp da própria SPACE TECH; ver decidir).
+  if (/\b(planos?|assinar|assinatura|mensalidade|space tech)\b/.test(t)) return 5;
+  if (/\b(quanto|valor|preco)\b.*\bsistema\b/.test(t)) return 5;
   if (/\b(orcamento|conserto|consertar|arrumar|quanto custa|quanto fica|valor do)\b/.test(t))
     return 2;
   if (/\b(status|minha os|ordem de servico|ficou pronto|ta pronto|esta pronto|ja ficou)\b/.test(t))
@@ -150,6 +153,7 @@ export type Decisao =
   | { tipo: "menu"; saudacao: boolean }
   | { tipo: "status" }
   | { tipo: "garantia" }
+  | { tipo: "planos"; saudacao: boolean }
   | { tipo: "orc_aparelho" }
   | { tipo: "orc_defeito"; aparelho: string }
   | { tipo: "orc_registrar"; aparelho: string; defeito: string }
@@ -172,14 +176,18 @@ export function decidir(
   texto: string | null,
   agora: Date,
   temMidia = false,
+  /** Menu com a opção 5 (planos do SPACE TECH) — só no WhatsApp da SPACE TECH. */
+  comPlanos = false,
 ): Decisao {
   const etapa = etapaVigente(estado, agora);
-  const opcao = lerOpcao(texto);
+  let opcao = lerOpcao(texto);
+  if (opcao === 5 && !comPlanos) opcao = null;
   const livre = limitar(texto ?? "");
 
   if (etapa === null) {
     // Começo de conversa: quem já chega pedindo algo claro vai direto.
     if (opcao === 4) return { tipo: "atendente", motivo: "pedido" };
+    if (opcao === 5) return { tipo: "planos", saudacao: true };
     return { tipo: "menu", saudacao: true };
   }
   if (opcao === 0) return { tipo: "menu", saudacao: false };
@@ -199,6 +207,7 @@ export function decidir(
   if (opcao === 1) return { tipo: "status" };
   if (opcao === 2) return { tipo: "orc_aparelho" };
   if (opcao === 3) return { tipo: "garantia" };
+  if (opcao === 5) return { tipo: "planos", saudacao: false };
   if (!livre) return { tipo: "ignorar" };
   const desdeResposta = agora.getTime() - new Date(estado.atualizadoEm ?? 0).getTime();
   if (desdeResposta < RAJADA_MS) return { tipo: "ignorar" };
@@ -218,14 +227,27 @@ export type Contexto = {
   aberto: boolean;
   /** Ex.: "amanhã às 8h". */
   abre: string | null;
+  /** Planos do SPACE TECH (opção 5) — só no WhatsApp da própria SPACE TECH. */
+  planos?: PlanosSite | null;
 };
 
-const MENU = [
-  "1️⃣ Status da minha OS",
-  "2️⃣ Orçamento / conserto",
-  "3️⃣ Garantia",
-  "4️⃣ Falar com um atendente",
-].join("\n");
+export type PlanosSite = {
+  /** Já formatados (R$), com a taxa do Pix. */
+  mensal: string | null;
+  anual: string | null;
+  /** Link de cadastro do site. */
+  link: string;
+};
+
+function menu(ctx: Pick<Contexto, "planos">): string {
+  return [
+    "1️⃣ Status da minha OS",
+    "2️⃣ Orçamento / conserto",
+    "3️⃣ Garantia",
+    "4️⃣ Falar com um atendente",
+    ...(ctx.planos ? ["5️⃣ Planos do SPACE TECH (sistema para assistência)"] : []),
+  ].join("\n");
+}
 
 const RODAPE = "_Digite 0 para ver o menu ou 4 para falar com um atendente._";
 
@@ -246,12 +268,29 @@ export function textoMenu(ctx: Contexto, saudacao: boolean): string {
   } else {
     partes.push("Como posso te ajudar?");
   }
-  partes.push(MENU, "_Responda com o número da opção._");
+  partes.push(menu(ctx), "_Responda com o número da opção._");
   return partes.join("\n\n");
 }
 
-export function textoNaoEntendi(): string {
-  return `Desculpe, não entendi. 😅 Responda só com o número:\n\n${MENU}`;
+export function textoNaoEntendi(ctx: Pick<Contexto, "planos"> = {}): string {
+  return `Desculpe, não entendi. 😅 Responda só com o número:\n\n${menu(ctx)}`;
+}
+
+export function textoPlanos(ctx: Contexto, saudacao: boolean): string {
+  const p = ctx.planos;
+  const precos = [
+    ...(p?.mensal ? [`• Mensal: *${p.mensal}*/mês`] : []),
+    ...(p?.anual ? [`• Anual: *${p.anual}*/ano`] : []),
+  ];
+  return [
+    ...(saudacao ? [`Olá${ctx.nome ? `, ${ctx.nome}` : ""}! 👋`] : []),
+    "💻 *SPACE TECH — sistema para assistência técnica*\nOrdens de serviço, PDV, estoque, financeiro e WhatsApp num lugar só.",
+    ...(precos.length
+      ? [`*Planos:*\n${precos.join("\n")}\nPagamento por Pix, com liberação na hora.`]
+      : []),
+    `🎁 Teste *7 dias grátis*, sem cartão:\n👉 ${p?.link ?? ""}`,
+    RODAPE,
+  ].join("\n\n");
 }
 
 export type OsResumo = {

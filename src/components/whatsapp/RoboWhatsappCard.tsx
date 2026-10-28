@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
+import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
+import { precosConviteFn } from "@/lib/convites-assinatura.functions";
+import { brl } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +17,7 @@ import {
   lerHorario,
   proximaAbertura,
   textoMenu,
+  textoPlanos,
   type Horario,
 } from "@/lib/whatsapp/robo";
 
@@ -69,16 +73,29 @@ export function RoboWhatsappCard() {
 
   const invalido = horario.some((d) => d && (!d.abre || !d.fecha || d.fecha <= d.abre));
   const alterado = JSON.stringify(horario) !== JSON.stringify(data?.horario ?? HORARIO_COMERCIAL);
+  // Na conta da SPACE TECH o menu tem a opção 5 (planos do site).
+  const { data: user } = useCurrentUser();
+  const souSpaceTech = user?.email === SITE_ADMIN_EMAIL;
+  const { data: precos } = useQuery({
+    queryKey: ["convite-precos"],
+    queryFn: () => precosConviteFn(),
+    enabled: souSpaceTech,
+  });
   const agora = new Date();
-  const previa = textoMenu(
-    {
-      loja: (profile?.loja || profile?.nome || "sua loja").trim(),
-      nome: "Maria",
-      aberto: estaAberto(horario, agora),
-      abre: proximaAbertura(horario, agora),
-    },
-    true,
-  );
+  const ctxPrevia = {
+    loja: (profile?.loja || profile?.nome || "sua loja").trim(),
+    nome: "Maria",
+    aberto: estaAberto(horario, agora),
+    abre: proximaAbertura(horario, agora),
+    planos: souSpaceTech
+      ? {
+          mensal: precos?.mensal ? brl(precos.mensal) : null,
+          anual: precos?.anual ? brl(precos.anual) : null,
+          link: `${window.location.origin}/cadastro`,
+        }
+      : null,
+  };
+  const previa = textoMenu(ctxPrevia, true);
 
   return (
     <div className="space-y-4">
@@ -195,6 +212,16 @@ export function RoboWhatsappCard() {
           </summary>
           <p className="whitespace-pre-wrap border-t border-border px-3 py-3 text-sm">{previa}</p>
         </details>
+        {souSpaceTech && (
+          <details className="rounded-lg border border-border bg-background/50">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+              Ver a resposta da opção 5 (planos do SPACE TECH)
+            </summary>
+            <p className="whitespace-pre-wrap border-t border-border px-3 py-3 text-sm">
+              {textoPlanos(ctxPrevia, false)}
+            </p>
+          </details>
+        )}
       </div>
     </div>
   );

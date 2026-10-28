@@ -13,6 +13,7 @@ import {
   proximaAbertura,
   roboPausado,
   textoMenu,
+  textoPlanos,
   textoStatus,
   type EstadoRobo,
 } from "../src/lib/whatsapp/robo.ts";
@@ -208,4 +209,51 @@ test("áudio/foto solto no menu e rajada logo após a resposta não viram 'não 
   assert.deepEqual(decidir(recem, "1", agora), { tipo: "status" });
   // Esperando o aparelho, foto sem texto não repete a pergunta.
   assert.deepEqual(decidir(estado("orc_aparelho"), null, agora, true), { tipo: "ignorar" });
+});
+
+const planos = {
+  mensal: "R$ 40,40",
+  anual: "R$ 460,56",
+  link: "https://srmpretech.online/cadastro",
+};
+
+test("opção 5 (planos) só existe no WhatsApp da SPACE TECH", () => {
+  assert.equal(lerOpcao("5"), 5);
+  assert.equal(lerOpcao("quero assinar o sistema"), 5);
+  assert.equal(lerOpcao("quanto custa o sistema?"), 5);
+  assert.equal(lerOpcao("o sistema do meu celular travou"), null);
+  // Com planos: menu mostra a 5 e ela responde.
+  assert.match(
+    textoMenu({ loja: "SPACE TECH", nome: null, aberto: true, abre: null, planos }, true),
+    /5️⃣ Planos do SPACE TECH/,
+  );
+  assert.deepEqual(decidir(estado("menu"), "5", agora, false, true), {
+    tipo: "planos",
+    saudacao: false,
+  });
+  assert.deepEqual(decidir(estado(null), "quais os planos?", agora, false, true), {
+    tipo: "planos",
+    saudacao: true,
+  });
+  // Em outra loja: sem 5 no menu e "5" não é opção.
+  assert.doesNotMatch(
+    textoMenu({ loja: "Loja X", nome: null, aberto: true, abre: null }, true),
+    /5️⃣/,
+  );
+  assert.deepEqual(decidir(estado("menu"), "5", agora), { tipo: "nao_entendeu", erros: 1 });
+  assert.deepEqual(decidir(estado(null), "quais os planos?", agora), {
+    tipo: "menu",
+    saudacao: true,
+  });
+});
+
+test("texto dos planos traz preços e link de cadastro", () => {
+  const t = textoPlanos(
+    { loja: "SPACE TECH", nome: "Ana", aberto: true, abre: null, planos },
+    true,
+  );
+  assert.match(t, /^Olá, Ana!/);
+  assert.match(t, /Mensal: \*R\$ 40,40\*\/mês/);
+  assert.match(t, /7 dias grátis/);
+  assert.match(t, /srmpretech\.online\/cadastro/);
 });
