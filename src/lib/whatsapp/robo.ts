@@ -154,7 +154,13 @@ export type Decisao =
   | { tipo: "orc_defeito"; aparelho: string }
   | { tipo: "orc_registrar"; aparelho: string; defeito: string }
   | { tipo: "atendente"; motivo: "pedido" | "nao_entendeu" }
-  | { tipo: "nao_entendeu"; erros: number };
+  | { tipo: "nao_entendeu"; erros: number }
+  /** Áudio/foto solto ou mensagem em rajada logo depois da resposta: não responde. */
+  | { tipo: "ignorar" };
+
+/** Mensagem que chega até esse tempo depois da resposta do robô é o cliente
+ * ainda digitando (rajada): sem "não entendi" para cada uma. */
+export const RAJADA_MS = 20_000;
 
 function limitar(texto: string): string {
   return texto.replace(/\s+/g, " ").trim().slice(0, MAX_TEXTO);
@@ -180,7 +186,7 @@ export function decidir(
   if (opcao === 4) return { tipo: "atendente", motivo: "pedido" };
 
   if (etapa === "orc_aparelho") {
-    if (!livre) return { tipo: "orc_aparelho" };
+    if (!livre) return { tipo: "ignorar" };
     return { tipo: "orc_defeito", aparelho: livre };
   }
   if (etapa === "orc_defeito") {
@@ -193,6 +199,9 @@ export function decidir(
   if (opcao === 1) return { tipo: "status" };
   if (opcao === 2) return { tipo: "orc_aparelho" };
   if (opcao === 3) return { tipo: "garantia" };
+  if (!livre) return { tipo: "ignorar" };
+  const desdeResposta = agora.getTime() - new Date(estado.atualizadoEm ?? 0).getTime();
+  if (desdeResposta < RAJADA_MS) return { tipo: "ignorar" };
   const erros = (estado.dados.erros ?? 0) + 1;
   if (erros >= 3) return { tipo: "atendente", motivo: "nao_entendeu" };
   return { tipo: "nao_entendeu", erros };

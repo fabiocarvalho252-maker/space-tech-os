@@ -195,3 +195,17 @@ test("status: pronta mostra valor; sem OS orienta a falar com atendente", () => 
   assert.match(t, /Status: \*Em reparo\*\nPrevisão: 30\/10\/2026/);
   assert.match(textoStatus([]), /responda \*4\*/);
 });
+
+test("áudio/foto solto no menu e rajada logo após a resposta não viram 'não entendi'", () => {
+  assert.deepEqual(decidir(estado("menu"), null, agora, true), { tipo: "ignorar" });
+  const recem: EstadoRobo = {
+    etapa: "menu",
+    dados: {},
+    atualizadoEm: new Date(agora.getTime() - 5_000).toISOString(),
+  };
+  assert.deepEqual(decidir(recem, "Aí é o 11 normal", agora), { tipo: "ignorar" });
+  // Opção válida na rajada ainda vale.
+  assert.deepEqual(decidir(recem, "1", agora), { tipo: "status" });
+  // Esperando o aparelho, foto sem texto não repete a pergunta.
+  assert.deepEqual(decidir(estado("orc_aparelho"), null, agora, true), { tipo: "ignorar" });
+});

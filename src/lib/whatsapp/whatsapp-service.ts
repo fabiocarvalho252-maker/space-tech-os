@@ -721,6 +721,8 @@ export async function registrarMensagemRecebida(params: {
   texto: string | null;
   evolutionMessageId: string | null;
   metadata?: JsonValue;
+  /** Horário real de envio no WhatsApp (mensagem que chegou atrasada). */
+  enviadaEm?: string | null;
   /** Colunas da Central de WhatsApp (anexo, mensagem citada). */
   extras?: (conexao: { user_id: string }) => Promise<Record<string, string | number | null>>;
 }): Promise<{ ok: true } | { ok: false; motivo: string }> {
@@ -758,6 +760,7 @@ export async function registrarMensagemRecebida(params: {
       status: "recebido",
       evolution_message_id: params.evolutionMessageId,
       metadata: params.metadata ?? null,
+      ...(params.enviadaEm ? { created_at: params.enviadaEm } : {}),
     })
     .select("id, created_at")
     .single();

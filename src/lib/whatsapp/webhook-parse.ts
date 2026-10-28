@@ -26,7 +26,25 @@ export type MensagemWebhook = {
   } | null;
   /** Id da mensagem citada, quando o cliente respondeu uma específica. */
   respostaA: string | null;
+  /** Quando foi enviada no WhatsApp (ISO). Chega atrasada quando a sessão
+   * trava; null se o horário vier ausente ou absurdo. */
+  enviadaEm: string | null;
 };
+
+const TRINTA_DIAS_MS = 30 * 86_400_000;
+
+/** messageTimestamp do Evolution: segundos (número, texto ou {low}). */
+export function lerHorarioEnvio(valor: unknown, agora = Date.now()): string | null {
+  const bruto =
+    typeof valor === "number" || typeof valor === "string"
+      ? Number(valor)
+      : Number(objeto(valor)["low"]);
+  if (!Number.isFinite(bruto) || bruto <= 0) return null;
+  const ms = bruto > 1e12 ? bruto : bruto * 1000;
+  // Relógio do celular adiantado ou valor torto: fica o horário de chegada.
+  if (ms > agora + 5 * 60_000 || ms < agora - TRINTA_DIAS_MS) return null;
+  return new Date(ms).toISOString();
+}
 
 const SUBTIPOS_COM_CONTEXTO = [
   "extendedTextMessage",
@@ -49,7 +67,11 @@ export function lerMensagem(data: Record<string, unknown>): MensagemWebhook {
         .map(texto)
         .find((j) => j?.endsWith("@s.whatsapp.net"))
     : undefined;
-  const numero = grupoOuCanal ? null : ((jidTelefone ?? remoteJid)?.split("@")[0] ?? null);
+  // "557499294500:16@s.whatsapp.net" = outro aparelho da mesma conta: o
+  // ":16" é o aparelho, não parte do telefone.
+  const numero = grupoOuCanal
+    ? null
+    : ((jidTelefone ?? remoteJid)?.split("@")[0]?.split(":")[0] ?? null);
 
   let mensagem = objeto(data["message"]);
   // Documento com legenda vem embrulhado um nível a mais.
@@ -97,6 +119,7 @@ export function lerMensagem(data: Record<string, unknown>): MensagemWebhook {
         }
       : null,
     respostaA,
+    enviadaEm: lerHorarioEnvio(data["messageTimestamp"]),
   };
 }
 

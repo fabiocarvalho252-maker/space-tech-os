@@ -104,6 +104,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         texto: mensagem.texto,
         evolutionMessageId: mensagem.id,
         metadata: { event },
+        enviadaEm: mensagem.enviadaEm,
         extras: async (conexao) => ({
           resposta_a: mensagem.respostaA,
           ...((await guardarMidiaRecebida({
@@ -121,6 +122,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         numero: mensagem.numero,
         texto: mensagem.texto,
         temMidia: !!mensagem.midia,
+        enviadaEm: mensagem.enviadaEm,
       });
     } else if (event.toUpperCase().includes("MESSAGES_UPDATE") || event === "messages.update") {
       // Entregue/lido. Pode vir um objeto ou uma lista, conforme a versão.

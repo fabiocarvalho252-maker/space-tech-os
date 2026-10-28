@@ -8,8 +8,10 @@
 //   - o cliente pediu PARAR (ou a mensagem é o próprio PARAR/VOLTAR);
 //   - a conversa está com um atendente (atribuída) ou pausada;
 //   - alguém da equipe respondeu nas últimas 2 h (central ou celular);
-//   - a conversa ia começar e a loja mandou um aviso automático nas
-//     últimas 24 h (o cliente provavelmente está respondendo o aviso);
+//   - a mensagem veio do próprio número da loja (outro aparelho da conta);
+//   - a conversa ia começar mas já teve mensagem nas últimas 12 h (é papo
+//     em andamento, não um contato novo) ou a loja mandou um aviso
+//     automático nas últimas 24 h (o cliente está respondendo o aviso);
 //   - já mandou mensagens demais na última hora (outro robô do outro lado).
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { brl, statusLabel } from "@/lib/format";
@@ -22,6 +24,12 @@ import * as robo from "./robo";
 const HORA = 3_600_000;
 const PAUSA_APOS_HUMANO_MS = 2 * HORA;
 const SILENCIO_APOS_AVISO_MS = 24 * HORA;
+const CONVERSA_PARADA_MS = 12 * HORA;
+/** Rajada do cliente no começo (oi + pergunta + áudio) conta como um contato só. */
+const RAJADA_INICIAL_MS = 2 * 60_000;
+/** O que é digitado no celular da loja entra no sistema ~8 s depois (ver
+ * webhook-handler): espera isso antes de decidir se alguém está atendendo. */
+const ESPERA_CELULAR_MS = 10_000;
 const MAX_RESPOSTAS_POR_HORA = 12;
 const STATUS_ENCERRADOS = ["entregue", "faturado"];
 
@@ -30,13 +38,20 @@ type Params = {
   numero: string;
   texto: string | null;
   temMidia: boolean;
+  /** Horário de envio no WhatsApp; mensagem velha (sessão travada) não é respondida. */
+  enviadaEm?: string | null;
+  recebidaEm?: number;
 };
+
+/** Mensagem que chega mais atrasada que isso é fila acumulada: o robô não responde. */
+const ATRASO_MAXIMO_MS = 5 * 60_000;
 
 // Mensagens seguidas do mesmo cliente são tratadas uma de cada vez, na
 // ordem — senão duas respostas disputariam a mesma etapa.
 const filas = new Map<string, Promise<void>>();
 
-export function processarMensagemRobo(params: Params): Promise<void> {
+export function processarMensagemRobo(entrada: Params): Promise<void> {
+  const params = { ...entrada, recebidaEm: entrada.recebidaEm ?? Date.now() };
   const chave = `${params.instanceName}:${chaveTelefone(params.numero)}`;
   const atual = (filas.get(chave) ?? Promise.resolve()).then(() =>
     processar(params).catch((e) =>
@@ -56,24 +71,32 @@ async function evento(
   tipo: string,
   detalhes: Record<string, string | null> | null = null,
 ) {
-  await supabaseAdmin.from("whatsapp_conversa_eventos").insert({
+  const { error } = await supabaseAdmin.from("whatsapp_conversa_eventos").insert({
     user_id: empresaId,
     conversa_id: conversaId,
     autor_id: null,
     tipo,
     detalhes,
   });
+  if (error) console.error("[robo-whatsapp] evento não gravado:", tipo, error.message);
 }
 
 async function processar(params: Params): Promise<void> {
   if (pedidoDeParar(params.texto) || pedidoDeVoltar(params.texto)) return;
+  if (
+    params.enviadaEm &&
+    (params.recebidaEm ?? Date.now()) - new Date(params.enviadaEm).getTime() > ATRASO_MAXIMO_MS
+  )
+    return;
 
   const { data: conexao } = await supabaseAdmin
     .from("whatsapp_connections")
-    .select("id, user_id, instance_name, status")
+    .select("id, user_id, instance_name, status, phone_number")
     .eq("instance_name", params.instanceName)
     .maybeSingle();
   if (!conexao || conexao.status !== "conectado") return;
+  if (conexao.phone_number && chaveTelefone(conexao.phone_number) === chaveTelefone(params.numero))
+    return;
   const empresaId = conexao.user_id;
 
   const { data: config } = await supabaseAdmin
@@ -82,6 +105,9 @@ async function processar(params: Params): Promise<void> {
     .eq("user_id", empresaId)
     .maybeSingle();
   if (!config?.robo_ativo) return;
+
+  const falta = (params.recebidaEm ?? Date.now()) + ESPERA_CELULAR_MS - Date.now();
+  if (falta > 0) await new Promise((r) => setTimeout(r, falta));
 
   const { data: conversa } = await supabaseAdmin
     .from("whatsapp_conversas")
@@ -136,6 +162,17 @@ async function processar(params: Params): Promise<void> {
       (m) => !ehHumano(m) && !ehRobo(m) && (m.status === "enviado" || m.status === "pendente"),
     );
     if (avisoRecente) return;
+    // Contato novo = conversa parada há 12 h (fora a rajada desta chegada).
+    const recebida = params.recebidaEm ?? agora.getTime();
+    const { data: anteriores } = await supabaseAdmin
+      .from("whatsapp_messages")
+      .select("template_id")
+      .eq("user_id", empresaId)
+      .eq("conversa_id", conversa.id)
+      .gte("created_at", new Date(recebida - CONVERSA_PARADA_MS).toISOString())
+      .lt("created_at", new Date(recebida - RAJADA_INICIAL_MS).toISOString())
+      .limit(20);
+    if ((anteriores ?? []).some((m) => !m.template_id?.startsWith("robo_"))) return;
   }
 
   const ctx: robo.Contexto = {
@@ -145,6 +182,7 @@ async function processar(params: Params): Promise<void> {
     abre: robo.proximaAbertura(horario, agora),
   };
   const decisao = robo.decidir(estado, params.texto, agora, params.temMidia);
+  if (decisao.tipo === "ignorar") return;
 
   let resposta: string;
   let proxima: { etapa: robo.Etapa | null; dados: robo.DadosRobo } = { etapa: "menu", dados: {} };

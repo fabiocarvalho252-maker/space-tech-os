@@ -1239,6 +1239,7 @@ export async function registrarEnviadaPeloCelular(params: {
     evolution_message_id: mensagem.id,
     metadata: { origem: "celular" },
     resposta_a: mensagem.respostaA,
+    ...(mensagem.enviadaEm ? { created_at: mensagem.enviadaEm } : {}),
     ...(midia ?? {}),
   });
   if (error && error.code !== "23505") throw error;

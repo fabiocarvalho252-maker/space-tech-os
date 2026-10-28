@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chaveTelefone, formatarTelefone, paraE164BR } from "../src/lib/whatsapp/telefone.ts";
 import { detectarFormato, nomeSeguro, validarAnexo } from "../src/lib/whatsapp/midia.ts";
-import { lerMensagem, lerStatus } from "../src/lib/whatsapp/webhook-parse.ts";
+import { lerHorarioEnvio, lerMensagem, lerStatus } from "../src/lib/whatsapp/webhook-parse.ts";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 const ascii = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
@@ -29,7 +29,11 @@ test("detectarFormato usa os bytes, não o nome", () => {
   assert.equal(detectarFormato(bytes(0xff, 0xd8, 0xff, 0xe0))?.mime, "image/jpeg");
   assert.equal(detectarFormato(ascii("%PDF-1.7 ..."), "foto.jpg")?.mime, "application/pdf");
   assert.equal(detectarFormato(ascii("<html><script>"), "nota.pdf"), null, "HTML com nome .pdf");
-  assert.equal(detectarFormato(ascii("MZ\x90\x00"), "boleto.pdf"), null, "executável com nome .pdf");
+  assert.equal(
+    detectarFormato(ascii("MZ\x90\x00"), "boleto.pdf"),
+    null,
+    "executável com nome .pdf",
+  );
   assert.equal(detectarFormato(ascii("<svg onload=alert(1)>"), "a.png"), null, "SVG bloqueado");
 });
 
@@ -137,8 +141,19 @@ test("lerMensagem: enviada pelo celular da loja", () => {
   assert.equal(m.texto, "Já está pronto!");
 });
 
+test("lerMensagem: outro aparelho da mesma conta (:16) não entra no telefone", () => {
+  const m = lerMensagem({
+    key: { id: "D1", fromMe: false, remoteJid: "557499294500:16@s.whatsapp.net" },
+    message: { conversation: "oi" },
+  });
+  assert.equal(m.numero, "557499294500");
+});
+
 test("lerStatus: entregue/lido e ignora o resto", () => {
-  assert.deepEqual(lerStatus({ keyId: "X", status: "DELIVERY_ACK" }), { id: "X", entrega: "entregue" });
+  assert.deepEqual(lerStatus({ keyId: "X", status: "DELIVERY_ACK" }), {
+    id: "X",
+    entrega: "entregue",
+  });
   assert.deepEqual(lerStatus({ keyId: "X", status: "READ" }), { id: "X", entrega: "lido" });
   assert.deepEqual(lerStatus({ key: { id: "Y" }, update: { status: "PLAYED" } }), {
     id: "Y",
@@ -154,7 +169,13 @@ test("PARAR só vale como mensagem inteira", () => {
   for (const t of ["PARAR", "parar.", " Pare! ", "Não quero receber", "SAIR", "stop"]) {
     assert.equal(pedidoDeParar(t), true, t);
   }
-  for (const t of ["quero cancelar o conserto", "não para de travar", "pode parar o conserto?", "", null]) {
+  for (const t of [
+    "quero cancelar o conserto",
+    "não para de travar",
+    "pode parar o conserto?",
+    "",
+    null,
+  ]) {
     assert.equal(pedidoDeParar(t), false, String(t));
   }
   assert.equal(pedidoDeVoltar("Voltar"), true);
@@ -168,4 +189,16 @@ test("chaveAutomacao igual à função do banco", () => {
   assert.equal(chaveAutomacao("cobranca_paga_abc"), "cobranca_paga");
   assert.equal(chaveAutomacao("padrao"), null, "modelo manual da OS não é automação");
   assert.equal(chaveAutomacao(null), null);
+});
+
+test("horário de envio do WhatsApp: segundos, texto e {low}; absurdo vira null", () => {
+  const agora = Date.parse("2026-10-28T01:00:00Z");
+  const seg = agora / 1000 - 3600;
+  const iso = new Date(agora - 3_600_000).toISOString();
+  assert.equal(lerHorarioEnvio(seg, agora), iso);
+  assert.equal(lerHorarioEnvio(String(seg), agora), iso);
+  assert.equal(lerHorarioEnvio({ low: seg, high: 0 }, agora), iso);
+  assert.equal(lerHorarioEnvio(agora / 1000 + 3600, agora), null, "no futuro");
+  assert.equal(lerHorarioEnvio(agora / 1000 - 40 * 86400, agora), null, "velho demais");
+  assert.equal(lerHorarioEnvio(undefined, agora), null);
 });
