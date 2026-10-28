@@ -118,42 +118,70 @@ function isWhatsappFilaCronRequest(request: Request): boolean {
   return new URL(request.url).pathname === "/api/whatsapp/fila/cron";
 }
 
+// Cabeçalhos de segurança em toda resposta. Sem CSP de propósito: o app
+// carrega scripts/estilos inline do SSR e uma CSP errada quebra o site.
+// camera/microphone=(self) porque as fotos da OS, o leitor de código de
+// barras e a voz da IA usam esses recursos.
+const SECURITY_HEADERS: Record<string, string> = {
+  "Strict-Transport-Security": "max-age=31536000",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "SAMEORIGIN",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(self), microphone=(self), geolocation=()",
+};
+
+function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(name)) headers.set(name, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    try {
-      if (isWhatsappWebhookRequest(request)) {
-        return await handleWhatsappWebhook(request);
-      }
-      if (isPixWebhookRequest(request)) {
-        return await handlePixWebhook(request);
-      }
-      if (isMercadoPagoSubscriptionWebhookRequest(request)) {
-        return await handleMercadoPagoSubscriptionWebhook(request);
-      }
-      if (isCrediarioCronRequest(request)) {
-        return await handleCrediarioCron(request);
-      }
-      if (isContasInativasCronRequest(request)) {
-        return await handleContasInativasCron(request);
-      }
-      if (isGoogleDriveCallbackRequest(request)) {
-        return await handleGoogleDriveCallback(request);
-      }
-      if (isBackupDriveCronRequest(request)) {
-        return await handleBackupDriveCron(request);
-      }
-      if (isWhatsappFilaCronRequest(request)) {
-        return await handleWhatsappFilaCron(request);
-      }
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
+    return withSecurityHeaders(await handleRequest(request, env, ctx));
   },
 };
+
+async function handleRequest(request: Request, env: unknown, ctx: unknown): Promise<Response> {
+  try {
+    if (isWhatsappWebhookRequest(request)) {
+      return await handleWhatsappWebhook(request);
+    }
+    if (isPixWebhookRequest(request)) {
+      return await handlePixWebhook(request);
+    }
+    if (isMercadoPagoSubscriptionWebhookRequest(request)) {
+      return await handleMercadoPagoSubscriptionWebhook(request);
+    }
+    if (isCrediarioCronRequest(request)) {
+      return await handleCrediarioCron(request);
+    }
+    if (isContasInativasCronRequest(request)) {
+      return await handleContasInativasCron(request);
+    }
+    if (isGoogleDriveCallbackRequest(request)) {
+      return await handleGoogleDriveCallback(request);
+    }
+    if (isBackupDriveCronRequest(request)) {
+      return await handleBackupDriveCron(request);
+    }
+    if (isWhatsappFilaCronRequest(request)) {
+      return await handleWhatsappFilaCron(request);
+    }
+    const handler = await getServerEntry();
+    const response = await handler.fetch(request, env, ctx);
+    return await normalizeCatastrophicSsrResponse(response);
+  } catch (error) {
+    console.error(error);
+    return new Response(renderErrorPage(), {
+      status: 500,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+}
