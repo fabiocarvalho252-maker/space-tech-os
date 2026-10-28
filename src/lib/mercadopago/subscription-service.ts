@@ -8,7 +8,9 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { MercadoPagoProvider, type PaymentGateway } from "./payment-gateway";
 import { comTaxaRepassada } from "./fees";
-import { avisarDonoDaPlataforma } from "@/lib/whatsapp/whatsapp-service";
+import { novoAcessoAte } from "@/lib/acesso";
+import { avisarDonoDaPlataforma, enviarDaPlataforma } from "@/lib/whatsapp/whatsapp-service";
+import { dataCurtaBR, textoComprovanteWhatsapp } from "@/lib/planos/comprovante";
 import {
   aplicarDescontoIndicacao,
   marcarReferralComoPendente,
@@ -179,7 +181,12 @@ export async function iniciarAssinatura(
   return { paymentMethod: "pix", qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 };
 }
 
-type PagamentoAviso = { metodo: "Pix" | "cartão"; valor: number | null };
+type PagamentoAviso = {
+  metodo: "Pix" | "cartão";
+  valor: number | null;
+  /** Novo último dia de acesso, quando o pagamento renovou o prazo. */
+  acessoAte?: string | null;
+};
 
 /** Avisa o dono da plataforma no WhatsApp que um plano foi pago/renovado. */
 async function avisarPagamentoPlano(
@@ -208,7 +215,8 @@ async function avisarPagamentoPlano(
       `${tipo === "pago" ? "💰 *Plano pago*" : "🔁 *Renovação paga*"} — ${empresa?.loja || empresa?.nome || "Loja sem nome"}`,
       `Plano ${plano} (${ciclo}) no ${pagamento.metodo}${valor}`,
       tipo === "pago" ? "Plano liberado automaticamente." : "Assinatura segue ativa.",
-      ...(proxima ? [proxima] : []),
+      ...(pagamento.acessoAte ? [`Acesso até: ${dataCurtaBR(pagamento.acessoAte)}`] : []),
+      ...(proxima && !pagamento.acessoAte ? [proxima] : []),
     ].join("\n"),
   );
 }
@@ -282,11 +290,14 @@ export async function reconciliarAssinatura(mpPreapprovalId: string): Promise<vo
 }
 
 /** Mesma ideia para o caminho Pix por ciclo: re-consulta o pagamento antes
- * de marcar como pago, e só então ativa a assinatura correspondente. */
+ * de marcar como pago, e só então ativa a assinatura correspondente. Usado
+ * pela contratação (/planos) e pela renovação por Pix (/assinatura). */
 export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promise<void> {
   const { data: payment } = await supabaseAdmin
     .from("subscription_payments")
-    .select("id, subscription_id, status, amount, subscriptions(id, empresa_id, plan_id, status)")
+    .select(
+      "id, subscription_id, status, amount, metadata, subscriptions(id, empresa_id, plan_id, status, billing_cycle)",
+    )
     .eq("mercado_pago_payment_id", mpPaymentId)
     .maybeSingle();
   if (!payment) return;
@@ -295,10 +306,16 @@ export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promi
   const status = await gateway.getPixPaymentStatus(mpPaymentId);
   if (status === payment.status) return;
 
-  await supabaseAdmin
+  // Só um chamador vence a troca de status (webhook e a tela consultando ao
+  // mesmo tempo): quem não atualizou nenhuma linha não renova de novo.
+  const pagoEm = new Date().toISOString();
+  const { data: trocou } = await supabaseAdmin
     .from("subscription_payments")
-    .update({ status, paid_at: status === "paid" ? new Date().toISOString() : null })
-    .eq("id", payment.id);
+    .update({ status, paid_at: status === "paid" ? pagoEm : null })
+    .eq("id", payment.id)
+    .eq("status", payment.status)
+    .select("id");
+  if (!trocou?.length) return;
   await registrarEvento(payment.subscription_id, "MP_PAYMENT_UPDATED", { status });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- nested select shape isn't in the generated relationship helper
@@ -307,16 +324,22 @@ export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promi
     empresa_id: string;
     plan_id: string;
     status: string;
+    billing_cycle: BillingCycle;
   } | null;
   if (status === "paid" && subscription) {
+    const ciclo = subscription.billing_cycle;
     // Antes do aviso, para ele já mostrar a próxima cobrança.
     await supabaseAdmin
       .from("subscriptions")
-      .update({
-        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
-      })
+      .update({ next_billing_date: proximaCobranca(ciclo) })
       .eq("id", subscription.id);
-    const pagamento = { metodo: "Pix", valor: Number(payment.amount) } as const;
+    const acessoAte = await estenderAcesso(subscription.empresa_id, ciclo);
+    await supabaseAdmin
+      .from("subscription_payments")
+      .update({ metadata: { ...objetoJson(payment.metadata), acesso_ate: acessoAte } })
+      .eq("id", payment.id);
+
+    const pagamento = { metodo: "Pix", valor: Number(payment.amount), acessoAte } as const;
     if (subscription.status !== "active") {
       await ativarAssinatura(
         subscription.id,
@@ -327,7 +350,297 @@ export async function reconciliarPagamentoAssinatura(mpPaymentId: string): Promi
     } else {
       await avisarPagamentoPlano("renovado", subscription.id, payment.id, pagamento);
     }
+    await enviarComprovante(payment.id);
   }
+}
+
+function objetoJson(valor: unknown): Record<string, Json> {
+  return valor && typeof valor === "object" && !Array.isArray(valor)
+    ? (valor as Record<string, Json>)
+    : {};
+}
+
+function proximaCobranca(ciclo: BillingCycle): string {
+  const dias = ciclo === "yearly" ? 365 : 30;
+  return new Date(Date.now() + dias * 86_400_000).toISOString();
+}
+
+/** "AAAA-MM-DD" de hoje em Brasília. */
+function hojeBrasilia(): string {
+  return new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Renova o prazo de acesso — profiles.plano/acesso_ate é o que o bloqueio
+ * realmente confere (lib/acesso.ts); plan_id sozinho só muda os recursos.
+ * Soma 1 ou 12 meses ao vencimento atual (se ainda não venceu) ou a hoje.
+ * Vitalício não muda. Devolve o novo último dia de acesso.
+ */
+export async function estenderAcesso(
+  empresaId: string,
+  ciclo: BillingCycle,
+): Promise<string | null> {
+  const { data: perfil } = await supabaseAdmin
+    .from("profiles")
+    .select("plano, acesso_ate")
+    .eq("id", empresaId)
+    .maybeSingle();
+  if (!perfil) return null;
+  const novo = novoAcessoAte(perfil.plano, perfil.acesso_ate, hojeBrasilia(), ciclo);
+  if (!novo) return null;
+
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      plano: ciclo === "yearly" ? "anual" : "mensal",
+      acesso_ate: novo,
+      plano_solicitado: null,
+      plano_solicitado_em: null,
+    })
+    .eq("id", empresaId);
+  if (error) throw error;
+  return novo;
+}
+
+export type ComprovantePagamento = {
+  id: string;
+  loja: string;
+  plano: string;
+  ciclo: BillingCycle;
+  metodo: PaymentMethod;
+  valor: number;
+  pagoEm: string;
+  acessoAte: string | null;
+  codigo: string | null;
+};
+
+/** Dados do comprovante de um pagamento pago (null se não existe/não pago). */
+export async function obterComprovante(
+  paymentId: string,
+  empresaId?: string,
+): Promise<ComprovantePagamento | null> {
+  const { data } = await supabaseAdmin
+    .from("subscription_payments")
+    .select(
+      "id, amount, payment_method, status, paid_at, metadata, mercado_pago_payment_id, subscriptions(empresa_id, billing_cycle, plans(name), profiles:empresa_id(loja, nome))",
+    )
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!data || data.status !== "paid" || !data.paid_at) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- nested select shape isn't in the generated relationship helper
+  const sub = (data as any).subscriptions as {
+    empresa_id: string;
+    billing_cycle: BillingCycle;
+    plans: { name: string } | null;
+    profiles: { loja: string | null; nome: string | null } | null;
+  } | null;
+  if (!sub || (empresaId && sub.empresa_id !== empresaId)) return null;
+  const acessoAte = objetoJson(data.metadata)["acesso_ate"];
+  return {
+    id: data.id,
+    loja: sub.profiles?.loja || sub.profiles?.nome || "Sua empresa",
+    plano: sub.plans?.name ?? "SPACE TECH",
+    ciclo: sub.billing_cycle,
+    metodo: data.payment_method as PaymentMethod,
+    valor: Number(data.amount),
+    pagoEm: data.paid_at,
+    acessoAte: typeof acessoAte === "string" ? acessoAte : null,
+    codigo: data.mercado_pago_payment_id,
+  };
+}
+
+/** Comprovante pelo WhatsApp para o número da empresa (uma vez por pagamento). */
+async function enviarComprovante(paymentId: string): Promise<void> {
+  try {
+    const comprovante = await obterComprovante(paymentId);
+    if (!comprovante) return;
+    const { data: sub } = await supabaseAdmin
+      .from("subscription_payments")
+      .select("subscriptions(empresa_id)")
+      .eq("id", paymentId)
+      .maybeSingle();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- nested select shape isn't in the generated relationship helper
+    const empresaId = (sub as any)?.subscriptions?.empresa_id as string | undefined;
+    if (!empresaId) return;
+    const { data: perfil } = await supabaseAdmin
+      .from("profiles")
+      .select("whatsapp, nome")
+      .eq("id", empresaId)
+      .maybeSingle();
+    const telefone = (perfil?.whatsapp ?? "").replace(/\D/g, "");
+    if (telefone.length < 10) {
+      console.warn("[Comprovante plano] Empresa sem WhatsApp no cadastro:", empresaId);
+      return;
+    }
+    const envio = await enviarDaPlataforma({
+      telefone,
+      nome: perfil?.nome ?? null,
+      mensagem: textoComprovanteWhatsapp(comprovante),
+      // aviso_plano_*: índice único — webhook repetido não manda duas vezes.
+      templateId: `aviso_plano_comprovante_${paymentId}`,
+    });
+    if (envio !== "enviado") console.warn("[Comprovante plano] Não enviado:", envio, paymentId);
+  } catch (erro) {
+    console.error("[Comprovante plano] Erro:", erro);
+  }
+}
+
+export type PixRenovacao = {
+  paymentId: string;
+  valor: number;
+  plano: string;
+  ciclo: BillingCycle;
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  expiraEm: string;
+};
+
+/**
+ * Pix de renovação (Meu Plano): uma cobrança avulsa no plano atual da
+ * empresa (ou no plano ativo mais barato), mensal ou anual. Reaproveita a
+ * assinatura mais recente da empresa (troca plano/ciclo se mudou) para o
+ * histórico ficar num lugar só. A confirmação vem do webhook ou da tela
+ * consultando (reconciliarPagamentoAssinatura), sempre re-checando o
+ * Mercado Pago.
+ */
+export async function gerarPixRenovacao(input: {
+  empresaId: string;
+  ciclo: BillingCycle;
+  payerEmail: string;
+  origin: string;
+}): Promise<PixRenovacao> {
+  const { data: perfil } = await supabaseAdmin
+    .from("profiles")
+    .select("plan_id, plano")
+    .eq("id", input.empresaId)
+    .maybeSingle();
+  if (perfil?.plano === "vitalicio")
+    throw new Error("Seu plano é vitalício: não há o que renovar.");
+
+  const { data: planos } = await supabaseAdmin
+    .from("plans")
+    .select("id, name, active, monthly_price, annual_price")
+    .eq("active", true)
+    .order("monthly_price", { ascending: true });
+  const plan = planos?.find((p) => p.id === perfil?.plan_id) ?? planos?.[0];
+  if (!plan) throw new PlanNotFoundError();
+  const preco = input.ciclo === "monthly" ? plan.monthly_price : plan.annual_price;
+  if (preco === null || preco <= 0) throw new PlanPriceNotConfiguredError();
+
+  const gateway = obterGateway();
+
+  const { data: ultima } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id, plan_id, billing_cycle, status, mercado_pago_preapproval_id")
+    .eq("empresa_id", input.empresaId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (ultima?.status === "active" && ultima.mercado_pago_preapproval_id) {
+    throw new Error(
+      "Sua assinatura é no cartão e renova sozinha todo mês. Para pagar por Pix, cancele a do cartão primeiro.",
+    );
+  }
+  let subscriptionId: string;
+  if (ultima) {
+    subscriptionId = ultima.id;
+    if (ultima.plan_id !== plan.id || ultima.billing_cycle !== input.ciclo) {
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({ plan_id: plan.id, billing_cycle: input.ciclo })
+        .eq("id", ultima.id);
+    }
+  } else {
+    const { data: nova, error } = await supabaseAdmin
+      .from("subscriptions")
+      .insert({
+        empresa_id: input.empresaId,
+        plan_id: plan.id,
+        billing_cycle: input.ciclo,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    subscriptionId = nova.id;
+    await registrarEvento(subscriptionId, "SUBSCRIPTION_CREATED", {
+      planId: plan.id,
+      billingCycle: input.ciclo,
+      origem: "renovacao_pix",
+    });
+  }
+
+  const valor = comTaxaRepassada(preco, "pix");
+  const externalReference = `ST-REN-${input.empresaId}-${subscriptionId}-${randomUUID()}`;
+  const expiraEm = new Date(Date.now() + 30 * 60_000);
+  const { data: payment, error: pagErro } = await supabaseAdmin
+    .from("subscription_payments")
+    .insert({
+      subscription_id: subscriptionId,
+      amount: valor,
+      payment_method: "pix",
+      status: "pending",
+      external_reference: externalReference,
+      expires_at: expiraEm.toISOString(),
+      metadata: { renovacao: true, ciclo: input.ciclo },
+    })
+    .select("id")
+    .single();
+  if (pagErro) throw pagErro;
+
+  const pix = await gateway.createPixPayment({
+    valor,
+    descricao: `SPACE TECH — Renovação plano ${plan.name} (${input.ciclo === "yearly" ? "anual" : "mensal"})`,
+    externalReference,
+    notificationUrl: `${input.origin}/api/subscriptions/mercadopago/webhook`,
+    payerEmail: input.payerEmail,
+    expiraEm,
+  });
+  await supabaseAdmin
+    .from("subscription_payments")
+    .update({ mercado_pago_payment_id: pix.mpId, status: pix.status })
+    .eq("id", payment.id);
+  await registrarEvento(subscriptionId, "MP_PAYMENT_CREATED", { mpId: pix.mpId, renovacao: true });
+
+  return {
+    paymentId: payment.id,
+    valor,
+    plano: plan.name,
+    ciclo: input.ciclo,
+    qrCode: pix.qrCode,
+    qrCodeBase64: pix.qrCodeBase64,
+    expiraEm: expiraEm.toISOString(),
+  };
+}
+
+/** A tela de Meu Plano consulta isso enquanto o QR está aberto: confere no
+ * Mercado Pago (caso o webhook demore ou não chegue) e devolve o status. */
+export async function statusPixRenovacao(
+  paymentId: string,
+  empresaId: string,
+): Promise<{ status: string; comprovante: ComprovantePagamento | null }> {
+  const { data } = await supabaseAdmin
+    .from("subscription_payments")
+    .select("id, status, mercado_pago_payment_id, expires_at, subscriptions(empresa_id)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- nested select shape isn't in the generated relationship helper
+  if (!data || (data as any).subscriptions?.empresa_id !== empresaId) {
+    throw new SubscriptionNotFoundError();
+  }
+  if (data.status === "pending" && data.mercado_pago_payment_id) {
+    await reconciliarPagamentoAssinatura(data.mercado_pago_payment_id);
+  }
+  const { data: atual } = await supabaseAdmin
+    .from("subscription_payments")
+    .select("status")
+    .eq("id", paymentId)
+    .single();
+  const status = atual?.status ?? data.status;
+  return {
+    status,
+    comprovante: status === "paid" ? await obterComprovante(paymentId, empresaId) : null,
+  };
 }
 
 /** Cobrança mensal/anual de uma assinatura no cartão (webhook
@@ -378,18 +691,32 @@ export async function reconciliarPagamentoCartao(mpAuthorizedPaymentId: string):
     amount: cobranca.amount,
   });
 
-  const dias = subscription.billing_cycle === "yearly" ? 365 : 30;
+  const ciclo = subscription.billing_cycle as BillingCycle;
   await supabaseAdmin
     .from("subscriptions")
-    .update({ next_billing_date: new Date(Date.now() + dias * 24 * 60 * 60_000).toISOString() })
+    .update({ next_billing_date: proximaCobranca(ciclo) })
     .eq("id", subscription.id);
+
+  // Cada cobrança aprovada do cartão renova o prazo de acesso (inclusive a 1ª).
+  const { data: sub } = await supabaseAdmin
+    .from("subscriptions")
+    .select("empresa_id")
+    .eq("id", subscription.id)
+    .single();
+  const acessoAte = sub ? await estenderAcesso(sub.empresa_id, ciclo) : null;
+  await supabaseAdmin
+    .from("subscription_payments")
+    .update({ metadata: { acesso_ate: acessoAte } })
+    .eq("id", registrado.id);
 
   if (anteriores && subscription.status === "active") {
     await avisarPagamentoPlano("renovado", subscription.id, registrado.id, {
       metodo: "cartão",
       valor: cobranca.amount,
+      acessoAte,
     });
   }
+  await enviarComprovante(registrado.id);
 }
 
 export async function cancelarAssinatura(subscriptionId: string, empresaId: string): Promise<void> {

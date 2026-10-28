@@ -2,7 +2,7 @@
 // Usado pelo bloqueio em routes/_authenticated/route.tsx, pelo aviso de dias
 // restantes do próprio cliente (useStatusTrial) e pelo painel /admin — um só
 // lugar para as três telas (e o e-mail de aviso do teste) nunca discordarem.
-import { differenceInCalendarDays } from "date-fns";
+import { addMonths, differenceInCalendarDays } from "date-fns";
 
 export const DIAS_TESTE = 7;
 export const PLANOS_COM_VALIDADE = ["mensal", "anual"];
@@ -79,4 +79,23 @@ export function textoPrazo(p: PrazoAcesso, agora = new Date()): string {
   }
   if (p.diasRestantes === 0) return "Último dia";
   return `Falta${p.diasRestantes === 1 ? "" : "m"} ${p.diasRestantes} dia${p.diasRestantes === 1 ? "" : "s"}`;
+}
+
+/**
+ * Novo último dia de acesso depois de pagar uma renovação: soma 1 ou 12
+ * meses ao vencimento atual se ainda não venceu (quem renova antes não perde
+ * dias), senão a hoje. null = vitalício, não muda. Datas "AAAA-MM-DD".
+ */
+export function novoAcessoAte(
+  plano: string | null | undefined,
+  acessoAte: string | null | undefined,
+  hoje: string,
+  ciclo: "monthly" | "yearly",
+): string | null {
+  if (plano === "vitalicio") return null;
+  const atual = acessoAte?.slice(0, 10);
+  const base = PLANOS_COM_VALIDADE.includes(plano ?? "") && atual && atual >= hoje ? atual : hoje;
+  return addMonths(new Date(`${base}T12:00:00Z`), ciclo === "yearly" ? 12 : 1)
+    .toISOString()
+    .slice(0, 10);
 }

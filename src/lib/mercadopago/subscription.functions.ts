@@ -10,9 +10,15 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { origemPublicaServer } from "@/lib/site-url.server";
 import {
   cancelarAssinatura,
+  gerarPixRenovacao,
   iniciarAssinatura,
+  obterComprovante,
+  statusPixRenovacao,
+  type ComprovantePagamento,
   type IniciarAssinaturaResultado,
+  type PixRenovacao,
 } from "./subscription-service";
+import { comTaxaRepassada } from "./fees";
 
 // Mesma resolução de empresaId usada em toda parte (solicitarPlano,
 // requireFeature nos server functions de IA) — a conta logada pode ser um
@@ -134,4 +140,61 @@ export const historicoPagamentosFn = createServerFn({ method: "GET" })
       createdAt: p.created_at,
       paidAt: p.paid_at,
     }));
+  });
+
+// ---------------------------------------------------------------------
+// Renovação por Pix (Meu Plano / /assinatura)
+// ---------------------------------------------------------------------
+
+export type PrecosRenovacao = {
+  plano: string;
+  mensal: number | null;
+  anual: number | null;
+};
+
+/** Preços que a renovação vai cobrar (já com a taxa do Pix repassada). */
+export const precosRenovacaoFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<PrecosRenovacao | null> => {
+    const empresaId = await resolverEmpresaId(context.userId, context.supabase);
+    const [{ data: perfil }, { data: planos }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("plan_id").eq("id", empresaId).maybeSingle(),
+      supabaseAdmin
+        .from("plans")
+        .select("id, name, monthly_price, annual_price")
+        .eq("active", true)
+        .order("monthly_price", { ascending: true }),
+    ]);
+    const plan = planos?.find((p) => p.id === perfil?.plan_id) ?? planos?.[0];
+    if (!plan) return null;
+    const preco = (v: number | null) => (v && v > 0 ? comTaxaRepassada(v, "pix") : null);
+    return { plano: plan.name, mensal: preco(plan.monthly_price), anual: preco(plan.annual_price) };
+  });
+
+export const gerarPixRenovacaoFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ ciclo: z.enum(["monthly", "yearly"]) }).parse(data))
+  .handler(async ({ data, context }): Promise<PixRenovacao> => {
+    const empresaId = await resolverEmpresaId(context.userId, context.supabase);
+    const { data: userData } = await context.supabase.auth.getUser();
+    const payerEmail = userData.user?.email;
+    if (!payerEmail) throw new Error("Sua conta não tem um e-mail válido para gerar o Pix.");
+    const origin = origemPublicaServer() || new URL(getRequest().url).origin;
+    return gerarPixRenovacao({ empresaId, ciclo: data.ciclo, payerEmail, origin });
+  });
+
+export const statusPixRenovacaoFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ paymentId: z.guid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const empresaId = await resolverEmpresaId(context.userId, context.supabase);
+    return statusPixRenovacao(data.paymentId, empresaId);
+  });
+
+export const comprovantePagamentoFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ paymentId: z.guid() }).parse(data))
+  .handler(async ({ data, context }): Promise<ComprovantePagamento | null> => {
+    const empresaId = await resolverEmpresaId(context.userId, context.supabase);
+    return obterComprovante(data.paymentId, empresaId);
   });

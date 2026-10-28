@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, LockKeyhole, LogOut, Send } from "lucide-react";
+import { Check, FileText, LockKeyhole, LogOut, QrCode, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -15,7 +15,19 @@ import {
   useTrialStatus,
 } from "@/hooks/useCurrentUser";
 import { solicitarPlano } from "@/lib/planos.functions";
-import { historicoPagamentosFn } from "@/lib/mercadopago/subscription.functions";
+import {
+  comprovantePagamentoFn,
+  historicoPagamentosFn,
+  precosRenovacaoFn,
+} from "@/lib/mercadopago/subscription.functions";
+import { Comprovante, PixRenovacaoDialog } from "@/components/plano/PixRenovacaoDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { brl, dataBR } from "@/lib/format";
 
 const STATUS_PAGAMENTO_LABEL: Record<string, string> = {
@@ -82,6 +94,18 @@ function Assinatura() {
     enabled: !!user,
   });
   const [planoEscolhido, setPlanoEscolhido] = useState<PlanoDisponivel["value"] | null>(null);
+  const [pixCiclo, setPixCiclo] = useState<"monthly" | "yearly" | null>(null);
+  const [comprovanteId, setComprovanteId] = useState<string | null>(null);
+  const { data: precos } = useQuery({
+    queryKey: ["precos-renovacao"],
+    queryFn: () => precosRenovacaoFn(),
+    enabled: !!user,
+  });
+  const { data: comprovante, isLoading: carregandoComprovante } = useQuery({
+    queryKey: ["comprovante-plano", comprovanteId],
+    queryFn: () => comprovantePagamentoFn({ data: { paymentId: comprovanteId! } }),
+    enabled: !!comprovanteId,
+  });
 
   useEffect(() => {
     if (carregandoUser) return;
@@ -127,15 +151,16 @@ function Assinatura() {
                   : "Seu período de teste terminou"}
               </h1>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-                O acesso ao sistema foi pausado, mas seus dados continuam salvos. Escolha um plano
-                abaixo para pedir a reativação.
+                O acesso ao sistema foi pausado, mas seus dados continuam salvos. Pague com Pix
+                abaixo e o acesso volta na hora.
               </p>
             </>
           ) : (
             <>
               <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Seu plano</h1>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-                Veja o status do seu acesso e peça a mudança de plano quando quiser.
+                Veja o status do seu acesso e renove com Pix quando quiser — a liberação é
+                automática.
               </p>
             </>
           )}
@@ -180,6 +205,9 @@ function Assinatura() {
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {PLANOS_DISPONIVEIS.map((p) => {
             const jaSolicitado = pedidoPendente === p.value;
+            const ciclo = p.value === "anual" ? "yearly" : "monthly";
+            const preco = p.value === "anual" ? precos?.anual : precos?.mensal;
+            const podePix = !!preco && planoAtual?.plano !== "vitalicio";
             return (
               <div
                 key={p.value}
@@ -188,16 +216,38 @@ function Assinatura() {
                 <div>
                   <p className="font-bold">{p.label}</p>
                   <p className="text-xs text-muted-foreground">{p.descricao}</p>
+                  {preco && (
+                    <p className="mt-2 text-xl font-extrabold">
+                      {brl(preco)}
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {p.value === "anual" ? " /ano" : " /mês"}
+                      </span>
+                    </p>
+                  )}
                 </div>
+                {podePix && (
+                  <button
+                    onClick={() => setPixCiclo(ciclo)}
+                    className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                  >
+                    <QrCode className="h-4 w-4" /> Pagar com Pix
+                  </button>
+                )}
                 <button
                   onClick={() => solicitar.mutate(p.value)}
                   disabled={solicitar.isPending || jaSolicitado}
-                  className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+                  className={
+                    podePix
+                      ? "mt-2 flex h-9 items-center justify-center gap-2 rounded-xl text-xs font-semibold text-muted-foreground transition hover:bg-secondary disabled:cursor-default disabled:opacity-60"
+                      : "mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+                  }
                 >
                   {jaSolicitado ? (
                     <>
                       <Check className="h-4 w-4" /> Pedido enviado
                     </>
+                  ) : podePix ? (
+                    "Prefiro falar com a equipe"
                   ) : (
                     "Quero esse plano"
                   )}
@@ -221,17 +271,44 @@ function Assinatura() {
                       {METODO_PAGAMENTO_LABEL[p.paymentMethod] ?? p.paymentMethod}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{brl(p.amount)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {STATUS_PAGAMENTO_LABEL[p.status] ?? p.status}
-                    </p>
+                  <div className="flex items-center gap-3 text-right">
+                    <div>
+                      <p className="font-semibold">{brl(p.amount)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {STATUS_PAGAMENTO_LABEL[p.status] ?? p.status}
+                      </p>
+                    </div>
+                    {p.status === "paid" && (
+                      <button
+                        onClick={() => setComprovanteId(p.id)}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Comprovante
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        <PixRenovacaoDialog ciclo={pixCiclo} onClose={() => setPixCiclo(null)} />
+        <Dialog open={!!comprovanteId} onOpenChange={(v) => !v && setComprovanteId(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Comprovante</DialogTitle>
+              <DialogDescription>Pagamento do plano SPACE TECH.</DialogDescription>
+            </DialogHeader>
+            {comprovante ? (
+              <Comprovante dados={comprovante} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {carregandoComprovante ? "Carregando…" : "Comprovante não encontrado."}
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <div className="mt-8 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
           <button
