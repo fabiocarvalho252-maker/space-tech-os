@@ -58,6 +58,7 @@ import {
   HardDrive,
   Bot,
 } from "lucide-react";
+import { Explicacao } from "@/components/Explicacao";
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { PreferenciasAssistente } from "@/components/assistente/PreferenciasAssistente";
@@ -89,6 +90,7 @@ function Configuracoes() {
   const qc = useQueryClient();
   // ?aba=backup abre direto numa aba (ex.: volta do Google Drive).
   const [aba, setAba] = useState("empresa");
+  const [abaWhatsapp, setAbaWhatsapp] = useState<"conexao" | "robo" | "mensagens">("conexao");
   useEffect(() => {
     const inicial = new URLSearchParams(window.location.search).get("aba");
     if (inicial) setAba(inicial);
@@ -1758,14 +1760,42 @@ function Configuracoes() {
               <div>
                 <h2 className="text-lg font-bold">WhatsApp</h2>
                 <p className="text-sm text-muted-foreground">
-                  Conexão da instância, templates de mensagens e relatório de dados para IA.
+                  Conexão do número, robô de atendimento e mensagens automáticas.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-12">
-              <div className="lg:col-span-7 space-y-8">
-                {/* Conexão da instância */}
+            <div className="mb-6 flex w-full gap-2 overflow-x-auto pb-1">
+              {(
+                [
+                  ["conexao", "Conexão", QrCode],
+                  ["robo", "Robô de atendimento", Bot],
+                  ["mensagens", "Mensagens automáticas", MessageSquare],
+                ] as const
+              ).map(([id, rotulo, Icone]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setAbaWhatsapp(id)}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
+                    abaWhatsapp === id
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border bg-card hover:bg-secondary/50"
+                  }`}
+                >
+                  <Icone className="h-4 w-4" />
+                  {rotulo}
+                </button>
+              ))}
+            </div>
+
+            {abaWhatsapp === "conexao" && (
+              <div className="max-w-3xl space-y-4">
+                <Explicacao>
+                  O número de WhatsApp da loja ligado ao sistema. Por ele saem os avisos de OS,
+                  cobranças, pesquisas e as respostas do robô. Para trocar de número, ler o QR Code
+                  ou desconectar, use <strong>Gerenciar conexão</strong>.
+                </Explicacao>
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Conexão da instância
@@ -1821,416 +1851,437 @@ function Configuracoes() {
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
 
+            {abaWhatsapp === "robo" && (
+              <div className="max-w-3xl space-y-4">
+                <Explicacao>
+                  O robô responde sozinho quem escreve para a loja, com um menu: status da OS,
+                  orçamento, garantia e falar com um atendente. Aqui você liga/desliga, define o
+                  horário e muda as mensagens e opções quando quiser. Ele fica quieto quando alguém
+                  da equipe responde.
+                </Explicacao>
                 <RoboWhatsappCard />
+              </div>
+            )}
 
-                {/* Mensagens e automações */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                      Mensagens e automações
-                    </h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Expanda um bloco para editar o texto; ele é salvo ao sair do campo.{" "}
-                    <strong>Automático</strong> é enviado sozinho quando ligado.{" "}
-                    <strong>Envio manual</strong> aparece como mensagem pronta no botão de WhatsApp
-                    da OS. <strong>Em breve</strong> ainda não é enviado pelo sistema.
-                  </p>
+            {abaWhatsapp === "mensagens" && (
+              <div className="grid gap-8 lg:grid-cols-12">
+                <div className="lg:col-span-7 space-y-8">
+                  <Explicacao>
+                    Mensagens que o sistema manda sozinho (OS pronta, pesquisa, aniversário,
+                    cobrança Pix...) ou deixa prontas no botão de WhatsApp da OS. Ligue as que
+                    quiser, abra para editar o texto e veja ao lado como o cliente recebe.
+                  </Explicacao>
+                  {/* Mensagens e automações */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                        Mensagens e automações
+                      </h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Expanda um bloco para editar o texto; ele é salvo ao sair do campo.{" "}
+                      <strong>Automático</strong> é enviado sozinho quando ligado.{" "}
+                      <strong>Envio manual</strong> aparece como mensagem pronta no botão de
+                      WhatsApp da OS. <strong>Em breve</strong> ainda não é enviado pelo sistema.
+                    </p>
 
-                  <div className="space-y-2">
-                    {[
-                      {
-                        id: "notif_os_pronta",
-                        label: "Avisar o cliente quando a OS ficar Pronta",
-                        key: "notif_os_pronta",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_pesquisa_auto",
-                        label: "Pesquisa de satisfação no dia seguinte à entrega",
-                        key: "notif_pesquisa_auto",
-                        textoKey: "pesquisa_pos_os_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "ia_pesquisa_personalizada",
-                        label: "IA: escrever a pesquisa pós-OS para cada cliente",
-                        key: "ia_pesquisa_personalizada",
-                        uso: "auto",
-                      },
-                      {
-                        id: "ia_agradecer_pesquisa",
-                        label: "IA: agradecer quem responde a pesquisa",
-                        key: "ia_agradecer_pesquisa",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_pesquisa_venda_auto",
-                        label: "Pesquisa pós-venda no dia seguinte à compra",
-                        key: "notif_pesquisa_venda_auto",
-                        textoKey: "pesquisa_pos_venda_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_boas_vindas_auto",
-                        label: "Boas-vindas ao cliente novo",
-                        key: "notif_boas_vindas_auto",
-                        textoKey: "boas_vindas_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_relatorio_auto",
-                        label: "Resumo semanal da loja para o dono",
-                        key: "notif_relatorio_auto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_aniversario_auto",
-                        label: "Feliz aniversário para o cliente",
-                        key: "notif_aniversario_auto",
-                        textoKey: "feliz_aniversario_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_cobranca_lembrete_auto",
-                        label: "Lembrete de cobrança Pix perto do vencimento",
-                        key: "notif_cobranca_lembrete_auto",
-                        textoKey: "cobranca_lembrete_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_cobranca_paga_auto",
-                        label: "Confirmação de pagamento recebido",
-                        key: "notif_cobranca_paga_auto",
-                        textoKey: "cobranca_paga_texto",
-                        uso: "auto",
-                      },
-                      {
-                        id: "notif_os_criada",
-                        label: "OS criada",
-                        key: "notif_os_criada",
-                        uso: "manual",
-                      },
-                      {
-                        id: "notif_os_editada",
-                        label: "OS atualizada",
-                        key: "notif_os_editada",
-                        uso: "manual",
-                      },
-                      {
-                        id: "pesquisa_pos_os",
-                        label: "Pesquisa de satisfação pós-OS",
-                        key: "pesquisa_pos_os",
-                        uso: "manual",
-                      },
-                      {
-                        id: "lembrete_tecnico",
-                        label: "Equipe: Lembrete de visita/entrega ao técnico",
-                        key: "lembrete_tecnico",
-                        uso: "breve",
-                      },
-                    ].map((item) => (
-                      <details
-                        key={item.id}
-                        className="group rounded-xl border border-border bg-card overflow-hidden"
-                      >
-                        <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors list-none">
-                          <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                            {item.label}
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                item.uso === "auto"
-                                  ? "bg-green-500/15 text-green-600"
+                    <div className="space-y-2">
+                      {[
+                        {
+                          id: "notif_os_pronta",
+                          label: "Avisar o cliente quando a OS ficar Pronta",
+                          key: "notif_os_pronta",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_pesquisa_auto",
+                          label: "Pesquisa de satisfação no dia seguinte à entrega",
+                          key: "notif_pesquisa_auto",
+                          textoKey: "pesquisa_pos_os_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "ia_pesquisa_personalizada",
+                          label: "IA: escrever a pesquisa pós-OS para cada cliente",
+                          key: "ia_pesquisa_personalizada",
+                          uso: "auto",
+                        },
+                        {
+                          id: "ia_agradecer_pesquisa",
+                          label: "IA: agradecer quem responde a pesquisa",
+                          key: "ia_agradecer_pesquisa",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_pesquisa_venda_auto",
+                          label: "Pesquisa pós-venda no dia seguinte à compra",
+                          key: "notif_pesquisa_venda_auto",
+                          textoKey: "pesquisa_pos_venda_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_boas_vindas_auto",
+                          label: "Boas-vindas ao cliente novo",
+                          key: "notif_boas_vindas_auto",
+                          textoKey: "boas_vindas_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_relatorio_auto",
+                          label: "Resumo semanal da loja para o dono",
+                          key: "notif_relatorio_auto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_aniversario_auto",
+                          label: "Feliz aniversário para o cliente",
+                          key: "notif_aniversario_auto",
+                          textoKey: "feliz_aniversario_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_cobranca_lembrete_auto",
+                          label: "Lembrete de cobrança Pix perto do vencimento",
+                          key: "notif_cobranca_lembrete_auto",
+                          textoKey: "cobranca_lembrete_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_cobranca_paga_auto",
+                          label: "Confirmação de pagamento recebido",
+                          key: "notif_cobranca_paga_auto",
+                          textoKey: "cobranca_paga_texto",
+                          uso: "auto",
+                        },
+                        {
+                          id: "notif_os_criada",
+                          label: "OS criada",
+                          key: "notif_os_criada",
+                          uso: "manual",
+                        },
+                        {
+                          id: "notif_os_editada",
+                          label: "OS atualizada",
+                          key: "notif_os_editada",
+                          uso: "manual",
+                        },
+                        {
+                          id: "pesquisa_pos_os",
+                          label: "Pesquisa de satisfação pós-OS",
+                          key: "pesquisa_pos_os",
+                          uso: "manual",
+                        },
+                        {
+                          id: "lembrete_tecnico",
+                          label: "Equipe: Lembrete de visita/entrega ao técnico",
+                          key: "lembrete_tecnico",
+                          uso: "breve",
+                        },
+                      ].map((item) => (
+                        <details
+                          key={item.id}
+                          className="group rounded-xl border border-border bg-card overflow-hidden"
+                        >
+                          <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors list-none">
+                            <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                              {item.label}
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                  item.uso === "auto"
+                                    ? "bg-green-500/15 text-green-600"
+                                    : item.uso === "manual"
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {item.uso === "auto"
+                                  ? "Automático"
                                   : item.uso === "manual"
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {item.uso === "auto"
-                                ? "Automático"
-                                : item.uso === "manual"
-                                  ? "Envio manual"
-                                  : "Em breve"}
+                                    ? "Envio manual"
+                                    : "Em breve"}
+                              </span>
                             </span>
-                          </span>
-                          <div
-                            className="flex items-center gap-4"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {item.uso === "auto" && (
-                              <Switch
-                                checked={
-                                  (camposWhatsapp?.[item.key] as boolean | null | undefined) ??
-                                  false
-                                }
-                                onCheckedChange={async (val) => {
-                                  await supabase.from("whatsapp_config").upsert(
-                                    {
-                                      user_id: empresaId!,
-                                      [item.key]: val,
-                                    } as TablesInsert<"whatsapp_config">,
-                                    { onConflict: "user_id" },
-                                  );
-                                  refetchWhatsapp();
-                                }}
-                              />
-                            )}
-                            <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" />
-                          </div>
-                        </summary>
-                        <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
-                          {(() => {
-                            const auto = AUTOMACOES.find((a) => a.config === item.key);
-                            if (!auto) return null;
-                            const lista =
-                              (camposWhatsapp?.["aprovacao_automacoes"] as string[] | undefined) ??
-                              [];
-                            const exige = lista.includes(auto.chave);
-                            return (
-                              <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-background/50 p-3">
+                            <div
+                              className="flex items-center gap-4"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {item.uso === "auto" && (
                                 <Switch
-                                  checked={exige}
-                                  onCheckedChange={async (val) => {
-                                    const nova = val
-                                      ? [...new Set([...lista, auto.chave])]
-                                      : lista.filter((x) => x !== auto.chave);
-                                    await supabase
-                                      .from("whatsapp_config")
-                                      .upsert(
-                                        { user_id: empresaId!, aprovacao_automacoes: nova },
-                                        { onConflict: "user_id" },
-                                      );
-                                    refetchWhatsapp();
-                                  }}
-                                />
-                                <span className="space-y-0.5">
-                                  <span className="block text-sm font-medium">
-                                    Exigir aprovação antes de enviar
-                                  </span>
-                                  <span className="block text-[11px] text-muted-foreground">
-                                    A mensagem fica em WhatsApp → Fila e automações → Aguardando
-                                    aprovação até alguém da equipe aprovar, editar ou rejeitar.
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })()}
-                          <div className="space-y-2">
-                            {item.key === "ia_pesquisa_personalizada" ? (
-                              <p className="text-[11px] text-muted-foreground">
-                                Com a pesquisa pós-OS automática ligada, a IA (Gemini, com o ChatGPT
-                                de reserva se configurado) escreve cada mensagem com o primeiro nome
-                                do cliente, o aparelho e o serviço feito, usando o texto da pesquisa
-                                como referência de tom. Se a IA não responder, vai o texto fixo de
-                                sempre.
-                              </p>
-                            ) : item.key === "ia_agradecer_pesquisa" ? (
-                              <p className="text-[11px] text-muted-foreground">
-                                Quando o cliente responde à pesquisa (pós-OS ou pós-venda,
-                                automática ou enviada à mão), a IA lê a resposta.{" "}
-                                <strong>Elogio ou resposta neutra:</strong> ela agradece sozinha,
-                                uma vez por pesquisa. <strong>Reclamação:</strong> nada é enviado —
-                                aparece um aviso no sininho para você responder pessoalmente. A
-                                avaliação fica registrada no histórico da OS. Se você já tiver
-                                mandado outra mensagem ao cliente depois da pesquisa, a IA não entra
-                                na conversa.
-                              </p>
-                            ) : item.key === "notif_relatorio_auto" ? (
-                              <>
-                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">
-                                  WhatsApp que recebe o resumo
-                                </Label>
-                                <Input
-                                  inputMode="tel"
-                                  placeholder="DDD + número (vazio = WhatsApp do cadastro da empresa)"
-                                  defaultValue={whatsappConfig?.relatorio_numero || ""}
-                                  onBlur={async (e) => {
-                                    await supabase.from("whatsapp_config").upsert(
-                                      {
-                                        user_id: empresaId!,
-                                        relatorio_numero: e.target.value.trim() || null,
-                                      },
-                                      { onConflict: "user_id" },
-                                    );
-                                    refetchWhatsapp();
-                                  }}
-                                />
-                                <p className="text-[11px] text-muted-foreground">
-                                  Toda segunda-feira, a partir das 9h (com o sistema aberto em algum
-                                  computador), chega o resumo da semana anterior: OS abertas e
-                                  entregues, faturamento, vendas, entradas e saídas pagas, contas a
-                                  receber vencidas, clientes novos e estoque baixo. O ideal é o
-                                  celular pessoal do dono.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">
-                                  Texto da Mensagem
-                                </Label>
-                                <Textarea
-                                  className="min-h-[100px] text-sm"
-                                  defaultValue={
-                                    (camposWhatsapp?.[item.textoKey ?? `${item.key}_texto`] as
-                                      string | null) || ""
+                                  checked={
+                                    (camposWhatsapp?.[item.key] as boolean | null | undefined) ??
+                                    false
                                   }
-                                  onBlur={async (e) => {
+                                  onCheckedChange={async (val) => {
                                     await supabase.from("whatsapp_config").upsert(
                                       {
                                         user_id: empresaId!,
-                                        [item.textoKey ?? `${item.key}_texto`]: e.target.value,
+                                        [item.key]: val,
                                       } as TablesInsert<"whatsapp_config">,
                                       { onConflict: "user_id" },
                                     );
                                     refetchWhatsapp();
                                   }}
                                 />
-                                <p className="text-[10px] text-muted-foreground">
-                                  {item.key.startsWith("notif_cobranca_") ? (
-                                    <>
-                                      Variáveis disponíveis: {"{{cliente}}"}, {"{{valor}}"},{" "}
-                                      {item.key === "notif_cobranca_lembrete_auto" && (
-                                        <>{"{{vencimento}}"}, </>
-                                      )}
-                                      {"{{loja}}"}.
-                                    </>
-                                  ) : (
-                                    <>
-                                      Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"},{" "}
-                                      {"{{status}}"}, {"{{tecnico}}"}
-                                      {item.key === "notif_os_pronta" && (
-                                        <>
-                                          , {"{{aparelho}}"}, {"{{link}}"}
-                                        </>
-                                      )}
-                                      {item.key === "notif_pesquisa_auto" && (
-                                        <>, {"{{aparelho}}"}</>
-                                      )}
-                                      {item.uso === "auto" && <>, {"{{loja}}"}</>}.
-                                    </>
-                                  )}
+                              )}
+                              <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" />
+                            </div>
+                          </summary>
+                          <div className="p-4 pt-0 border-t border-border bg-muted/10 space-y-4">
+                            {(() => {
+                              const auto = AUTOMACOES.find((a) => a.config === item.key);
+                              if (!auto) return null;
+                              const lista =
+                                (camposWhatsapp?.["aprovacao_automacoes"] as
+                                  string[] | undefined) ?? [];
+                              const exige = lista.includes(auto.chave);
+                              return (
+                                <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-background/50 p-3">
+                                  <Switch
+                                    checked={exige}
+                                    onCheckedChange={async (val) => {
+                                      const nova = val
+                                        ? [...new Set([...lista, auto.chave])]
+                                        : lista.filter((x) => x !== auto.chave);
+                                      await supabase
+                                        .from("whatsapp_config")
+                                        .upsert(
+                                          { user_id: empresaId!, aprovacao_automacoes: nova },
+                                          { onConflict: "user_id" },
+                                        );
+                                      refetchWhatsapp();
+                                    }}
+                                  />
+                                  <span className="space-y-0.5">
+                                    <span className="block text-sm font-medium">
+                                      Exigir aprovação antes de enviar
+                                    </span>
+                                    <span className="block text-[11px] text-muted-foreground">
+                                      A mensagem fica em WhatsApp → Fila e automações → Aguardando
+                                      aprovação até alguém da equipe aprovar, editar ou rejeitar.
+                                    </span>
+                                  </span>
+                                </label>
+                              );
+                            })()}
+                            <div className="space-y-2">
+                              {item.key === "ia_pesquisa_personalizada" ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Com a pesquisa pós-OS automática ligada, a IA (Gemini, com o
+                                  ChatGPT de reserva se configurado) escreve cada mensagem com o
+                                  primeiro nome do cliente, o aparelho e o serviço feito, usando o
+                                  texto da pesquisa como referência de tom. Se a IA não responder,
+                                  vai o texto fixo de sempre.
                                 </p>
-                              </>
-                            )}
-                            {item.key === "notif_os_pronta" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Enviado sozinho, uma vez por OS, quando o status muda para Pronto —
-                                pela lista ou pela edição da OS. Precisa do WhatsApp conectado e do
-                                telefone do cliente cadastrado.
-                              </p>
-                            )}
-                            {item.key === "notif_pesquisa_venda_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Vai uma vez por venda finalizada com cliente e telefone, entre 20
-                                horas e 7 dias depois da compra, das 9h às 20h, com o sistema aberto
-                                em algum computador. Só vale para vendas feitas depois de ligar a
-                                opção.
-                              </p>
-                            )}
-                            {item.key === "notif_boas_vindas_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Vai uma vez para cada cliente cadastrado com telefone depois de
-                                ligar a opção — em Clientes, na OS ou no PDV —, das 9h às 20h, com o
-                                sistema aberto em algum computador. Quem foi cadastrado à noite
-                                recebe no dia seguinte.
-                              </p>
-                            )}
-                            {item.key === "notif_aniversario_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Vai no dia do aniversário, das 9h às 20h, com o sistema aberto em
-                                algum computador — uma vez por ano. Só para clientes com data de
-                                nascimento e telefone no cadastro (Clientes → editar).
-                              </p>
-                            )}
-                            {item.key === "notif_cobranca_lembrete_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Para cobranças Pix (Cobranças) com cliente e telefone, ainda
-                                pendentes, que vencem nas próximas 24 horas: vai o texto e, em
-                                seguida, o Pix copia e cola. Uma vez por cobrança, das 9h às 20h,
-                                pela fila. Se a cobrança for paga ou cancelada antes de a mensagem
-                                sair, ela não é enviada. Só vale para cobranças criadas depois de
-                                ligar. Parcelas do Crediário têm avisos próprios.
-                              </p>
-                            )}
-                            {item.key === "notif_cobranca_paga_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Quando o Mercado Pago confirma o pagamento de uma cobrança Pix, o
-                                cliente recebe a confirmação (uma vez, pela fila). O envio confere
-                                de novo no sistema que a cobrança está paga — nunca vai por
-                                suposição.
-                              </p>
-                            )}
-                            {item.key === "notif_pesquisa_auto" && (
-                              <p className="text-[11px] text-muted-foreground">
-                                Usa o mesmo texto da pesquisa manual pós-OS. Vai uma vez por OS
-                                entregue, entre 20 horas e 7 dias depois da entrega, das 9h às 20h,
-                                com o sistema aberto em algum computador. Só vale para entregas
-                                feitas depois de ligar a opção, e não repete se a pesquisa já foi
-                                enviada à mão.
-                              </p>
-                            )}
+                              ) : item.key === "ia_agradecer_pesquisa" ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Quando o cliente responde à pesquisa (pós-OS ou pós-venda,
+                                  automática ou enviada à mão), a IA lê a resposta.{" "}
+                                  <strong>Elogio ou resposta neutra:</strong> ela agradece sozinha,
+                                  uma vez por pesquisa. <strong>Reclamação:</strong> nada é enviado
+                                  — aparece um aviso no sininho para você responder pessoalmente. A
+                                  avaliação fica registrada no histórico da OS. Se você já tiver
+                                  mandado outra mensagem ao cliente depois da pesquisa, a IA não
+                                  entra na conversa.
+                                </p>
+                              ) : item.key === "notif_relatorio_auto" ? (
+                                <>
+                                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                                    WhatsApp que recebe o resumo
+                                  </Label>
+                                  <Input
+                                    inputMode="tel"
+                                    placeholder="DDD + número (vazio = WhatsApp do cadastro da empresa)"
+                                    defaultValue={whatsappConfig?.relatorio_numero || ""}
+                                    onBlur={async (e) => {
+                                      await supabase.from("whatsapp_config").upsert(
+                                        {
+                                          user_id: empresaId!,
+                                          relatorio_numero: e.target.value.trim() || null,
+                                        },
+                                        { onConflict: "user_id" },
+                                      );
+                                      refetchWhatsapp();
+                                    }}
+                                  />
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Toda segunda-feira, a partir das 9h (com o sistema aberto em
+                                    algum computador), chega o resumo da semana anterior: OS abertas
+                                    e entregues, faturamento, vendas, entradas e saídas pagas,
+                                    contas a receber vencidas, clientes novos e estoque baixo. O
+                                    ideal é o celular pessoal do dono.
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                                    Texto da Mensagem
+                                  </Label>
+                                  <Textarea
+                                    className="min-h-[100px] text-sm"
+                                    defaultValue={
+                                      (camposWhatsapp?.[item.textoKey ?? `${item.key}_texto`] as
+                                        string | null) || ""
+                                    }
+                                    onBlur={async (e) => {
+                                      await supabase.from("whatsapp_config").upsert(
+                                        {
+                                          user_id: empresaId!,
+                                          [item.textoKey ?? `${item.key}_texto`]: e.target.value,
+                                        } as TablesInsert<"whatsapp_config">,
+                                        { onConflict: "user_id" },
+                                      );
+                                      refetchWhatsapp();
+                                    }}
+                                  />
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {item.key.startsWith("notif_cobranca_") ? (
+                                      <>
+                                        Variáveis disponíveis: {"{{cliente}}"}, {"{{valor}}"},{" "}
+                                        {item.key === "notif_cobranca_lembrete_auto" && (
+                                          <>{"{{vencimento}}"}, </>
+                                        )}
+                                        {"{{loja}}"}.
+                                      </>
+                                    ) : (
+                                      <>
+                                        Variáveis disponíveis: {"{{cliente}}"}, {"{{numero}}"},{" "}
+                                        {"{{status}}"}, {"{{tecnico}}"}
+                                        {item.key === "notif_os_pronta" && (
+                                          <>
+                                            , {"{{aparelho}}"}, {"{{link}}"}
+                                          </>
+                                        )}
+                                        {item.key === "notif_pesquisa_auto" && (
+                                          <>, {"{{aparelho}}"}</>
+                                        )}
+                                        {item.uso === "auto" && <>, {"{{loja}}"}</>}.
+                                      </>
+                                    )}
+                                  </p>
+                                </>
+                              )}
+                              {item.key === "notif_os_pronta" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Enviado sozinho, uma vez por OS, quando o status muda para Pronto
+                                  — pela lista ou pela edição da OS. Precisa do WhatsApp conectado e
+                                  do telefone do cliente cadastrado.
+                                </p>
+                              )}
+                              {item.key === "notif_pesquisa_venda_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Vai uma vez por venda finalizada com cliente e telefone, entre 20
+                                  horas e 7 dias depois da compra, das 9h às 20h, com o sistema
+                                  aberto em algum computador. Só vale para vendas feitas depois de
+                                  ligar a opção.
+                                </p>
+                              )}
+                              {item.key === "notif_boas_vindas_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Vai uma vez para cada cliente cadastrado com telefone depois de
+                                  ligar a opção — em Clientes, na OS ou no PDV —, das 9h às 20h, com
+                                  o sistema aberto em algum computador. Quem foi cadastrado à noite
+                                  recebe no dia seguinte.
+                                </p>
+                              )}
+                              {item.key === "notif_aniversario_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Vai no dia do aniversário, das 9h às 20h, com o sistema aberto em
+                                  algum computador — uma vez por ano. Só para clientes com data de
+                                  nascimento e telefone no cadastro (Clientes → editar).
+                                </p>
+                              )}
+                              {item.key === "notif_cobranca_lembrete_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Para cobranças Pix (Cobranças) com cliente e telefone, ainda
+                                  pendentes, que vencem nas próximas 24 horas: vai o texto e, em
+                                  seguida, o Pix copia e cola. Uma vez por cobrança, das 9h às 20h,
+                                  pela fila. Se a cobrança for paga ou cancelada antes de a mensagem
+                                  sair, ela não é enviada. Só vale para cobranças criadas depois de
+                                  ligar. Parcelas do Crediário têm avisos próprios.
+                                </p>
+                              )}
+                              {item.key === "notif_cobranca_paga_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Quando o Mercado Pago confirma o pagamento de uma cobrança Pix, o
+                                  cliente recebe a confirmação (uma vez, pela fila). O envio confere
+                                  de novo no sistema que a cobrança está paga — nunca vai por
+                                  suposição.
+                                </p>
+                              )}
+                              {item.key === "notif_pesquisa_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Usa o mesmo texto da pesquisa manual pós-OS. Vai uma vez por OS
+                                  entregue, entre 20 horas e 7 dias depois da entrega, das 9h às
+                                  20h, com o sistema aberto em algum computador. Só vale para
+                                  entregas feitas depois de ligar a opção, e não repete se a
+                                  pesquisa já foi enviada à mão.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </details>
-                    ))}
+                        </details>
+                      ))}
+                    </div>
                   </div>
+
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => toast.success("Configurações salvas com sucesso!")}
+                  >
+                    Salvar configurações WhatsApp
+                  </Button>
                 </div>
 
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={() => toast.success("Configurações salvas com sucesso!")}
-                >
-                  Salvar configurações WhatsApp
-                </Button>
-              </div>
-
-              {/* Preview */}
-              <div className="lg:col-span-5">
-                <div className="sticky top-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
-                    Prévia no WhatsApp
-                  </h3>
-                  <div className="relative mx-auto w-full max-w-[320px] aspect-[9/18.5] bg-[#0b141a] rounded-[3rem] border-[8px] border-[#202c33] shadow-2xl overflow-hidden">
-                    {/* Top Bar */}
-                    <div className="h-14 bg-[#202c33] flex items-center px-4 gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted/20 flex items-center justify-center">
-                        <Users2 className="h-4 w-4 text-muted-foreground" />
+                {/* Preview */}
+                <div className="lg:col-span-5">
+                  <div className="sticky top-6">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
+                      Prévia no WhatsApp
+                    </h3>
+                    <div className="relative mx-auto w-full max-w-[320px] aspect-[9/18.5] bg-[#0b141a] rounded-[3rem] border-[8px] border-[#202c33] shadow-2xl overflow-hidden">
+                      {/* Top Bar */}
+                      <div className="h-14 bg-[#202c33] flex items-center px-4 gap-3">
+                        <div className="h-8 w-8 rounded-full bg-muted/20 flex items-center justify-center">
+                          <Users2 className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-white">Cliente</p>
+                          <p className="text-[10px] text-green-500">online</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-white">Cliente</p>
-                        <p className="text-[10px] text-green-500">online</p>
-                      </div>
-                    </div>
 
-                    {/* Chat area */}
-                    <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat h-[calc(100%-100px)]">
-                      <div className="flex justify-end">
-                        <div className="max-w-[85%] bg-[#005c4b] text-white p-2.5 rounded-lg rounded-tr-none shadow-sm relative group">
-                          <p className="text-xs leading-relaxed">
-                            {whatsappConfig?.notif_os_criada_texto ||
-                              "Abra um bloco ao lado para ver a mensagem aqui."}
-                          </p>
-                          <div className="flex justify-end mt-1 gap-1">
-                            <span className="text-[9px] opacity-70">00:22</span>
-                            <Check className="h-2.5 w-2.5 text-blue-400" />
+                      {/* Chat area */}
+                      <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat h-[calc(100%-100px)]">
+                        <div className="flex justify-end">
+                          <div className="max-w-[85%] bg-[#005c4b] text-white p-2.5 rounded-lg rounded-tr-none shadow-sm relative group">
+                            <p className="text-xs leading-relaxed">
+                              {whatsappConfig?.notif_os_criada_texto ||
+                                "Abra um bloco ao lado para ver a mensagem aqui."}
+                            </p>
+                            <div className="flex justify-end mt-1 gap-1">
+                              <span className="text-[9px] opacity-70">00:22</span>
+                              <Check className="h-2.5 w-2.5 text-blue-400" />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Bottom bar */}
-                    <div className="h-12 bg-[#202c33] absolute bottom-0 w-full flex items-center px-4 gap-3">
-                      <div className="flex-1 h-8 bg-[#2a3942] rounded-full px-4 flex items-center">
-                        <span className="text-[10px] text-muted-foreground">Mensagem</span>
+                      {/* Bottom bar */}
+                      <div className="h-12 bg-[#202c33] absolute bottom-0 w-full flex items-center px-4 gap-3">
+                        <div className="flex-1 h-8 bg-[#2a3942] rounded-full px-4 flex items-center">
+                          <span className="text-[10px] text-muted-foreground">Mensagem</span>
+                        </div>
+                        <Smartphone className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <Smartphone className="h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </section>
         </TabsContent>
 

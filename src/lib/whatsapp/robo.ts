@@ -176,12 +176,13 @@ export function decidir(
   texto: string | null,
   agora: Date,
   temMidia = false,
-  /** Menu com a opção 5 (planos do SPACE TECH) — só no WhatsApp da SPACE TECH. */
-  comPlanos = false,
+  /** Opções ligadas (ver opcoesAtivas); a 5 só no WhatsApp da SPACE TECH. */
+  ativas: readonly Opcao[] = [1, 2, 3, 4],
 ): Decisao {
   const etapa = etapaVigente(estado, agora);
   let opcao = lerOpcao(texto);
-  if (opcao === 5 && !comPlanos) opcao = null;
+  // Opção desligada é como resposta que não entendeu (0 e 4 sempre valem).
+  if (opcao !== null && opcao !== 0 && opcao !== 4 && !ativas.includes(opcao)) opcao = null;
   const livre = limitar(texto ?? "");
 
   if (etapa === null) {
@@ -229,6 +230,8 @@ export type Contexto = {
   abre: string | null;
   /** Planos do SPACE TECH (opção 5) — só no WhatsApp da própria SPACE TECH. */
   planos?: PlanosSite | null;
+  /** Textos editados em Configurações > WhatsApp (sem = padrão). */
+  textos?: TextosRobo;
 };
 
 export type PlanosSite = {
@@ -239,14 +242,126 @@ export type PlanosSite = {
   link: string;
 };
 
-function menu(ctx: Pick<Contexto, "planos">): string {
-  return [
-    "1️⃣ Status da minha OS",
-    "2️⃣ Orçamento / conserto",
-    "3️⃣ Garantia",
-    "4️⃣ Falar com um atendente",
-    ...(ctx.planos ? ["5️⃣ Planos do SPACE TECH (sistema para assistência)"] : []),
-  ].join("\n");
+// ---------------------------------------------------------------------
+// Textos editáveis (Configurações > WhatsApp > Robô de atendimento)
+// ---------------------------------------------------------------------
+
+/** Opções que a loja pode desligar. A 4 (atendente) fica sempre: o cliente
+ * precisa sempre conseguir chegar numa pessoa. */
+export const OPCOES_DESLIGAVEIS = [1, 2, 3, 5] as const;
+
+export type TextosRobo = {
+  /** {nome} e {loja}. */
+  saudacao: string;
+  pergunta: string;
+  /** {abre}. */
+  fechado: string;
+  opcoes: Record<1 | 2 | 3 | 4 | 5, string>;
+  desligadas: number[];
+  /** Resposta da opção 5: {mensal}, {anual} e {link}. */
+  planos: string;
+  perguntaAparelho: string;
+  /** {aparelho}. */
+  perguntaDefeito: string;
+  orcamentoAnotado: string;
+  atendente: string;
+};
+
+export const TEXTOS_PADRAO: TextosRobo = {
+  saudacao: "Olá, {nome}! 👋 Sou o assistente virtual da *{loja}*.",
+  pergunta: "Como posso te ajudar?",
+  fechado: "No momento estamos fechados — voltamos {abre}. Mas já posso te ajudar por aqui:",
+  opcoes: {
+    1: "Status da minha OS",
+    2: "Orçamento / conserto",
+    3: "Garantia",
+    4: "Falar com um atendente",
+    5: "Planos do SPACE TECH (sistema para assistência)",
+  },
+  desligadas: [],
+  planos: [
+    "💻 *SPACE TECH — sistema para assistência técnica*",
+    "Ordens de serviço, PDV, estoque, financeiro e WhatsApp num lugar só.",
+    "",
+    "*Planos:*",
+    "• Mensal: *{mensal}*/mês",
+    "• Anual: *{anual}*/ano",
+    "Pagamento por Pix, com liberação na hora.",
+    "",
+    "🎁 Teste *7 dias grátis*, sem cartão:",
+    "👉 {link}",
+  ].join("\n"),
+  perguntaAparelho:
+    "Certo! Qual é o aparelho? Me diga a marca e o modelo (ex.: _iPhone 11_, _Galaxy A32_).",
+  perguntaDefeito: "Anotado: *{aparelho}*. 📱\nAgora me conta: o que está acontecendo com ele?",
+  orcamentoAnotado: "Pronto, pedido de orçamento anotado! 📝",
+  atendente: "Certo! Já avisei a equipe. 🙋",
+};
+
+const MAX_TEXTO_EDITAVEL = 1000;
+
+function textoOu(valor: unknown, padrao: string): string {
+  if (typeof valor !== "string") return padrao;
+  const t = valor.trim().slice(0, MAX_TEXTO_EDITAVEL);
+  return t || padrao;
+}
+
+/** O que vem do banco (jsonb) por cima do padrão; campo vazio = padrão. */
+export function lerTextos(valor: unknown): TextosRobo {
+  const v = valor && typeof valor === "object" ? (valor as Record<string, unknown>) : {};
+  const op =
+    v["opcoes"] && typeof v["opcoes"] === "object" ? (v["opcoes"] as Record<string, unknown>) : {};
+  const P = TEXTOS_PADRAO;
+  return {
+    saudacao: textoOu(v["saudacao"], P.saudacao),
+    pergunta: textoOu(v["pergunta"], P.pergunta),
+    fechado: textoOu(v["fechado"], P.fechado),
+    opcoes: {
+      1: textoOu(op["1"], P.opcoes[1]),
+      2: textoOu(op["2"], P.opcoes[2]),
+      3: textoOu(op["3"], P.opcoes[3]),
+      4: textoOu(op["4"], P.opcoes[4]),
+      5: textoOu(op["5"], P.opcoes[5]),
+    },
+    desligadas: Array.isArray(v["desligadas"])
+      ? v["desligadas"].filter((n): n is number =>
+          (OPCOES_DESLIGAVEIS as readonly number[]).includes(n as number),
+        )
+      : [],
+    planos: textoOu(v["planos"], P.planos),
+    perguntaAparelho: textoOu(v["perguntaAparelho"], P.perguntaAparelho),
+    perguntaDefeito: textoOu(v["perguntaDefeito"], P.perguntaDefeito),
+    orcamentoAnotado: textoOu(v["orcamentoAnotado"], P.orcamentoAnotado),
+    atendente: textoOu(v["atendente"], P.atendente),
+  };
+}
+
+/** Troca {chave} pelos valores; sem nome, some o ", {nome}" junto. */
+export function preencher(texto: string, vars: Record<string, string | null>): string {
+  let t = texto;
+  for (const [chave, valor] of Object.entries(vars)) {
+    if (valor) t = t.replaceAll(`{${chave}}`, valor);
+    else t = t.replace(new RegExp(`,?\\s*\\{${chave}\\}`, "g"), "");
+  }
+  return t;
+}
+
+/** Opções que aparecem no menu e valem como resposta. */
+export function opcoesAtivas(ctx: Pick<Contexto, "planos" | "textos">): Opcao[] {
+  const desligadas = ctx.textos?.desligadas ?? [];
+  return ([1, 2, 3, 4, 5] as const).filter(
+    (n) => (n !== 5 || !!ctx.planos) && !desligadas.includes(n),
+  );
+}
+
+const EMOJI_NUMERO: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣" };
+
+function menu(ctx: Pick<Contexto, "planos" | "textos">): string {
+  const t = ctx.textos ?? TEXTOS_PADRAO;
+  return opcoesAtivas(ctx)
+    .filter((n): n is 1 | 2 | 3 | 4 | 5 => n !== 0)
+    .map((n) => `${EMOJI_NUMERO[n]} ${t.opcoes[n]}`)
+    .join("\n");
 }
 
 const RODAPE = "_Digite 0 para ver o menu ou 4 para falar com um atendente._";
@@ -258,37 +373,33 @@ function fechadoAgora(ctx: Contexto): string {
 }
 
 export function textoMenu(ctx: Contexto, saudacao: boolean): string {
+  const t = ctx.textos ?? TEXTOS_PADRAO;
   const partes: string[] = [];
   if (saudacao) {
-    partes.push(
-      `Olá${ctx.nome ? `, ${ctx.nome}` : ""}! 👋 Sou o assistente virtual da *${ctx.loja}*.`,
-    );
-    if (!ctx.aberto) partes.push(`${fechadoAgora(ctx)} Mas já posso te ajudar por aqui:`);
-    else partes.push("Como posso te ajudar?");
+    partes.push(preencher(t.saudacao, { nome: ctx.nome, loja: ctx.loja }));
+    partes.push(ctx.aberto ? t.pergunta : preencher(t.fechado, { abre: ctx.abre ?? "em breve" }));
   } else {
-    partes.push("Como posso te ajudar?");
+    partes.push(t.pergunta);
   }
   partes.push(menu(ctx), "_Responda com o número da opção._");
   return partes.join("\n\n");
 }
 
-export function textoNaoEntendi(ctx: Pick<Contexto, "planos"> = {}): string {
+export function textoNaoEntendi(ctx: Pick<Contexto, "planos" | "textos"> = {}): string {
   return `Desculpe, não entendi. 😅 Responda só com o número:\n\n${menu(ctx)}`;
 }
 
 export function textoPlanos(ctx: Contexto, saudacao: boolean): string {
+  const t = ctx.textos ?? TEXTOS_PADRAO;
   const p = ctx.planos;
-  const precos = [
-    ...(p?.mensal ? [`• Mensal: *${p.mensal}*/mês`] : []),
-    ...(p?.anual ? [`• Anual: *${p.anual}*/ano`] : []),
-  ];
+  // Linha com preço que não existe (plano sem valor) sai inteira.
+  const corpo = t.planos
+    .split("\n")
+    .filter((l) => (!l.includes("{mensal}") || p?.mensal) && (!l.includes("{anual}") || p?.anual))
+    .join("\n");
   return [
-    ...(saudacao ? [`Olá${ctx.nome ? `, ${ctx.nome}` : ""}! 👋`] : []),
-    "💻 *SPACE TECH — sistema para assistência técnica*\nOrdens de serviço, PDV, estoque, financeiro e WhatsApp num lugar só.",
-    ...(precos.length
-      ? [`*Planos:*\n${precos.join("\n")}\nPagamento por Pix, com liberação na hora.`]
-      : []),
-    `🎁 Teste *7 dias grátis*, sem cartão:\n👉 ${p?.link ?? ""}`,
+    ...(saudacao ? [preencher("Olá, {nome}! 👋", { nome: ctx.nome })] : []),
+    preencher(corpo, { mensal: p?.mensal ?? null, anual: p?.anual ?? null, link: p?.link ?? null }),
     RODAPE,
   ].join("\n\n");
 }
@@ -356,12 +467,12 @@ export function textoGarantia(lista: GarantiaResumo[]): string {
   ].join("\n\n");
 }
 
-export function textoPerguntaAparelho(): string {
-  return "Certo! Qual é o aparelho? Me diga a marca e o modelo (ex.: _iPhone 11_, _Galaxy A32_).";
+export function textoPerguntaAparelho(ctx: Pick<Contexto, "textos"> = {}): string {
+  return (ctx.textos ?? TEXTOS_PADRAO).perguntaAparelho;
 }
 
-export function textoPerguntaDefeito(aparelho: string): string {
-  return `Anotado: *${aparelho}*. 📱\nAgora me conta: o que está acontecendo com ele?`;
+export function textoPerguntaDefeito(aparelho: string, ctx: Pick<Contexto, "textos"> = {}): string {
+  return preencher((ctx.textos ?? TEXTOS_PADRAO).perguntaDefeito, { aparelho });
 }
 
 export function textoOrcamentoRegistrado(ctx: Contexto, aparelho: string, defeito: string): string {
@@ -369,7 +480,7 @@ export function textoOrcamentoRegistrado(ctx: Contexto, aparelho: string, defeit
     ? "Um atendente vai te responder com o orçamento em breve."
     : `${fechadoAgora(ctx)} Um atendente te responde com o orçamento assim que abrirmos.`;
   return [
-    "Pronto, pedido de orçamento anotado! 📝",
+    (ctx.textos ?? TEXTOS_PADRAO).orcamentoAnotado,
     `*Aparelho:* ${aparelho}\n*Problema:* ${defeito}`,
     quando,
   ].join("\n\n");
@@ -378,7 +489,7 @@ export function textoOrcamentoRegistrado(ctx: Contexto, aparelho: string, defeit
 export function textoAtendente(ctx: Contexto, motivo: "pedido" | "nao_entendeu"): string {
   const inicio =
     motivo === "pedido"
-      ? "Certo! Já avisei a equipe. 🙋"
+      ? (ctx.textos ?? TEXTOS_PADRAO).atendente
       : "Vou chamar alguém da equipe para te ajudar. 🙋";
   const quando = ctx.aberto
     ? "Um atendente continua a conversa por aqui em instantes."

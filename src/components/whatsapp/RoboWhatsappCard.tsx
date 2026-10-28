@@ -10,15 +10,16 @@ import { brl } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EditorTextosRobo } from "./EditorTextosRobo";
 import {
   DIAS_SEMANA,
   HORARIO_COMERCIAL,
   estaAberto,
   lerHorario,
+  lerTextos,
   proximaAbertura,
-  textoMenu,
-  textoPlanos,
   type Horario,
+  type TextosRobo,
 } from "@/lib/whatsapp/robo";
 
 // Configurações > WhatsApp > Robô de atendimento: liga/desliga para a
@@ -36,11 +37,15 @@ export function RoboWhatsappCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_config")
-        .select("robo_ativo, robo_horario")
+        .select("robo_ativo, robo_horario, robo_textos")
         .eq("user_id", empresaId!)
         .maybeSingle();
       if (error) throw error;
-      return { ativo: !!data?.robo_ativo, horario: lerHorario(data?.robo_horario) };
+      return {
+        ativo: !!data?.robo_ativo,
+        horario: lerHorario(data?.robo_horario),
+        textos: lerTextos(data?.robo_textos),
+      };
     },
   });
 
@@ -50,7 +55,11 @@ export function RoboWhatsappCard() {
   }, [data]);
 
   const salvar = useMutation({
-    mutationFn: async (patch: { robo_ativo?: boolean; robo_horario?: Horario }) => {
+    mutationFn: async (patch: {
+      robo_ativo?: boolean;
+      robo_horario?: Horario;
+      robo_textos?: TextosRobo;
+    }) => {
       const { error } = await supabase
         .from("whatsapp_config")
         .upsert({ user_id: empresaId!, ...patch }, { onConflict: "user_id" });
@@ -61,7 +70,7 @@ export function RoboWhatsappCard() {
       if (patch.robo_ativo !== undefined) {
         toast.success(patch.robo_ativo ? "Robô de atendimento ligado." : "Robô desligado.");
       } else {
-        toast.success("Horário salvo.");
+        toast.success(patch.robo_textos ? "Textos do robô salvos." : "Horário salvo.");
       }
     },
     onError: (e: Error) => toast.error("Não foi possível salvar: " + e.message),
@@ -95,7 +104,6 @@ export function RoboWhatsappCard() {
         }
       : null,
   };
-  const previa = textoMenu(ctxPrevia, true);
 
   return (
     <div className="space-y-4">
@@ -206,21 +214,14 @@ export function RoboWhatsappCard() {
           </div>
         </div>
 
-        <details className="rounded-lg border border-border bg-background/50">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-            Ver a primeira mensagem que o cliente recebe
-          </summary>
-          <p className="whitespace-pre-wrap border-t border-border px-3 py-3 text-sm">{previa}</p>
-        </details>
-        {souSpaceTech && (
-          <details className="rounded-lg border border-border bg-background/50">
-            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-              Ver a resposta da opção 5 (planos do SPACE TECH)
-            </summary>
-            <p className="whitespace-pre-wrap border-t border-border px-3 py-3 text-sm">
-              {textoPlanos(ctxPrevia, false)}
-            </p>
-          </details>
+        {data && (
+          <EditorTextosRobo
+            salvos={data.textos}
+            ctxPrevia={ctxPrevia}
+            comPlanos={souSpaceTech}
+            salvando={salvar.isPending}
+            onSalvar={(textos) => salvar.mutate({ robo_textos: textos })}
+          />
         )}
       </div>
     </div>

@@ -3964,6 +3964,7 @@ export type Database = {
       };
       whatsapp_config: {
         Row: {
+          robo_textos: Json;
           robo_ativo: boolean;
           robo_horario: Json;
           aprovacao_automacoes: string[];
@@ -4015,6 +4016,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          robo_textos?: Json;
           robo_ativo?: boolean;
           robo_horario?: Json;
           aprovacao_automacoes?: string[];
@@ -4066,6 +4068,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          robo_textos?: Json;
           robo_ativo?: boolean;
           robo_horario?: Json;
           aprovacao_automacoes?: string[];

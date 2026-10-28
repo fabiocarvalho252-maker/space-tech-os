@@ -13,6 +13,9 @@ import {
   proximaAbertura,
   roboPausado,
   textoMenu,
+  lerTextos,
+  opcoesAtivas,
+  preencher,
   textoPlanos,
   textoStatus,
   type EstadoRobo,
@@ -227,11 +230,11 @@ test("opção 5 (planos) só existe no WhatsApp da SPACE TECH", () => {
     textoMenu({ loja: "SPACE TECH", nome: null, aberto: true, abre: null, planos }, true),
     /5️⃣ Planos do SPACE TECH/,
   );
-  assert.deepEqual(decidir(estado("menu"), "5", agora, false, true), {
+  assert.deepEqual(decidir(estado("menu"), "5", agora, false, [1, 2, 3, 4, 5]), {
     tipo: "planos",
     saudacao: false,
   });
-  assert.deepEqual(decidir(estado(null), "quais os planos?", agora, false, true), {
+  assert.deepEqual(decidir(estado(null), "quais os planos?", agora, false, [1, 2, 3, 4, 5]), {
     tipo: "planos",
     saudacao: true,
   });
@@ -256,4 +259,45 @@ test("texto dos planos traz preços e link de cadastro", () => {
   assert.match(t, /Mensal: \*R\$ 40,40\*\/mês/);
   assert.match(t, /7 dias grátis/);
   assert.match(t, /srmpretech\.online\/cadastro/);
+});
+
+test("textos editados: vazio cai no padrão, opção desligada some e não vale", () => {
+  const textos = lerTextos({
+    saudacao: "E aí {nome}, aqui é a {loja}!",
+    opcoes: { 1: "Cadê meu celular?", 3: "" },
+    desligadas: [2, 4, 9],
+  });
+  assert.equal(textos.opcoes[3], "Garantia");
+  assert.deepEqual(textos.desligadas, [2], "4 nunca desliga; 9 não existe");
+  const ctx = { loja: "Loja X", nome: "Ana", aberto: true, abre: null, textos };
+  const menu = textoMenu(ctx, true);
+  assert.match(menu, /^E aí Ana, aqui é a Loja X!/);
+  assert.match(menu, /1️⃣ Cadê meu celular\?/);
+  assert.doesNotMatch(menu, /2️⃣/);
+  assert.match(menu, /4️⃣ Falar com um atendente/);
+  assert.deepEqual(opcoesAtivas(ctx), [1, 3, 4]);
+  assert.deepEqual(decidir(estado("menu"), "2", agora, false, opcoesAtivas(ctx)), {
+    tipo: "nao_entendeu",
+    erros: 1,
+  });
+});
+
+test("preencher: sem nome some a vírgula junto", () => {
+  assert.equal(preencher("Olá, {nome}! 👋", { nome: null }), "Olá! 👋");
+  assert.equal(preencher("Olá, {nome}! 👋", { nome: "Ana" }), "Olá, Ana! 👋");
+});
+
+test("planos: linha de preço sem valor sai inteira", () => {
+  const t = textoPlanos(
+    {
+      loja: "S",
+      nome: null,
+      aberto: true,
+      abre: null,
+      planos: { mensal: "R$ 40,40", anual: null, link: "L" },
+    },
+    false,
+  );
+  assert.match(t, /Mensal/);
+  assert.doesNotMatch(t, /Anual/);
 });

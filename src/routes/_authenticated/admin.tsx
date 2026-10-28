@@ -9,7 +9,6 @@ import {
   CreditCard,
   HelpCircle,
   Home,
-  Info,
   ListChecks,
   Settings,
   CalendarClock,
@@ -43,6 +42,7 @@ import { SectionCard } from "@/components/SectionCard";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { IndicadoresCard } from "@/components/admin/IndicadoresCard";
 import { LinkAssinaturaDialog } from "@/components/admin/LinkAssinaturaDialog";
+import { Explicacao } from "@/components/Explicacao";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
@@ -690,16 +690,6 @@ const ABAS_ADMIN = [
   { id: "indicacoes", label: "Indicações", icon: Gift },
   { id: "sistema", label: "Sistema", icon: Settings },
 ] as const;
-
-/** Faixa curta no topo de cada aba explicando para que ela serve. */
-function Explicacao({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <span>{children}</span>
-    </p>
-  );
-}
 
 const TOM_TAREFA = {
   violeta: "border-l-violet-500",

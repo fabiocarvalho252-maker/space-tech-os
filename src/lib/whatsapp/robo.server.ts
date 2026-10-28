@@ -103,7 +103,7 @@ async function processar(params: Params): Promise<void> {
 
   const { data: config } = await supabaseAdmin
     .from("whatsapp_config")
-    .select("robo_ativo, robo_horario")
+    .select("robo_ativo, robo_horario, robo_textos")
     .eq("user_id", empresaId)
     .maybeSingle();
   if (!config?.robo_ativo) return;
@@ -183,8 +183,15 @@ async function processar(params: Params): Promise<void> {
     aberto: robo.estaAberto(horario, agora),
     abre: robo.proximaAbertura(horario, agora),
     planos: empresaId === (await obterEmpresaDoOperador()) ? await planosDoSite() : null,
+    textos: robo.lerTextos(config.robo_textos),
   };
-  const decisao = robo.decidir(estado, params.texto, agora, params.temMidia, !!ctx.planos);
+  const decisao = robo.decidir(
+    estado,
+    params.texto,
+    agora,
+    params.temMidia,
+    robo.opcoesAtivas(ctx),
+  );
   if (decisao.tipo === "ignorar") return;
 
   let resposta: string;
@@ -213,11 +220,11 @@ async function processar(params: Params): Promise<void> {
       );
       break;
     case "orc_aparelho":
-      resposta = robo.textoPerguntaAparelho();
+      resposta = robo.textoPerguntaAparelho(ctx);
       proxima = { etapa: "orc_aparelho", dados: {} };
       break;
     case "orc_defeito":
-      resposta = robo.textoPerguntaDefeito(decisao.aparelho);
+      resposta = robo.textoPerguntaDefeito(decisao.aparelho, ctx);
       proxima = { etapa: "orc_defeito", dados: { aparelho: decisao.aparelho } };
       break;
     case "orc_registrar":
