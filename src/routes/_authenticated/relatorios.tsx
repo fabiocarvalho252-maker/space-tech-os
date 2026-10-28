@@ -649,7 +649,7 @@ function Relatorios() {
 
           <Secao
             id="tecnicos"
-            titulo="Produção por técnico"
+            titulo="Produção e comissões por técnico"
             onExportar={() => exportToCSV(tecnicos, "relatorio-producao-tecnicos")}
           >
             {tecnicos.length ? (

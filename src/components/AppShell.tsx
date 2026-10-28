@@ -77,11 +77,11 @@ const RELATORIOS_ITENS: ItemMenu[] = [
   { label: "Produtos", to: "/relatorios", hash: "produtos", icon: Package },
   { label: "Serviços", to: "/relatorios", hash: "servicos", icon: Wrench },
   { label: "Vendas", to: "/relatorios", hash: "visao-geral", icon: ShoppingCart },
-  { label: "Receitas Brutas - MEI", emBreve: true, icon: Receipt },
+  { label: "Receitas Brutas - MEI", to: "/relatorio-mei", icon: Receipt },
   { label: "Ordem de Serviço", to: "/relatorios", hash: "ordens", icon: FileCheck },
   { label: "Financeiro - DRE", to: "/relatorios", hash: "financeiro", icon: Wallet },
   { label: "Contas Bancárias", emBreve: true, icon: CreditCard },
-  { label: "Comissões", emBreve: true, icon: Percent },
+  { label: "Comissões", to: "/relatorios", hash: "tecnicos", icon: Percent },
 ];
 
 const SISTEMA_ITENS: ItemMenu[] = [

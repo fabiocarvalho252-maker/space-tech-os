@@ -40,6 +40,7 @@ import { Route as AuthenticatedImportarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedIndicacoesRouteImport } from './routes/_authenticated/indicacoes'
 import { Route as AuthenticatedOrdensRouteImport } from './routes/_authenticated/ordens'
 import { Route as AuthenticatedPdvRouteImport } from './routes/_authenticated/pdv'
+import { Route as AuthenticatedRelatorioMeiRouteImport } from './routes/_authenticated/relatorio-mei'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedSeminovosRouteImport } from './routes/_authenticated/seminovos'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
@@ -211,6 +212,12 @@ const AuthenticatedPdvRoute = AuthenticatedPdvRouteImport.update({
   path: '/pdv',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRelatorioMeiRoute =
+  AuthenticatedRelatorioMeiRouteImport.update({
+    id: '/relatorio-mei',
+    path: '/relatorio-mei',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
@@ -308,6 +315,7 @@ export interface FileRoutesByFullPath {
   '/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
+  '/relatorio-mei': typeof AuthenticatedRelatorioMeiRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/seminovos': typeof AuthenticatedSeminovosRoute
   '/servicos': typeof AuthenticatedServicosRoute
@@ -352,6 +360,7 @@ export interface FileRoutesByTo {
   '/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/ordens': typeof AuthenticatedOrdensRoute
   '/pdv': typeof AuthenticatedPdvRoute
+  '/relatorio-mei': typeof AuthenticatedRelatorioMeiRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/seminovos': typeof AuthenticatedSeminovosRoute
   '/servicos': typeof AuthenticatedServicosRoute
@@ -398,6 +407,7 @@ export interface FileRoutesById {
   '/_authenticated/indicacoes': typeof AuthenticatedIndicacoesRoute
   '/_authenticated/ordens': typeof AuthenticatedOrdensRoute
   '/_authenticated/pdv': typeof AuthenticatedPdvRoute
+  '/_authenticated/relatorio-mei': typeof AuthenticatedRelatorioMeiRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/seminovos': typeof AuthenticatedSeminovosRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | '/indicacoes'
     | '/ordens'
     | '/pdv'
+    | '/relatorio-mei'
     | '/relatorios'
     | '/seminovos'
     | '/servicos'
@@ -488,6 +499,7 @@ export interface FileRouteTypes {
     | '/indicacoes'
     | '/ordens'
     | '/pdv'
+    | '/relatorio-mei'
     | '/relatorios'
     | '/seminovos'
     | '/servicos'
@@ -533,6 +545,7 @@ export interface FileRouteTypes {
     | '/_authenticated/indicacoes'
     | '/_authenticated/ordens'
     | '/_authenticated/pdv'
+    | '/_authenticated/relatorio-mei'
     | '/_authenticated/relatorios'
     | '/_authenticated/seminovos'
     | '/_authenticated/servicos'
@@ -781,6 +794,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPdvRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/relatorio-mei': {
+      id: '/_authenticated/relatorio-mei'
+      path: '/relatorio-mei'
+      fullPath: '/relatorio-mei'
+      preLoaderRoute: typeof AuthenticatedRelatorioMeiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/relatorios': {
       id: '/_authenticated/relatorios'
       path: '/relatorios'
@@ -889,6 +909,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndicacoesRoute: typeof AuthenticatedIndicacoesRoute
   AuthenticatedOrdensRoute: typeof AuthenticatedOrdensRoute
   AuthenticatedPdvRoute: typeof AuthenticatedPdvRoute
+  AuthenticatedRelatorioMeiRoute: typeof AuthenticatedRelatorioMeiRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedSeminovosRoute: typeof AuthenticatedSeminovosRoute
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
@@ -923,6 +944,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndicacoesRoute: AuthenticatedIndicacoesRoute,
   AuthenticatedOrdensRoute: AuthenticatedOrdensRoute,
   AuthenticatedPdvRoute: AuthenticatedPdvRoute,
+  AuthenticatedRelatorioMeiRoute: AuthenticatedRelatorioMeiRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedSeminovosRoute: AuthenticatedSeminovosRoute,
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
