@@ -89,6 +89,33 @@ export type Database = {
           },
         ];
       };
+      assistente_preferencias: {
+        Row: {
+          ativo: boolean;
+          categorias_desligadas: string[];
+          dispensados: Json;
+          silenciado_ate: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          ativo?: boolean;
+          categorias_desligadas?: string[];
+          dispensados?: Json;
+          silenciado_ate?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          ativo?: boolean;
+          categorias_desligadas?: string[];
+          dispensados?: Json;
+          silenciado_ate?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       aparelho_fotos: {
         Row: {
           aparelho_id: string;

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Sparkles, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AIChat } from "./AIChat";
+import { useAssistente } from "@/components/assistente/useAssistente";
+import { BalaoAssistente } from "@/components/assistente/BalaoAssistente";
+import { PainelSugestoes } from "@/components/assistente/PainelSugestoes";
 
 const CHAVE_POSICAO = "space-tech-ia-posicao";
 const MARGEM = 8;
@@ -36,6 +40,11 @@ function lerPosicaoSalva(): Offset | null {
 export function SpaceTechAI() {
   const [aberto, setAberto] = useState(false);
   const [minimizado, setMinimizado] = useState(false);
+  const [aba, setAba] = useState<"sugestoes" | "chat">("chat");
+  const { sugestoes, ligado, silenciado } = useAssistente();
+  // O contador do botão: só o que pede atenção (dicas não contam).
+  const importantes = sugestoes.filter((s) => s.prioridade <= 2).length;
+  const contador = ligado && !silenciado ? importantes : 0;
   const [offset, setOffset] = useState<Offset | null>(lerPosicaoSalva);
   const [arrastando, setArrastando] = useState(false);
   // No celular o painel aberto ocupa a tela toda (inset-0) — só reaplicamos
@@ -135,8 +144,17 @@ export function SpaceTechAI() {
     }
     setArrastando(false);
     // Sem arrasto de verdade: trata como clique normal.
-    setAberto((v) => !v);
-    if (!aberto) setMinimizado(false);
+    if (aberto) {
+      setAberto(false);
+      return;
+    }
+    abrir(contador > 0 ? "sugestoes" : "chat");
+  }
+
+  function abrir(qual: "sugestoes" | "chat") {
+    setAba(qual);
+    setAberto(true);
+    setMinimizado(false);
   }
 
   const estiloPosicaoBotao = offset ? { right: offset.right, bottom: offset.bottom } : undefined;
@@ -145,22 +163,35 @@ export function SpaceTechAI() {
 
   if (!aberto) {
     return (
-      <button
-        ref={botaoRef}
-        type="button"
-        onPointerDown={iniciarArraste}
-        onPointerMove={moverArraste}
-        onPointerUp={finalizarArraste}
-        onPointerCancel={finalizarArraste}
-        style={estiloPosicaoBotao}
-        className={`fixed z-50 flex touch-none select-none items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition hover:scale-105 active:scale-95 ${
-          offset ? "" : "bottom-5 right-5"
-        } ${arrastando ? "cursor-grabbing scale-105 transition-none" : "cursor-grab"}`}
-        aria-label="Abrir SPACE TECH IA — arraste para mover"
-      >
-        <Sparkles className="h-5 w-5" />
-        <span className="hidden sm:inline">SPACE TECH IA</span>
-      </button>
+      <>
+        {!arrastando && (
+          <BalaoAssistente offset={offset} onAbrirPainel={() => abrir("sugestoes")} />
+        )}
+        <button
+          ref={botaoRef}
+          type="button"
+          onPointerDown={iniciarArraste}
+          onPointerMove={moverArraste}
+          onPointerUp={finalizarArraste}
+          onPointerCancel={finalizarArraste}
+          style={estiloPosicaoBotao}
+          className={`fixed z-50 flex touch-none select-none items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition hover:scale-105 active:scale-95 ${
+            offset ? "" : "bottom-5 right-5"
+          } ${arrastando ? "cursor-grabbing scale-105 transition-none" : "cursor-grab"}`}
+          aria-label="Abrir SPACE TECH IA — arraste para mover"
+        >
+          <Sparkles className="h-5 w-5" />
+          <span className="hidden sm:inline">SPACE TECH IA</span>
+          {contador > 0 && (
+            <span
+              className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background"
+              aria-label={`${contador} sugestões do assistente`}
+            >
+              {contador > 9 ? "9+" : contador}
+            </span>
+          )}
+        </button>
+      </>
     );
   }
 
@@ -204,9 +235,42 @@ export function SpaceTechAI() {
       </div>
 
       {!minimizado && (
-        <div className="min-h-0 flex-1">
-          <AIChat />
-        </div>
+        <>
+          <div className="flex shrink-0 gap-1 border-b border-border px-3 py-2">
+            {(
+              [
+                { id: "sugestoes", label: "Sugestões", total: ligado ? sugestoes.length : 0 },
+                { id: "chat", label: "Conversar", total: 0 },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setAba(t.id)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                  aba === t.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-secondary",
+                )}
+              >
+                {t.label}
+                {t.total > 0 && (
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">
+                    {t.total}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1">
+            {aba === "sugestoes" ? (
+              <PainelSugestoes onNavegar={() => setAberto(false)} />
+            ) : (
+              <AIChat />
+            )}
+          </div>
+        </>
       )}
     </div>
   );

@@ -56,9 +56,11 @@ import {
   Tag,
   FileStack,
   HardDrive,
+  Bot,
 } from "lucide-react";
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
+import { PreferenciasAssistente } from "@/components/assistente/PreferenciasAssistente";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -437,6 +439,7 @@ function Configuracoes() {
     { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
     { id: "catalogo", label: "Catálogo", icon: Layout },
     { id: "backup", label: "Backup", icon: HardDrive },
+    { id: "assistente", label: "Assistente", icon: Bot },
     { id: "funcionarios", label: "Acesso de Funcionários", icon: Users2 },
   ];
 
@@ -2500,6 +2503,18 @@ function Configuracoes() {
           <div className="max-w-3xl">
             <BackupGoogleDriveCard escopo="empresa" />
           </div>
+        </TabsContent>
+
+        {/* Assistente (preferência de cada login, não da empresa) */}
+        <TabsContent value="assistente" className="space-y-6 outline-none">
+          <section className="max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <h2 className="text-lg font-bold">Assistente do sistema</h2>
+            <p className="mb-6 mt-1 text-sm text-muted-foreground">
+              Fica no botão da SPACE TECH IA e pergunta se você quer resolver o que está parado.
+              Cada funcionário liga ou desliga o seu, aqui ou em Ajustes, dentro do próprio painel.
+            </p>
+            <PreferenciasAssistente />
+          </section>
         </TabsContent>
 
         {/* Acesso de Funcionários */}
