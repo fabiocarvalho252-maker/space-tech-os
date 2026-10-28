@@ -2559,6 +2559,8 @@ export type Database = {
       produtos: {
         Row: {
           ativo: boolean;
+          garantia_dias: number | null;
+          tempo_estimado_min: number | null;
           localizacao: string | null;
           marca: string | null;
           categoria: string | null;
@@ -2581,6 +2583,8 @@ export type Database = {
         };
         Insert: {
           ativo?: boolean;
+          garantia_dias?: number | null;
+          tempo_estimado_min?: number | null;
           localizacao?: string | null;
           marca?: string | null;
           categoria?: string | null;
@@ -2603,6 +2607,8 @@ export type Database = {
         };
         Update: {
           ativo?: boolean;
+          garantia_dias?: number | null;
+          tempo_estimado_min?: number | null;
           localizacao?: string | null;
           marca?: string | null;
           categoria?: string | null;

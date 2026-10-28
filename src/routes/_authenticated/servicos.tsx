@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Pencil, Percent, Plus, Trash2, Wrench } from "lucide-react";
+import { Clock, Pencil, Percent, Plus, Power, ShieldCheck, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -10,6 +10,14 @@ import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+
+/** 90 → "1h30", 45 → "45 min". */
+function tempoLegivel(min: number): string {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const resto = min % 60;
+  return resto ? `${h}h${String(resto).padStart(2, "0")}` : `${h}h`;
+}
 
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({
@@ -27,6 +35,9 @@ type Servico = {
   preco_custo: number;
   preco_venda: number;
   comissao_percentual: number | null;
+  tempo_estimado_min: number | null;
+  garantia_dias: number | null;
+  ativo: boolean;
   fornecedores: { razao_social: string; nome_fantasia: string | null } | null;
 };
 
@@ -35,6 +46,7 @@ function Servicos() {
   const qc = useQueryClient();
   const [busca, setBusca] = useState("");
   const [confirmExcluir, setConfirmExcluir] = useState<Servico | null>(null);
+  const [mostrarInativos, setMostrarInativos] = useState(false);
 
   const {
     data: servicos = [],
@@ -54,6 +66,19 @@ function Servicos() {
     },
   });
 
+  const alternarAtivo = useMutation({
+    mutationFn: async (s: Servico) => {
+      const { error } = await supabase.from("produtos").update({ ativo: !s.ativo }).eq("id", s.id);
+      if (error) throw error;
+      return !s.ativo;
+    },
+    onSuccess: (ativo) => {
+      toast.success(ativo ? "Serviço reativado" : "Serviço desativado");
+      qc.invalidateQueries({ queryKey: ["servicos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const remover = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("produtos").delete().eq("id", id);
@@ -68,8 +93,11 @@ function Servicos() {
   });
 
   const filtrados = useMemo(
-    () => servicos.filter((s) => s.nome.toLowerCase().includes(busca.toLowerCase())),
-    [servicos, busca],
+    () =>
+      servicos.filter(
+        (s) => (mostrarInativos || s.ativo) && s.nome.toLowerCase().includes(busca.toLowerCase()),
+      ),
+    [servicos, busca, mostrarInativos],
   );
 
   return (
@@ -90,8 +118,17 @@ function Servicos() {
         value={busca}
         onChange={setBusca}
         placeholder="Buscar serviço..."
-        className="mb-4 max-w-md"
+        className="mb-3 max-w-md"
       />
+      <label className="mb-4 inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={mostrarInativos}
+          onChange={(e) => setMostrarInativos(e.target.checked)}
+          className="h-4 w-4 accent-primary"
+        />
+        Mostrar inativos ({servicos.filter((s) => !s.ativo).length})
+      </label>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
         <table className="w-full min-w-[640px] text-sm">
@@ -143,9 +180,28 @@ function Servicos() {
                 const comissaoValor = (s.preco_venda * comissao) / 100;
                 const lucro = s.preco_venda - s.preco_custo - comissaoValor;
                 return (
-                  <tr key={s.id} className="hover:bg-secondary/30">
+                  <tr key={s.id} className={`hover:bg-secondary/30 ${s.ativo ? "" : "opacity-60"}`}>
                     <td className="px-4 py-3 font-medium">
                       {s.nome}
+                      {!s.ativo && (
+                        <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                          Inativo
+                        </span>
+                      )}
+                      {(s.tempo_estimado_min != null || s.garantia_dias != null) && (
+                        <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-normal text-muted-foreground">
+                          {s.tempo_estimado_min != null && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {tempoLegivel(s.tempo_estimado_min)}
+                            </span>
+                          )}
+                          {s.garantia_dias != null && (
+                            <span className="inline-flex items-center gap-1">
+                              <ShieldCheck className="h-3 w-3" /> {s.garantia_dias} dias de garantia
+                            </span>
+                          )}
+                        </span>
+                      )}
                       {s.fornecedores && (
                         <span className="block text-xs font-normal text-muted-foreground">
                           Fornecedor: {s.fornecedores.nome_fantasia || s.fornecedores.razao_social}
@@ -180,6 +236,14 @@ function Servicos() {
                           </Link>
                         </Button>
                         <button
+                          onClick={() => alternarAtivo.mutate(s)}
+                          aria-label={s.ativo ? "Desativar" : "Reativar"}
+                          title={s.ativo ? "Desativar" : "Reativar"}
+                          className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                        >
+                          <Power className={`h-4 w-4 ${s.ativo ? "" : "text-emerald-600"}`} />
+                        </button>
+                        <button
                           onClick={() => setConfirmExcluir(s)}
                           aria-label="Excluir"
                           className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-destructive"
@@ -201,7 +265,9 @@ function Servicos() {
         onOpenChange={(v) => !v && setConfirmExcluir(null)}
         title="Deseja realmente excluir este serviço?"
         description={
-          confirmExcluir ? `"${confirmExcluir.nome}" será removido permanentemente.` : ""
+          confirmExcluir
+            ? `"${confirmExcluir.nome}" será removido permanentemente. Para tirar da OS sem perder o histórico, prefira Desativar.`
+            : ""
         }
         confirmLabel="Excluir"
         destructive

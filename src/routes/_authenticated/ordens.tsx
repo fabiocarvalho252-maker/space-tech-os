@@ -364,6 +364,19 @@ function Ordens() {
     ]);
     if (tipo === "produto") setNovoProduto(itemVazio);
     else setNovoServico(itemVazio);
+
+    // Serviço com garantia própria: o prazo da OS passa a ser o maior entre
+    // os serviços dela (ainda dá para mudar à mão na aba de entrega).
+    if (tipo === "servico" && item?.garantia_dias != null) {
+      const prazos = [...itensEdicao.map((i) => i.produto_id), item.id]
+        .map((id) => produtos.find((p) => p.id === id)?.garantia_dias)
+        .filter((d): d is number => d != null);
+      const prazo = String(Math.max(...prazos));
+      if (prazo !== garantiaDias) {
+        setGarantiaDias(prazo);
+        toast.info(`Prazo de garantia da OS ajustado para ${prazo} dias (garantia do serviço).`);
+      }
+    }
   }
 
   async function abrirEdicao(os: OsListada) {

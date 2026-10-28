@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { MoneyInput } from "@/components/MoneyInput";
 import { SectionCard } from "@/components/SectionCard";
 
@@ -34,7 +35,17 @@ const vazio = {
   comissao_percentual: "0",
   descricao: "",
   fornecedor_id: "",
+  tempo_estimado_min: "",
+  garantia_dias: "",
+  ativo: true,
 };
+
+/** "" → null; senão inteiro >= 0. */
+function inteiroOuNulo(v: string): number | null {
+  if (!v.trim()) return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 function CadastroServico() {
   const { formatFinancialValue: brl } = useFinancialVisibility();
@@ -80,6 +91,10 @@ function CadastroServico() {
       comissao_percentual: String(servicoAtual.comissao_percentual ?? 0),
       descricao: servicoAtual.descricao ?? "",
       fornecedor_id: servicoAtual.fornecedor_id ?? "",
+      tempo_estimado_min:
+        servicoAtual.tempo_estimado_min != null ? String(servicoAtual.tempo_estimado_min) : "",
+      garantia_dias: servicoAtual.garantia_dias != null ? String(servicoAtual.garantia_dias) : "",
+      ativo: servicoAtual.ativo,
     });
     setCarregado(true);
   }, [servicoAtual, carregado]);
@@ -106,6 +121,9 @@ function CadastroServico() {
         descricao: form.descricao || null,
         fornecedor_id: form.fornecedor_id || null,
         categoria: "Serviço",
+        tempo_estimado_min: inteiroOuNulo(form.tempo_estimado_min),
+        garantia_dias: inteiroOuNulo(form.garantia_dias),
+        ativo: form.ativo,
       };
 
       if (id) {
@@ -206,6 +224,45 @@ function CadastroServico() {
               onChange={(e) => setForm({ ...form, comissao_percentual: e.target.value })}
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Tempo estimado (minutos)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={5}
+                value={form.tempo_estimado_min}
+                onChange={(e) => setForm({ ...form, tempo_estimado_min: e.target.value })}
+                placeholder="Ex: 60"
+              />
+              <p className="text-xs text-muted-foreground">
+                Quanto tempo de bancada este serviço costuma levar.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Garantia (dias)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form.garantia_dias}
+                onChange={(e) => setForm({ ...form, garantia_dias: e.target.value })}
+                placeholder="Vazio = garantia padrão"
+              />
+              <p className="text-xs text-muted-foreground">
+                Ao lançar este serviço na OS, o prazo de garantia da OS passa a ser o maior entre os
+                serviços dela.
+              </p>
+            </div>
+          </div>
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
+            <span>
+              <span className="block text-sm font-medium">Serviço ativo</span>
+              <span className="block text-xs text-muted-foreground">
+                Inativo não aparece para lançar na OS, nas vendas nem no PDV.
+              </span>
+            </span>
+            <Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
+          </label>
           <div className="space-y-1.5">
             <Label>Descrição</Label>
             <Textarea
