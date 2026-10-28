@@ -6,6 +6,12 @@ import { ptBR } from "date-fns/locale";
 import {
   Ban,
   Building2,
+  CreditCard,
+  HelpCircle,
+  Home,
+  Info,
+  ListChecks,
+  Settings,
   CalendarClock,
   Check,
   Copy,
@@ -36,6 +42,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { IndicadoresCard } from "@/components/admin/IndicadoresCard";
+import { LinkAssinaturaDialog } from "@/components/admin/LinkAssinaturaDialog";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
@@ -44,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -83,8 +91,6 @@ import {
   atualizarPlanoEmpresa,
   obterDescontoIndicacaoEmpresa,
   atualizarPlanoFeature,
-  conectarWhatsappSistema,
-  desconectarWhatsappSistema,
   entrarComoEmpresa,
   enviarMensagemReativacaoFn,
   excluirEmpresa,
@@ -92,7 +98,6 @@ import {
   listarEmpresasDoSite,
   listarPlanosDoSite,
   resetarSenhaEmpresa,
-  statusWhatsappSistema,
   type EmpresaDoSite,
   type PlanoDoSite,
 } from "@/lib/site-admin.functions";
@@ -108,7 +113,6 @@ import {
   type RegraIndicacaoPorPlano,
 } from "@/lib/referrals/admin-referral.functions";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
-import type { WhatsappSistemaConexao } from "@/lib/whatsapp/system-instance";
 
 const SITE_ADMIN_EMAIL = "admin@spacetech.app";
 
@@ -227,6 +231,8 @@ function AdminDoSite() {
   const [filtroPlano, setFiltroPlano] = useState<string>("todos");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [conviteMassaAberto, setConviteMassaAberto] = useState(false);
+  const [linkAssinaturaAberto, setLinkAssinaturaAberto] = useState(false);
+  const [aba, setAba] = useState("inicio");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["site-admin-empresas"],
@@ -296,6 +302,9 @@ function AdminDoSite() {
         subtitle="Controle geral das empresas cadastradas no SpaceTech e da ativação da plataforma."
         action={
           <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setLinkAssinaturaAberto(true)}>
+              <Send className="h-4 w-4" /> Enviar link de assinatura
+            </Button>
             <Button
               variant="outline"
               onClick={() => setConviteMassaAberto(true)}
@@ -312,11 +321,14 @@ function AdminDoSite() {
         }
       />
 
+      {linkAssinaturaAberto && (
+        <LinkAssinaturaDialog onClose={() => setLinkAssinaturaAberto(false)} />
+      )}
       {conviteMassaAberto && (
         <ConviteEmMassaDialog empresas={empresas} onClose={() => setConviteMassaAberto(false)} />
       )}
 
-      {/* Os cards também filtram a lista de empresas (clique de novo para limpar). */}
+      {/* Os cards abrem a aba Empresas já filtrada (clique de novo para limpar). */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {(
           [
@@ -371,180 +383,353 @@ function AdminDoSite() {
             valor={t.valor}
             cor={t.cor}
             ativo={filtroStatus === t.filtro}
-            onClick={() => setFiltroStatus(filtroStatus === t.filtro ? "todos" : t.filtro)}
+            onClick={() => {
+              setFiltroStatus(filtroStatus === t.filtro ? "todos" : t.filtro);
+              setAba("empresas");
+            }}
           />
         ))}
       </div>
 
-      {pedidosPendentes.length > 0 && (
-        <SectionCard
-          title="Pedidos de reativação"
-          subtitle={`${pedidosPendentes.length} empresa${pedidosPendentes.length > 1 ? "s" : ""} esperando ativação`}
-          icon={Send}
-          className="mb-6 border-violet-500/30 bg-violet-500/5"
-        >
-          <div className="space-y-2">
-            {pedidosPendentes.map((e) => (
-              <div
-                key={e.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3"
+      <Tabs value={aba} onValueChange={setAba} className="space-y-6">
+        <div className="w-full overflow-x-auto pb-1">
+          <TabsList className="flex h-auto w-max gap-2 bg-transparent p-0">
+            {ABAS_ADMIN.map((a) => (
+              <TabsTrigger
+                key={a.id}
+                value={a.id}
+                className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary"
               >
-                <div>
-                  <p className="font-medium">{e.loja || e.nome || "Sem nome"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Quer o plano <strong>{planoLabel(e.planoSolicitado!)}</strong>
-                    {e.planoSolicitadoEm ? ` · ${haQuanto(e.planoSolicitadoEm)}` : ""}
-                  </p>
-                </div>
-                <Button size="sm" onClick={() => setEmpresaSelecionada(e)}>
-                  Atender
-                </Button>
-              </div>
+                <a.icon className="h-4 w-4" />
+                {a.label}
+                {a.id === "inicio" && pedidosPendentes.length > 0 && (
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold leading-4 text-primary-foreground">
+                    {pedidosPendentes.length}
+                  </span>
+                )}
+              </TabsTrigger>
             ))}
-          </div>
-        </SectionCard>
-      )}
-
-      <WhatsappSistemaCard souAdmin={souAdmin} />
-
-      <BackupGoogleDriveCard escopo="plataforma" />
-
-      <PlanosCard souAdmin={souAdmin} />
-
-      <ReferralProgramCard souAdmin={souAdmin} />
-
-      <IndicadoresCard souAdmin={souAdmin} />
-
-      <IndicacoesCard souAdmin={souAdmin} />
-
-      <SectionCard
-        title="Empresas cadastradas"
-        subtitle={`${empresasFiltradas.length} de ${empresas.length}`}
-        icon={Building2}
-      >
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar empresa por nome ou e-mail..."
-              className="pl-9"
-            />
-          </div>
-          <Select value={filtroPlano} onValueChange={setFiltroPlano}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder="Plano" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os planos</SelectItem>
-              {PLANOS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}>
-            <SelectTrigger className="w-[190px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              {(Object.keys(STATUS_LABEL) as StatusAcesso[]).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </SelectItem>
-              ))}
-              <SelectItem value="bloqueada">Bloqueadas (plano vencido + suspensas)</SelectItem>
-              <SelectItem value="vencendo">Vencem em {DIAS_AVISO_VENCIMENTO} dias</SelectItem>
-            </SelectContent>
-          </Select>
+          </TabsList>
         </div>
 
-        {isLoading ? (
-          <TableSkeleton />
-        ) : isError ? (
-          <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Erro ao carregar empresas."}
-          </p>
-        ) : !empresas.length ? (
-          <EmptyState icon={Users} title="Nenhuma empresa cadastrada ainda" />
-        ) : !empresasFiltradas.length ? (
-          <EmptyState icon={Search} title="Nenhuma empresa encontrada com esses filtros" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1040px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2">Empresa</th>
-                  <th className="px-3 py-2">E-mail</th>
-                  <th className="px-3 py-2">Plano</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Dias restantes</th>
-                  <th className="px-3 py-2">Cadastro</th>
-                  <th className="px-3 py-2">Último acesso</th>
-                  <th className="px-3 py-2 text-center">Equipe</th>
-                  <th className="px-3 py-2 text-center">OS criadas</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {empresasFiltradas.map((e) => (
-                  <tr key={e.id} className="hover:bg-secondary/30">
-                    <td className="px-3 py-3 font-medium">
-                      <div className="flex items-center gap-2">
-                        <span>{e.loja || e.nome || "Sem nome"}</span>
-                        <BotaoConviteReativacao empresa={e} />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground">{e.email || "—"}</td>
-                    <td className="px-3 py-3">
-                      <StatusBadge
-                        label={planoLabel(e.plano)}
-                        tone={TONE_POR_PLANO[e.plano] ?? "neutral"}
-                      />
-                      {e.planoSolicitado && (
-                        <div className="mt-1 text-xs text-violet-600">
-                          Quer: {planoLabel(e.planoSolicitado)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge
-                        label={STATUS_LABEL[statusAcesso(e)]}
-                        tone={STATUS_TONE[statusAcesso(e)]}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <PrazoAcessoInfo empresa={e} />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div>{dataBR(e.criadoEm)}</div>
-                      <div className="text-xs text-muted-foreground">{haQuanto(e.criadoEm)}</div>
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground">{haQuanto(e.ultimoLogin)}</td>
-                    <td className="px-3 py-3 text-center">{e.totalMembros}</td>
-                    <td className="px-3 py-3 text-center">{e.totalOrdens}</td>
-                    <td className="px-3 py-3 text-right">
-                      <EmpresaAcoesMenu
-                        empresa={e}
-                        onVerDetalhes={() => setEmpresaSelecionada(e)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+        <TabsContent value="inicio" className="space-y-6 outline-none">
+          <Explicacao>
+            Aqui aparece o que precisa da sua atenção hoje. Cada item explica o que fazer e tem o
+            botão para resolver.
+          </Explicacao>
+          <SectionCard title="O que fazer agora" icon={ListChecks}>
+            <div className="space-y-2">
+              {pedidosPendentes.map((e) => (
+                <Tarefa
+                  key={e.id}
+                  tom="violeta"
+                  titulo={`${e.loja || e.nome || "Sem nome"} pediu o plano ${planoLabel(e.planoSolicitado!)}`}
+                  explicacao={`Clicou em "Prefiro falar com a equipe" em Meu Plano${e.planoSolicitadoEm ? ` (${haQuanto(e.planoSolicitadoEm)})` : ""}. Combine o pagamento e ative o plano — ou mande ela pagar pelo Pix em Meu Plano, que libera sozinho.`}
+                  acao={{ rotulo: "Atender", onClick: () => setEmpresaSelecionada(e) }}
+                />
+              ))}
+              {contagem.vencendo > 0 && (
+                <Tarefa
+                  tom="laranja"
+                  titulo={`${contagem.vencendo} empresa${contagem.vencendo > 1 ? "s vencem" : " vence"} nos próximos ${DIAS_AVISO_VENCIMENTO} dias`}
+                  explicacao="Lembre de renovar. Elas podem pagar sozinhas pelo Pix em Meu Plano e o acesso é renovado na hora."
+                  acao={{
+                    rotulo: "Ver quem vence",
+                    onClick: () => {
+                      setFiltroStatus("vencendo");
+                      setAba("empresas");
+                    },
+                  }}
+                />
+              )}
+              {contagem.testeExpirado > 0 && (
+                <Tarefa
+                  tom="vermelho"
+                  titulo={`${contagem.testeExpirado} teste${contagem.testeExpirado > 1 ? "s acabaram" : " acabou"} sem assinar`}
+                  explicacao="Essas empresas experimentaram o sistema e não assinaram. Um convite pelo WhatsApp costuma trazer algumas de volta."
+                  acao={{ rotulo: "Convidar inativas", onClick: () => setConviteMassaAberto(true) }}
+                />
+              )}
+              {contagem.teste > 0 && (
+                <Tarefa
+                  tom="amarelo"
+                  titulo={`${contagem.teste} empresa${contagem.teste > 1 ? "s estão" : " está"} no teste grátis agora`}
+                  explicacao="Bom momento para oferecer ajuda e tirar dúvidas antes do teste acabar."
+                  acao={{
+                    rotulo: "Ver empresas em teste",
+                    onClick: () => {
+                      setFiltroStatus("teste");
+                      setAba("empresas");
+                    },
+                  }}
+                />
+              )}
+              {!pedidosPendentes.length &&
+                !contagem.vencendo &&
+                !contagem.testeExpirado &&
+                !contagem.teste && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Tudo em dia! Nenhum pedido, vencimento ou teste pedindo atenção.
+                  </p>
+                )}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Como funciona a assinatura" icon={HelpCircle}>
+            <ol className="grid gap-3 sm:grid-cols-3">
+              {[
+                [
+                  "A pessoa cria a conta",
+                  'Pelo site ou pelo link que você manda em "Enviar link de assinatura". Ganha 7 dias grátis.',
+                ],
+                [
+                  "Paga com Pix em Meu Plano",
+                  "Mensal ou anual. O Mercado Pago confirma e o acesso é liberado na hora, sem você fazer nada.",
+                ],
+                [
+                  "Você é avisado",
+                  "Chega no seu WhatsApp quem pagou, quanto e até quando vale. A empresa recebe o comprovante.",
+                ],
+              ].map(([titulo, texto], i) => (
+                <li key={titulo} className="rounded-xl border border-border p-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    {i + 1}
+                  </span>
+                  <p className="mt-2 text-sm font-semibold">{titulo}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{texto}</p>
+                </li>
+              ))}
+            </ol>
+            <Button className="mt-4" onClick={() => setLinkAssinaturaAberto(true)}>
+              <Send className="h-4 w-4" /> Enviar link de assinatura
+            </Button>
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="empresas" className="space-y-6 outline-none">
+          <Explicacao>
+            Todas as empresas cadastradas. Use os números lá em cima ou os filtros para achar quem
+            está em teste, vencendo ou bloqueado. Clique numa empresa para mudar o plano, a data de
+            vencimento ou entrar no painel dela; o menu <strong>⋮</strong> tem suspender, convidar e
+            excluir.
+          </Explicacao>
+          <SectionCard
+            title="Empresas cadastradas"
+            subtitle={`${empresasFiltradas.length} de ${empresas.length}`}
+            icon={Building2}
+          >
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar empresa por nome ou e-mail..."
+                  className="pl-9"
+                />
+              </div>
+              <Select value={filtroPlano} onValueChange={setFiltroPlano}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue placeholder="Plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os planos</SelectItem>
+                  {PLANOS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filtroStatus}
+                onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}
+              >
+                <SelectTrigger className="w-[190px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  {(Object.keys(STATUS_LABEL) as StatusAcesso[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABEL[s]}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="bloqueada">Bloqueadas (plano vencido + suspensas)</SelectItem>
+                  <SelectItem value="vencendo">Vencem em {DIAS_AVISO_VENCIMENTO} dias</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isLoading ? (
+              <TableSkeleton />
+            ) : isError ? (
+              <p className="text-sm text-destructive">
+                {error instanceof Error ? error.message : "Erro ao carregar empresas."}
+              </p>
+            ) : !empresas.length ? (
+              <EmptyState icon={Users} title="Nenhuma empresa cadastrada ainda" />
+            ) : !empresasFiltradas.length ? (
+              <EmptyState icon={Search} title="Nenhuma empresa encontrada com esses filtros" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1040px] text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Empresa</th>
+                      <th className="px-3 py-2">E-mail</th>
+                      <th className="px-3 py-2">Plano</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Dias restantes</th>
+                      <th className="px-3 py-2">Cadastro</th>
+                      <th className="px-3 py-2">Último acesso</th>
+                      <th className="px-3 py-2 text-center">Equipe</th>
+                      <th className="px-3 py-2 text-center">OS criadas</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {empresasFiltradas.map((e) => (
+                      <tr key={e.id} className="hover:bg-secondary/30">
+                        <td className="px-3 py-3 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{e.loja || e.nome || "Sem nome"}</span>
+                            <BotaoConviteReativacao empresa={e} />
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-muted-foreground">{e.email || "—"}</td>
+                        <td className="px-3 py-3">
+                          <StatusBadge
+                            label={planoLabel(e.plano)}
+                            tone={TONE_POR_PLANO[e.plano] ?? "neutral"}
+                          />
+                          {e.planoSolicitado && (
+                            <div className="mt-1 text-xs text-violet-600">
+                              Quer: {planoLabel(e.planoSolicitado)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <StatusBadge
+                            label={STATUS_LABEL[statusAcesso(e)]}
+                            tone={STATUS_TONE[statusAcesso(e)]}
+                          />
+                        </td>
+                        <td className="px-3 py-3">
+                          <PrazoAcessoInfo empresa={e} />
+                        </td>
+                        <td className="px-3 py-3">
+                          <div>{dataBR(e.criadoEm)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {haQuanto(e.criadoEm)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-muted-foreground">
+                          {haQuanto(e.ultimoLogin)}
+                        </td>
+                        <td className="px-3 py-3 text-center">{e.totalMembros}</td>
+                        <td className="px-3 py-3 text-center">{e.totalOrdens}</td>
+                        <td className="px-3 py-3 text-right">
+                          <EmpresaAcoesMenu
+                            empresa={e}
+                            onVerDetalhes={() => setEmpresaSelecionada(e)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="planos" className="space-y-6 outline-none">
+          <Explicacao>
+            O preço de cada plano e o que ele libera. O preço aqui é o que você recebe — no Pix, a
+            taxa do Mercado Pago (0,99%) é somada para quem paga. Marque os recursos que cada plano
+            inclui e salve.
+          </Explicacao>
+          <PlanosCard souAdmin={souAdmin} />
+        </TabsContent>
+
+        <TabsContent value="indicacoes" className="space-y-6 outline-none">
+          <Explicacao>
+            Cada empresa tem um código para indicar o SPACE TECH a outras assistências. Quando a
+            indicada assina, quem indicou ganha desconto na próxima mensalidade. Aqui você liga o
+            programa, vê quem mais indica e registra bonificações em Pix.
+          </Explicacao>
+          <ReferralProgramCard souAdmin={souAdmin} />
+          <IndicadoresCard souAdmin={souAdmin} />
+          <IndicacoesCard souAdmin={souAdmin} />
+        </TabsContent>
+
+        <TabsContent value="sistema" className="space-y-6 outline-none">
+          <Explicacao>
+            Configurações da plataforma. Avisos, comprovantes, convites e links de assinatura saem
+            pelo WhatsApp da sua loja SPACE TECH (menu WhatsApp → Conexão). O{" "}
+            <strong>backup</strong> guarda uma cópia do banco todo dia às 3h.
+          </Explicacao>
+          <BackupGoogleDriveCard escopo="plataforma" />
+        </TabsContent>
+      </Tabs>
 
       <EmpresaDetalheDialog
         empresa={empresaAtual}
         open={!!empresaSelecionada}
         onOpenChange={(v) => !v && setEmpresaSelecionada(null)}
       />
+    </div>
+  );
+}
+
+const ABAS_ADMIN = [
+  { id: "inicio", label: "Início", icon: Home },
+  { id: "empresas", label: "Empresas", icon: Building2 },
+  { id: "planos", label: "Planos e preços", icon: CreditCard },
+  { id: "indicacoes", label: "Indicações", icon: Gift },
+  { id: "sistema", label: "Sistema", icon: Settings },
+] as const;
+
+/** Faixa curta no topo de cada aba explicando para que ela serve. */
+function Explicacao({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+const TOM_TAREFA = {
+  violeta: "border-l-violet-500",
+  laranja: "border-l-orange-500",
+  vermelho: "border-l-rose-500",
+  amarelo: "border-l-amber-500",
+} as const;
+
+function Tarefa({
+  titulo,
+  explicacao,
+  acao,
+  tom,
+}: {
+  titulo: string;
+  explicacao: string;
+  acao: { rotulo: string; onClick: () => void };
+  tom: keyof typeof TOM_TAREFA;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-l-4 border-border bg-card px-4 py-3 ${TOM_TAREFA[tom]}`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{titulo}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{explicacao}</p>
+      </div>
+      <Button size="sm" onClick={acao.onClick}>
+        {acao.rotulo}
+      </Button>
     </div>
   );
 }
@@ -1176,172 +1361,6 @@ function ehNaoConfigurado(erro: unknown): boolean {
 
 function qrCodeSrc(qr: string): string {
   return qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`;
-}
-
-// Pairs the "spacetech_system" Evolution API instance that sends WhatsApp
-// activation codes for every empresa signup — separate from each empresa's
-// own /whatsapp connection, paired once here by the SPACE TECH operator.
-function WhatsappSistemaCard({ souAdmin }: { souAdmin: boolean }) {
-  const qc = useQueryClient();
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [confirmDesconectar, setConfirmDesconectar] = useState(false);
-
-  const statusQuery = useQuery({
-    queryKey: ["whatsapp-sistema-status"],
-    queryFn: () => statusWhatsappSistema(),
-    enabled: souAdmin,
-    retry: false,
-    refetchInterval: (query) => {
-      const conexao = query.state.data as WhatsappSistemaConexao | null | undefined;
-      return conexao?.status === "conectando" ? 4000 : false;
-    },
-  });
-
-  const naoConfigurado = ehNaoConfigurado(statusQuery.error);
-  const conexao = statusQuery.data ?? null;
-  const status = conexao?.status ?? "desconectado";
-  const conectado = status === "conectado";
-
-  const conectar = useMutation({
-    mutationFn: () => conectarWhatsappSistema(),
-    onSuccess: (res) => {
-      qc.setQueryData(["whatsapp-sistema-status"], res);
-      setQrDialogOpen(true);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const desconectar = useMutation({
-    mutationFn: () => desconectarWhatsappSistema(),
-    onSuccess: (res) => {
-      qc.setQueryData(["whatsapp-sistema-status"], res);
-      setConfirmDesconectar(false);
-      toast.success("WhatsApp do sistema desconectado.");
-    },
-    onError: (e: Error) => {
-      toast.error(e.message);
-      setConfirmDesconectar(false);
-    },
-  });
-
-  const STATUS_TEXTO: Record<string, string> = {
-    conectado: "Conectado",
-    desconectado: "Desconectado",
-    conectando: "Conectando...",
-    erro: "Erro na conexão",
-  };
-  const STATUS_BADGE_TONE: Record<string, StatusTone> = {
-    conectado: "success",
-    desconectado: "danger",
-    conectando: "warning",
-    erro: "danger",
-  };
-
-  return (
-    <SectionCard
-      title="WhatsApp do sistema"
-      subtitle="Envia os códigos de ativação para novos cadastros de empresa."
-      icon={MessageSquare}
-      className="mb-6"
-      action={
-        !naoConfigurado && (
-          <div className="flex items-center gap-2">
-            {statusQuery.isFetching && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-            <StatusBadge
-              label={STATUS_TEXTO[status] ?? status}
-              tone={STATUS_BADGE_TONE[status] ?? "neutral"}
-            />
-          </div>
-        )
-      }
-    >
-      {naoConfigurado ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Evolution API não configurada no servidor. Preencha <code>EVOLUTION_API_URL</code> e{" "}
-          <code>EVOLUTION_API_KEY</code> no <code>.env</code> para habilitar a conexão.
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-muted-foreground">
-            {conectado && conexao?.phone_number ? (
-              <span className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4" /> Número conectado:{" "}
-                <strong className="text-foreground">{conexao.phone_number}</strong>
-              </span>
-            ) : status === "erro" && conexao?.last_error ? (
-              <span className="text-destructive">{conexao.last_error}</span>
-            ) : (
-              "Nenhum número conectado no momento."
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            {!conectado ? (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 gap-2"
-                disabled={conectar.isPending}
-                onClick={() => conectar.mutate()}
-              >
-                {conectar.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <QrCode className="h-4 w-4" />
-                )}
-                Conectar
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => setConfirmDesconectar(true)}>
-                Desconectar
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-green-600" /> Conectar WhatsApp do sistema
-            </DialogTitle>
-            <DialogDescription>
-              Abra o WhatsApp no celular dedicado do SPACE TECH → Aparelhos conectados → Conectar um
-              aparelho, e escaneie o código abaixo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
-            {conexao?.qr_code ? (
-              <img
-                src={qrCodeSrc(conexao.qr_code)}
-                alt="QR Code do WhatsApp"
-                className="h-56 w-56"
-              />
-            ) : (
-              <>
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
-              </>
-            )}
-            <p className="text-xs text-muted-foreground">Aguardando leitura...</p>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={confirmDesconectar}
-        onOpenChange={setConfirmDesconectar}
-        title="Desconectar o WhatsApp do sistema?"
-        description="Novos cadastros de empresa deixarão de receber o código de ativação até reconectar."
-        confirmLabel="Desconectar"
-        destructive
-        loading={desconectar.isPending}
-        onConfirm={() => desconectar.mutate()}
-      />
-    </SectionCard>
-  );
 }
 
 // "Planos" — preços (começam em branco/NULL de propósito, ver a migration

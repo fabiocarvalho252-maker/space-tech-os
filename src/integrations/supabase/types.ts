@@ -888,6 +888,45 @@ export type Database = {
           },
         ];
       };
+      convites_assinatura: {
+        Row: {
+          chave_telefone: string;
+          created_at: string;
+          enviado_por: string | null;
+          erro: string | null;
+          id: string;
+          mensagem: string;
+          nome: string | null;
+          oferta: string;
+          status: string;
+          telefone: string;
+        };
+        Insert: {
+          chave_telefone: string;
+          created_at?: string;
+          enviado_por?: string | null;
+          erro?: string | null;
+          id?: string;
+          mensagem: string;
+          nome?: string | null;
+          oferta: string;
+          status: string;
+          telefone: string;
+        };
+        Update: {
+          chave_telefone?: string;
+          created_at?: string;
+          enviado_por?: string | null;
+          erro?: string | null;
+          id?: string;
+          mensagem?: string;
+          nome?: string | null;
+          oferta?: string;
+          status?: string;
+          telefone?: string;
+        };
+        Relationships: [];
+      };
       crediario_avisos: {
         Row: {
           com_pix: boolean;

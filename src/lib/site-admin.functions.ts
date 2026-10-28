@@ -561,24 +561,15 @@ const enviarReativacaoSchema = z.object({
 export const enviarMensagemReativacaoFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => enviarReativacaoSchema.parse(data))
-  .handler(async ({ data, context }): Promise<{ ok: true; via: "sistema" | "loja" }> => {
+  .handler(async ({ data, context }): Promise<{ ok: true; via: "loja" }> => {
     checarSiteAdmin(context.claims);
     const empresa = await carregarEmpresaParaReativacao(data.empresaId);
     const numero = (empresa.whatsapp ?? "").replace(/\D/g, "");
     if (numero.length < 10) throw new Error("Esta empresa não tem um WhatsApp válido cadastrado.");
 
-    // 1º: número do sistema. Se estiver desconectado, usa o WhatsApp da
-    // própria loja do admin (a conta admin é a empresa SPACE TECH, conectada
-    // em /whatsapp — hoje é o mesmo número do sistema), para o convite não
-    // depender de reparear o QR do sistema.
-    const { obterStatusSistemaSalvo, enviarMensagemSistema } =
-      await import("@/lib/whatsapp/system-instance");
-    const sistema = await obterStatusSistemaSalvo().catch(() => null);
-    if (sistema?.status === "conectado") {
-      await enviarMensagemSistema(numero, data.texto);
-      return { ok: true, via: "sistema" };
-    }
-
+    // Sai pelo WhatsApp da própria loja do admin (a empresa SPACE TECH,
+    // conectada em /whatsapp-conexao). O antigo "WhatsApp do sistema" saiu
+    // do painel: era o mesmo número e só servia para códigos de ativação.
     const { enviarMensagem } = await import("@/lib/whatsapp/whatsapp-service");
     try {
       const msg = await enviarMensagem(context.userId, numero, data.texto);
@@ -589,7 +580,7 @@ export const enviarMensagemReativacaoFn = createServerFn({ method: "POST" })
       const motivo = e instanceof Error ? e.message : "";
       if (motivo.includes("não está conectado")) {
         throw new Error(
-          'Nenhum WhatsApp conectado: conecte o WhatsApp do sistema (Administração do site) ou o da sua loja (menu WhatsApp), ou use "Abrir no meu WhatsApp".',
+          'O WhatsApp da sua loja está desconectado: conecte em WhatsApp → Conexão, ou use "Abrir no meu WhatsApp".',
         );
       }
       throw e;
