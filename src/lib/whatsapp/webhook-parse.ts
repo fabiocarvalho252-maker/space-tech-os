@@ -29,7 +29,30 @@ export type MensagemWebhook = {
   /** Quando foi enviada no WhatsApp (ISO). Chega atrasada quando a sessão
    * trava; null se o horário vier ausente ou absurdo. */
   enviadaEm: string | null;
+  /** Evento que não é mensagem nova (reação, edição, apagada, "aguardando
+   * mensagem", aviso de mensagens temporárias...): não entra na conversa e
+   * o robô não responde — antes cada um virava balão vazio e o robô
+   * mandava o menu de novo. */
+  semConteudo: boolean;
 };
+
+const TIPOS_SEM_CONTEUDO = new Set([
+  "protocolMessage",
+  "editedMessage",
+  "reactionMessage",
+  "encReactionMessage",
+  "placeholderMessage",
+  "pollUpdateMessage",
+  "senderKeyDistributionMessage",
+  "keepInChatMessage",
+  "pinInChatMessage",
+  "messageContextInfo",
+  "secretEncryptedMessage",
+  "unknown",
+]);
+
+/** Mensagem temporária / ver uma vez chega embrulhada: o conteúdo fica dentro. */
+const EMBRULHOS = ["ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2"];
 
 const TRINTA_DIAS_MS = 30 * 86_400_000;
 
@@ -74,14 +97,21 @@ export function lerMensagem(data: Record<string, unknown>): MensagemWebhook {
     : ((jidTelefone ?? remoteJid)?.split("@")[0]?.split(":")[0] ?? null);
 
   let mensagem = objeto(data["message"]);
+  let messageTypeBruto = texto(data["messageType"]);
+  for (const k of EMBRULHOS) {
+    const dentro = objeto(objeto(mensagem[k])["message"]);
+    if (Object.keys(dentro).length) {
+      mensagem = dentro;
+      messageTypeBruto = undefined;
+      break;
+    }
+  }
   // Documento com legenda vem embrulhado um nível a mais.
   const embrulhado = objeto(objeto(mensagem["documentWithCaptionMessage"])["message"]);
   if (embrulhado["documentMessage"]) mensagem = { ...mensagem, ...embrulhado };
 
   const messageType =
-    texto(data["messageType"]) ??
-    Object.keys(mensagem).find((k) => tipoDaMensagemWhatsapp(k) !== null) ??
-    "";
+    messageTypeBruto ?? Object.keys(mensagem).find((k) => tipoDaMensagemWhatsapp(k) !== null) ?? "";
   const tipoMidia = tipoDaMensagemWhatsapp(messageType);
   const subtipo = objeto(
     mensagem[messageType === "documentWithCaptionMessage" ? "documentMessage" : messageType],
@@ -120,7 +150,19 @@ export function lerMensagem(data: Record<string, unknown>): MensagemWebhook {
       : null,
     respostaA,
     enviadaEm: lerHorarioEnvio(data["messageTimestamp"]),
+    semConteudo:
+      !corpo &&
+      !tipoMidia &&
+      (TIPOS_SEM_CONTEUDO.has(messageType) ||
+        Object.keys(mensagem).every((k) => TIPOS_SEM_CONTEUDO.has(k))),
   };
+}
+
+/** messages.delete: a chave da mensagem apagada "para todos". */
+export function lerApagada(data: Record<string, unknown>): { id: string; fromMe: boolean } | null {
+  const key = data["key"] ? objeto(data["key"]) : data;
+  const id = texto(key["id"]) ?? texto(data["keyId"]);
+  return id ? { id, fromMe: key["fromMe"] === true } : null;
 }
 
 export type StatusWebhook = { id: string; entrega: "entregue" | "lido" };

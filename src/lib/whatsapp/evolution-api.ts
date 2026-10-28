@@ -79,10 +79,12 @@ async function chamar<T>(
   return (await res.json()) as T;
 }
 
-// MESSAGES_UPDATE traz entregue/lido para a Central de WhatsApp.
+// MESSAGES_UPDATE traz entregue/lido para a Central de WhatsApp;
+// MESSAGES_DELETE avisa quando a loja apaga uma mensagem (pausa o robô).
 const WEBHOOK_EVENTOS = [
   "MESSAGES_UPSERT",
   "MESSAGES_UPDATE",
+  "MESSAGES_DELETE",
   "CONNECTION_UPDATE",
   "QRCODE_UPDATED",
 ];

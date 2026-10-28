@@ -622,6 +622,10 @@ function descreverEvento(tipo: string, autor: string, detalhes: unknown, equipe:
       return "Robô pausado: muitas mensagens seguidas nesta conversa";
     case "robo_pausado":
       return `${autor} pausou o robô nesta conversa`;
+    case "robo_apagada":
+      return d["robo"] === "sim"
+        ? "Robô pausado: a loja apagou uma mensagem dele no celular"
+        : "Robô pausado: a loja apagou uma mensagem no celular";
     case "robo_retomado":
       return `${autor} religou o robô nesta conversa`;
     default:
@@ -1311,6 +1315,45 @@ export async function definirRoboConversa(
     .eq("id", conversaId);
   if (error) throw error;
   await registrarEvento(empresaId, conversaId, ator.id, ativo ? "robo_retomado" : "robo_pausado");
+}
+
+/**
+ * A loja apagou "para todos", no celular, uma mensagem que saiu deste
+ * WhatsApp: o robô fica pausado nessa conversa até alguém religar.
+ */
+export async function pausarRoboPorMensagemApagada(
+  instanceName: string,
+  messageId: string,
+): Promise<void> {
+  const { data: conexao } = await supabaseAdmin
+    .from("whatsapp_connections")
+    .select("user_id")
+    .eq("instance_name", instanceName)
+    .maybeSingle();
+  if (!conexao) return;
+  const { data: msg } = await supabaseAdmin
+    .from("whatsapp_messages")
+    .select("conversa_id, template_id")
+    .eq("user_id", conexao.user_id)
+    .eq("evolution_message_id", messageId)
+    .eq("direction", "outbound")
+    .maybeSingle();
+  if (!msg?.conversa_id) return;
+  const { data: pausada } = await supabaseAdmin
+    .from("whatsapp_conversas")
+    .update({ robo_pausado_ate: "infinity", robo_etapa: null, robo_dados: {} })
+    .eq("user_id", conexao.user_id)
+    .eq("id", msg.conversa_id)
+    .or("robo_pausado_ate.is.null,robo_pausado_ate.neq.infinity")
+    .select("id");
+  if (!pausada?.length) return;
+  await supabaseAdmin.from("whatsapp_conversa_eventos").insert({
+    user_id: conexao.user_id,
+    conversa_id: msg.conversa_id,
+    autor_id: null,
+    tipo: "robo_apagada",
+    detalhes: { robo: msg.template_id?.startsWith("robo_") ? "sim" : "nao" },
+  });
 }
 
 /** Robô de atendimento ligado na empresa (mostra o controle por conversa). */

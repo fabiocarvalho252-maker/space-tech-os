@@ -4,7 +4,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chaveTelefone, formatarTelefone, paraE164BR } from "../src/lib/whatsapp/telefone.ts";
 import { detectarFormato, nomeSeguro, validarAnexo } from "../src/lib/whatsapp/midia.ts";
-import { lerHorarioEnvio, lerMensagem, lerStatus } from "../src/lib/whatsapp/webhook-parse.ts";
+import {
+  lerApagada,
+  lerHorarioEnvio,
+  lerMensagem,
+  lerStatus,
+} from "../src/lib/whatsapp/webhook-parse.ts";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 const ascii = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
@@ -83,6 +88,53 @@ test("lerMensagem: grupo não vira conversa", () => {
     message: { conversation: "oi" },
   });
   assert.equal(m.numero, null);
+});
+
+test("lerMensagem: reação, edição e 'aguardando mensagem' não são mensagem nova", () => {
+  const key = { id: "R", fromMe: false, remoteJid: "5574998125994@s.whatsapp.net" };
+  const reacao = lerMensagem({
+    key,
+    messageType: "reactionMessage",
+    message: { reactionMessage: { key: { id: "X" }, text: "❤️" } },
+  });
+  const edicao = lerMensagem({
+    key,
+    messageType: "protocolMessage",
+    message: { protocolMessage: { type: 14, editedMessage: { conversation: "Oi boa tarde" } } },
+  });
+  const temporarias = lerMensagem({
+    key,
+    message: { protocolMessage: { type: 3, ephemeralExpiration: 0 } },
+  });
+  const aguardando = lerMensagem({
+    key,
+    messageType: "placeholderMessage",
+    message: { messageContextInfo: { threadId: [] } },
+  });
+  for (const m of [reacao, edicao, temporarias, aguardando]) assert.equal(m.semConteudo, true);
+  const texto = lerMensagem({ key, message: { conversation: "4" } });
+  const audio = lerMensagem({ key, messageType: "audioMessage", message: { audioMessage: {} } });
+  assert.equal(texto.semConteudo, false);
+  assert.equal(audio.semConteudo, false);
+});
+
+test("lerMensagem: mensagem temporária é desembrulhada", () => {
+  const m = lerMensagem({
+    key: { id: "E", fromMe: false, remoteJid: "5574998125994@s.whatsapp.net" },
+    messageType: "ephemeralMessage",
+    message: { ephemeralMessage: { message: { extendedTextMessage: { text: "2" } } } },
+  });
+  assert.equal(m.texto, "2");
+  assert.equal(m.semConteudo, false);
+});
+
+test("lerApagada: chave da mensagem apagada", () => {
+  assert.deepEqual(lerApagada({ id: "A1", fromMe: true, remoteJid: "x@s.whatsapp.net" }), {
+    id: "A1",
+    fromMe: true,
+  });
+  assert.deepEqual(lerApagada({ key: { id: "A2", fromMe: false } }), { id: "A2", fromMe: false });
+  assert.equal(lerApagada({}), null);
 });
 
 test("lerMensagem: @lid usa o número real", () => {

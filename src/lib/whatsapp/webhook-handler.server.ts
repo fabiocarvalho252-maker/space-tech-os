@@ -18,12 +18,13 @@ import {
 import {
   aplicarStatusEntrega,
   guardarMidiaRecebida,
+  pausarRoboPorMensagemApagada,
   registrarEnviadaPeloCelular,
   tratarPedidoParar,
 } from "./central.server";
 import { foiEnviadoPorEsteServidor } from "./evolution-api";
 import { processarMensagemRobo } from "./robo.server";
-import { lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
+import { lerApagada, lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
 import {
   SYSTEM_INSTANCE_NAME,
   aplicarAtualizacaoWebhookSistema,
@@ -75,7 +76,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
       const mensagem = lerMensagem(objeto(raiz["data"]));
       // Grupos, status e canais não são conversa com cliente — só enchiam a
       // tabela (eram ~86% das mensagens guardadas) e a lista de recentes.
-      if (!mensagem.numero) {
+      if (!mensagem.numero || mensagem.semConteudo) {
         return new Response("ok", { status: 200 });
       }
       if (mensagem.fromMe) {
@@ -124,6 +125,11 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         temMidia: !!mensagem.midia,
         enviadaEm: mensagem.enviadaEm,
       });
+    } else if (event.toUpperCase().includes("MESSAGES_DELETE") || event === "messages.delete") {
+      // A loja apagou "para todos", no celular, uma mensagem da conversa
+      // (em geral a do robô): é sinal de que ela quer o robô quieto ali.
+      const apagada = lerApagada(objeto(raiz["data"]));
+      if (apagada?.fromMe) await pausarRoboPorMensagemApagada(instanceName, apagada.id);
     } else if (event.toUpperCase().includes("MESSAGES_UPDATE") || event === "messages.update") {
       // Entregue/lido. Pode vir um objeto ou uma lista, conforme a versão.
       const data = raiz["data"];
