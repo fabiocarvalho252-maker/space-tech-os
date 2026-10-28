@@ -46,6 +46,8 @@ export type NovaCobrancaInput = {
   crediarioParcelaId?: string;
   /** Padrão: 30 minutos. */
   expiraEm?: Date;
+  /** Data (AAAA-MM-DD) em que o cliente deve pagar. Padrão: hoje (Brasília). */
+  vencimento?: string | undefined;
   descricao?: string;
 };
 
@@ -82,6 +84,7 @@ export async function criarCobrancaPix(input: NovaCobrancaInput): Promise<Cobran
       venda_id: input.vendaId,
       crediario_parcela_id: input.crediarioParcelaId ?? null,
       valor: input.valor,
+      ...(input.vencimento ? { vencimento: input.vencimento } : {}),
       status: "pendente",
     })
     .select("id")

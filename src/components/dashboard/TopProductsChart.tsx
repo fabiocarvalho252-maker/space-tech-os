@@ -1,43 +1,55 @@
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 
-export type ItemRanking = { nome: string; quantidade: number };
+export type ItemRanking = { nome: string; quantidade: number; faturamento: number; margem: number };
 
-const config: ChartConfig = {
-  quantidade: { label: "Quantidade", color: "#818CF8" },
-};
-
-// No celular o gráfico de barras deitadas ficava espremido (160 px só de
-// rótulo); lá vira uma lista com a quantidade e uma barra fina de fundo.
+// Ranking com quantidade, faturamento e margem. A barra fina de fundo mostra a
+// quantidade relativa ao 1º colocado; no celular as colunas de valor ficam
+// empilhadas embaixo do nome para não espremer o texto.
 export function RankingLista({ itens, cor }: { itens: ItemRanking[]; cor: string }) {
-  const max = Math.max(...itens.map((i) => i.quantidade), 1);
+  const { formatFinancialValue: brl } = useFinancialVisibility();
+  const lista = itens.slice(0, 10);
+  const max = Math.max(...lista.map((i) => i.quantidade), 1);
   return (
-    <ol className="space-y-1">
-      {itens.slice(0, 10).map((i, idx) => (
-        <li key={i.nome} className="relative overflow-hidden rounded-md px-2.5 py-1.5 text-[13px]">
-          <span
-            className="absolute inset-y-0 left-0 opacity-15"
-            style={{ width: `${(i.quantidade / max) * 100}%`, background: cor }}
-          />
-          <span className="relative flex items-center gap-2">
-            <span className="w-5 shrink-0 text-xs font-bold text-muted-foreground">{idx + 1}.</span>
-            <span className="min-w-0 flex-1 truncate">{i.nome}</span>
-            <span className="shrink-0 font-bold">{i.quantidade}</span>
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div>
+      <div className="hidden px-2.5 pb-1.5 text-[11px] uppercase text-muted-foreground sm:flex sm:items-center sm:gap-2">
+        <span className="flex-1">Item</span>
+        <span className="w-12 text-right">Qtd.</span>
+        <span className="w-24 text-right">Faturamento</span>
+        <span className="w-14 text-right">Margem</span>
+      </div>
+      <ol className="space-y-1">
+        {lista.map((i, idx) => (
+          <li
+            key={i.nome}
+            className="relative overflow-hidden rounded-md px-2.5 py-1.5 text-[13px]"
+          >
+            <span
+              className="absolute inset-y-0 left-0 opacity-15"
+              style={{ width: `${(i.quantidade / max) * 100}%`, background: cor }}
+            />
+            <span className="relative flex flex-wrap items-center gap-x-2 sm:flex-nowrap">
+              <span className="w-5 shrink-0 text-xs font-bold text-muted-foreground">
+                {idx + 1}.
+              </span>
+              <span className="min-w-0 flex-1 truncate">{i.nome}</span>
+              <span className="w-12 shrink-0 text-right font-bold">{i.quantidade}</span>
+              <span className="flex w-full justify-end gap-3 pl-7 text-xs text-muted-foreground sm:w-auto sm:gap-2 sm:pl-0 sm:text-[13px]">
+                <span className="sm:w-24 sm:text-right sm:text-foreground">
+                  {brl(i.faturamento)}
+                </span>
+                <span className={`sm:w-14 sm:text-right ${i.margem < 0 ? "text-destructive" : ""}`}>
+                  {i.margem.toFixed(1)}%
+                </span>
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
 export function TopProductsChart({ itens }: { itens: ItemRanking[] }) {
-  const isMobile = useIsMobile();
   if (!itens.length) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -45,31 +57,5 @@ export function TopProductsChart({ itens }: { itens: ItemRanking[] }) {
       </p>
     );
   }
-
-  if (isMobile) return <RankingLista itens={itens} cor="#818CF8" />;
-
-  const dados = itens.slice(0, 10).map((i, idx) => ({ ...i, rotulo: `${idx + 1}. ${i.nome}` }));
-
-  return (
-    <ChartContainer config={config} className="w-full" style={{ height: dados.length * 34 + 24 }}>
-      <BarChart data={dados} layout="vertical" margin={{ left: 4, right: 16, top: 4, bottom: 4 }}>
-        <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-border/60" />
-        <XAxis type="number" hide />
-        <YAxis
-          dataKey="rotulo"
-          type="category"
-          tickLine={false}
-          axisLine={false}
-          width={160}
-          fontSize={11}
-          interval={0}
-        />
-        <ChartTooltip
-          cursor={{ fill: "var(--secondary)" }}
-          content={<ChartTooltipContent hideLabel />}
-        />
-        <Bar dataKey="quantidade" fill="#818CF8" radius={[0, 6, 6, 0]} barSize={16} />
-      </BarChart>
-    </ChartContainer>
-  );
+  return <RankingLista itens={itens} cor="#818CF8" />;
 }

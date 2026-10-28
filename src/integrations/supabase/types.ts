@@ -666,6 +666,7 @@ export type Database = {
           updated_at: string;
           user_id: string;
           valor: number;
+          vencimento: string;
           venda_id: string | null;
         };
         Insert: {
@@ -683,6 +684,7 @@ export type Database = {
           updated_at?: string;
           user_id: string;
           valor: number;
+          vencimento?: string;
           venda_id?: string | null;
         };
         Update: {
@@ -700,6 +702,7 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
           valor?: number;
+          vencimento?: string;
           venda_id?: string | null;
         };
         Relationships: [

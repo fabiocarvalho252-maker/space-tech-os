@@ -16,6 +16,7 @@ const schema = z.object({
   clienteId: z.guid().nullable(),
   osId: z.guid().nullable(),
   vendaId: z.guid().nullable(),
+  vencimento: z.iso.date().optional(),
 });
 
 export const criarCobrancaPixFn = createServerFn({ method: "POST" })
@@ -29,6 +30,7 @@ export const criarCobrancaPixFn = createServerFn({ method: "POST" })
       clienteId: data.clienteId,
       osId: data.osId,
       vendaId: data.vendaId,
+      vencimento: data.vencimento,
       origin,
     });
   });

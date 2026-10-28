@@ -127,12 +127,16 @@ function Dashboard() {
           .lte("data", fimStr),
         supabase
           .from("os_itens")
-          .select("produto_id, descricao, quantidade, tipo, created_at, ordens_servico(status)")
+          .select(
+            "produto_id, descricao, quantidade, preco_unitario, tipo, created_at, ordens_servico(status)",
+          )
           .gte("created_at", inicioTsISO)
           .lte("created_at", fimTsISO),
         supabase
           .from("venda_itens")
-          .select("produto_id, descricao, quantidade, created_at, vendas(status)")
+          .select(
+            "venda_id, produto_id, descricao, quantidade, preco_unitario, created_at, vendas(status, total)",
+          )
           .gte("created_at", inicioTsISO)
           .lte("created_at", fimTsISO),
         supabase.from("termos_garantia").select("id", { count: "exact", head: true }),
@@ -232,24 +236,70 @@ function Dashboard() {
     });
   }, [lancamentosPagos, custoPorDia, inicio, fim]);
 
+  // Mesma regra do relatório "Top 10": faturamento com o desconto da venda
+  // rateado entre os itens, margem pelo custo do cadastro, e itens de OS/venda
+  // cancelada (ou OS reprovada) fora do ranking.
   const { topProdutos, topServicos } = useMemo(() => {
-    const produtosMap = new Map<string, number>();
-    const servicosMap = new Map<string, number>();
+    type Acc = { quantidade: number; faturamento: number; custo: number };
+    const produtosMap = new Map<string, Acc>();
+    const servicosMap = new Map<string, Acc>();
+    function acumular(
+      alvo: Map<string, Acc>,
+      nome: string,
+      qtd: number,
+      valor: number,
+      custoUnit: number,
+    ) {
+      const a = alvo.get(nome) ?? { quantidade: 0, faturamento: 0, custo: 0 };
+      a.quantidade += qtd;
+      a.faturamento += valor;
+      a.custo += qtd * custoUnit;
+      alvo.set(nome, a);
+    }
 
     for (const i of data?.osItens ?? []) {
-      const alvo = i.tipo === "servico" ? servicosMap : produtosMap;
-      alvo.set(i.descricao, (alvo.get(i.descricao) ?? 0) + Number(i.quantidade));
-    }
-    for (const i of data?.vendaItens ?? []) {
+      const statusOs = i.ordens_servico?.status;
+      if (statusOs === "cancelado" || statusOs === "reprovado") continue;
       const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
-      const alvo = produto?.categoria === "Serviço" ? servicosMap : produtosMap;
-      alvo.set(i.descricao, (alvo.get(i.descricao) ?? 0) + Number(i.quantidade));
+      const qtd = Number(i.quantidade);
+      acumular(
+        i.tipo === "servico" ? servicosMap : produtosMap,
+        i.descricao,
+        qtd,
+        qtd * Number(i.preco_unitario),
+        Number(produto?.preco_custo ?? 0),
+      );
     }
 
-    const paraLista = (m: Map<string, number>): ItemRanking[] =>
+    const vendaItens = (data?.vendaItens ?? []).filter((i) => i.vendas?.status !== "cancelado");
+    const subtotalPorVenda = new Map<string, number>();
+    for (const i of vendaItens) {
+      const bruto = Number(i.quantidade) * Number(i.preco_unitario);
+      subtotalPorVenda.set(i.venda_id, (subtotalPorVenda.get(i.venda_id) ?? 0) + bruto);
+    }
+    for (const i of vendaItens) {
+      const produto = i.produto_id ? produtosById.get(i.produto_id) : null;
+      const subtotal = subtotalPorVenda.get(i.venda_id) ?? 0;
+      const fator = i.vendas && subtotal > 0 ? Number(i.vendas.total) / subtotal : 1;
+      const qtd = Number(i.quantidade);
+      acumular(
+        produto?.categoria === "Serviço" ? servicosMap : produtosMap,
+        i.descricao,
+        qtd,
+        qtd * Number(i.preco_unitario) * fator,
+        Number(produto?.preco_custo ?? 0),
+      );
+    }
+
+    const paraLista = (m: Map<string, Acc>): ItemRanking[] =>
       Array.from(m.entries())
-        .map(([nome, quantidade]) => ({ nome, quantidade }))
-        .sort((a, b) => b.quantidade - a.quantidade);
+        .map(([nome, a]) => ({
+          nome,
+          quantidade: a.quantidade,
+          faturamento: a.faturamento,
+          margem: a.faturamento > 0 ? ((a.faturamento - a.custo) / a.faturamento) * 100 : 0,
+        }))
+        .sort((a, b) => b.quantidade - a.quantidade || b.faturamento - a.faturamento);
 
     return { topProdutos: paraLista(produtosMap), topServicos: paraLista(servicosMap) };
   }, [data?.osItens, data?.vendaItens, produtosById]);

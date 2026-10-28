@@ -146,6 +146,7 @@ async function pixDaParcela(p: ParcelaCompleta, origin: string): Promise<Cobranc
     vendaId: null,
     origin,
     crediarioParcelaId: p.id,
+    vencimento: p.vencimento,
     expiraEm: expiracaoDoDia(),
     descricao: `Crediário ${numeroContrato(p.contrato.numero)} — parcela ${p.numero}/${p.contrato.numParcelas}`,
   });

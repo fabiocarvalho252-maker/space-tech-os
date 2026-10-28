@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Trash2,
   RefreshCw,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,12 +54,35 @@ export const Route = createFileRoute("/_authenticated/cobrancas")({
   component: Cobrancas,
 });
 
-const vazio = {
+const FUSO = "America/Sao_Paulo";
+
+/** Hoje em Brasília, AAAA-MM-DD (mesmo formato da coluna vencimento). */
+function hojeBR(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(new Date());
+}
+
+/** Dias entre duas datas AAAA-MM-DD (b - a). */
+function diasEntre(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+type Situacao = "pendente" | "atrasada" | "paga" | "cancelada" | "expirada";
+
+/** "Atrasada" não é gravada no banco: é uma cobrança não paga (pendente ou com
+ * o QR Pix expirado) cujo vencimento já passou. */
+function situacaoDe(c: { status: string; vencimento: string }, hoje: string): Situacao {
+  if (c.status === "paga" || c.status === "cancelada") return c.status;
+  if (c.vencimento < hoje) return "atrasada";
+  return c.status === "expirada" ? "expirada" : "pendente";
+}
+
+const vazio = () => ({
   cliente_id: "",
   valor: "",
+  vencimento: hojeBR(),
   tipo_origem: "avulsa" as "avulsa" | "os" | "venda",
   origem_id: "",
-};
+});
 
 function Cobrancas() {
   const { formatFinancialValue: brl } = useFinancialVisibility();
@@ -67,6 +91,7 @@ function Cobrancas() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
+  const [filtroStatus, setFiltroStatus] = useState<Situacao | "todas">("todas");
   const [confirmExcluir, setConfirmExcluir] = useState<{ id: string; cliente: string } | null>(
     null,
   );
@@ -81,7 +106,7 @@ function Cobrancas() {
           *,
           cliente:clientes(nome),
           os:ordens_servico(numero),
-          venda:vendas(id)
+          venda:vendas(numero)
         `,
         )
         .order("created_at", { ascending: false });
@@ -106,10 +131,51 @@ function Cobrancas() {
     enabled: !!user,
   });
 
+  // Só busca OS/vendas quando o usuário escolhe vincular; filtra pelo cliente
+  // escolhido e traz as 50 mais recentes.
+  const { data: origens = [] } = useQuery({
+    queryKey: ["cobrancas-origens", form.tipo_origem, form.cliente_id],
+    queryFn: async () => {
+      if (form.tipo_origem === "os") {
+        let q = supabase
+          .from("ordens_servico")
+          .select("id, numero, cliente:clientes(nome)")
+          .neq("status", "cancelado")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (form.cliente_id) q = q.eq("cliente_id", form.cliente_id);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data.map((o) => ({
+          id: o.id,
+          rotulo: `OS #${o.numero}${o.cliente?.nome ? ` — ${o.cliente.nome}` : ""}`,
+        }));
+      }
+      let q = supabase
+        .from("vendas")
+        .select("id, numero, total, cliente:clientes(nome)")
+        .neq("status", "cancelado")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (form.cliente_id) q = q.eq("cliente_id", form.cliente_id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data.map((v) => ({
+        id: v.id,
+        rotulo: `Venda #${v.numero}${v.cliente?.nome ? ` — ${v.cliente.nome}` : ""}`,
+      }));
+    },
+    enabled: !!user && open && form.tipo_origem !== "avulsa",
+  });
+
   const criar = useMutation({
     mutationFn: async () => {
       const valor = parseFloat(form.valor);
       if (!valor || valor <= 0) throw new Error("Informe um valor válido");
+      if (form.tipo_origem !== "avulsa" && !form.origem_id)
+        throw new Error(
+          form.tipo_origem === "os" ? "Escolha a ordem de serviço" : "Escolha a venda",
+        );
 
       return criarCobrancaPixFn({
         data: {
@@ -117,12 +183,13 @@ function Cobrancas() {
           clienteId: form.cliente_id || null,
           osId: form.tipo_origem === "os" ? form.origem_id || null : null,
           vendaId: form.tipo_origem === "venda" ? form.origem_id || null : null,
+          vencimento: form.vencimento || undefined,
         },
       });
     },
     onSuccess: () => {
       toast.success("Cobrança Pix gerada com sucesso!");
-      setForm(vazio);
+      setForm(vazio());
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["cobrancas"] });
     },
@@ -153,7 +220,12 @@ function Cobrancas() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const statusMap = {
+  const statusMap: Record<Situacao, { label: string; icon: typeof Clock; class: string }> = {
+    atrasada: {
+      label: "Atrasada",
+      icon: AlertCircle,
+      class: "bg-destructive/10 text-destructive border-destructive/20",
+    },
     pendente: {
       label: "Pendente",
       icon: Clock,
@@ -167,17 +239,40 @@ function Cobrancas() {
     cancelada: {
       label: "Cancelada",
       icon: AlertCircle,
-      class: "bg-destructive/10 text-destructive border-destructive/20",
+      class: "bg-muted text-muted-foreground border-border",
     },
     expirada: {
-      label: "Expirada",
+      label: "Pix expirado",
       icon: AlertCircle,
       class: "bg-muted text-muted-foreground border-border",
     },
   };
 
-  const filtrados = cobrancas.filter((c) =>
-    `${c.cliente?.nome || ""} ${c.os?.numero || ""}`.toLowerCase().includes(busca.toLowerCase()),
+  const hoje = hojeBR();
+  const comSituacao = useMemo(
+    () => cobrancas.map((c) => ({ ...c, situacao: situacaoDe(c, hoje) })),
+    [cobrancas, hoje],
+  );
+  const resumo = useMemo(() => {
+    const r = { pendente: 0, atrasada: 0, paga: 0, qtdAtrasada: 0 };
+    for (const c of comSituacao) {
+      const v = Number(c.valor);
+      if (c.situacao === "paga") r.paga += v;
+      else if (c.situacao === "atrasada") {
+        r.atrasada += v;
+        r.qtdAtrasada++;
+      } else if (c.situacao !== "cancelada") r.pendente += v;
+    }
+    return r;
+  }, [comSituacao]);
+
+  const termo = busca.toLowerCase();
+  const filtrados = comSituacao.filter(
+    (c) =>
+      (filtroStatus === "todas" || c.situacao === filtroStatus) &&
+      `${c.cliente?.nome || ""} ${c.os?.numero || ""} ${c.venda?.numero || ""}`
+        .toLowerCase()
+        .includes(termo),
   );
 
   return (
@@ -228,6 +323,15 @@ function Cobrancas() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <Label>Vencimento</Label>
+                  <Input
+                    type="date"
+                    value={form.vencimento}
+                    onChange={(e) => setForm({ ...form, vencimento: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <Label>Vincular a:</Label>
                   <Select
                     value={form.tipo_origem}
@@ -245,6 +349,35 @@ function Cobrancas() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {form.tipo_origem !== "avulsa" && (
+                  <div className="space-y-1.5">
+                    <Label>{form.tipo_origem === "os" ? "Ordem de serviço" : "Venda"}</Label>
+                    <Select
+                      value={form.origem_id}
+                      onValueChange={(v) => setForm({ ...form, origem_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            origens.length
+                              ? "Selecione"
+                              : form.cliente_id
+                                ? "Nada encontrado para este cliente"
+                                : "Nada encontrado"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {origens.map((o) => (
+                          <SelectItem key={o.id} value={o.id}>
+                            {o.rotulo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>
@@ -258,6 +391,40 @@ function Cobrancas() {
           </Dialog>
         }
       />
+
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { rotulo: "A receber", valor: resumo.pendente, cor: "text-amber-500" },
+          {
+            rotulo: resumo.qtdAtrasada ? `Atrasado (${resumo.qtdAtrasada})` : "Atrasado",
+            valor: resumo.atrasada,
+            cor: "text-destructive",
+          },
+          { rotulo: "Recebido", valor: resumo.paga, cor: "text-green-500" },
+        ].map((r) => (
+          <div key={r.rotulo} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
+            <p className="text-[11px] text-muted-foreground sm:text-xs">{r.rotulo}</p>
+            <p className={cn("mt-0.5 text-sm font-bold sm:text-lg", r.cor)}>{brl(r.valor)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {(["todas", "pendente", "atrasada", "paga", "expirada", "cancelada"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFiltroStatus(s)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition",
+              filtroStatus === s
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s === "todas" ? "Todas" : statusMap[s].label}
+          </button>
+        ))}
+      </div>
 
       <div className="relative max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -274,7 +441,8 @@ function Cobrancas() {
           <p>Carregando...</p>
         ) : (
           filtrados.map((c) => {
-            const status = statusMap[c.status];
+            const status = statusMap[c.situacao];
+            const diasAtraso = c.situacao === "atrasada" ? diasEntre(c.vencimento, hoje) : 0;
             return (
               <div
                 key={c.id}
@@ -289,6 +457,7 @@ function Cobrancas() {
                   >
                     <status.icon className="h-3 w-3" />
                     {status.label}
+                    {diasAtraso > 0 && ` · ${diasAtraso} ${diasAtraso === 1 ? "dia" : "dias"}`}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -334,14 +503,24 @@ function Cobrancas() {
                       )}
                       {c.os?.numero
                         ? `OS #${c.os.numero}`
-                        : c.venda_id
-                          ? `Venda #${c.venda_id.slice(0, 5)}`
+                        : c.venda?.numero
+                          ? `Venda #${c.venda.numero}`
                           : "Avulsa"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Criada em:</span>
                     <span className="font-medium">{dataBR(c.created_at)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <CalendarClock className="h-3 w-3" /> Vencimento:
+                    </span>
+                    <span
+                      className={cn("font-medium", c.situacao === "atrasada" && "text-destructive")}
+                    >
+                      {dataBR(c.vencimento)}
+                    </span>
                   </div>
                 </div>
 
@@ -386,8 +565,14 @@ function Cobrancas() {
                           <div className="text-center">
                             <p className="text-lg font-bold">{brl(c.valor)}</p>
                             <p className="text-[10px] text-muted-foreground">
-                              Vencimento:{" "}
-                              {c.expires_at ? new Date(c.expires_at).toLocaleTimeString() : "—"}
+                              QR válido até:{" "}
+                              {c.expires_at
+                                ? new Date(c.expires_at).toLocaleString("pt-BR", {
+                                    timeZone: FUSO,
+                                    dateStyle: "short",
+                                    timeStyle: "short",
+                                  })
+                                : "—"}
                             </p>
                           </div>
                           <Button
