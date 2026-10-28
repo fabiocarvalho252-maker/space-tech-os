@@ -219,10 +219,22 @@ export const TIPOS_IMPORTACAO: Record<
         sinonimos: ["estoqueminimo", "minimo", "qtdminima", "estmin"],
       },
       {
+        chave: "marca",
+        rotulo: "Marca",
+        tipo: "texto",
+        sinonimos: ["marca", "fabricante", "brand"],
+      },
+      {
+        chave: "localizacao",
+        rotulo: "Localização",
+        tipo: "texto",
+        sinonimos: ["localizacao", "local", "prateleira", "gaveta", "posicao"],
+      },
+      {
         chave: "fornecedor",
         rotulo: "Fornecedor (nome)",
         tipo: "texto",
-        sinonimos: ["fornecedor", "nomefornecedor", "marca"],
+        sinonimos: ["fornecedor", "nomefornecedor"],
       },
       {
         chave: "descricao",

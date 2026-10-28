@@ -157,7 +157,7 @@ function PDV() {
   const { data: produtos = [] } = useQuery({
     queryKey: ["pdv-itens"],
     queryFn: async () => {
-      const { data } = await supabase.from("produtos").select("*").order("nome");
+      const { data } = await supabase.from("produtos").select("*").eq("ativo", true).order("nome");
       return data ?? [];
     },
   });

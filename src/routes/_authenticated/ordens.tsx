@@ -527,9 +527,13 @@ function Ordens() {
   });
   // "produtos" mistura estoque real com o cadastro de serviços (categoria "Serviço",
   // sem controle de estoque) — separar aqui evita que serviços apareçam nos seletores de peça.
-  const pecas = useMemo(() => produtos.filter((p) => p.categoria !== "Serviço"), [produtos]);
+  // Inativos ficam fora dos seletores (os itens já lançados guardam a própria descrição).
+  const pecas = useMemo(
+    () => produtos.filter((p) => p.categoria !== "Serviço" && p.ativo),
+    [produtos],
+  );
   const servicosCadastrados = useMemo(
-    () => produtos.filter((p) => p.categoria === "Serviço"),
+    () => produtos.filter((p) => p.categoria === "Serviço" && p.ativo),
     [produtos],
   );
 

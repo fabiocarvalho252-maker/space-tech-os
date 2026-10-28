@@ -509,7 +509,10 @@ function useNotificacoes() {
     queryFn: async () => {
       const [{ data: produtos }, { count: osAguardando }, reclamacoes, pedidosPlano] =
         await Promise.all([
-          supabase.from("produtos").select("id, nome, quantidade, estoque_minimo"),
+          supabase
+            .from("produtos")
+            .select("id, nome, quantidade, estoque_minimo")
+            .eq("ativo", true),
           supabase
             .from("ordens_servico")
             .select("id", { count: "exact", head: true })

@@ -2558,6 +2558,9 @@ export type Database = {
       };
       produtos: {
         Row: {
+          ativo: boolean;
+          localizacao: string | null;
+          marca: string | null;
           categoria: string | null;
           codigo_barras: string | null;
           comissao_percentual: number;
@@ -2577,6 +2580,9 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          ativo?: boolean;
+          localizacao?: string | null;
+          marca?: string | null;
           categoria?: string | null;
           codigo_barras?: string | null;
           comissao_percentual?: number;
@@ -2596,6 +2602,9 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          ativo?: boolean;
+          localizacao?: string | null;
+          marca?: string | null;
           categoria?: string | null;
           codigo_barras?: string | null;
           comissao_percentual?: number;

@@ -115,7 +115,11 @@ function Vendas() {
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos-vendas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("produtos").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("*")
+        .eq("ativo", true)
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },

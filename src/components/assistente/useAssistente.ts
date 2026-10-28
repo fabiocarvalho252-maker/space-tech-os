@@ -160,6 +160,7 @@ export function useAssistente() {
                 .from("produtos")
                 .select("nome, quantidade, estoque_minimo")
                 .eq("user_id", id)
+                .eq("ativo", true)
                 .gt("estoque_minimo", 0)
                 .limit(1000)
             : null,

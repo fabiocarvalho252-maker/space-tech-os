@@ -16,6 +16,7 @@ import {
   Package,
   Pencil,
   Plus,
+  Power,
   Printer,
   Tag,
   Trash2,
@@ -33,6 +34,14 @@ import { SearchInput } from "@/components/SearchInput";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, TableSkeleton } from "@/components/EmptyState";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HistoricoEstoqueDialog } from "@/components/HistoricoEstoqueDialog";
 import { AjustarEstoqueDialog } from "@/components/AjustarEstoqueDialog";
@@ -62,6 +71,9 @@ type Produto = {
   preco_venda: number;
   quantidade: number;
   estoque_minimo: number;
+  marca: string | null;
+  localizacao: string | null;
+  ativo: boolean;
 };
 
 const vazio = {
@@ -73,7 +85,12 @@ const vazio = {
   preco_venda: "0",
   quantidade: "0",
   estoque_minimo: "1",
+  marca: "",
+  localizacao: "",
+  ativo: true,
 };
+
+type FiltroSituacao = "ativos" | "inativos" | "baixo" | "todos";
 
 const POR_PAGINA = 15;
 type Ordenacao = { campo: "nome" | "preco_venda" | "quantidade"; direcao: "asc" | "desc" };
@@ -160,6 +177,9 @@ function Estoque() {
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>({ campo: "nome", direcao: "asc" });
   const [pagina, setPagina] = useState(1);
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroMarca, setFiltroMarca] = useState("todas");
+  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("ativos");
 
   const {
     data: produtos = [],
@@ -212,6 +232,9 @@ function Estoque() {
       preco_venda: String(p.preco_venda),
       quantidade: String(p.quantidade),
       estoque_minimo: String(p.estoque_minimo),
+      marca: p.marca ?? "",
+      localizacao: p.localizacao ?? "",
+      ativo: p.ativo,
     });
     setProdutoAtual(p);
     setModo("editar");
@@ -261,6 +284,9 @@ function Estoque() {
         preco_venda: Number(form.preco_venda) || 0,
         quantidade: Number(form.quantidade) || 0,
         estoque_minimo: Number(form.estoque_minimo) || 0,
+        marca: form.marca.trim() || null,
+        localizacao: form.localizacao.trim() || null,
+        ativo: form.ativo,
       };
 
       if (produtoAtual) {
@@ -293,11 +319,26 @@ function Estoque() {
         preco_venda: p.preco_venda,
         quantidade: 0,
         estoque_minimo: p.estoque_minimo,
+        marca: p.marca,
+        localizacao: p.localizacao,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Produto duplicado");
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const alternarAtivo = useMutation({
+    mutationFn: async (p: Produto) => {
+      const { error } = await supabase.from("produtos").update({ ativo: !p.ativo }).eq("id", p.id);
+      if (error) throw error;
+      return !p.ativo;
+    },
+    onSuccess: (ativo) => {
+      toast.success(ativo ? "Produto reativado" : "Produto desativado");
       qc.invalidateQueries({ queryKey: ["produtos"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -316,15 +357,38 @@ function Estoque() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const baixoEstoque = produtos.filter((p) => p.quantidade <= p.estoque_minimo);
+  const baixoEstoque = produtos.filter((p) => p.ativo && p.quantidade <= p.estoque_minimo);
+
+  const categorias = useMemo(
+    () =>
+      Array.from(new Set(produtos.map((p) => p.categoria).filter((c): c is string => !!c))).sort(),
+    [produtos],
+  );
+  const marcas = useMemo(
+    () =>
+      Array.from(
+        new Set(produtos.map((p) => p.marca?.trim()).filter((m): m is string => !!m)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [produtos],
+  );
 
   const filtrados = useMemo(() => {
-    const lista = produtos.filter(
-      (p) =>
-        p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(busca.toLowerCase())) ||
-        (!!p.codigo_barras && p.codigo_barras.includes(busca.trim())),
-    );
+    const termo = busca.toLowerCase();
+    const lista = produtos.filter((p) => {
+      if (filtroSituacao === "ativos" && !p.ativo) return false;
+      if (filtroSituacao === "inativos" && p.ativo) return false;
+      if (filtroSituacao === "baixo" && !(p.ativo && p.quantidade <= p.estoque_minimo))
+        return false;
+      if (filtroCategoria !== "todas" && p.categoria !== filtroCategoria) return false;
+      if (filtroMarca !== "todas" && p.marca?.trim() !== filtroMarca) return false;
+      return (
+        p.nome.toLowerCase().includes(termo) ||
+        (!!p.sku && p.sku.toLowerCase().includes(termo)) ||
+        (!!p.marca && p.marca.toLowerCase().includes(termo)) ||
+        (!!p.localizacao && p.localizacao.toLowerCase().includes(termo)) ||
+        (!!p.codigo_barras && p.codigo_barras.includes(busca.trim()))
+      );
+    });
     const dir = ordenacao.direcao === "asc" ? 1 : -1;
     return [...lista].sort((a, b) => {
       const av = a[ordenacao.campo];
@@ -332,7 +396,7 @@ function Estoque() {
       if (typeof av === "string") return av.localeCompare(bv as string) * dir;
       return ((av as number) - (bv as number)) * dir;
     });
-  }, [produtos, busca, ordenacao]);
+  }, [produtos, busca, ordenacao, filtroSituacao, filtroCategoria, filtroMarca]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -392,9 +456,41 @@ function Estoque() {
           setBusca(v);
           setPagina(1);
         }}
-        placeholder="Buscar por nome ou SKU..."
-        className="mb-4 max-w-md"
+        placeholder="Buscar por nome, SKU, marca ou localização..."
+        className="mb-3 max-w-md"
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <FiltroSelect
+          value={filtroSituacao}
+          onChange={(v) => {
+            setFiltroSituacao(v as FiltroSituacao);
+            setPagina(1);
+          }}
+          opcoes={[
+            ["ativos", "Ativos"],
+            ["baixo", "Estoque baixo"],
+            ["inativos", "Inativos"],
+            ["todos", "Todos"],
+          ]}
+        />
+        <FiltroSelect
+          value={filtroCategoria}
+          onChange={(v) => {
+            setFiltroCategoria(v);
+            setPagina(1);
+          }}
+          opcoes={[["todas", "Todas as categorias"], ...categorias.map((c) => [c, c] as const)]}
+        />
+        <FiltroSelect
+          value={filtroMarca}
+          onChange={(v) => {
+            setFiltroMarca(v);
+            setPagina(1);
+          }}
+          opcoes={[["todas", "Todas as marcas"], ...marcas.map((m) => [m, m] as const)]}
+        />
+      </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
         <table className="w-full min-w-[720px] text-sm">
@@ -460,15 +556,26 @@ function Estoque() {
               visiveis.map((p) => {
                 const situacao = situacaoEstoque(p);
                 return (
-                  <tr key={p.id} className="hover:bg-secondary/30">
+                  <tr key={p.id} className={`hover:bg-secondary/30 ${p.ativo ? "" : "opacity-60"}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
                           <Package className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{p.nome}</p>
-                          <p className="text-xs text-muted-foreground">{p.sku || "Sem SKU"}</p>
+                          <p className="truncate font-medium">
+                            {p.nome}
+                            {!p.ativo && (
+                              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                                Inativo
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {[p.marca, p.sku || "Sem SKU", p.localizacao && `📍 ${p.localizacao}`]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -511,6 +618,12 @@ function Estoque() {
                         </IconAction>
                         <IconAction label="Editar" onClick={() => abrirEditar(p)}>
                           <Pencil className="h-4 w-4" />
+                        </IconAction>
+                        <IconAction
+                          label={p.ativo ? "Desativar" : "Reativar"}
+                          onClick={() => alternarAtivo.mutate(p)}
+                        >
+                          <Power className={`h-4 w-4 ${p.ativo ? "" : "text-emerald-600"}`} />
                         </IconAction>
                         <IconAction
                           label="Excluir"
@@ -579,6 +692,19 @@ function Estoque() {
               list="categorias-produto"
             />
             <Campo
+              label="Marca"
+              value={form.marca}
+              onChange={(v) => setForm({ ...form, marca: v })}
+              list="marcas-produto"
+              placeholder="Ex.: Samsung, Apple, Genérica"
+            />
+            <Campo
+              label="Localização"
+              value={form.localizacao}
+              onChange={(v) => setForm({ ...form, localizacao: v })}
+              placeholder="Ex.: Gaveta 3, Prateleira B"
+            />
+            <Campo
               label="Quantidade"
               type="number"
               value={form.quantidade}
@@ -602,6 +728,18 @@ function Estoque() {
               value={form.estoque_minimo}
               onChange={(v) => setForm({ ...form, estoque_minimo: v })}
             />
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 sm:col-span-2">
+              <span>
+                <span className="block text-sm font-medium">Produto ativo</span>
+                <span className="block text-xs text-muted-foreground">
+                  Inativo não aparece no PDV, nas vendas, na OS nem nas compras.
+                </span>
+              </span>
+              <Switch
+                checked={form.ativo}
+                onCheckedChange={(v) => setForm({ ...form, ativo: v })}
+              />
+            </label>
           </div>
           <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
             {salvar.isPending ? "Salvando..." : "Salvar produto"}
@@ -612,6 +750,11 @@ function Estoque() {
       <datalist id="categorias-produto">
         {categoriasProduto.map((c) => (
           <option key={c.id} value={c.nome} />
+        ))}
+      </datalist>
+      <datalist id="marcas-produto">
+        {marcas.map((m) => (
+          <option key={m} value={m} />
         ))}
       </datalist>
 
@@ -625,6 +768,9 @@ function Estoque() {
               <Info label="SKU" value={produtoAtual.sku || "—"} />
               <Info label="Código de barras" value={produtoAtual.codigo_barras || "—"} />
               <Info label="Categoria" value={produtoAtual.categoria || "Sem categoria"} />
+              <Info label="Marca" value={produtoAtual.marca || "—"} />
+              <Info label="Localização" value={produtoAtual.localizacao || "—"} />
+              <Info label="Situação" value={produtoAtual.ativo ? "Ativo" : "Inativo"} />
               <Info label="Preço de custo" value={brl(produtoAtual.preco_custo)} />
               <Info label="Preço de venda" value={brl(produtoAtual.preco_venda)} />
               <Info label="Quantidade em estoque" value={String(produtoAtual.quantidade)} />
@@ -642,7 +788,9 @@ function Estoque() {
         onOpenChange={(v) => !v && setConfirmExcluir(null)}
         title="Deseja realmente excluir este produto?"
         description={
-          confirmExcluir ? `"${confirmExcluir.nome}" será removido permanentemente.` : ""
+          confirmExcluir
+            ? `"${confirmExcluir.nome}" será removido permanentemente. Para tirar das vendas sem perder o histórico, prefira Desativar.`
+            : ""
         }
         confirmLabel="Excluir"
         destructive
@@ -702,6 +850,31 @@ function IconAction({
     >
       {children}
     </button>
+  );
+}
+
+function FiltroSelect({
+  value,
+  onChange,
+  opcoes,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  opcoes: (readonly [string, string])[];
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-auto min-w-[150px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {opcoes.map(([v, rotulo]) => (
+          <SelectItem key={v} value={v}>
+            {rotulo}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

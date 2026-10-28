@@ -236,6 +236,8 @@ export const importarLote = createServerFn({ method: "POST" })
               preco_venda: Math.max(0, Number(d["preco_venda"] ?? 0)),
               quantidade: Math.max(0, Number(d["quantidade"] ?? 0)),
               estoque_minimo: Math.max(0, Number(d["estoque_minimo"] ?? 0)),
+              marca: (d["marca"] as string | null) ?? null,
+              localizacao: (d["localizacao"] as string | null) ?? null,
               descricao: (d["descricao"] as string | null) ?? null,
               fornecedor_id: fornecedor ?? null,
             };

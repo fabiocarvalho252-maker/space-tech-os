@@ -333,7 +333,7 @@ function Relatorios() {
     const despesaTotal = saidas + custoServicos;
 
     const faturamentoVendas = vendasValidas.reduce((s, v) => s + Number(v.total), 0);
-    const baixoEstoque = d.produtos.filter((p) => p.quantidade <= p.estoque_minimo);
+    const baixoEstoque = d.produtos.filter((p) => p.ativo && p.quantidade <= p.estoque_minimo);
     const valorEstoque = d.produtos.reduce((s, p) => s + p.quantidade * Number(p.preco_custo), 0);
 
     const valorComprasAparelhos = d.comprasAparelhos.reduce((s, c) => s + Number(c.valor_pago), 0);

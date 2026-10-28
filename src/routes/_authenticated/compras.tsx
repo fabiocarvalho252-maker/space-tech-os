@@ -125,6 +125,7 @@ function Compras() {
         .from("produtos")
         .select("id, nome, preco_custo, quantidade")
         .neq("categoria", "Serviço")
+        .eq("ativo", true)
         .order("nome");
       if (error) throw error;
       return data;
