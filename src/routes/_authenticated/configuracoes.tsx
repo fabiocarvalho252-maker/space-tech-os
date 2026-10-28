@@ -2028,7 +2028,8 @@ function Configuracoes() {
                           id: "lembrete_tecnico",
                           label: "Equipe: Lembrete de visita/entrega ao técnico",
                           key: "lembrete_tecnico",
-                          uso: "breve",
+                          textoKey: "lembrete_tecnico_texto",
+                          uso: "auto",
                         },
                       ].map((item) => (
                         <details
@@ -2188,7 +2189,12 @@ function Configuracoes() {
                                     }}
                                   />
                                   <p className="text-[10px] text-muted-foreground">
-                                    {item.key.startsWith("notif_cobranca_") ? (
+                                    {item.key === "lembrete_tecnico" ? (
+                                      <>
+                                        Variáveis disponíveis: {"{{tecnico}}"}, {"{{loja}}"}. A
+                                        lista de OS e visitas do dia vem logo abaixo do texto.
+                                      </>
+                                    ) : item.key.startsWith("notif_cobranca_") ? (
                                       <>
                                         Variáveis disponíveis: {"{{cliente}}"}, {"{{valor}}"},{" "}
                                         {item.key === "notif_cobranca_lembrete_auto" && (
@@ -2257,6 +2263,15 @@ function Configuracoes() {
                                   pela fila. Se a cobrança for paga ou cancelada antes de a mensagem
                                   sair, ela não é enviada. Só vale para cobranças criadas depois de
                                   ligar. Parcelas do Crediário têm avisos próprios.
+                                </p>
+                              )}
+                              {item.key === "lembrete_tecnico" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  A partir das 8h, uma vez por dia, cada pessoa da equipe recebe no
+                                  WhatsApp do próprio perfil a agenda do dia marcada no nome dela e
+                                  as OS em que é a responsável com entrega prevista para hoje. Quem
+                                  não tem nada no dia não recebe. Precisa do WhatsApp da loja
+                                  conectado e do WhatsApp de cada pessoa no perfil (Minha conta).
                                 </p>
                               )}
                               {item.key === "notif_cobranca_atraso_auto" && (

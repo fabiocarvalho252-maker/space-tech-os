@@ -26,6 +26,7 @@ import type { JsonValue, WhatsappAnexoRegistro, WhatsappConexao, WhatsappMensage
 import { avaliarRespostaPesquisa, escreverPesquisaPosOs } from "./ia-pesquisa.server";
 import { chaveAutomacao } from "./automacoes";
 import { enviarAutomacoesCobranca, impedimentoCobranca } from "./cobranca-whatsapp.server";
+import { enviarLembretesTecnicos } from "./lembrete-tecnico.server";
 
 export class WhatsappNaoConfiguradoError extends Error {
   constructor() {
@@ -688,6 +689,7 @@ export async function rodarAutomacoes(empresaId: string): Promise<void> {
   await enviarBoasVindas(empresaId);
   await enviarAutomacoesCobranca(empresaId);
   await enviarRelatorioSemanal(empresaId);
+  await enviarLembretesTecnicos(empresaId);
 }
 
 export async function listarMensagensRecentes(
