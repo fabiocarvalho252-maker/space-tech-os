@@ -61,6 +61,7 @@ import {
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { PreferenciasAssistente } from "@/components/assistente/PreferenciasAssistente";
+import { RoboWhatsappCard } from "@/components/whatsapp/RoboWhatsappCard";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { brl, dataBR, STATUS_OS, STATUS_VENDAS, STATUS_COMPRAS } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1820,6 +1821,8 @@ function Configuracoes() {
                     </p>
                   </div>
                 </div>
+
+                <RoboWhatsappCard />
 
                 {/* Mensagens e automações */}
                 <div className="space-y-4">

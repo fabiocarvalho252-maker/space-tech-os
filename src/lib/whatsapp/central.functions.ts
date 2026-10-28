@@ -47,10 +47,11 @@ export const acessoCentralFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { empresaId, ator } = await acesso(context, "ver");
-    const [podeResponder, verOrdens, equipe] = await Promise.all([
+    const [podeResponder, verOrdens, equipe, roboAtivo] = await Promise.all([
       pode(context, empresaId, "whatsapp", "gerenciar"),
       pode(context, empresaId, "ordens"),
       central.listarEquipe(empresaId),
+      central.roboAtivoNaEmpresa(empresaId),
     ]);
     return {
       euId: ator.id,
@@ -58,6 +59,7 @@ export const acessoCentralFn = createServerFn({ method: "GET" })
       podeResponder,
       verOrdens,
       equipe,
+      roboAtivo,
       maxAnexoMb: Math.round(central.midiaMaxBytes() / 1024 / 1024),
     };
   });
@@ -137,6 +139,7 @@ const acaoSchema = z.discriminatedUnion("acao", [
   z.object({ acao: z.literal("transferir"), conversaId: id, paraId: id }),
   z.object({ acao: z.literal("vincular"), conversaId: id, clienteId: id.nullable() }),
   z.object({ acao: z.literal("opt_out"), conversaId: id, ativo: z.boolean() }),
+  z.object({ acao: z.literal("robo"), conversaId: id, ativo: z.boolean() }),
   z.object({
     acao: z.literal("detalhes"),
     conversaId: id,
@@ -166,6 +169,8 @@ export const acaoConversaFn = createServerFn({ method: "POST" })
         return central.vincularCliente(empresaId, ator, data.conversaId, data.clienteId);
       case "opt_out":
         return central.definirOptOut(empresaId, ator, data.conversaId, data.ativo);
+      case "robo":
+        return central.definirRoboConversa(empresaId, ator, data.conversaId, data.ativo);
       case "detalhes":
         return central.alterarDetalhes(empresaId, ator, data.conversaId, {
           ...(data.prioridade ? { prioridade: data.prioridade } : {}),

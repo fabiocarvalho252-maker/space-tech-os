@@ -449,7 +449,8 @@ function Bolha({
       >
         {automatica && (
           <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500">
-            <Bot className="h-3.5 w-3.5" /> Mensagem automática
+            <Bot className="h-3.5 w-3.5" />{" "}
+            {m.template_id?.startsWith("robo_") ? "Robô de atendimento" : "Mensagem automática"}
           </p>
         )}
         {saida && m.origem === "celular" && (

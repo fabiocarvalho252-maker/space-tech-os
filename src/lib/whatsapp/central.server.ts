@@ -69,6 +69,8 @@ export type Conversa = {
   ultima_direcao: "inbound" | "outbound" | null;
   /** Cliente pediu PARAR: não recebe automáticas (atendimento normal continua). */
   opt_out_em: string | null;
+  /** Robô de atendimento quieto nesta conversa até essa hora ("infinity" = até religar). */
+  robo_pausado_ate: string | null;
   foto_url: string | null;
 };
 
@@ -103,7 +105,7 @@ export class ConversaError extends Error {
 }
 
 const CAMPOS_CONVERSA =
-  "id, phone_number, contact_name, cliente_id, status, atribuida_a, prioridade, etiquetas, nao_lidas, ultima_mensagem_em, ultima_mensagem_preview, ultima_direcao, opt_out_em, foto_url, foto_atualizada_em, clientes(nome)";
+  "id, phone_number, contact_name, cliente_id, status, atribuida_a, prioridade, etiquetas, nao_lidas, ultima_mensagem_em, ultima_mensagem_preview, ultima_direcao, opt_out_em, robo_pausado_ate, foto_url, foto_atualizada_em, clientes(nome)";
 
 type ConversaRow = Omit<Conversa, "cliente_nome"> & {
   clientes: { nome: string } | null;
@@ -610,13 +612,28 @@ function descreverEvento(tipo: string, autor: string, detalhes: unknown, equipe:
       return d["origem"] === "cliente"
         ? "O cliente pediu VOLTAR (mensagens automáticas de novo)"
         : `${autor} religou as mensagens automáticas`;
+    case "robo_atendente":
+      return d["motivo"] === "nao_entendeu"
+        ? "Robô não entendeu o cliente e chamou um atendente"
+        : "Cliente pediu um atendente pelo robô";
+    case "robo_orcamento":
+      return `Robô anotou pedido de orçamento: ${d["aparelho"] ?? ""} — ${d["defeito"] ?? ""}`;
+    case "robo_limite":
+      return "Robô pausado: muitas mensagens seguidas nesta conversa";
+    case "robo_pausado":
+      return `${autor} pausou o robô nesta conversa`;
+    case "robo_retomado":
+      return `${autor} religou o robô nesta conversa`;
     default:
       return `${autor}: ${tipo}`;
   }
 }
 
 /** Clientes da empresa com o mesmo telefone (DDD + 8 dígitos). Nunca casa por nome. */
-async function clientesComTelefone(empresaId: string, numero: string): Promise<ClienteCandidato[]> {
+export async function clientesComTelefone(
+  empresaId: string,
+  numero: string,
+): Promise<ClienteCandidato[]> {
   const chave = chaveTelefone(numero);
   if (chave.length < 8) return [];
   const { data } = await supabaseAdmin
@@ -1272,6 +1289,37 @@ export async function definirOptOut(
   await registrarEvento(empresaId, conversaId, ator.id, optOut ? "opt_out" : "opt_in", {
     origem: "atendente",
   });
+}
+
+/** Pausa (até religar) ou religa o robô de atendimento nesta conversa. */
+export async function definirRoboConversa(
+  empresaId: string,
+  ator: Ator,
+  conversaId: string,
+  ativo: boolean,
+): Promise<void> {
+  await obterConversaRow(empresaId, conversaId);
+  const { error } = await supabaseAdmin
+    .from("whatsapp_conversas")
+    .update(
+      ativo
+        ? { robo_pausado_ate: null, robo_etapa: null, robo_dados: {} }
+        : { robo_pausado_ate: "infinity" },
+    )
+    .eq("user_id", empresaId)
+    .eq("id", conversaId);
+  if (error) throw error;
+  await registrarEvento(empresaId, conversaId, ator.id, ativo ? "robo_retomado" : "robo_pausado");
+}
+
+/** Robô de atendimento ligado na empresa (mostra o controle por conversa). */
+export async function roboAtivoNaEmpresa(empresaId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("whatsapp_config")
+    .select("robo_ativo")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  return !!data?.robo_ativo;
 }
 
 // O que já estava na fila para o contato também não sai.

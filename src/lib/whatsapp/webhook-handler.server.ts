@@ -22,6 +22,7 @@ import {
   tratarPedidoParar,
 } from "./central.server";
 import { foiEnviadoPorEsteServidor } from "./evolution-api";
+import { processarMensagemRobo } from "./robo.server";
 import { lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
 import {
   SYSTEM_INSTANCE_NAME,
@@ -113,6 +114,14 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         }),
       });
       await tratarPedidoParar({ instanceName, numero: mensagem.numero, texto: mensagem.texto });
+      // Robô de atendimento (se ligado): responde depois do 200, como a IA da
+      // pesquisa — o envio leva alguns segundos e o Evolution não espera.
+      void processarMensagemRobo({
+        instanceName,
+        numero: mensagem.numero,
+        texto: mensagem.texto,
+        temMidia: !!mensagem.midia,
+      });
     } else if (event.toUpperCase().includes("MESSAGES_UPDATE") || event === "messages.update") {
       // Entregue/lido. Pode vir um objeto ou uma lista, conforme a versão.
       const data = raiz["data"];

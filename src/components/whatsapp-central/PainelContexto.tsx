@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
+  Bot,
   ChevronRight,
   ClipboardList,
   History,
@@ -58,6 +59,8 @@ export type AcessoCentral = {
   verOrdens: boolean;
   equipe: Membro[];
   maxAnexoMb: number;
+  /** Robô de atendimento ligado na empresa. */
+  roboAtivo: boolean;
 };
 
 /** Conversa + contexto (cliente, OS, eventos) + ações, compartilhados pelas seções. */
@@ -88,6 +91,40 @@ export function useDadosConversa(conversaId: string) {
 }
 
 type Dados = ReturnType<typeof useDadosConversa>;
+
+/** Liga/pausa o robô de atendimento só nesta conversa. */
+function ControleRobo({
+  c,
+  conversaId,
+  acao,
+}: {
+  c: NonNullable<Dados["conversa"]>;
+  conversaId: string;
+  acao: Dados["acao"];
+}) {
+  const ate = c.robo_pausado_ate;
+  const pausado = ate === "infinity" || (!!ate && new Date(ate).getTime() > Date.now());
+  const descricao = !pausado
+    ? "Responde o cliente com o menu (status da OS, orçamento, garantia). Fica quieto quando alguém da equipe responde."
+    : ate === "infinity"
+      ? "Pausado nesta conversa até alguém religar."
+      : `Quieto até ${new Date(ate!).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} (passou para a equipe).`;
+  return (
+    <label className="mb-3 flex items-start gap-3 rounded-lg border border-border bg-background/40 p-2.5">
+      <Switch
+        checked={!pausado}
+        disabled={acao.isPending}
+        onCheckedChange={(v) => acao.mutate({ acao: "robo", conversaId, ativo: v })}
+      />
+      <span>
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <Bot className="h-3.5 w-3.5" /> Robô de atendimento
+        </span>
+        <span className="block text-[11px] text-muted-foreground">{descricao}</span>
+      </span>
+    </label>
+  );
+}
 
 function Titulo({
   icon: Icon,
@@ -417,6 +454,7 @@ export function SecaoStatus({
           </span>
         </span>
       </label>
+      {acesso.roboAtivo && <ControleRobo c={c} conversaId={conversaId} acao={acao} />}
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"

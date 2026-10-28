@@ -3925,6 +3925,8 @@ export type Database = {
       };
       whatsapp_config: {
         Row: {
+          robo_ativo: boolean;
+          robo_horario: Json;
           aprovacao_automacoes: string[];
           notif_cobranca_lembrete_auto: boolean;
           cobranca_lembrete_texto: string;
@@ -3974,6 +3976,8 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          robo_ativo?: boolean;
+          robo_horario?: Json;
           aprovacao_automacoes?: string[];
           notif_cobranca_lembrete_auto?: boolean;
           cobranca_lembrete_texto?: string;
@@ -4023,6 +4027,8 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          robo_ativo?: boolean;
+          robo_horario?: Json;
           aprovacao_automacoes?: string[];
           notif_cobranca_lembrete_auto?: boolean;
           cobranca_lembrete_texto?: string;
@@ -4151,6 +4157,10 @@ export type Database = {
       };
       whatsapp_conversas: {
         Row: {
+          robo_etapa: string | null;
+          robo_dados: Json;
+          robo_atualizado_em: string | null;
+          robo_pausado_ate: string | null;
           opt_out_em: string | null;
           foto_url: string | null;
           foto_atualizada_em: string | null;
@@ -4173,6 +4183,10 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          robo_etapa?: string | null;
+          robo_dados?: Json;
+          robo_atualizado_em?: string | null;
+          robo_pausado_ate?: string | null;
           opt_out_em?: string | null;
           foto_url?: string | null;
           foto_atualizada_em?: string | null;
@@ -4195,6 +4209,10 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          robo_etapa?: string | null;
+          robo_dados?: Json;
+          robo_atualizado_em?: string | null;
+          robo_pausado_ate?: string | null;
           opt_out_em?: string | null;
           foto_url?: string | null;
           foto_atualizada_em?: string | null;
