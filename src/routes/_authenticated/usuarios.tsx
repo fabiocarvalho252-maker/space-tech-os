@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Trash2, Copy, UserPlus, ShieldCheck } from "lucide-react";
+import { Trash2, Copy, UserPlus, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -251,70 +251,82 @@ function Usuarios() {
             : "Equipe, papéis e permissões por módulo"
         }
         action={
-          souDono && (
-            <Dialog
-              open={conviteOpen}
-              onOpenChange={(v) => {
-                setConviteOpen(v);
-                if (!v) setConviteGerado(null);
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <UserPlus className="h-4 w-4" /> Convidar
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Convidar para a equipe</DialogTitle>
-                </DialogHeader>
-                {!conviteGerado ? (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label>Papel</Label>
-                      <Select value={conviteRole} onValueChange={(v) => setConviteRole(v as Role)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROLES_EDITAVEIS.map((r) => (
-                            <SelectItem key={r.value} value={r.value}>
-                              {r.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={() => convidar.mutate()} disabled={convidar.isPending}>
-                      Gerar código de convite
+          (souDono || minhaEmpresa?.role === "admin") && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/auditoria">
+                  <History className="h-4 w-4" /> Auditoria
+                </Link>
+              </Button>
+              {souDono && (
+                <Dialog
+                  open={conviteOpen}
+                  onOpenChange={(v) => {
+                    setConviteOpen(v);
+                    if (!v) setConviteGerado(null);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button>
+                      <UserPlus className="h-4 w-4" /> Convidar
                     </Button>
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Compartilhe este código com a pessoa convidada. Ele expira em 7 dias.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        readOnly
-                        value={conviteGerado}
-                        className="font-mono text-lg tracking-widest"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          navigator.clipboard.writeText(conviteGerado);
-                          toast.success("Código copiado");
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Convidar para a equipe</DialogTitle>
+                    </DialogHeader>
+                    {!conviteGerado ? (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label>Papel</Label>
+                          <Select
+                            value={conviteRole}
+                            onValueChange={(v) => setConviteRole(v as Role)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES_EDITAVEIS.map((r) => (
+                                <SelectItem key={r.value} value={r.value}>
+                                  {r.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button onClick={() => convidar.mutate()} disabled={convidar.isPending}>
+                          Gerar código de convite
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Compartilhe este código com a pessoa convidada. Ele expira em 7 dias.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={conviteGerado}
+                            className="font-mono text-lg tracking-widest"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              navigator.clipboard.writeText(conviteGerado);
+                              toast.success("Código copiado");
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           )
         }
       />

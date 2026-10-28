@@ -28,6 +28,45 @@ export type Database = {
   };
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          acao: string;
+          alteracoes: Json | null;
+          ator_id: string | null;
+          ator_nome: string | null;
+          created_at: string;
+          id: number;
+          registro_id: string | null;
+          rotulo: string | null;
+          tabela: string;
+          user_id: string;
+        };
+        Insert: {
+          acao: string;
+          alteracoes?: Json | null;
+          ator_id?: string | null;
+          ator_nome?: string | null;
+          created_at?: string;
+          id?: never;
+          registro_id?: string | null;
+          rotulo?: string | null;
+          tabela: string;
+          user_id: string;
+        };
+        Update: {
+          acao?: string;
+          alteracoes?: Json | null;
+          ator_id?: string | null;
+          ator_nome?: string | null;
+          created_at?: string;
+          id?: never;
+          registro_id?: string | null;
+          rotulo?: string | null;
+          tabela?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       agendamentos: {
         Row: {
           cliente_id: string | null;

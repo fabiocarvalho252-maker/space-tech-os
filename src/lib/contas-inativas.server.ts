@@ -22,6 +22,8 @@ import { avisarDonoDaPlataforma, enviarDaPlataforma } from "@/lib/whatsapp/whats
 const DIA_MS = 86_400_000;
 export const DIAS_ATE_AVISO = 60;
 export const DIAS_AVISO_ATE_EXCLUSAO = 30;
+/** Por quanto tempo a auditoria (audit_log) fica guardada. */
+export const AUDITORIA_DIAS = 365;
 
 type Empresa = { id: string; nome: string };
 
@@ -63,6 +65,14 @@ export async function processarContasInativas(
     exclusaoFalhou: [],
   };
 
+  // Auditoria guarda 1 ano (roda junto com esta rotina diária).
+  if (!simular) {
+    await supabaseAdmin
+      .from("audit_log")
+      .delete()
+      .lt("created_at", new Date(agora.getTime() - AUDITORIA_DIAS * DIA_MS).toISOString());
+  }
+
   const [{ data: perfis, error }, { data: membros }, { data: usuarios }] = await Promise.all([
     supabaseAdmin
       .from("profiles")
@@ -101,6 +111,9 @@ export async function processarContasInativas(
       if (erroExclusao) {
         resultado.exclusaoFalhou.push({ ...empresa, motivo: erroExclusao.message });
       } else {
+        // A auditoria não tem chave para a conta (para não travar a exclusão
+        // em cascata); apaga junto aqui.
+        await supabaseAdmin.from("audit_log").delete().eq("user_id", p.id);
         resultado.excluidas.push(empresa);
       }
       continue;
