@@ -130,8 +130,9 @@ export function useAssistente() {
                 .from("cobrancas")
                 .select("valor")
                 .eq("user_id", id)
-                .eq("status", "pendente")
-                .lt("expires_at", agora.toISOString())
+                // Mesma regra da tela Cobranças: não paga e vencimento passado.
+                .in("status", ["pendente", "expirada"])
+                .lt("vencimento", hoje)
                 .limit(500)
             : null,
           ver("financeiro")

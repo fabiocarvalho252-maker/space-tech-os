@@ -127,6 +127,63 @@ export async function criarCobrancaPix(input: NovaCobrancaInput): Promise<Cobran
   }
 }
 
+/**
+ * Gera um Pix novo para uma cobrança já existente (o QR anterior expirou),
+ * sem criar outra cobrança: troca mp_id/QR/validade e volta para "pendente".
+ * O pagamento antigo não é mais pagável, então trocar o mp_id não deixa
+ * nenhum pagamento sem conciliar. Devolve null quando a empresa não tem
+ * Mercado Pago configurado.
+ */
+export async function renovarPixCobranca(params: {
+  empresaId: string;
+  cobrancaId: string;
+  origin: string;
+  expiraEm: Date;
+}): Promise<Cobranca | null> {
+  const config = await obterConfig(params.empresaId);
+  if (!config) return null;
+  const { data: c, error } = await supabaseAdmin
+    .from("cobrancas")
+    .select("id, valor, status, expires_at, clientes(nome, email, documento)")
+    .eq("user_id", params.empresaId)
+    .eq("id", params.cobrancaId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!c || (c.status !== "pendente" && c.status !== "expirada")) return null;
+  if (c.expires_at && new Date(c.expires_at) > new Date()) return null; // QR atual ainda vale
+
+  const cliente = c.clientes as unknown as {
+    nome: string | null;
+    email: string | null;
+    documento: string | null;
+  } | null;
+  const pagamento = await criarPagamentoPix({
+    accessToken: config.accessToken,
+    valor: Number(c.valor),
+    descricao: cliente?.nome ? `Cobrança SpaceTech — ${cliente.nome}` : "Cobrança SpaceTech",
+    externalReference: c.id,
+    notificationUrl: `${params.origin}/api/pix/webhook`,
+    payerEmail: cliente?.email || "cliente@spacetech.app",
+    cpfCnpj: cliente?.documento ?? null,
+    expiraEm: params.expiraEm,
+  });
+  const { data: atualizada, error: erroUpdate } = await supabaseAdmin
+    .from("cobrancas")
+    .update({
+      status: "pendente",
+      mp_id: pagamento.mpId,
+      qr_code: pagamento.qrCodeBase64,
+      qr_code_copy_paste: pagamento.qrCode,
+      expires_at: params.expiraEm.toISOString(),
+    })
+    .eq("id", c.id)
+    .in("status", ["pendente", "expirada"])
+    .select("id, valor, status, qr_code, qr_code_copy_paste, expires_at")
+    .single();
+  if (erroUpdate) throw erroUpdate;
+  return atualizada;
+}
+
 const STATUS_MP_PARA_COBRANCA: Record<string, "pendente" | "paga" | "cancelada" | "expirada"> = {
   pending: "pendente",
   in_process: "pendente",

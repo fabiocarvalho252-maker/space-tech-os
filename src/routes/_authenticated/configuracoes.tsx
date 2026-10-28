@@ -1957,6 +1957,13 @@ function Configuracoes() {
                           uso: "auto",
                         },
                         {
+                          id: "notif_cobranca_atraso_auto",
+                          label: "Aviso de cobrança atrasada",
+                          key: "notif_cobranca_atraso_auto",
+                          textoKey: "cobranca_atraso_texto",
+                          uso: "auto",
+                        },
+                        {
                           id: "notif_os_criada",
                           label: "OS criada",
                           key: "notif_os_criada",
@@ -2144,6 +2151,11 @@ function Configuracoes() {
                                         {item.key === "notif_cobranca_lembrete_auto" && (
                                           <>{"{{vencimento}}"}, </>
                                         )}
+                                        {item.key === "notif_cobranca_atraso_auto" && (
+                                          <>
+                                            {"{{vencimento}}"}, {"{{dias}}"},{" "}
+                                          </>
+                                        )}
                                         {"{{loja}}"}.
                                       </>
                                     ) : (
@@ -2202,6 +2214,17 @@ function Configuracoes() {
                                   pela fila. Se a cobrança for paga ou cancelada antes de a mensagem
                                   sair, ela não é enviada. Só vale para cobranças criadas depois de
                                   ligar. Parcelas do Crediário têm avisos próprios.
+                                </p>
+                              )}
+                              {item.key === "notif_cobranca_atraso_auto" && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Para cobranças (Cobranças) com cliente e telefone que passaram do
+                                  vencimento sem pagamento: o cliente recebe um aviso com 1, 7 e 15
+                                  dias de atraso — o texto e, em seguida, um Pix copia e cola novo,
+                                  válido por 3 dias. Das 9h às 20h, pela fila. Se a cobrança for
+                                  paga ou cancelada antes de a mensagem sair, ela não é enviada. Só
+                                  vale para cobranças que vencerem depois de ligar. Parcelas do
+                                  Crediário têm avisos próprios.
                                 </p>
                               )}
                               {item.key === "notif_cobranca_paga_auto" && (

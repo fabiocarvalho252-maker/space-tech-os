@@ -19,6 +19,11 @@ export const AUTOMACOES = [
     label: "Lembrete de cobrança Pix",
   },
   { chave: "cobranca_paga", config: "notif_cobranca_paga_auto", label: "Pagamento confirmado" },
+  {
+    chave: "cobranca_atraso",
+    config: "notif_cobranca_atraso_auto",
+    label: "Aviso de cobrança atrasada",
+  },
 ] as const;
 
 export type ChaveAutomacao = (typeof AUTOMACOES)[number]["chave"];
@@ -35,6 +40,8 @@ export function chaveAutomacao(templateId: string | null | undefined): ChaveAuto
   if (t.startsWith("cobranca_lembrete_") || t.startsWith("cobranca_pix_"))
     return "cobranca_lembrete";
   if (t.startsWith("cobranca_paga_")) return "cobranca_paga";
+  if (t.startsWith("cobranca_atraso_") || t.startsWith("cobranca_atrasopix_"))
+    return "cobranca_atraso";
   return null;
 }
 

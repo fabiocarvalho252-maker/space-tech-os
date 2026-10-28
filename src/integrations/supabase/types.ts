@@ -3976,6 +3976,9 @@ export type Database = {
           notif_cobranca_paga_auto: boolean;
           cobranca_paga_texto: string;
           notif_cobranca_desde: string | null;
+          notif_cobranca_atraso_auto: boolean;
+          cobranca_atraso_texto: string;
+          notif_cobranca_atraso_desde: string | null;
           boas_vindas: boolean | null;
           boas_vindas_texto: string | null;
           created_at: string | null;
@@ -4028,6 +4031,9 @@ export type Database = {
           notif_cobranca_paga_auto?: boolean;
           cobranca_paga_texto?: string;
           notif_cobranca_desde?: string | null;
+          notif_cobranca_atraso_auto?: boolean;
+          cobranca_atraso_texto?: string;
+          notif_cobranca_atraso_desde?: string | null;
           boas_vindas?: boolean | null;
           boas_vindas_texto?: string | null;
           created_at?: string | null;
@@ -4080,6 +4086,9 @@ export type Database = {
           notif_cobranca_paga_auto?: boolean;
           cobranca_paga_texto?: string;
           notif_cobranca_desde?: string | null;
+          notif_cobranca_atraso_auto?: boolean;
+          cobranca_atraso_texto?: string;
+          notif_cobranca_atraso_desde?: string | null;
           boas_vindas?: boolean | null;
           boas_vindas_texto?: string | null;
           created_at?: string | null;

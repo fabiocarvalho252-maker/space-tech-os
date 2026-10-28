@@ -187,6 +187,8 @@ test("chaveAutomacao igual à função do banco", () => {
   assert.equal(chaveAutomacao("pos_venda_123"), "pos_venda");
   assert.equal(chaveAutomacao("cobranca_pix_abc"), "cobranca_lembrete");
   assert.equal(chaveAutomacao("cobranca_paga_abc"), "cobranca_paga");
+  assert.equal(chaveAutomacao("cobranca_atraso_abc_7"), "cobranca_atraso");
+  assert.equal(chaveAutomacao("cobranca_atrasopix_abc_7"), "cobranca_atraso");
   assert.equal(chaveAutomacao("padrao"), null, "modelo manual da OS não é automação");
   assert.equal(chaveAutomacao(null), null);
 });
