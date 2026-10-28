@@ -88,6 +88,7 @@ export const STATUS_SEMINOVOS = [
   { value: "devolvido", label: "Devolvido" },
   { value: "sucata", label: "Sucata" },
   { value: "sem_solucao", label: "Sem solução" },
+  { value: "recusado", label: "Avaliação recusada" },
 ] as const;
 
 export const statusLabel = (value: string) =>

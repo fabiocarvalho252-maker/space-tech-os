@@ -139,7 +139,11 @@ export function CadastroSeminovoModal({
   // conferência (pedido, seção 5) antes do registro efetivo; o canvas fica
   // sempre montado (escondido via CSS, não desmontado) para não perder o
   // traço ao voltar da conferência para editar.
-  const [fase, setFase] = useState<"formulario" | "confirmacao">("formulario");
+  // "recusa": a avaliação não virou compra (sem CPF, assinatura nem
+  // lançamento no Financeiro) — fica registrada como "recusado".
+  const [fase, setFase] = useState<"formulario" | "confirmacao" | "recusa">("formulario");
+  const [valorOferecido, setValorOferecido] = useState("0");
+  const [motivoRecusa, setMotivoRecusa] = useState("");
   const [cpfSugestao, setCpfSugestao] = useState<ClienteRow | null>(null);
   const canvasRef = useRef<AssinaturaCanvasHandle>(null);
   const [assinaturaBlob, setAssinaturaBlob] = useState<Blob | null>(null);
@@ -154,6 +158,8 @@ export function CadastroSeminovoModal({
   useEffect(() => {
     if (!open) {
       setFase("formulario");
+      setValorOferecido("0");
+      setMotivoRecusa("");
       setVerSenha(false);
       setCpfSugestao(null);
       setAssinaturaBlob(null);
@@ -302,6 +308,89 @@ export function CadastroSeminovoModal({
     });
   }
 
+  async function enviarFotosCompra(seminovoId: string, oQue: string) {
+    if (!fotosCompra.length) return;
+    try {
+      const paths: string[] = [];
+      for (const file of fotosCompra) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${empresaId}/${seminovoId}/${randomId()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET_FOTOS).upload(path, file);
+        if (upErr) throw upErr;
+        paths.push(path);
+      }
+      const { error: fotosErro } = await supabase
+        .from("seminovos")
+        .update({ fotos: paths })
+        .eq("id", seminovoId);
+      if (fotosErro) throw fotosErro;
+    } catch (e) {
+      toast.warning(
+        `${oQue}, mas as fotos não foram enviadas: ${(e as Error).message}. Envie pelo botão de fotos do aparelho.`,
+      );
+    }
+  }
+
+  function irParaRecusa() {
+    const erro = !form.marca.trim()
+      ? "Informe a marca."
+      : !form.modelo.trim()
+        ? "Informe o modelo."
+        : !form.cliente_id && !form.vendedor_nome.trim()
+          ? "Selecione um cliente cadastrado ou informe o nome de quem ofereceu."
+          : null;
+    if (erro) toast.error(erro);
+    else setFase("recusa");
+  }
+
+  const recusar = useMutation({
+    mutationFn: async () => {
+      const oferecido = Number(valorOferecido) || 0;
+      if (oferecido < 0) throw new Error("O valor oferecido não pode ser negativo.");
+      const motivo = motivoRecusa.trim();
+      const observacoes = [form.observacoes.trim(), motivo && `Motivo da recusa: ${motivo}`]
+        .filter(Boolean)
+        .join("\n");
+      const { data: criado, error } = await supabase
+        .from("seminovos")
+        .insert({
+          user_id: empresaId,
+          cliente_id: form.cliente_id || null,
+          vendedor_nome: form.vendedor_nome.trim() || null,
+          vendedor_telefone: form.vendedor_telefone.trim() || null,
+          vendedor_documento:
+            form.vendedor_documento && validarCpf(form.vendedor_documento)
+              ? formatarCpf(form.vendedor_documento)
+              : null,
+          marca: form.marca.trim(),
+          modelo: form.modelo.trim(),
+          imei: form.imei.trim() || null,
+          armazenamento: form.armazenamento.trim() || null,
+          ram: form.ram.trim() || null,
+          cor: form.cor.trim() || null,
+          estado: form.estado || null,
+          bateria_percentual: form.bateria_percentual ? Number(form.bateria_percentual) : null,
+          acessorios: form.acessorios.trim() || null,
+          observacoes: observacoes || null,
+          data_avaliacao: new Date(form.data_avaliacao + "T12:00:00").toISOString(),
+          valor_oferecido: oferecido,
+          valor_pago: 0,
+          outros_custos: 0,
+          status: "recusado",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      await enviarFotosCompra(criado.id, "Avaliação registrada");
+    },
+    onSuccess: () => {
+      toast.success("Avaliação recusada registrada");
+      qc.invalidateQueries({ queryKey: ["seminovos"] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const salvar = useMutation({
     mutationFn: async () => {
       validarFormulario();
@@ -366,27 +455,7 @@ export function CadastroSeminovoModal({
         // A compra já existe neste ponto — falha nas fotos não deve fazer o
         // usuário registrar a compra de novo; avisa e deixa enviar pelo
         // botão de fotos do aparelho (SeminovosFotos, mesmo path).
-        if (fotosCompra.length > 0) {
-          try {
-            const paths: string[] = [];
-            for (const file of fotosCompra) {
-              const ext = file.name.split(".").pop() || "jpg";
-              const path = `${empresaId}/${criado.id}/${randomId()}.${ext}`;
-              const { error: upErr } = await supabase.storage.from(BUCKET_FOTOS).upload(path, file);
-              if (upErr) throw upErr;
-              paths.push(path);
-            }
-            const { error: fotosErro } = await supabase
-              .from("seminovos")
-              .update({ fotos: paths })
-              .eq("id", criado.id);
-            if (fotosErro) throw fotosErro;
-          } catch (e) {
-            toast.warning(
-              `Compra registrada, mas as fotos não foram enviadas: ${(e as Error).message}. Envie pelo botão de fotos do aparelho.`,
-            );
-          }
-        }
+        await enviarFotosCompra(criado.id, "Compra registrada");
 
         // Lançamento de despesa só na criação — editar depois (corrigir um
         // valor digitado errado, por exemplo) não deve gerar uma segunda
@@ -430,7 +499,7 @@ export function CadastroSeminovoModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className={fase === "confirmacao" ? "hidden" : "space-y-7"}>
+        <div className={fase !== "formulario" ? "hidden" : "space-y-7"}>
           {/* SEÇÃO 1 — APARELHO */}
           <section className="space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wide text-primary">
@@ -747,7 +816,10 @@ export function CadastroSeminovoModal({
               dedicadas (Vender/Devolver), que também mexem em venda e
               financeiro; por isso o campo some quando o aparelho já está
               num desses estados, em vez de deixar editar livremente aqui. */}
-          {(!seminovo || (seminovo.status !== "vendido" && seminovo.status !== "devolvido")) && (
+          {(!seminovo ||
+            (seminovo.status !== "vendido" &&
+              seminovo.status !== "devolvido" &&
+              seminovo.status !== "recusado")) && (
             <section className="space-y-1.5">
               <Label>Status</Label>
               <Select
@@ -832,8 +904,46 @@ export function CadastroSeminovoModal({
           </div>
         )}
 
+        {!seminovo && fase === "recusa" && (
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-lg font-bold">Avaliação recusada</h3>
+              <p className="text-sm text-muted-foreground">
+                {form.marca} {form.modelo} — {clienteSelecionado?.nome ?? form.vendedor_nome}. Fica
+                registrada no histórico, sem compra, sem assinatura e sem lançamento no Financeiro.
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:w-64">
+              <Label>Valor oferecido</Label>
+              <MoneyInput value={valorOferecido} onChange={(v) => setValorOferecido(String(v))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Motivo da recusa</Label>
+              <Textarea
+                rows={3}
+                value={motivoRecusa}
+                onChange={(e) => setMotivoRecusa(e.target.value)}
+                placeholder="Ex.: cliente não aceitou o valor, tela trincada, aparelho bloqueado..."
+              />
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="pt-2">
-          {fase === "confirmacao" ? (
+          {fase === "recusa" ? (
+            <>
+              <Button variant="outline" className="h-11" onClick={() => setFase("formulario")}>
+                Voltar
+              </Button>
+              <Button
+                className="h-11"
+                onClick={() => recusar.mutate()}
+                disabled={recusar.isPending}
+              >
+                {recusar.isPending ? "Registrando..." : "Registrar recusa"}
+              </Button>
+            </>
+          ) : fase === "confirmacao" ? (
             <>
               <Button variant="outline" className="h-11" onClick={() => setFase("formulario")}>
                 Voltar e editar
@@ -847,6 +957,15 @@ export function CadastroSeminovoModal({
               <Button variant="outline" className="h-11" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
+              {!seminovo && (
+                <Button
+                  variant="outline"
+                  className="h-11 border-destructive/40 text-destructive hover:bg-destructive/5"
+                  onClick={irParaRecusa}
+                >
+                  Avaliação recusada
+                </Button>
+              )}
               <Button
                 className="h-11"
                 onClick={() => (seminovo ? salvar.mutate() : irParaConfirmacao())}

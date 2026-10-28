@@ -87,6 +87,7 @@ const TONE_POR_STATUS_SEMINOVO: Record<string, StatusTone> = {
   devolvido: "purple",
   sucata: "danger",
   sem_solucao: "neutral",
+  recusado: "neutral",
 };
 
 type Periodo = "todos" | "hoje" | "7dias" | "mes" | "mes_anterior" | "personalizado";
@@ -292,7 +293,7 @@ function Seminovos() {
       return semPreco || custoAcimaDaVenda || lucroNegativo;
     });
     return {
-      total: itens.length,
+      total: itens.filter((i) => i.status !== "recusado").length,
       disponiveis: disponiveis.length,
       pendentes: pendentes.length,
       aguardando: aguardando.length,
@@ -358,6 +359,7 @@ function Seminovos() {
       (st) =>
         st.value !== "vendido" &&
         st.value !== "devolvido" &&
+        st.value !== "recusado" &&
         (st.value !== "disponivel" || podeFinalizar || s.status === "disponivel"),
     );
   }
@@ -618,20 +620,23 @@ function Seminovos() {
                     </td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
-                        {gerenciar && s.status !== "vendido" && s.status !== "devolvido" && (
-                          <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
-                            <SelectTrigger className="h-9 w-36 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statusRapidos(s).map((st) => (
-                                <SelectItem key={st.value} value={st.value}>
-                                  {st.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                        {gerenciar &&
+                          s.status !== "vendido" &&
+                          s.status !== "devolvido" &&
+                          s.status !== "recusado" && (
+                            <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
+                              <SelectTrigger className="h-9 w-36 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {statusRapidos(s).map((st) => (
+                                  <SelectItem key={st.value} value={st.value}>
+                                    {st.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
                         {gerenciar && s.status === "pendente" && (
                           <Button
                             size="sm"
@@ -772,22 +777,25 @@ function Seminovos() {
                     </Button>
                   )}
                 </div>
-                {gerenciar && s.status !== "vendido" && s.status !== "devolvido" && (
-                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                    <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
-                      <SelectTrigger className="h-10 w-full text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusRapidos(s).map((st) => (
-                          <SelectItem key={st.value} value={st.value}>
-                            {st.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                {gerenciar &&
+                  s.status !== "vendido" &&
+                  s.status !== "devolvido" &&
+                  s.status !== "recusado" && (
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                      <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
+                        <SelectTrigger className="h-10 w-full text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusRapidos(s).map((st) => (
+                            <SelectItem key={st.value} value={st.value}>
+                              {st.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
               </div>
             ))}
           </div>

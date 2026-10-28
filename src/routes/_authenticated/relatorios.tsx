@@ -337,11 +337,9 @@ function Relatorios() {
     const valorEstoque = d.produtos.reduce((s, p) => s + p.quantidade * Number(p.preco_custo), 0);
 
     const valorComprasAparelhos = d.comprasAparelhos.reduce((s, c) => s + Number(c.valor_pago), 0);
-    // Toda linha em "seminovos" já representa uma compra efetivada (o
-    // módulo não tem mais uma etapa de "em avaliação" antes da compra —
-    // ver reformulação de Compra de Seminovos), então não há mais um
-    // subconjunto de status a filtrar aqui: a lista inteira do período conta.
-    const seminovosComprados = d.seminovos;
+    // Toda linha em "seminovos" é uma compra efetivada, menos as avaliações
+    // recusadas (status "recusado"), que não geraram compra nem despesa.
+    const seminovosComprados = d.seminovos.filter((s) => s.status !== "recusado");
     const valorSeminovos = seminovosComprados.reduce((s, i) => s + Number(i.valor_pago ?? 0), 0);
 
     const aparelhosComprados = seminovosComprados.map(detalharSeminovo);

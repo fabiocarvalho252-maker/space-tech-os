@@ -347,10 +347,17 @@ export function DetalheSeminovoModal({
             </div>
 
             <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Compra</p>
-                <p className="font-medium">{brl(seminovo.valor_pago)}</p>
-              </div>
+              {seminovo.status === "recusado" ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor oferecido (recusado)</p>
+                  <p className="font-medium">{brl(seminovo.valor_oferecido)}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-muted-foreground">Compra</p>
+                  <p className="font-medium">{brl(seminovo.valor_pago)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-muted-foreground">Conserto</p>
                 <p className="font-medium">{brl(seminovo.valor_conserto)}</p>
