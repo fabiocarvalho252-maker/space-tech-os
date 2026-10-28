@@ -10,6 +10,7 @@ import {
   lerHorario,
   lerOpcao,
   primeiroNome,
+  resumoHorario,
   proximaAbertura,
   roboPausado,
   textoMenu,
@@ -300,4 +301,16 @@ test("planos: linha de preço sem valor sai inteira", () => {
   );
   assert.match(t, /Mensal/);
   assert.doesNotMatch(t, /Anual/);
+});
+
+test("resumoHorario agrupa dias seguidos com o mesmo expediente", () => {
+  assert.equal(resumoHorario(HORARIO_COMERCIAL), "Seg a Sex 8h–18h · Sáb 8h–12h");
+  const h = [...HORARIO_COMERCIAL];
+  h[3] = { abre: "13:30", fecha: "18:00" };
+  h[0] = { abre: "09:00", fecha: "12:00" };
+  assert.equal(
+    resumoHorario(h),
+    "Seg e Ter 8h–18h · Qua 13h30–18h · Qui e Sex 8h–18h · Sáb 8h–12h · Dom 9h–12h",
+  );
+  assert.equal(resumoHorario([null, null, null, null, null, null, null]), "");
 });

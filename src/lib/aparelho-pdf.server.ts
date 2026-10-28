@@ -8,6 +8,7 @@ import { rgb } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { TEMA_RGB } from "@/lib/os-template-render";
 import { criarEscritor } from "@/lib/pdf-writer.server";
+import { linhaHorarioLoja } from "@/lib/horario-loja";
 
 const CORREGIONAL = rgb(TEMA_RGB.roxo.r, TEMA_RGB.roxo.g, TEMA_RGB.roxo.b);
 
@@ -19,7 +20,7 @@ const dataBR = (v: string | Date | null | undefined) =>
 async function carregarEmpresa(empresaId: string) {
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url")
+    .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url, horario_funcionamento")
     .eq("id", empresaId)
     .maybeSingle();
   return data;
@@ -34,6 +35,8 @@ async function desenharCabecalhoEmpresa(
     .filter(Boolean)
     .join("  ·  ");
   if (infoEmpresa) w.paragrafo(infoEmpresa, 8, rgb(0.5, 0.5, 0.55));
+  const horarioLoja = linhaHorarioLoja(empresa?.horario_funcionamento);
+  if (horarioLoja) w.paragrafo(horarioLoja, 8, rgb(0.5, 0.5, 0.55));
   w.espaco(6);
   w.linhaDivisoria();
 }

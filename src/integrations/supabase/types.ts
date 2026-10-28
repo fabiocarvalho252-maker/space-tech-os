@@ -2653,6 +2653,7 @@ export type Database = {
           cnpj_cpf: string | null;
           created_at: string;
           endereco: string | null;
+          horario_funcionamento: Json | null;
           ia_creditos: number;
           id: string;
           logo_url: string | null;
@@ -2676,6 +2677,7 @@ export type Database = {
           cnpj_cpf?: string | null;
           created_at?: string;
           endereco?: string | null;
+          horario_funcionamento?: Json | null;
           ia_creditos?: number;
           id: string;
           logo_url?: string | null;
@@ -2699,6 +2701,7 @@ export type Database = {
           cnpj_cpf?: string | null;
           created_at?: string;
           endereco?: string | null;
+          horario_funcionamento?: Json | null;
           ia_creditos?: number;
           id?: string;
           logo_url?: string | null;

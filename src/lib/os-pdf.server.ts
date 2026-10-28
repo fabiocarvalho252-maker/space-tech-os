@@ -23,6 +23,7 @@ import {
   type OsTemplateSecao,
 } from "@/lib/os-template-render";
 import { Escritor } from "@/lib/pdf-writer.server";
+import { linhaHorarioLoja } from "@/lib/horario-loja";
 
 // site-url.ts's origemPublica() falls back to window.location.origin, which
 // doesn't exist in this server context — read the same VITE_SITE_URL env var
@@ -105,7 +106,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
       .single(),
     supabaseAdmin
       .from("profiles")
-      .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url")
+      .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url, horario_funcionamento")
       .eq("id", empresaId)
       .maybeSingle(),
     supabaseAdmin
@@ -174,6 +175,8 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
     .filter(Boolean)
     .join("  ·  ");
   if (infoEmpresa) w.paragrafo(infoEmpresa, 8, rgb(0.5, 0.5, 0.55));
+  const horarioLoja = linhaHorarioLoja(profile?.horario_funcionamento);
+  if (horarioLoja) w.paragrafo(horarioLoja, 8, rgb(0.5, 0.5, 0.55));
   w.espaco(6);
   w.linhaDivisoria();
 

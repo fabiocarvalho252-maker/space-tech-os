@@ -7,6 +7,7 @@ import { rgb } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { TEMA_RGB } from "@/lib/os-template-render";
 import { criarEscritor } from "@/lib/pdf-writer.server";
+import { linhaHorarioLoja } from "@/lib/horario-loja";
 
 const COR = rgb(TEMA_RGB.roxo.r, TEMA_RGB.roxo.g, TEMA_RGB.roxo.b);
 const CINZA = rgb(0.5, 0.5, 0.55);
@@ -41,7 +42,7 @@ export async function gerarPdfComprovanteVenda({
       .eq("user_id", empresaId),
     supabaseAdmin
       .from("profiles")
-      .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url")
+      .select("loja, nome, cnpj_cpf, endereco, whatsapp, logo_url, horario_funcionamento")
       .eq("id", empresaId)
       .maybeSingle(),
   ]);
@@ -67,6 +68,8 @@ export async function gerarPdfComprovanteVenda({
     .filter(Boolean)
     .join("  ·  ");
   if (infoEmpresa) w.paragrafo(infoEmpresa, 8, CINZA);
+  const horarioLoja = linhaHorarioLoja(empresa?.horario_funcionamento);
+  if (horarioLoja) w.paragrafo(horarioLoja, 8, CINZA);
   w.espaco(6);
   w.linhaDivisoria();
 

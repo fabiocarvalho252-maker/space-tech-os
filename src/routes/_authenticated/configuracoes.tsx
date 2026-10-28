@@ -4,6 +4,9 @@ import { enviarLogoEmpresa } from "@/lib/logo-empresa";
 import { termosOsPadrao } from "@/lib/termos-padrao";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { HorarioSemanaEditor } from "@/components/HorarioSemanaEditor";
+import { horarioInvalido } from "@/lib/horario-loja";
+import { HORARIO_COMERCIAL, lerHorario, resumoHorario, type Horario } from "@/lib/whatsapp/robo";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
@@ -110,6 +113,8 @@ function Configuracoes() {
     cnpj_cpf: "",
     logo_url: "",
   });
+  // null = horário de funcionamento não informado (não sai nos comprovantes).
+  const [horarioLoja, setHorarioLoja] = useState<Horario | null>(null);
 
   // Load Mercado Pago config
   const { data: mpConfig } = useQuery({
@@ -140,6 +145,9 @@ function Configuracoes() {
         cnpj_cpf: profile.cnpj_cpf || "",
         logo_url: profile.logo_url || "",
       });
+      setHorarioLoja(
+        profile.horario_funcionamento ? lerHorario(profile.horario_funcionamento) : null,
+      );
     }
   }, [profile]);
 
@@ -168,9 +176,14 @@ function Configuracoes() {
   const salvarEmpresa = useMutation({
     mutationFn: async () => {
       if (!user) return;
+      if (horarioLoja && horarioInvalido(horarioLoja))
+        throw new Error(
+          "confira o horário de funcionamento: o fechamento precisa ser depois da abertura",
+        );
       const { error } = await supabase
         .from("profiles")
         .update({
+          horario_funcionamento: horarioLoja,
           loja: empresaForm.loja,
           nome: empresaForm.nome,
           whatsapp: empresaForm.whatsapp,
@@ -514,6 +527,30 @@ function Configuracoes() {
                     value={empresaForm.endereco}
                     onChange={(e) => setEmpresaForm({ ...empresaForm, endereco: e.target.value })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Horário de funcionamento</Label>
+                    <Switch
+                      checked={!!horarioLoja}
+                      onCheckedChange={(v) => setHorarioLoja(v ? HORARIO_COMERCIAL : null)}
+                      aria-label="Informar horário de funcionamento"
+                    />
+                  </div>
+                  {horarioLoja ? (
+                    <>
+                      <HorarioSemanaEditor value={horarioLoja} onChange={setHorarioLoja} />
+                      <p className="text-xs text-muted-foreground">
+                        Sai nos comprovantes, na OS e nos PDFs:{" "}
+                        <strong>{resumoHorario(horarioLoja) || "fechado todos os dias"}</strong>. O
+                        robô do WhatsApp pode usar o mesmo horário (Configurações → WhatsApp).
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Ligue para informar os dias e horários em que a loja abre.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-4">
                   <Label>Logotipo da Empresa</Label>

@@ -8,11 +8,11 @@ import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
 import { precosConviteFn } from "@/lib/convites-assinatura.functions";
 import { brl } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EditorTextosRobo } from "./EditorTextosRobo";
+import { HorarioSemanaEditor } from "@/components/HorarioSemanaEditor";
+import { horarioInvalido } from "@/lib/horario-loja";
 import {
-  DIAS_SEMANA,
   HORARIO_COMERCIAL,
   estaAberto,
   lerHorario,
@@ -76,11 +76,10 @@ export function RoboWhatsappCard() {
     onError: (e: Error) => toast.error("Não foi possível salvar: " + e.message),
   });
 
-  function mudarDia(dia: number, novo: Horario[number]) {
-    setHorario((h) => h.map((d, i) => (i === dia ? novo : d)));
-  }
-
-  const invalido = horario.some((d) => d && (!d.abre || !d.fecha || d.fecha <= d.abre));
+  const invalido = horarioInvalido(horario);
+  const horarioLoja = profile?.horario_funcionamento
+    ? lerHorario(profile.horario_funcionamento)
+    : null;
   const alterado = JSON.stringify(horario) !== JSON.stringify(data?.horario ?? HORARIO_COMERCIAL);
   // Na conta da SPACE TECH o menu tem a opção 5 (planos do site).
   const { data: user } = useCurrentUser();
@@ -148,47 +147,7 @@ export function RoboWhatsappCard() {
             Fora do horário o robô avisa que a loja está fechada e quando volta, e continua ajudando
             com status, orçamento e garantia.
           </p>
-          <div className="divide-y divide-border rounded-lg border border-border bg-background/50">
-            {DIAS_SEMANA.map((nome, dia) => {
-              const exp = horario[dia] ?? null;
-              return (
-                <div key={nome} className="flex flex-wrap items-center gap-3 px-3 py-2">
-                  <span className="w-20 text-sm font-medium capitalize">{nome}</span>
-                  <Switch
-                    checked={!!exp}
-                    onCheckedChange={(v) =>
-                      mudarDia(
-                        dia,
-                        v ? (HORARIO_COMERCIAL[dia] ?? { abre: "08:00", fecha: "12:00" }) : null,
-                      )
-                    }
-                    aria-label={`Aberto ${nome}`}
-                  />
-                  {exp ? (
-                    <span className="flex items-center gap-2 text-sm">
-                      <Input
-                        type="time"
-                        value={exp.abre}
-                        onChange={(e) => mudarDia(dia, { ...exp, abre: e.target.value })}
-                        className="h-8 w-28"
-                        aria-label={`Abre ${nome}`}
-                      />
-                      às
-                      <Input
-                        type="time"
-                        value={exp.fecha}
-                        onChange={(e) => mudarDia(dia, { ...exp, fecha: e.target.value })}
-                        className="h-8 w-28"
-                        aria-label={`Fecha ${nome}`}
-                      />
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Fechado</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <HorarioSemanaEditor value={horario} onChange={setHorario} />
           {invalido && (
             <p className="text-xs text-destructive">
               Confira os horários: o fechamento precisa ser depois da abertura.
@@ -209,6 +168,11 @@ export function RoboWhatsappCard() {
                 onClick={() => setHorario(data?.horario ?? HORARIO_COMERCIAL)}
               >
                 Desfazer
+              </Button>
+            )}
+            {horarioLoja && JSON.stringify(horarioLoja) !== JSON.stringify(horario) && (
+              <Button size="sm" variant="outline" onClick={() => setHorario(horarioLoja)}>
+                Usar o horário de funcionamento da loja
               </Button>
             )}
           </div>

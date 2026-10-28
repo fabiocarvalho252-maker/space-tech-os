@@ -3,6 +3,7 @@
 // com @page do tamanho da bobina, para o driver da impressora não encolher
 // o conteúdo como faria com uma folha A4.
 import { supabase } from "@/integrations/supabase/client";
+import { linhaHorarioLoja } from "@/lib/horario-loja";
 
 export type LarguraCupom = "80" | "58";
 
@@ -51,12 +52,13 @@ async function montarHtmlCupom(vendaId: string, largura: LarguraCupom): Promise<
       .eq("venda_id", vendaId),
     supabase
       .from("profiles")
-      .select("loja, nome, cnpj_cpf, endereco, whatsapp")
+      .select("loja, nome, cnpj_cpf, endereco, whatsapp, horario_funcionamento")
       .eq("id", venda.user_id)
       .maybeSingle(),
   ]);
 
   const nomeLoja = loja?.loja || loja?.nome || "SPACE TECH";
+  const horarioLoja = linhaHorarioLoja(loja?.horario_funcionamento);
   const data = new Date(venda.created_at).toLocaleString("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
@@ -97,6 +99,7 @@ async function montarHtmlCupom(vendaId: string, largura: LarguraCupom): Promise<
   ${loja?.cnpj_cpf ? `<div class="c pequeno">CNPJ/CPF: ${esc(loja.cnpj_cpf)}</div>` : ""}
   ${loja?.endereco ? `<div class="c pequeno">${esc(loja.endereco)}</div>` : ""}
   ${loja?.whatsapp ? `<div class="c pequeno">WhatsApp: ${esc(loja.whatsapp)}</div>` : ""}
+  ${horarioLoja ? `<div class="c pequeno">${esc(horarioLoja)}</div>` : ""}
   <div class="sep"></div>
   <div class="c b">CUPOM NÃO FISCAL</div>
   <div class="linha"><span>Venda nº ${String(venda.numero).padStart(4, "0")}</span><span>${esc(data)}</span></div>

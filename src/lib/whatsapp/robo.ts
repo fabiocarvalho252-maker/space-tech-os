@@ -52,6 +52,44 @@ export function lerHorario(valor: unknown): Horario {
   });
 }
 
+const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
+
+/**
+ * Resumo para comprovantes: "Seg a Sex 8h–18h · Sáb 8h–12h". Dias seguidos
+ * com o mesmo expediente viram um intervalo; dias fechados ficam de fora.
+ * "" quando a loja não abre em dia nenhum.
+ */
+export function resumoHorario(horario: Horario): string {
+  // Segunda primeiro, domingo por último — é como a loja lê a semana.
+  const ordem = [1, 2, 3, 4, 5, 6, 0];
+  const grupos: { dias: number[]; exp: NonNullable<Expediente> }[] = [];
+  for (const d of ordem) {
+    const exp = horario[d];
+    if (!exp) continue;
+    const ultimo = grupos[grupos.length - 1];
+    const anterior = ultimo?.dias[ultimo.dias.length - 1];
+    const seguido = anterior != null && ordem.indexOf(d) === ordem.indexOf(anterior) + 1;
+    if (ultimo && seguido && ultimo.exp.abre === exp.abre && ultimo.exp.fecha === exp.fecha) {
+      ultimo.dias.push(d);
+    } else {
+      grupos.push({ dias: [d], exp });
+    }
+  }
+  return grupos
+    .map(({ dias, exp }) => {
+      const primeiro = DIAS_CURTOS[dias[0]!];
+      const fim = DIAS_CURTOS[dias[dias.length - 1]!];
+      const quando =
+        dias.length === 1
+          ? primeiro
+          : dias.length === 2
+            ? `${primeiro} e ${fim}`
+            : `${primeiro} a ${fim}`;
+      return `${quando} ${hora(exp.abre)}–${hora(exp.fecha)}`;
+    })
+    .join(" · ");
+}
+
 /** Dia da semana e minutos desde 00:00 no horário de Brasília. */
 export function agoraBrasilia(agora: Date): { dia: number; min: number } {
   const brt = new Date(agora.getTime() - 3 * 3_600_000);
