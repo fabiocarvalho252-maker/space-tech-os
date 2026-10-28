@@ -1,4 +1,5 @@
-import { Layers } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, Layers } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -7,7 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { FinancialMetrics } from "./FinancialMetrics";
+import { Button } from "@/components/ui/button";
+import { FinancialMetrics, type MetricasResultado } from "./FinancialMetrics";
 import { FinancialChart, type PontoResultado } from "./FinancialChart";
 
 export type Periodo = "hoje" | "semana" | "mes" | "mes_anterior" | "personalizado";
@@ -28,6 +30,7 @@ export function MonthlyResultCard({
   onDataInicioChange,
   onDataFimChange,
   metrics,
+  anterior,
   pontos,
   carregando,
 }: {
@@ -37,14 +40,9 @@ export function MonthlyResultCard({
   dataFim: string;
   onDataInicioChange: (v: string) => void;
   onDataFimChange: (v: string) => void;
-  metrics: {
-    lucroLiquido: number;
-    margem: number;
-    receita: number;
-    cmv: number;
-    custoServicos: number;
-    despesas: number;
-  };
+  metrics: MetricasResultado;
+  /** Mesmo cálculo no período anterior equivalente; null enquanto carrega. */
+  anterior: MetricasResultado | null;
   pontos: PontoResultado[];
   carregando: boolean;
 }) {
@@ -98,9 +96,16 @@ export function MonthlyResultCard({
         <div className="h-56 animate-pulse rounded-xl bg-secondary/40" />
       ) : (
         <>
-          <FinancialMetrics {...metrics} />
+          <FinancialMetrics atual={metrics} anterior={anterior} />
           <div className="mt-3 sm:mt-4">
             <FinancialChart pontos={pontos} />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link to="/relatorios" hash="financeiro">
+                Ver DRE completo <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </div>
         </>
       )}

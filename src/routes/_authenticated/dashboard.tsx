@@ -24,6 +24,11 @@ import { TopProductsChart, type ItemRanking } from "@/components/dashboard/TopPr
 import { TopServicesChart } from "@/components/dashboard/TopServicesChart";
 import { OpenOrdersTable, type OsAberta } from "@/components/dashboard/OpenOrdersTable";
 import { SystemStatistics } from "@/components/dashboard/SystemStatistics";
+import {
+  calcularResultado,
+  intervaloAnterior,
+  type ItemResultado,
+} from "@/lib/dashboard/resultado";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -42,9 +47,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 // retirada — mesma regra da SPACE TECH IA (STATUS_OS_ABERTAS em
 // src/lib/ai/tools.server.ts), para os dois mostrarem o mesmo número.
 const STATUS_FECHADOS = ["pronto", "entregue", "faturado", "cancelado", "reprovado"];
-// Itens de OS/venda cancelada (ou OS reprovada) não geraram receita
-// nenhuma, então o custo deles também não pode ser descontado do lucro.
-const OS_STATUS_SEM_CUSTO = new Set(["cancelado", "reprovado"]);
 
 function intervaloDoPeriodo(
   periodo: Periodo,
@@ -156,54 +158,66 @@ function Dashboard() {
     [data?.produtos],
   );
 
-  // Só lançamentos "pago" contam como caixa realizado — mesmo padrão da tela
-  // Financeiro (filtro padrão status="pago"). "pendente" ainda não entrou no
-  // caixa e "cancelado" não deve contar como receita/despesa.
   const lancamentosPagos = (data?.lancamentos ?? []).filter((l) => l.status === "pago");
-  const receita = lancamentosPagos
-    .filter((l) => l.tipo === "entrada")
-    .reduce((s, l) => s + Number(l.valor), 0);
-  const despesas = lancamentosPagos
-    .filter((l) => l.tipo === "saida")
-    .reduce((s, l) => s + Number(l.valor), 0);
+  const resultado = useMemo(
+    () =>
+      calcularResultado(
+        data?.lancamentos ?? [],
+        (data?.osItens ?? []) as unknown as ItemResultado[],
+        (data?.vendaItens ?? []) as unknown as ItemResultado[],
+        produtosById,
+      ),
+    [data?.lancamentos, data?.osItens, data?.vendaItens, produtosById],
+  );
+  const { receita, despesas, cmv, custoServicos, lucroLiquido, margem, custoPorDia } = resultado;
 
-  // Custo (CMV): a peça/serviço consumido tem seu custo no próprio cadastro
-  // (produtos.preco_custo — "Custo Adicional" na tela de Serviços), esteja
-  // ele categorizado como produto físico ou como serviço. Excluir os itens
-  // tipo "servico" aqui zerava o CMV inteiro para uma assistência que só
-  // cadastra peças dentro de Serviços (nunca em Produtos).
-  // O custo dos serviços (produtos com categoria "Serviço") fica separado do
-  // CMV das peças/produtos para aparecer no próprio card — é o mesmo valor
-  // que o Financeiro mostra como saída automática "Custo dos serviços".
-  // `custoPorDia` alimenta o gráfico, que também desconta esses custos.
-  const { cmv, custoServicos, custoPorDia } = useMemo(() => {
-    let cmv = 0;
-    let custoServicos = 0;
-    const custoPorDia = new Map<string, number>();
-    function somarCusto(produtoId: string | null, quantidade: number, criadoEm: string) {
-      const produto = produtoId ? produtosById.get(produtoId) : null;
-      if (!produto) return;
-      const custo = Number(quantidade) * Number(produto.preco_custo ?? 0);
-      if (produto.categoria === "Serviço") custoServicos += custo;
-      else cmv += custo;
-      const dia = format(new Date(criadoEm), "yyyy-MM-dd");
-      custoPorDia.set(dia, (custoPorDia.get(dia) ?? 0) + custo);
-    }
-    for (const i of data?.osItens ?? []) {
-      const statusOs = (i as unknown as { ordens_servico?: { status?: string } | null })
-        .ordens_servico?.status;
-      if (statusOs && OS_STATUS_SEM_CUSTO.has(statusOs)) continue;
-      somarCusto(i.produto_id, i.quantidade, i.created_at);
-    }
-    for (const i of data?.vendaItens ?? []) {
-      const statusVenda = (i as unknown as { vendas?: { status?: string } | null }).vendas?.status;
-      if (statusVenda === "cancelado") continue;
-      somarCusto(i.produto_id, i.quantidade, i.created_at);
-    }
-    return { cmv, custoServicos, custoPorDia };
-  }, [data?.osItens, data?.vendaItens, produtosById]);
-  const lucroLiquido = receita - cmv - custoServicos - despesas;
-  const margem = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
+  // Mesmo cálculo no período anterior equivalente, para a comparação do
+  // card (ver intervaloAnterior). Busca só o que o DRE usa.
+  const anterior = useMemo(() => intervaloAnterior(periodo, inicio, fim), [periodo, inicio, fim]);
+  const anteriorInicioStr = format(anterior.inicio, "yyyy-MM-dd");
+  const anteriorFimStr = format(anterior.fim, "yyyy-MM-dd");
+  const { data: dadosAnterior } = useQuery({
+    queryKey: ["dashboard-resultado-anterior", anteriorInicioStr, anteriorFimStr],
+    queryFn: async () => {
+      const inicioTs = startOfDay(anterior.inicio).toISOString();
+      const fimTs = endOfDay(anterior.fim).toISOString();
+      const [lancRes, osItensRes, vendaItensRes] = await Promise.all([
+        supabase
+          .from("lancamentos")
+          .select("tipo, valor, data, status")
+          .gte("data", anteriorInicioStr)
+          .lte("data", anteriorFimStr),
+        supabase
+          .from("os_itens")
+          .select("produto_id, quantidade, created_at, ordens_servico(status)")
+          .gte("created_at", inicioTs)
+          .lte("created_at", fimTs),
+        supabase
+          .from("venda_itens")
+          .select("produto_id, quantidade, created_at, vendas(status)")
+          .gte("created_at", inicioTs)
+          .lte("created_at", fimTs),
+      ]);
+      if (lancRes.error) throw lancRes.error;
+      return {
+        lancamentos: lancRes.data ?? [],
+        osItens: (osItensRes.data ?? []) as unknown as ItemResultado[],
+        vendaItens: (vendaItensRes.data ?? []) as unknown as ItemResultado[],
+      };
+    },
+  });
+  const resultadoAnterior = useMemo(
+    () =>
+      dadosAnterior
+        ? calcularResultado(
+            dadosAnterior.lancamentos,
+            dadosAnterior.osItens,
+            dadosAnterior.vendaItens,
+            produtosById,
+          )
+        : null,
+    [dadosAnterior, produtosById],
+  );
 
   const pontos = useMemo(() => {
     const dias = eachDayOfInterval({ start: inicio, end: fim });
@@ -280,6 +294,7 @@ function Dashboard() {
               onDataInicioChange={setDataInicio}
               onDataFimChange={setDataFim}
               metrics={{ lucroLiquido, margem, receita, cmv, custoServicos, despesas }}
+              anterior={resultadoAnterior}
               pontos={pontos}
               carregando={carregando}
             />
