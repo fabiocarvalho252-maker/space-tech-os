@@ -2668,6 +2668,8 @@ function Configuracoes() {
                 "catalogo",
                 "backup",
                 "funcionarios",
+                "modelos",
+                "assistente",
               ].includes(t.id),
           )
           .map((tab) => (
