@@ -464,6 +464,7 @@ export type Database = {
       };
       bank_accounts: {
         Row: {
+          padrao: boolean;
           agencia: string | null;
           banco: string;
           conta: string | null;
@@ -475,6 +476,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          padrao?: boolean;
           agencia?: string | null;
           banco: string;
           conta?: string | null;
@@ -486,6 +488,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          padrao?: boolean;
           agencia?: string | null;
           banco?: string;
           conta?: string | null;
@@ -2440,6 +2443,7 @@ export type Database = {
       };
       payment_methods: {
         Row: {
+          bank_account_id: string | null;
           created_at: string;
           id: string;
           nome: string;
@@ -2448,6 +2452,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          bank_account_id?: string | null;
           created_at?: string;
           id?: string;
           nome: string;
@@ -2456,6 +2461,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          bank_account_id?: string | null;
           created_at?: string;
           id?: string;
           nome?: string;
@@ -5248,6 +5254,16 @@ export type Database = {
       relatorio_semanal_dados: {
         Args: { p_empresa_id: string; p_fim: string; p_inicio: string };
         Returns: Json;
+      };
+      saldos_contas_bancarias: {
+        Args: { p_empresa: string; p_fim: string; p_inicio: string };
+        Returns: {
+          bank_account_id: string | null;
+          entradas_periodo: number;
+          movimento_total: number;
+          qtd_periodo: number;
+          saidas_periodo: number;
+        }[];
       };
       relatorio_tecnicos: {
         Args: { p_empresa_id: string; p_fim: string; p_inicio: string };

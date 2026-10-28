@@ -822,6 +822,12 @@ function Configuracoes() {
                     Nenhuma conta cadastrada.
                   </p>
                 )}
+                <Link
+                  to="/contas-bancarias"
+                  className="block text-center text-sm font-medium text-primary hover:underline"
+                >
+                  Ver saldos e definir a conta de cada forma de pagamento
+                </Link>
               </div>
             </section>
 

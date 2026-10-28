@@ -80,7 +80,7 @@ const RELATORIOS_ITENS: ItemMenu[] = [
   { label: "Receitas Brutas - MEI", to: "/relatorio-mei", icon: Receipt },
   { label: "Ordem de Serviço", to: "/relatorios", hash: "ordens", icon: FileCheck },
   { label: "Financeiro - DRE", to: "/relatorios", hash: "financeiro", icon: Wallet },
-  { label: "Contas Bancárias", emBreve: true, icon: CreditCard },
+  { label: "Contas Bancárias", to: "/contas-bancarias", icon: CreditCard },
   { label: "Comissões", to: "/relatorios", hash: "tecnicos", icon: Percent },
 ];
 
