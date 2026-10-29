@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { dataBR, STATUS_VENDAS } from "@/lib/format";
+import { dataHoraBR, STATUS_VENDAS } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { hojeISO } from "@/lib/crediario";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -589,7 +589,7 @@ function Vendas() {
                   <td className="px-4 py-3 font-medium">
                     #{String(v.numero ?? "—").padStart(4, "0")}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{dataBR(v.created_at)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dataHoraBR(v.created_at)}</td>
                   <td className="px-4 py-3">{v.cliente?.nome ?? "Consumidor final"}</td>
                   <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                     {v.forma_pagamento}
