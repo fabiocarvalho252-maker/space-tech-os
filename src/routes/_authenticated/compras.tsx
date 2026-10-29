@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
-import { dataBR, STATUS_COMPRAS, statusLabel } from "@/lib/format";
+import { dataHoraBR, STATUS_COMPRAS, statusLabel } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { SearchInput } from "@/components/SearchInput";
@@ -317,7 +317,7 @@ function Compras() {
                       c.fornecedor?.razao_social ||
                       "Fornecedor removido"}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{dataBR(c.created_at)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dataHoraBR(c.created_at)}</td>
                   <td className="px-4 py-3 text-right font-semibold">{brl(c.valor_total)}</td>
                   <td className="px-4 py-3">
                     <select
