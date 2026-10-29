@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, dataBR, statusLabel } from "@/lib/format";
+import { brl, dataBR, dataHoraBR, statusLabel } from "@/lib/format";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -133,7 +133,7 @@ function ConsultaPublica() {
                 <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
                   Data de Entrada
                 </Label>
-                <p className="font-bold text-lg mt-0.5">{dataBR(os.created_at)}</p>
+                <p className="font-bold text-lg mt-0.5">{dataHoraBR(os.created_at)}</p>
               </div>
             </section>
 

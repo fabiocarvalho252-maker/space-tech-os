@@ -14,6 +14,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { dataHoraBR } from "@/lib/format";
 import {
   FALLBACK_TEMPLATE,
   TEMA_RGB,
@@ -170,7 +171,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
   }
 
   w.titulo(`${profile?.loja || profile?.nome || "Assistência Técnica"}`, 16);
-  w.subtitulo(`${tituloDoc} nº ${os.numero} — ${dataBR(os.created_at)}`, rgb(0.1, 0.1, 0.15));
+  w.subtitulo(`${tituloDoc} nº ${os.numero} — ${dataHoraBR(os.created_at)}`, rgb(0.1, 0.1, 0.15));
   const infoEmpresa = [profile?.cnpj_cpf, profile?.endereco, profile?.whatsapp]
     .filter(Boolean)
     .join("  ·  ");

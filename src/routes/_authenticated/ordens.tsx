@@ -69,7 +69,7 @@ import {
 } from "@/lib/os-template-render";
 
 import { useCurrentUser, useMinhaEmpresa, useProfile } from "@/hooks/useCurrentUser";
-import { dataBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
+import { dataBR, dataHoraBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { origemPublica } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
@@ -2177,7 +2177,7 @@ const ListaOs = memo(function ListaOs({
                 </td>
                 <td className="p-4 text-muted-foreground">
                   <div className="flex flex-col">
-                    <span>{dataBR(os.created_at)}</span>
+                    <span>{dataHoraBR(os.created_at)}</span>
                     <span className="text-xs text-primary">{dataBR(os.previsao)}</span>
                   </div>
                 </td>
@@ -2309,7 +2309,7 @@ const ListaOs = memo(function ListaOs({
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>Aberta: {dataBR(os.created_at)}</span>
+              <span>Aberta: {dataHoraBR(os.created_at)}</span>
               <span className="text-primary">Previsão: {dataBR(os.previsao)}</span>
               <span>Garantia: {getVencimentoGarantia(os.garantia_vencimento)}</span>
             </div>

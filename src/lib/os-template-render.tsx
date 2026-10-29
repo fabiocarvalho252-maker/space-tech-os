@@ -8,6 +8,7 @@
 // did for the QR code before this file existed).
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
+import { dataHoraBR } from "@/lib/format";
 
 export type OsTemplateTema = "azul" | "verde" | "roxo" | "preto" | "vermelho" | "minimalista";
 export type OsTemplateOrientacao = "retrato" | "paisagem";
@@ -247,7 +248,7 @@ function renderSecao(
           </div>
           <div class="cabecalho-os">
             <strong>${d.modo === "orcamento" ? "Orçamento" : "Ordem de Serviço"} nº ${esc(String(d.numero))}</strong>
-            <span>Emissão: ${dataBR(d.createdAt)}</span>
+            <span>Emissão: ${dataHoraBR(d.createdAt)}</span>
             <span class="status-badge">${esc(d.statusLabel)}</span>
           </div>
         </header>

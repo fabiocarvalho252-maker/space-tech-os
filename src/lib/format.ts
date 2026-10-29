@@ -27,6 +27,15 @@ export const dataBR = (value: string | null | undefined) => {
   return new Date(value).toLocaleDateString("pt-BR");
 };
 
+// Data e hora de um registro (ex.: "29/10/2026 às 15:28"), sempre no horário
+// de Brasília — também roda no servidor (PDF), que está em UTC.
+export const dataHoraBR = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  const fuso = { timeZone: "America/Sao_Paulo" } as const;
+  return `${d.toLocaleDateString("pt-BR", fuso)} às ${d.toLocaleTimeString("pt-BR", { ...fuso, hour: "2-digit", minute: "2-digit" })}`;
+};
+
 // Money math (splitting totals across installments, comparing sums) is done
 // in integer centavos to avoid float rounding drift like 33.33+33.33+33.34
 // landing a cent off from the total — only converting back to reais (the
