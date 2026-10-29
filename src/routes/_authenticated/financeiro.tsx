@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
-import { dataBR } from "@/lib/format";
+import { dataBR, dataHoraBR } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { useMemo } from "react";
 import { exportToCSV, generateFinancePDF } from "@/lib/exports";
@@ -443,6 +443,7 @@ function Financeiro() {
                 exportToCSV(
                   listaFiltrada.map((l) => ({
                     Data: dataBR(l.data),
+                    "Lançado em": dataHoraBR(l.created_at),
                     Descricao: l.descricao,
                     Categoria: l.categoria,
                     Tipo: l.tipo,
@@ -728,6 +729,9 @@ function Financeiro() {
                           Pendente
                         </span>
                       )}
+                      <span className="block whitespace-nowrap text-[11px]">
+                        Lançado em {dataHoraBR(l.created_at)}
+                      </span>
                       {l.status === "cancelado" && (
                         <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
                           Cancelado
@@ -835,6 +839,9 @@ function LinhaOs({
               </span>
             )
           )}
+          <span className="block whitespace-nowrap text-[11px]">
+            Lançado em {dataHoraBR(grupo.created_at)}
+          </span>
         </td>
         <td className={`px-4 py-3 text-right font-bold ${corValor}`}>
           <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -871,6 +878,9 @@ function LinhaOs({
               {dataBR(i.vencimento || i.created_at)}
               {i.status === "pendente" && " · Pendente"}
               {i.status === "cancelado" && " · Cancelado"}
+              <span className="block whitespace-nowrap text-[11px]">
+                Lançado em {dataHoraBR(i.created_at)}
+              </span>
             </td>
             <td
               className={`px-4 py-2 text-right font-semibold ${
