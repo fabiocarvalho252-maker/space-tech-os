@@ -3,11 +3,13 @@
 // com o WhatsApp conectado: a cada 10 minutos gera as mensagens automáticas
 // (pesquisas, aniversário, boas-vindas, resumo semanal) e, sempre, envia a
 // fila por até ~50 s respeitando intervalo, horário e limite da empresa.
+// Antes, manda o aviso de nova empresa cadastrada que não saiu na hora.
 // Assim nada depende de alguém estar com o sistema aberto. Fica fora do
 // roteador do TanStack Start (sem sessão); token derivado da service role
 // key, como o das contas inativas.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { conferirAvisosDeCadastro } from "@/lib/aviso-novo-cadastro.server";
 import { evolutionConfigurado } from "./evolution-api";
 import { processarFila, rodarAutomacoes } from "./whatsapp-service";
 
@@ -41,6 +43,8 @@ export async function handleWhatsappFilaCron(request: Request): Promise<Response
   }
   if (!evolutionConfigurado()) return Response.json({ empresas: 0 });
   try {
+    const avisosCadastro = await conferirAvisosDeCadastro();
+
     const { data: conexoes, error } = await supabaseAdmin
       .from("whatsapp_connections")
       .select("user_id")
@@ -59,7 +63,7 @@ export async function handleWhatsappFilaCron(request: Request): Promise<Response
         }
       }),
     );
-    return Response.json({ automacoes, empresas: resultados });
+    return Response.json({ automacoes, avisosCadastro, empresas: resultados });
   } catch (erro) {
     console.error("[Fila WhatsApp] Falha no worker:", erro instanceof Error ? erro.message : erro);
     return new Response("erro", { status: 500 });

@@ -36,8 +36,9 @@ export const verificarWhatsappDisponivel = createServerFn({ method: "POST" })
 /**
  * Avisa o dono da plataforma no WhatsApp que uma empresa acabou de se
  * cadastrar. Chamado por /cadastro logo depois do signUp. Só vale para
- * contas criadas há poucos minutos e uma vez por conta, para não virar um
- * jeito de mandar mensagem ao dono. Nunca lança.
+ * contas criadas há poucos minutos, para não virar um jeito de mandar
+ * mensagem ao dono; se não sair agora, a conferência do cron manda depois
+ * (aviso-novo-cadastro.server.ts). Nunca lança.
  */
 export const avisarNovoCadastro = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -45,35 +46,14 @@ export const avisarNovoCadastro = createServerFn({ method: "POST" })
     try {
       const { data: perfil } = await supabaseAdmin
         .from("profiles")
-        .select("nome, loja, whatsapp, cidade, created_at")
+        .select("created_at")
         .eq("id", context.userId)
         .maybeSingle();
       if (!perfil) return { ok: true };
       if (Date.now() - new Date(perfil.created_at).getTime() > 30 * 60 * 1000) return { ok: true };
 
-      const templateId = `aviso_novo_cadastro_${context.userId}`;
-      const { data: jaAvisado } = await supabaseAdmin
-        .from("whatsapp_messages")
-        .select("id")
-        .eq("template_id", templateId)
-        .limit(1);
-      if (jaAvisado?.length) return { ok: true };
-
-      const { data: usuario } = await supabaseAdmin.auth.admin.getUserById(context.userId);
-      const { avisarDonoDaPlataforma } = await import("@/lib/whatsapp/whatsapp-service");
-      await avisarDonoDaPlataforma(
-        templateId,
-        [
-          `🎉 *Nova empresa cadastrada* — ${perfil.loja || "Loja sem nome"}`,
-          `Responsável: ${perfil.nome || "-"}`,
-          `WhatsApp: ${perfil.whatsapp || "-"}`,
-          `Email: ${usuario?.user?.email || "-"}`,
-          ...(perfil.cidade ? [`Cidade: ${perfil.cidade}`] : []),
-          "Plano: Teste grátis (7 dias)",
-          "",
-          `Ver no painel: ${import.meta.env["VITE_SITE_URL"] ?? ""}/admin`,
-        ].join("\n"),
-      );
+      const { enviarAvisoNovoCadastro } = await import("@/lib/aviso-novo-cadastro.server");
+      await enviarAvisoNovoCadastro(context.userId);
     } catch (erro) {
       console.error("[Aviso plataforma] Erro no aviso de novo cadastro:", erro);
     }
