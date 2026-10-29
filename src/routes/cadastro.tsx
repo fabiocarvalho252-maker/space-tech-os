@@ -6,7 +6,10 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { origemPublica } from "@/lib/site-url";
 import { isValidPhoneBR, maskPhoneBR, normalizarWhatsappBR } from "@/lib/whatsapp";
-import { verificarWhatsappDisponivel } from "@/lib/auth/ativacao-whatsapp.functions";
+import {
+  avisarNovoCadastro,
+  verificarWhatsappDisponivel,
+} from "@/lib/auth/ativacao-whatsapp.functions";
 import { registrarReferralFn } from "@/lib/referrals/referral.functions";
 import {
   lerCodigoIndicacaoSalvo,
@@ -106,6 +109,9 @@ function Cadastro() {
       toast.error("Não foi possível criar a conta", { description: mensagemErroAmigavel(error) });
       return;
     }
+
+    // Best-effort: avisa o dono da plataforma no WhatsApp.
+    avisarNovoCadastro().catch((e) => console.error("[Cadastro] Falha ao avisar o dono:", e));
 
     const codigoIndicacao = lerCodigoIndicacaoSalvo();
     if (codigoIndicacao) {
