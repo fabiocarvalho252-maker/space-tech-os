@@ -4885,6 +4885,20 @@ export type Database = {
           whatsapp: string;
         }[];
       };
+      itens_os_publica: {
+        Args: { p_identificador: string };
+        Returns: {
+          descricao: string;
+          tipo: string;
+          quantidade: number;
+          preco_unitario: number;
+          desconto: number;
+        }[];
+      };
+      decidir_orcamento_por_link: {
+        Args: { p_os_id: string; p_aprovar: boolean };
+        Returns: string;
+      };
       crediario_enfileirar: {
         Args: {
           p_contrato: string;

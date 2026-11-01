@@ -22,6 +22,7 @@ import { WhatsAppModalFooter } from "@/components/whatsapp/WhatsAppModalFooter";
 import { enviarNotificacaoOsWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
 import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
 import { base64ParaBytes, baixarArquivo } from "@/lib/pdf-share";
+import { linkAprovacaoOrcamento, marcarOrcamentoEnviado } from "@/lib/orcamento-link";
 import {
   buildMensagensRapidas,
   buildWaMeLink,
@@ -102,6 +103,7 @@ export function WhatsAppSendModal({
       nome_loja: profile?.loja ?? "",
       empresa: profile?.loja ?? "",
       telefone: profile?.whatsapp ?? "",
+      link: os ? linkAprovacaoOrcamento(os.id) : "",
     }),
     [os, profile],
   );
@@ -143,6 +145,16 @@ export function WhatsAppSendModal({
   const agendamentoValido =
     agendamento.tipo === "agora" || (!!agendamento.data && !!agendamento.hora);
   const podeEnviar = telefoneValido && texto.trim().length > 0 && agendamentoValido;
+
+  // Mensagem com o link da OS (modelo "Orçamento") = orçamento enviado para
+  // o cliente aprovar: a OS passa para "Aguardando aprovação".
+  async function aposEnviar() {
+    if (!os || !texto.includes(linkAprovacaoOrcamento(os.id))) return;
+    if (await marcarOrcamentoEnviado(os)) {
+      qc.invalidateQueries({ queryKey: ["ordens"] });
+      qc.invalidateQueries({ queryKey: ["os-historico", os.id] });
+    }
+  }
 
   const enviar = useMutation({
     mutationFn: async () => {
@@ -218,6 +230,7 @@ export function WhatsAppSendModal({
     onSuccess: (resultado) => {
       if (resultado === "cancelado") return;
       if (resultado === "wa_me" || resultado === "compartilhado") {
+        aposEnviar();
         onOpenChange(false);
         return;
       }
@@ -225,6 +238,7 @@ export function WhatsAppSendModal({
         toast.error("Não foi possível enviar a mensagem. Verifique o WhatsApp e tente novamente.");
         return; // mantém o modal aberto para o usuário tentar de novo
       }
+      aposEnviar();
       toast.success(
         resultado.status === "agendado"
           ? "Notificação agendada com sucesso."

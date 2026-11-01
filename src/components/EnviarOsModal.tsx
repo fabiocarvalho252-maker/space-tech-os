@@ -14,6 +14,7 @@ import { buildWaMeLink } from "@/lib/whatsapp";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { useCurrentUser, useProfile } from "@/hooks/useCurrentUser";
 import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
+import { linkAprovacaoOrcamento, marcarOrcamentoEnviado } from "@/lib/orcamento-link";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ export type EnviarOsAlvo = {
   id: string;
   user_id: string;
   numero: number;
+  status?: string | null;
   aparelho?: string | null;
   valor: number;
   clientes?: { nome?: string | null; telefone?: string | null } | null;
@@ -124,8 +126,16 @@ export function EnviarOsModal({
       descricao: `Compartilhamento de ${rotulo.toLowerCase()} iniciado por ${nomeUsuario} — ${canal}.`,
       created_by: user?.id ?? null,
     });
+    if (modo === "orcamento" && (await marcarOrcamentoEnviado(os))) {
+      qc.invalidateQueries({ queryKey: ["ordens"] });
+    }
     qc.invalidateQueries({ queryKey: ["os-historico", os.id] });
   }
+
+  // Orçamento sempre leva o link onde o cliente aprova ou recusa.
+  const textoAprovacao = os
+    ? `\n\nVeja os serviços e toque em *Aprovar* ou *Recusar* neste link:\n${linkAprovacaoOrcamento(os.id)}`
+    : "";
 
   async function compartilhar() {
     if (!pdf || !os) return;
@@ -133,7 +143,10 @@ export function EnviarOsModal({
       try {
         await navigator.share({
           title: `${rotulo} ${os.numero}`,
-          text: `Segue ${modo === "orcamento" ? "o Orçamento" : "a Ordem de Serviço"} nº ${os.numero} da SPACE TECH.`,
+          text:
+            modo === "orcamento"
+              ? `Segue o Orçamento nº ${os.numero} da SPACE TECH.${textoAprovacao}`
+              : `Segue a Ordem de Serviço nº ${os.numero} da SPACE TECH.`,
           files: [pdf.file],
         });
         await registrarEnvio("compartilhamento nativo");
@@ -166,7 +179,7 @@ export function EnviarOsModal({
     if (!os || !telefone) return;
     const mensagem =
       modo === "orcamento"
-        ? `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue o Orçamento nº ${os.numero} da SPACE TECH.\n\nO documento contém os itens, valores e condições propostas.\n\nSPACE TECH`
+        ? `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue o Orçamento nº ${os.numero} da SPACE TECH.\n\nO documento contém os itens, valores e condições propostas.${textoAprovacao}\n\nSPACE TECH`
         : `Olá, ${os.clientes?.nome ?? ""}!\n\nSegue a Ordem de Serviço nº ${os.numero} da SPACE TECH.\n\nO documento contém os detalhes do serviço realizado, valores e condições de garantia.\n\nSPACE TECH`;
     window.open(buildWaMeLink(telefone, mensagem), "_blank");
     registrarEnvio("WhatsApp (mensagem, anexar PDF manualmente)");

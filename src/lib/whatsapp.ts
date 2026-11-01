@@ -78,6 +78,7 @@ export type VariaveisWhatsApp = Partial<{
   modelo: string;
   servico: string;
   garantia: string;
+  link: string;
 }>;
 
 // Supports both the {variavel} syntax from the spec and the {{variavel}}
@@ -182,7 +183,7 @@ export const messageTemplates: WhatsAppMessageTemplate[] = [
     name: "Orçamento / valor",
     builtin: true,
     message:
-      "Olá {cliente}! O orçamento da OS nº {numero_os} ficou em {valor}. Podemos prosseguir?",
+      "Olá {cliente}! O orçamento da OS nº {numero_os} ficou em {valor}.\n\nVeja os serviços e toque em *Aprovar* ou *Recusar* neste link:\n{link}",
   },
   {
     id: "garantia",
@@ -214,4 +215,13 @@ export function buildMensagensRapidas(
   return messageTemplates.map((t) =>
     overrides[t.id] ? { ...t, message: overrides[t.id] as string } : t,
   );
+}
+
+// Mandar o orçamento com o link de aprovação deixa a OS esperando a resposta
+// do cliente — e é só nesse status (ou em "orcamento") que a página
+// /consulta/:id mostra os botões Aprovar / Recusar.
+const STATUS_ANTES_DO_ORCAMENTO = ["recebido", "em_analise", "orcamento"];
+
+export function statusAposEnviarOrcamento(status: string): string | null {
+  return STATUS_ANTES_DO_ORCAMENTO.includes(status) ? "aguardando_aprovacao" : null;
 }

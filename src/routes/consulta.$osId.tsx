@@ -1,12 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dataBR, dataHoraBR, statusLabel } from "@/lib/format";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, Clock, Wrench, AlertCircle, Search, Wallet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  CheckCircle2,
+  Clock,
+  Wrench,
+  AlertCircle,
+  Search,
+  Wallet,
+  ThumbsUp,
+  ThumbsDown,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/consulta/$osId")({
@@ -34,6 +47,15 @@ function ConsultaPublica() {
 
       if (error) throw error;
       return data?.[0] ?? null;
+    },
+  });
+
+  const { data: itens = [] } = useQuery({
+    queryKey: ["os-publica-itens", osId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("itens_os_publica", { p_identificador: osId });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -162,16 +184,42 @@ function ConsultaPublica() {
             </section>
 
             <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-primary" /> Resumo Financeiro
-                </h3>
-              </div>
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />{" "}
+                {itens.length ? "Orçamento" : "Resumo Financeiro"}
+              </h3>
+              {itens.length > 0 && (
+                <div className="rounded-xl border border-border/50 divide-y divide-border/50">
+                  {itens.map((item, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3 p-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium break-words">{item.descricao}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.tipo === "servico" ? "Serviço" : "Peça"}
+                          {item.quantidade > 1 &&
+                            ` · ${item.quantidade} × ${brl(item.preco_unitario)}`}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-semibold">
+                        {brl(item.quantidade * Number(item.preco_unitario))}
+                      </span>
+                    </div>
+                  ))}
+                  {Number(itens[0]?.desconto) > 0 && (
+                    <div className="flex justify-between p-3 text-sm text-emerald-600">
+                      <span>Desconto</span>
+                      <span className="font-semibold">− {brl(Number(itens[0]?.desconto))}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl border border-primary/10">
                 <span className="text-sm font-medium">Valor Total</span>
                 <span className="text-xl font-black text-primary">{brl(os.valor)}</span>
               </div>
             </section>
+
+            <DecisaoOrcamento osId={osId} status={os.status} />
 
             <footer className="pt-6 text-center border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-4">
@@ -188,5 +236,107 @@ function ConsultaPublica() {
         </Card>
       </main>
     </div>
+  );
+}
+
+// Aprovar / recusar o orçamento pelo próprio link (decidir_orcamento_por_link
+// só aceita enquanto a OS está em "orcamento" ou "aguardando_aprovacao").
+function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
+  const qc = useQueryClient();
+  const [confirmar, setConfirmar] = useState<boolean | null>(null);
+
+  const decidir = useMutation({
+    mutationFn: async (aprovar: boolean) => {
+      const { error } = await supabase.rpc("decidir_orcamento_por_link", {
+        p_os_id: osId,
+        p_aprovar: aprovar,
+      });
+      if (error) throw error;
+    },
+    onSettled: () => {
+      setConfirmar(null);
+      qc.invalidateQueries({ queryKey: ["os-publica", osId] });
+    },
+  });
+
+  if (status === "aprovado" || status === "reprovado") {
+    const aprovado = status === "aprovado";
+    return (
+      <div
+        className={`flex items-center gap-3 rounded-xl border p-4 text-sm ${
+          aprovado
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+        }`}
+      >
+        {aprovado ? (
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+        ) : (
+          <XCircle className="h-5 w-5 shrink-0" />
+        )}
+        <p className="font-medium">
+          {aprovado
+            ? "Orçamento aprovado. Obrigado! Já vamos dar andamento ao serviço."
+            : "Orçamento recusado. Se mudar de ideia, fale com a assistência."}
+        </p>
+      </div>
+    );
+  }
+
+  if (status !== "orcamento" && status !== "aguardando_aprovacao") return null;
+
+  return (
+    <section className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+      <p className="text-sm font-bold text-center">
+        {confirmar === null
+          ? "Você aprova este orçamento?"
+          : confirmar
+            ? "Confirmar a APROVAÇÃO do orçamento?"
+            : "Confirmar que você RECUSA o orçamento?"}
+      </p>
+      {decidir.error && (
+        <p className="text-xs text-destructive text-center">
+          {decidir.error.message || "Não foi possível registrar sua resposta. Tente de novo."}
+        </p>
+      )}
+      {confirmar === null ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            onClick={() => setConfirmar(true)}
+          >
+            <ThumbsUp className="h-4 w-4" /> Aprovar
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 border-rose-500/40 text-rose-600 hover:bg-rose-500/10 gap-2"
+            onClick={() => setConfirmar(false)}
+          >
+            <ThumbsDown className="h-4 w-4" /> Recusar
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="h-12"
+            disabled={decidir.isPending}
+            onClick={() => setConfirmar(null)}
+          >
+            Voltar
+          </Button>
+          <Button
+            className={`h-12 gap-2 text-white ${
+              confirmar ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+            }`}
+            disabled={decidir.isPending}
+            onClick={() => decidir.mutate(confirmar)}
+          >
+            {decidir.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {confirmar ? "Sim, aprovar" : "Sim, recusar"}
+          </Button>
+        </div>
+      )}
+    </section>
   );
 }
