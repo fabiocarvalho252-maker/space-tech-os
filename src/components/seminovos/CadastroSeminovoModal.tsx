@@ -1,3 +1,5 @@
+// Formulário enxuto (01/11/2026): 4 passos numerados (Aparelho, De quem
+// comprou, Valores, Assinatura), campos pouco usados em "Mais detalhes".
 // Cadastro/edição de compra de seminovo (reformulação do módulo "Compra de
 // Seminovos", pedido do usuário) — mesma receita de CadastroAparelhoModal
 // (Dialog + Label/Input/Select direto na tabela via RLS, sem função de
@@ -20,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PatternLock } from "@/components/PatternLock";
 import { NovaOsFotos } from "@/components/NovaOsFotos";
-import { Eye, EyeOff } from "lucide-react";
+import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import { ConsertoCustosSection } from "./ConsertoCustosSection";
 import { AssinaturaCanvas, type AssinaturaCanvasHandle } from "./AssinaturaCanvas";
 import {
@@ -57,6 +59,29 @@ const STATUS_CADASTRO = [
   { value: "sucata", label: "Sucata" },
   { value: "sem_solucao", label: "Sem solução" },
 ];
+
+// Bloco numerado do formulário (1 Aparelho, 2 Vendedor, 3 Valores, 4 Assinatura).
+function Secao({
+  numero,
+  titulo,
+  children,
+}: {
+  numero: number;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <h3 className="flex items-center gap-2.5 text-base font-bold">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
+          {numero}
+        </span>
+        {titulo}
+      </h3>
+      {children}
+    </section>
+  );
+}
 
 type FormState = {
   cliente_id: string;
@@ -132,6 +157,9 @@ export function CadastroSeminovoModal({
   // própria ConsertoCustosSection quando editando um aparelho existente.
   const [totalConserto, setTotalConserto] = useState(0);
   const [verSenha, setVerSenha] = useState(false);
+  // Campos menos usados (RAM, data, acessórios, senha, observações...) ficam
+  // recolhidos para o formulário mostrar só o essencial.
+  const [maisDetalhes, setMaisDetalhes] = useState(false);
 
   // CPF + assinatura só fazem parte do momento da compra (pedido, seção 1:
   // "somente no processo de compra do aparelho do cliente") — só existem
@@ -161,6 +189,7 @@ export function CadastroSeminovoModal({
       setValorOferecido("0");
       setMotivoRecusa("");
       setVerSenha(false);
+      setMaisDetalhes(false);
       setCpfSugestao(null);
       setAssinaturaBlob(null);
       setFotosCompra([]);
@@ -291,6 +320,8 @@ export function CadastroSeminovoModal({
     try {
       validarFormulario();
     } catch (e) {
+      // A data da compra fica em "Mais detalhes": abre para o erro ser visível.
+      if (!form.data_avaliacao) setMaisDetalhes(true);
       toast.error((e as Error).message);
       return;
     }
@@ -499,12 +530,9 @@ export function CadastroSeminovoModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className={fase !== "formulario" ? "hidden" : "space-y-7"}>
-          {/* SEÇÃO 1 — APARELHO */}
-          <section className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-primary">
-              Informações do aparelho
-            </h3>
+        <div className={fase !== "formulario" ? "hidden" : "space-y-8"}>
+          {/* 1 — APARELHO: o essencial à vista, o resto em "Mais detalhes" */}
+          <Secao numero={1} titulo="Aparelho">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Marca *</Label>
@@ -514,124 +542,149 @@ export function CadastroSeminovoModal({
                 <Label>Modelo *</Label>
                 <Input className="h-11" {...campo("modelo")} placeholder="iPhone 11" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Armazenamento</Label>
-                <Input className="h-11" {...campo("armazenamento")} placeholder="128 GB" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>RAM</Label>
-                <Input className="h-11" {...campo("ram")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cor</Label>
-                <Input className="h-11" {...campo("cor")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>IMEI</Label>
-                <Input className="h-11" inputMode="numeric" {...campo("imei")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Estado</Label>
-                <Select
-                  value={form.estado}
-                  onValueChange={(v) => setForm((f) => ({ ...f, estado: v }))}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS.map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Bateria (%)</Label>
-                <Input
-                  className="h-11"
-                  type="number"
-                  min={0}
-                  max={100}
-                  {...campo("bateria_percentual")}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Data da compra *</Label>
-                <Input className="h-11" type="date" {...campo("data_avaliacao")} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Acessórios deixados</Label>
-              <Input
-                className="h-11"
-                {...campo("acessorios")}
-                placeholder="Carregador, caixa, fone..."
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Senha do aparelho (PIN)</Label>
-                <div className="relative">
-                  <Input
-                    className="h-11 pr-11"
-                    type={verSenha ? "text" : "password"}
-                    autoComplete="off"
-                    {...campo("senha_dispositivo")}
-                    placeholder="Senha ou PIN do cliente"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
-                    onClick={() => setVerSenha((v) => !v)}
-                    title={verSenha ? "Ocultar senha" : "Ver senha"}
-                  >
-                    {verSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Armazenamento</Label>
+                  <Input className="h-11" {...campo("armazenamento")} placeholder="128 GB" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cor</Label>
+                  <Input className="h-11" {...campo("cor")} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Padrão de desbloqueio</Label>
-                <PatternLock
-                  value={form.padrao_desbloqueio}
-                  onChange={(val) => setForm((f) => ({ ...f, padrao_desbloqueio: val }))}
-                />
+              <div className="grid grid-cols-[1fr_7rem] gap-4">
+                <div className="space-y-1.5">
+                  <Label>IMEI</Label>
+                  <Input className="h-11" inputMode="numeric" {...campo("imei")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bateria %</Label>
+                  <Input
+                    className="h-11"
+                    type="number"
+                    min={0}
+                    max={100}
+                    {...campo("bateria_percentual")}
+                  />
+                </div>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Observações</Label>
-              <Textarea
-                value={form.observacoes}
-                onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
-                rows={2}
-              />
-            </div>
-          </section>
 
-          {/* FOTOS — só na compra; depois de registrado, as fotos são
-              gerenciadas pelo botão de câmera da listagem (SeminovosFotos). */}
-          {!seminovo && (
-            <section className="rounded-2xl border border-border bg-card p-4">
+            <div className="space-y-1.5">
+              <Label>Estado</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {ESTADOS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, estado: e }))}
+                    className={`h-11 rounded-xl border text-sm font-medium transition ${
+                      form.estado === e
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fotos só na compra; depois de registrado, ficam no botão de
+                fotos do aparelho (SeminovosFotos). */}
+            {!seminovo && (
               <NovaOsFotos
                 fotos={fotosCompra}
                 onChange={setFotosCompra}
                 titulo="Fotos do aparelho"
               />
-            </section>
-          )}
+            )}
 
-          {/* SEÇÃO 2 — COMPRADO DE */}
-          <section className="space-y-4 rounded-2xl border border-border bg-secondary/20 p-4">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-primary">
-              👤 Dados do vendedor
-            </h3>
+            <div className="rounded-2xl border border-border">
+              <button
+                type="button"
+                onClick={() => setMaisDetalhes((v) => !v)}
+                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+              >
+                <span>
+                  Mais detalhes
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (data, RAM, acessórios, senha, observações)
+                  </span>
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform ${maisDetalhes ? "rotate-180" : ""}`}
+                />
+              </button>
+              {maisDetalhes && (
+                <div className="space-y-4 border-t border-border p-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Data da compra *</Label>
+                      <Input className="h-11" type="date" {...campo("data_avaliacao")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>RAM</Label>
+                      <Input className="h-11" {...campo("ram")} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Acessórios deixados</Label>
+                    <Input
+                      className="h-11"
+                      {...campo("acessorios")}
+                      placeholder="Carregador, caixa, fone..."
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Senha do aparelho (PIN)</Label>
+                      <div className="relative">
+                        <Input
+                          className="h-11 pr-11"
+                          type={verSenha ? "text" : "password"}
+                          autoComplete="off"
+                          {...campo("senha_dispositivo")}
+                          placeholder="Senha ou PIN do cliente"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
+                          onClick={() => setVerSenha((v) => !v)}
+                          title={verSenha ? "Ocultar senha" : "Ver senha"}
+                        >
+                          {verSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Padrão de desbloqueio</Label>
+                      <PatternLock
+                        value={form.padrao_desbloqueio}
+                        onChange={(val) => setForm((f) => ({ ...f, padrao_desbloqueio: val }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Observações</Label>
+                    <Textarea
+                      value={form.observacoes}
+                      onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Secao>
+
+          {/* 2 — DE QUEM COMPROU */}
+          <Secao numero={2} titulo="De quem comprou">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Cliente cadastrado (opcional)</Label>
+                <Label>Cliente cadastrado</Label>
                 <Select
                   value={form.cliente_id || "none"}
                   onValueChange={(v) => {
@@ -653,7 +706,7 @@ export function CadastroSeminovoModal({
                     <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Nenhum — pessoa avulsa</SelectItem>
+                    <SelectItem value="none">Pessoa não cadastrada — preencher abaixo</SelectItem>
                     {clientes.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.nome}
@@ -662,14 +715,18 @@ export function CadastroSeminovoModal({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Nome completo {form.cliente_id ? "" : "*"}</Label>
-                <Input className="h-11" {...campo("vendedor_nome")} disabled={!!form.cliente_id} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Telefone / WhatsApp</Label>
-                <Input className="h-11" type="tel" {...campo("vendedor_telefone")} />
-              </div>
+              {!form.cliente_id && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Nome completo *</Label>
+                    <Input className="h-11" {...campo("vendedor_nome")} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Telefone / WhatsApp</Label>
+                    <Input className="h-11" type="tel" {...campo("vendedor_telefone")} />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>CPF {seminovo ? "" : "*"}</Label>
                 <Input
@@ -704,28 +761,13 @@ export function CadastroSeminovoModal({
                 )}
               </div>
             </div>
-          </section>
+          </Secao>
 
-          {/* SEÇÃO 3 — ASSINATURA (só na compra — pedido, seção 1: "somente
-              no processo de compra do aparelho do cliente") */}
-          {!seminovo && (
-            <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-primary">
-                ✍️ Assinatura do vendedor
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Peça para a pessoa assinar na tela com o dedo, caneta ou mouse.
-              </p>
-              <AssinaturaCanvas ref={canvasRef} />
-            </section>
-          )}
-
-          {/* SEÇÃO 4 — CUSTOS */}
-          <section className="space-y-4 rounded-2xl border border-border bg-card p-4">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-primary">Custos</h3>
+          {/* 3 — VALORES: custo e preços juntos, com o resultado logo abaixo */}
+          <Secao numero={3} titulo="Valores">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Valor de compra *</Label>
+                <Label>Valor pago ao vendedor *</Label>
                 <MoneyInput
                   className="h-11"
                   value={form.valor_pago}
@@ -740,35 +782,8 @@ export function CadastroSeminovoModal({
                   onChange={(v) => setForm((f) => ({ ...f, outros_custos: String(v) }))}
                 />
               </div>
-            </div>
-
-            {seminovo ? (
-              <div className="border-t border-border pt-4">
-                <ConsertoCustosSection
-                  seminovoId={seminovo.id}
-                  empresaId={empresaId}
-                  podeGerenciar
-                  onTotalChange={setTotalConserto}
-                />
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-                O detalhamento do custo de conserto fica disponível depois de registrar a compra —
-                abra o aparelho novamente para adicionar.
-              </p>
-            )}
-
-            <div className="rounded-xl bg-primary/10 px-4 py-3 text-sm font-bold text-primary">
-              Custo total: {brl(custoTotal)}
-            </div>
-          </section>
-
-          {/* SEÇÃO 5 — PRECIFICAÇÃO */}
-          <section className="space-y-4 rounded-2xl border border-border bg-card p-4">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-primary">Precificação</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Valor para cliente</Label>
+                <Label>Preço de venda</Label>
                 <MoneyInput
                   className="h-11"
                   value={form.preco_venda}
@@ -776,7 +791,7 @@ export function CadastroSeminovoModal({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Valor para lojista</Label>
+                <Label>Preço para lojista</Label>
                 <MoneyInput
                   className="h-11"
                   value={form.preco_lojista}
@@ -784,9 +799,21 @@ export function CadastroSeminovoModal({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 rounded-xl bg-secondary/30 p-4 text-sm sm:grid-cols-4">
+
+            {seminovo && (
+              <div className="rounded-2xl border border-border p-4">
+                <ConsertoCustosSection
+                  seminovoId={seminovo.id}
+                  empresaId={empresaId}
+                  podeGerenciar
+                  onTotalChange={setTotalConserto}
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 divide-x divide-border rounded-2xl bg-primary/5 py-3 text-center text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">Custo</p>
+                <p className="text-xs text-muted-foreground">Custo total</p>
                 <p className="font-bold">{brl(custoTotal)}</p>
               </div>
               <div>
@@ -796,55 +823,68 @@ export function CadastroSeminovoModal({
                 >
                   {brl(lucroPrevisto)}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro mínimo</p>
-                <p
-                  className={`font-bold ${lucroMinimo >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                >
-                  {brl(lucroMinimo)}
-                </p>
+                {form.preco_lojista && (
+                  <p
+                    className={`text-[11px] ${lucroMinimo >= 0 ? "text-muted-foreground" : "text-destructive"}`}
+                  >
+                    lojista: {brl(lucroMinimo)}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Margem</p>
                 <p className="font-bold">{margem.toFixed(1)}%</p>
               </div>
             </div>
-          </section>
+            {!seminovo && (
+              <p className="text-xs text-muted-foreground">
+                Custos de conserto podem ser lançados depois, abrindo o aparelho em Editar.
+              </p>
+            )}
+          </Secao>
 
-          {/* STATUS — "vendido"/"devolvido" só são alcançados pelas ações
-              dedicadas (Vender/Devolver), que também mexem em venda e
-              financeiro; por isso o campo some quando o aparelho já está
-              num desses estados, em vez de deixar editar livremente aqui. */}
-          {(!seminovo ||
-            (seminovo.status !== "vendido" &&
-              seminovo.status !== "devolvido" &&
-              seminovo.status !== "recusado")) && (
-            <section className="space-y-1.5">
-              <Label>Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_CADASTRO.filter(
-                    // Liberar para venda é da avaliação final (dono/admin).
-                    (s) =>
-                      s.value !== "disponivel" ||
-                      podeFinalizar ||
-                      seminovo?.status === "disponivel",
-                  ).map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </section>
+          {/* 4 — ASSINATURA: só no momento da compra */}
+          {!seminovo && (
+            <Secao numero={4} titulo="Assinatura de quem vendeu">
+              <p className="-mt-2 text-xs text-muted-foreground">
+                Peça para a pessoa assinar na tela com o dedo, caneta ou mouse.
+              </p>
+              <AssinaturaCanvas ref={canvasRef} />
+            </Secao>
           )}
+
+          {/* STATUS — só na edição. Na compra o aparelho entra como
+              "Pendente"; "vendido"/"devolvido" só pelas ações dedicadas
+              (Vender/Devolver), que também mexem em venda e financeiro. */}
+          {seminovo &&
+            seminovo.status !== "vendido" &&
+            seminovo.status !== "devolvido" &&
+            seminovo.status !== "recusado" && (
+              <section className="space-y-1.5">
+                <Label>Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_CADASTRO.filter(
+                      // Liberar para venda é da avaliação final (dono/admin).
+                      (s) =>
+                        s.value !== "disponivel" ||
+                        podeFinalizar ||
+                        seminovo.status === "disponivel",
+                    ).map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            )}
         </div>
 
         {/* CONFERÊNCIA — pedido, seção 5: resumo completo antes de gravar a
@@ -963,7 +1003,7 @@ export function CadastroSeminovoModal({
                   className="h-11 border-destructive/40 text-destructive hover:bg-destructive/5"
                   onClick={irParaRecusa}
                 >
-                  Avaliação recusada
+                  Não comprou
                 </Button>
               )}
               <Button
