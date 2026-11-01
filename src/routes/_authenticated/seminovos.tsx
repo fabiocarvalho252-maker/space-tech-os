@@ -1,4 +1,6 @@
-// Compra de Seminovos — reformulado (pedido do usuário) para uma experiência
+// Compra de Seminovos — lista enxuta (pedido do usuário, 01/11/2026): 4
+// cartões de resumo, busca + abas de status, tabela de 7 colunas e uma ação
+// principal por aparelho (o resto no menu ⋮). Antes: reformulado para uma experiência
 // de tablet: cards de resumo, filtros, tabela em telas largas e cards em
 // telas estreitas/tablet retrato, com cadastro/venda/conserto/devolução
 // ligados ao fluxo de vendas e financeiro já existentes (ver componentes em
@@ -11,14 +13,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Boxes,
   CheckCircle2,
-  ClipboardCheck,
-  Clock,
+  MoreVertical,
   Plus,
   Smartphone,
   TrendingUp,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { StatusTone } from "@/components/StatusBadge";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -90,6 +103,22 @@ const TONE_POR_STATUS_SEMINOVO: Record<string, StatusTone> = {
   recusado: "neutral",
 };
 
+// Abas de status da lista: as etapas do dia a dia separadas e o que já saiu
+// do estoque sem venda (sucata, sem solução, avaliação recusada) junto.
+const ABAS_STATUS = [
+  { value: "todos", label: "Todos", status: null },
+  { value: "pendente", label: "Em conserto", status: ["pendente"] },
+  {
+    value: "aguardando_finalizacao",
+    label: "Aguard. finalização",
+    status: ["aguardando_finalizacao"],
+  },
+  { value: "disponivel", label: "À venda", status: ["disponivel"] },
+  { value: "vendido", label: "Vendidos", status: ["vendido"] },
+  { value: "devolvido", label: "Devolvidos", status: ["devolvido"] },
+  { value: "encerrados", label: "Encerrados", status: ["sucata", "sem_solucao", "recusado"] },
+] as const;
+
 type Periodo = "todos" | "hoje" | "7dias" | "mes" | "mes_anterior" | "personalizado";
 
 function inicioDoDia(d: Date) {
@@ -105,22 +134,29 @@ function fimDoDia(d: Date) {
 
 function CardResumo({
   icon: Icon,
-  cor,
   label,
   valor,
+  detalhe,
+  destaque,
 }: {
-  icon: typeof Boxes;
-  cor: string;
+  icon: typeof Smartphone;
   label: string;
   valor: string;
+  detalhe?: string | undefined;
+  destaque?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-      <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${cor}`}>
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <p className="mt-3 text-2xl font-extrabold tracking-tight">{valor}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+      </div>
+      <p
+        className={`mt-2 text-2xl font-extrabold tracking-tight ${destaque ? "text-primary" : ""}`}
+      >
+        {valor}
+      </p>
+      {detalhe && <p className="mt-0.5 text-xs text-muted-foreground">{detalhe}</p>}
     </div>
   );
 }
@@ -135,12 +171,9 @@ function Seminovos() {
 
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
-  const [filtroMarca, setFiltroMarca] = useState("todas");
   const [periodo, setPeriodo] = useState<Periodo>("todos");
   const [dataInicioCustom, setDataInicioCustom] = useState("");
   const [dataFimCustom, setDataFimCustom] = useState("");
-  const [precoMin, setPrecoMin] = useState("");
-  const [precoMax, setPrecoMax] = useState("");
   const [pagina, setPagina] = useState(1);
 
   const [modalCadastro, setModalCadastro] = useState(false);
@@ -184,11 +217,6 @@ function Seminovos() {
     navigate({ to: "/seminovos", search: {}, replace: true });
   }, [abrir, isLoading, itens, navigate]);
 
-  const marcas = useMemo(
-    () => Array.from(new Set(itens.map((i) => i.marca).filter(Boolean))).sort(),
-    [itens],
-  );
-
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const agora = new Date();
@@ -212,21 +240,16 @@ function Seminovos() {
       periodoFim = fimDoDia(new Date(dataFimCustom + "T12:00:00"));
     }
 
-    const min = precoMin ? Number(precoMin) : null;
-    const max = precoMax ? Number(precoMax) : null;
+    const aba = ABAS_STATUS.find((a) => a.value === filtroStatus);
+    const statusDaAba: readonly string[] | null = aba?.status ?? null;
 
     return itens.filter((s) => {
-      if (filtroStatus !== "todos" && s.status !== filtroStatus) return false;
-      if (filtroMarca !== "todas" && s.marca !== filtroMarca) return false;
+      if (statusDaAba && !statusDaAba.includes(s.status)) return false;
 
       if (periodoInicio && periodoFim) {
         const d = new Date(s.data_avaliacao);
         if (d < periodoInicio || d > periodoFim) return false;
       }
-
-      const preco = Number(s.preco_venda ?? s.valor_total_gasto ?? 0);
-      if (min != null && preco < min) return false;
-      if (max != null && preco > max) return false;
 
       if (termo) {
         const alvo = [
@@ -244,17 +267,7 @@ function Seminovos() {
       }
       return true;
     });
-  }, [
-    itens,
-    busca,
-    filtroStatus,
-    filtroMarca,
-    periodo,
-    dataInicioCustom,
-    dataFimCustom,
-    precoMin,
-    precoMax,
-  ]);
+  }, [itens, busca, filtroStatus, periodo, dataInicioCustom, dataFimCustom]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -263,14 +276,24 @@ function Seminovos() {
   function limparFiltros() {
     setBusca("");
     setFiltroStatus("todos");
-    setFiltroMarca("todas");
     setPeriodo("todos");
     setDataInicioCustom("");
     setDataFimCustom("");
-    setPrecoMin("");
-    setPrecoMax("");
     setPagina(1);
   }
+
+  const filtrosAtivos = busca.trim() !== "" || filtroStatus !== "todos" || periodo !== "todos";
+
+  const contagemPorAba = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    for (const aba of ABAS_STATUS) {
+      const lista: readonly string[] | null = aba.status;
+      contagem[aba.value] = lista
+        ? itens.filter((i) => lista.includes(i.status)).length
+        : itens.length;
+    }
+    return contagem;
+  }, [itens]);
 
   const resumo = useMemo(() => {
     const disponiveis = itens.filter((i) => i.status === "disponivel");
@@ -369,6 +392,88 @@ function Seminovos() {
     else setStatusPendente({ item: s, status });
   }
 
+  function especificacoes(s: SeminovoRow) {
+    return [
+      s.armazenamento,
+      s.cor,
+      s.bateria_percentual != null ? `bateria ${s.bateria_percentual}%` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  // O próximo passo do aparelho, conforme a etapa em que está.
+  function acaoPrincipal(s: SeminovoRow, className: string) {
+    if (gerenciar && s.status === "pendente")
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className={className}
+          onClick={() => setStatusPendente({ item: s, status: "aguardando_finalizacao" })}
+        >
+          Conserto concluído
+        </Button>
+      );
+    if (podeFinalizar && s.status === "aguardando_finalizacao")
+      return (
+        <Button size="sm" className={className} onClick={() => abrirFinalizacao(s)}>
+          Finalizar
+        </Button>
+      );
+    if (gerenciar && s.status === "disponivel")
+      return (
+        <Button size="sm" className={className} onClick={() => abrirVenda(s)}>
+          Vender
+        </Button>
+      );
+    if (gerenciar && s.status === "devolvido")
+      return (
+        <Button size="sm" className={className} onClick={() => abrirAvaliacao(s)}>
+          Avaliar retorno
+        </Button>
+      );
+    return null;
+  }
+
+  function menuAcoes(s: SeminovoRow) {
+    const podeTrocarStatus =
+      gerenciar && s.status !== "vendido" && s.status !== "devolvido" && s.status !== "recusado";
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Mais ações">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => abrirDetalhe(s)}>Ver detalhes</DropdownMenuItem>
+          {gerenciar && <DropdownMenuItem onClick={() => abrirEdicao(s)}>Editar</DropdownMenuItem>}
+          {podeTrocarStatus && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Alterar status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuRadioGroup
+                    value={s.status}
+                    onValueChange={(v) => escolherStatus(s, v)}
+                  >
+                    {statusRapidos(s).map((st) => (
+                      <DropdownMenuRadioItem key={st.value} value={st.value}>
+                        {st.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <div>
       <PageHeader
@@ -390,89 +495,55 @@ function Seminovos() {
         }
       />
 
-      {/* CARDS DE RESUMO */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+      {/* RESUMO */}
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CardResumo
-          icon={Smartphone}
-          cor="text-indigo-600 bg-indigo-500/10"
-          label="Total de aparelhos"
-          valor={String(resumo.total)}
+          icon={Wrench}
+          label="Em preparo"
+          valor={String(resumo.pendentes + resumo.aguardando)}
+          detalhe={
+            resumo.aguardando > 0
+              ? `${resumo.aguardando} aguardando finalização`
+              : "em conserto ou revisão"
+          }
         />
         <CardResumo
           icon={CheckCircle2}
-          cor="text-emerald-600 bg-emerald-500/10"
-          label="Disponíveis"
+          label="À venda"
           valor={String(resumo.disponiveis)}
-        />
-        <CardResumo
-          icon={Clock}
-          cor="text-amber-600 bg-amber-500/10"
-          label="Pendentes"
-          valor={String(resumo.pendentes)}
-        />
-        <CardResumo
-          icon={ClipboardCheck}
-          cor="text-violet-600 bg-violet-500/10"
-          label="Aguardando finalização"
-          valor={String(resumo.aguardando)}
-        />
-        <CardResumo
-          icon={Boxes}
-          cor="text-blue-600 bg-blue-500/10"
-          label="Vendidos"
-          valor={String(resumo.vendidos)}
+          detalhe={`${resumo.vendidos} vendido${resumo.vendidos === 1 ? "" : "s"} no total`}
         />
         <CardResumo
           icon={Wallet}
-          cor="text-rose-600 bg-rose-500/10"
-          label="Valor investido"
+          label="Investido em estoque"
           valor={brl(resumo.investido)}
+          detalhe="compra + conserto"
         />
         <CardResumo
           icon={TrendingUp}
-          cor="text-cyan-600 bg-cyan-500/10"
           label="Lucro previsto"
           valor={brl(resumo.lucroPrevisto)}
-        />
-        <CardResumo
-          icon={AlertTriangle}
-          cor="text-orange-600 bg-orange-500/10"
-          label="Atenção"
-          valor={String(resumo.atencao)}
+          destaque
+          detalhe={
+            resumo.atencao > 0
+              ? `${resumo.atencao} sem preço ou com prejuízo`
+              : "dos aparelhos à venda"
+          }
         />
       </div>
 
       {/* FILTROS */}
-      <section className="mb-6 rounded-2xl border border-border bg-card p-4 shadow-soft">
-        <div className="flex flex-wrap gap-3">
+      <section className="mb-4 space-y-3">
+        <div className="flex flex-wrap gap-2">
           <SearchInput
             value={busca}
             onChange={(v) => {
               setBusca(v);
               setPagina(1);
             }}
-            placeholder="Buscar por aparelho, modelo, pessoa, contato ou IMEI..."
-            className="min-w-64 flex-1"
+            placeholder="Buscar aparelho, IMEI ou de quem comprou..."
+            className="min-w-0 flex-1 basis-64"
           />
-          <Select
-            value={filtroStatus}
-            onValueChange={(v) => {
-              setFiltroStatus(v);
-              setPagina(1);
-            }}
-          >
-            <SelectTrigger className="h-11 w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              {STATUS_SEMINOVOS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select
             value={periodo}
             onValueChange={(v) => {
@@ -480,11 +551,11 @@ function Seminovos() {
               setPagina(1);
             }}
           >
-            <SelectTrigger className="h-11 w-44">
+            <SelectTrigger className="h-11 w-full sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Qualquer período</SelectItem>
+              <SelectItem value="todos">Qualquer data</SelectItem>
               <SelectItem value="hoje">Hoje</SelectItem>
               <SelectItem value="7dias">Últimos 7 dias</SelectItem>
               <SelectItem value="mes">Este mês</SelectItem>
@@ -492,72 +563,59 @@ function Seminovos() {
               <SelectItem value="personalizado">Personalizado</SelectItem>
             </SelectContent>
           </Select>
-          {marcas.length > 0 && (
-            <Select
-              value={filtroMarca}
-              onValueChange={(v) => {
-                setFiltroMarca(v);
-                setPagina(1);
-              }}
-            >
-              <SelectTrigger className="h-11 w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as marcas</SelectItem>
-                {marcas.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {periodo === "personalizado" && (
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Input
+                type="date"
+                className="h-11 flex-1 sm:w-40"
+                value={dataInicioCustom}
+                onChange={(e) => setDataInicioCustom(e.target.value)}
+              />
+              <Input
+                type="date"
+                className="h-11 flex-1 sm:w-40"
+                value={dataFimCustom}
+                onChange={(e) => setDataFimCustom(e.target.value)}
+              />
+            </div>
           )}
-          <Button variant="outline" className="h-11" onClick={limparFiltros}>
-            Limpar filtros
-          </Button>
         </div>
 
-        {periodo === "personalizado" && (
-          <div className="mt-3 flex flex-wrap gap-3">
-            <Input
-              type="date"
-              className="h-11 w-44"
-              value={dataInicioCustom}
-              onChange={(e) => setDataInicioCustom(e.target.value)}
-            />
-            <Input
-              type="date"
-              className="h-11 w-44"
-              value={dataFimCustom}
-              onChange={(e) => setDataFimCustom(e.target.value)}
-            />
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="text-xs font-medium text-muted-foreground">Faixa de preço:</span>
-          <Input
-            type="number"
-            placeholder="Mínimo"
-            className="h-11 w-32"
-            value={precoMin}
-            onChange={(e) => {
-              setPrecoMin(e.target.value);
-              setPagina(1);
-            }}
-          />
-          <span className="text-muted-foreground">até</span>
-          <Input
-            type="number"
-            placeholder="Máximo"
-            className="h-11 w-32"
-            value={precoMax}
-            onChange={(e) => {
-              setPrecoMax(e.target.value);
-              setPagina(1);
-            }}
-          />
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+          {ABAS_STATUS.map((aba) => {
+            const ativa = filtroStatus === aba.value;
+            return (
+              <button
+                key={aba.value}
+                type="button"
+                onClick={() => {
+                  setFiltroStatus(aba.value);
+                  setPagina(1);
+                }}
+                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition ${
+                  ativa
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {aba.label}
+                <span
+                  className={`rounded-full px-1.5 text-xs ${ativa ? "bg-primary-foreground/20" : "bg-muted"}`}
+                >
+                  {contagemPorAba[aba.value] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+          {filtrosAtivos && (
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="h-9 shrink-0 px-2 text-sm font-medium text-primary hover:underline"
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </section>
 
@@ -566,23 +624,17 @@ function Seminovos() {
         <TableSkeleton />
       ) : paginados.length ? (
         <>
-          {/* Desktop / tablet paisagem: tabela */}
+          {/* Desktop: tabela */}
           <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-soft lg:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Aparelho</th>
-                  <th className="px-4 py-3">Comprado de</th>
-                  <th className="px-4 py-3">Armaz.</th>
-                  <th className="px-4 py-3">Bateria</th>
-                  <th className="px-4 py-3">Compra</th>
-                  <th className="px-4 py-3">Conserto</th>
-                  <th className="px-4 py-3">Custo total</th>
-                  <th className="px-4 py-3">Venda</th>
-                  <th className="px-4 py-3">Lojista</th>
-                  <th className="px-4 py-3">Lucro</th>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-semibold">Aparelho</th>
+                  <th className="px-4 py-3 font-semibold">Comprado de</th>
+                  <th className="px-4 py-3 text-right font-semibold">Custo</th>
+                  <th className="px-4 py-3 text-right font-semibold">Venda</th>
+                  <th className="px-4 py-3 text-right font-semibold">Lucro</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -590,79 +642,52 @@ function Seminovos() {
                 {paginados.map((s) => (
                   <tr
                     key={s.id}
-                    className="cursor-pointer border-b border-border/60 hover:bg-secondary/30"
+                    className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-secondary/30"
                     onClick={() => abrirDetalhe(s)}
                   >
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">
+                        {s.marca} {s.modelo}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{especificacoes(s) || "—"}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p>{s.cliente?.nome || s.vendedor_nome || "—"}</p>
+                      <p className="text-xs text-muted-foreground">{dataBR(s.data_avaliacao)}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-semibold">{brl(s.valor_total_gasto)}</p>
+                      {Number(s.valor_conserto) > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {brl(s.valor_pago)} + {brl(s.valor_conserto)} conserto
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-medium">
+                        {s.preco_venda != null ? brl(s.preco_venda) : "—"}
+                      </p>
+                      {s.preco_lojista != null && (
+                        <p className="text-xs text-muted-foreground">
+                          lojista {brl(s.preco_lojista)}
+                        </p>
+                      )}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-bold ${Number(s.lucro_previsto ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                    >
+                      {brl(s.lucro_previsto)}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge
                         label={statusLabel(s.status)}
                         tone={TONE_POR_STATUS_SEMINOVO[s.status] ?? "neutral"}
                       />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{dataBR(s.data_avaliacao)}</td>
-                    <td className="px-4 py-3 font-medium">
-                      {s.marca} {s.modelo}
-                    </td>
-                    <td className="px-4 py-3">{s.cliente?.nome || s.vendedor_nome || "—"}</td>
-                    <td className="px-4 py-3">{s.armazenamento ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {s.bateria_percentual != null ? `${s.bateria_percentual}%` : "—"}
-                    </td>
-                    <td className="px-4 py-3">{brl(s.valor_pago)}</td>
-                    <td className="px-4 py-3">{brl(s.valor_conserto)}</td>
-                    <td className="px-4 py-3 font-semibold">{brl(s.valor_total_gasto)}</td>
-                    <td className="px-4 py-3">{brl(s.preco_venda)}</td>
-                    <td className="px-4 py-3">{brl(s.preco_lojista)}</td>
-                    <td
-                      className={`px-4 py-3 font-semibold ${Number(s.lucro_previsto ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                    >
-                      {brl(s.lucro_previsto)}
-                    </td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
-                        {gerenciar &&
-                          s.status !== "vendido" &&
-                          s.status !== "devolvido" &&
-                          s.status !== "recusado" && (
-                            <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
-                              <SelectTrigger className="h-9 w-36 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {statusRapidos(s).map((st) => (
-                                  <SelectItem key={st.value} value={st.value}>
-                                    {st.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        {gerenciar && s.status === "pendente" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setStatusPendente({ item: s, status: "aguardando_finalizacao" })
-                            }
-                          >
-                            Conserto concluído
-                          </Button>
-                        )}
-                        {podeFinalizar && s.status === "aguardando_finalizacao" && (
-                          <Button size="sm" onClick={() => abrirFinalizacao(s)}>
-                            Finalizar
-                          </Button>
-                        )}
-                        {gerenciar && s.status === "disponivel" && (
-                          <Button size="sm" onClick={() => abrirVenda(s)}>
-                            Vender
-                          </Button>
-                        )}
-                        {gerenciar && s.status === "devolvido" && (
-                          <Button size="sm" onClick={() => abrirAvaliacao(s)}>
-                            Avaliar retorno
-                          </Button>
-                        )}
+                        {acaoPrincipal(s, "h-9")}
+                        {menuAcoes(s)}
                       </div>
                     </td>
                   </tr>
@@ -671,138 +696,67 @@ function Seminovos() {
             </table>
           </div>
 
-          {/* Mobile / tablet retrato: cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:hidden">
+          {/* Celular / tablet: cartões */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
             {paginados.map((s) => (
               <div
                 key={s.id}
-                className="rounded-2xl border border-border bg-card p-4 shadow-soft"
+                className="cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-soft"
                 onClick={() => abrirDetalhe(s)}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-bold leading-tight">
+                      {s.marca} {s.modelo}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {especificacoes(s) || "—"}
+                    </p>
+                  </div>
                   <StatusBadge
                     label={statusLabel(s.status)}
                     tone={TONE_POR_STATUS_SEMINOVO[s.status] ?? "neutral"}
                   />
-                  <span className="text-xs text-muted-foreground">{dataBR(s.data_avaliacao)}</span>
                 </div>
-                <h3 className="mt-2 text-lg font-bold leading-tight">
-                  {s.marca} {s.modelo}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {[
-                    s.armazenamento,
-                    s.bateria_percentual != null ? `${s.bateria_percentual}% bateria` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {s.cliente?.nome || s.vendedor_nome || "—"} · {dataBR(s.data_avaliacao)}
                 </p>
 
-                <div className="mt-3 space-y-1.5 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Compra</span>
-                    <span className="font-medium">{brl(s.valor_pago)}</span>
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-3 text-center">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Custo</p>
+                    <p className="text-sm font-semibold">{brl(s.valor_total_gasto)}</p>
                   </div>
-                  {Number(s.valor_conserto) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Conserto</span>
-                      <span className="font-medium">{brl(s.valor_conserto)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Custo total</span>
-                    <span className="font-semibold">{brl(s.valor_total_gasto)}</span>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Venda</p>
+                    <p className="text-sm font-semibold">
+                      {s.preco_venda != null ? brl(s.preco_venda) : "—"}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Venda</span>
-                    <span className="font-medium">{brl(s.preco_venda)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Lucro</span>
-                    <span
-                      className={`font-bold ${Number(s.lucro_previsto ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Lucro</p>
+                    <p
+                      className={`text-sm font-bold ${Number(s.lucro_previsto ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}
                     >
                       {brl(s.lucro_previsto)}
-                    </span>
+                    </p>
                   </div>
                 </div>
 
-                <div
-                  className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-10 flex-1"
-                    onClick={() => abrirDetalhe(s)}
-                  >
-                    Ver
+                <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  {acaoPrincipal(s, "h-10 flex-1")}
+                  <Button variant="outline" className="h-10 flex-1" onClick={() => abrirDetalhe(s)}>
+                    Ver detalhes
                   </Button>
-                  {gerenciar && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-10 flex-1"
-                      onClick={() => abrirEdicao(s)}
-                    >
-                      Editar
-                    </Button>
-                  )}
-                  {gerenciar && s.status === "pendente" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-10 flex-1"
-                      onClick={() =>
-                        setStatusPendente({ item: s, status: "aguardando_finalizacao" })
-                      }
-                    >
-                      Conserto concluído
-                    </Button>
-                  )}
-                  {podeFinalizar && s.status === "aguardando_finalizacao" && (
-                    <Button size="sm" className="h-10 flex-1" onClick={() => abrirFinalizacao(s)}>
-                      Finalizar
-                    </Button>
-                  )}
-                  {gerenciar && s.status === "disponivel" && (
-                    <Button size="sm" className="h-10 flex-1" onClick={() => abrirVenda(s)}>
-                      Vender
-                    </Button>
-                  )}
-                  {gerenciar && s.status === "devolvido" && (
-                    <Button size="sm" className="h-10 flex-1" onClick={() => abrirAvaliacao(s)}>
-                      Avaliar retorno
-                    </Button>
-                  )}
+                  {menuAcoes(s)}
                 </div>
-                {gerenciar &&
-                  s.status !== "vendido" &&
-                  s.status !== "devolvido" &&
-                  s.status !== "recusado" && (
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                      <Select value={s.status} onValueChange={(v) => escolherStatus(s, v)}>
-                        <SelectTrigger className="h-10 w-full text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusRapidos(s).map((st) => (
-                            <SelectItem key={st.value} value={st.value}>
-                              {st.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
               </div>
             ))}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>
-              Mostrando {(paginaAtual - 1) * PAGE_SIZE + 1}–
+              {(paginaAtual - 1) * PAGE_SIZE + 1}–
               {Math.min(paginaAtual * PAGE_SIZE, filtrados.length)} de {filtrados.length} aparelhos
             </span>
             {totalPaginas > 1 && (
@@ -832,8 +786,12 @@ function Seminovos() {
       ) : (
         <EmptyState
           icon={Smartphone}
-          title="Nenhum aparelho encontrado"
-          description="Ajuste os filtros ou registre uma nova compra."
+          title={filtrosAtivos ? "Nenhum aparelho encontrado" : "Nenhuma compra registrada"}
+          description={
+            filtrosAtivos
+              ? "Ajuste a busca ou os filtros."
+              : 'Toque em "Comprar aparelho" para registrar a primeira compra.'
+          }
         />
       )}
 
