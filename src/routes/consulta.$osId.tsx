@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { avisarOrcamentoRespondidoFn } from "@/lib/orcamento-link.functions";
 import { brl, dataBR, dataHoraBR, statusLabel } from "@/lib/format";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -252,6 +253,8 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
         p_aprovar: aprovar,
       });
       if (error) throw error;
+      // Aviso à loja no WhatsApp; se falhar, o cron manda depois.
+      avisarOrcamentoRespondidoFn({ data: { osId } }).catch(() => {});
     },
     onSettled: () => {
       setConfirmar(null);
