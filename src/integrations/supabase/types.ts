@@ -320,6 +320,7 @@ export type Database = {
           numero_serie: string | null;
           observacoes: string | null;
           preco_custo: number;
+          preco_minimo: number | null;
           preco_venda: number;
           ram: string | null;
           reservado_ate: string | null;
@@ -351,6 +352,7 @@ export type Database = {
           numero_serie?: string | null;
           observacoes?: string | null;
           preco_custo?: number;
+          preco_minimo?: number | null;
           preco_venda?: number;
           ram?: string | null;
           reservado_ate?: string | null;
@@ -382,6 +384,7 @@ export type Database = {
           numero_serie?: string | null;
           observacoes?: string | null;
           preco_custo?: number;
+          preco_minimo?: number | null;
           preco_venda?: number;
           ram?: string | null;
           reservado_ate?: string | null;

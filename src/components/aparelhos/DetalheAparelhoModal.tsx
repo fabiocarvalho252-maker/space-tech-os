@@ -522,7 +522,7 @@ export function DetalheAparelhoModal({
               )}
             </div>
 
-            <div className="grid gap-4 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-4">
               {podeVerCusto && (
                 <div>
                   <p className="text-xs text-muted-foreground">Custo</p>
@@ -533,6 +533,12 @@ export function DetalheAparelhoModal({
                 <p className="text-xs text-muted-foreground">Venda</p>
                 <p className="font-medium">{brl(aparelho.preco_venda)}</p>
               </div>
+              {aparelho.preco_minimo != null && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Menor preço</p>
+                  <p className="font-medium">{brl(aparelho.preco_minimo)}</p>
+                </div>
+              )}
               {podeVerCusto && (
                 <div>
                   <p className="text-xs text-muted-foreground">Lucro</p>

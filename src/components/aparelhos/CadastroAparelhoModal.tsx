@@ -69,6 +69,7 @@ type FormState = {
   ciclos_bateria: string;
   preco_custo: number;
   preco_venda: number;
+  preco_minimo: number;
   observacoes: string;
   checklist: Record<string, string>;
 };
@@ -89,6 +90,7 @@ const formVazio: FormState = {
   ciclos_bateria: "",
   preco_custo: 0,
   preco_venda: 0,
+  preco_minimo: 0,
   observacoes: "",
   checklist: {},
 };
@@ -129,6 +131,7 @@ export function CadastroAparelhoModal({
         ciclos_bateria: aparelho.ciclos_bateria != null ? String(aparelho.ciclos_bateria) : "",
         preco_custo: Number(aparelho.preco_custo ?? 0),
         preco_venda: Number(aparelho.preco_venda ?? 0),
+        preco_minimo: Number(aparelho.preco_minimo ?? 0),
         observacoes: aparelho.observacoes ?? "",
         checklist: (aparelho.checklist as Record<string, string> | null) ?? {},
       });
@@ -143,6 +146,7 @@ export function CadastroAparelhoModal({
       if (!form.modelo.trim()) throw new Error("Informe o modelo.");
       if (form.preco_venda < 0) throw new Error("O valor de venda não pode ser negativo.");
       if (form.preco_custo < 0) throw new Error("O valor de custo não pode ser negativo.");
+      if (form.preco_minimo < 0) throw new Error("O menor preço não pode ser negativo.");
 
       const payload = {
         user_id: empresaId,
@@ -171,6 +175,7 @@ export function CadastroAparelhoModal({
         // é enviado.
         ...(podeVerCusto && !aparelho?.seminovo_id ? { preco_custo: form.preco_custo } : {}),
         preco_venda: form.preco_venda,
+        preco_minimo: form.preco_minimo > 0 ? form.preco_minimo : null,
         observacoes: form.observacoes.trim() || null,
         checklist: form.tipo === "seminovo" ? form.checklist : {},
       };
@@ -391,10 +396,17 @@ export function CadastroAparelhoModal({
                 onChange={(v) => setForm((f) => ({ ...f, preco_venda: v }))}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Menor preço</Label>
+              <MoneyInput
+                value={form.preco_minimo}
+                onChange={(v) => setForm((f) => ({ ...f, preco_minimo: v }))}
+              />
+            </div>
           </div>
 
           {podeVerCusto && (
-            <div className="flex items-center gap-6 rounded-xl bg-secondary/40 px-4 py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-secondary/40 px-4 py-3 text-sm">
               <span>
                 Lucro:{" "}
                 <strong className={lucro >= 0 ? "text-emerald-600" : "text-destructive"}>
@@ -404,6 +416,20 @@ export function CadastroAparelhoModal({
               <span>
                 Margem: <strong>{margem.toFixed(2)}%</strong>
               </span>
+              {form.preco_minimo > 0 && (
+                <span>
+                  No menor preço:{" "}
+                  <strong
+                    className={
+                      form.preco_minimo - form.preco_custo >= 0
+                        ? "text-emerald-600"
+                        : "text-destructive"
+                    }
+                  >
+                    {brl(form.preco_minimo - form.preco_custo)}
+                  </strong>
+                </span>
+              )}
             </div>
           )}
 
