@@ -86,13 +86,33 @@ const PECAS = [
   "Placa",
 ];
 
-const QUALIDADES: Record<string, string[]> = {
-  Tela: ["Original", "OLED", "Incell", "Nacional", "Com aro", "Sem aro"],
-  Bateria: ["Original", "Primeira linha", "Nacional"],
-  "Tampa traseira": ["Original", "Com lente", "Sem lente"],
+// Cada peça tem um ou mais grupos; escolhe-se um de cada grupo e eles se
+// somam ("OLED" + "com aro" = "OLED com aro").
+type GrupoQualidade = { titulo: string; opcoes: string[] };
+const QUALIDADES: Record<string, GrupoQualidade[]> = {
+  Tela: [
+    { titulo: "Qualidade", opcoes: ["Original", "OLED", "Incell", "Nacional"] },
+    { titulo: "Aro", opcoes: ["Com aro", "Sem aro"] },
+  ],
+  Bateria: [{ titulo: "Qualidade", opcoes: ["Original", "Primeira linha", "Nacional"] }],
+  "Tampa traseira": [
+    { titulo: "Qualidade", opcoes: ["Original", "Paralela"] },
+    { titulo: "Lente", opcoes: ["Com lente", "Sem lente"] },
+  ],
 };
-const QUALIDADES_PADRAO = ["Original", "Primeira linha", "Paralela"];
+const QUALIDADES_PADRAO: GrupoQualidade[] = [
+  { titulo: "Qualidade", opcoes: ["Original", "Primeira linha", "Paralela"] },
+];
 const qualidadesDe = (peca: string) => QUALIDADES[peca] ?? QUALIDADES_PADRAO;
+
+/** Junta as escolhas na ordem dos grupos: "OLED" + "Com aro" → "OLED com aro". */
+function juntarQualidade(grupos: GrupoQualidade[], escolhas: Record<string, string>) {
+  return grupos
+    .map((g) => escolhas[g.titulo])
+    .filter((v): v is string => !!v)
+    .map((v, i) => (i > 0 && /^[A-Z][a-z]/.test(v) ? v[0]!.toLowerCase() + v.slice(1) : v))
+    .join(" ");
+}
 
 const MARCAS = ["Apple", "Samsung", "Motorola", "Xiaomi", "Realme", "Infinix", "LG", "Asus"];
 
@@ -174,6 +194,20 @@ export function ConsultarPecasDialog({
   const qc = useQueryClient();
   const empresaId = useEmpresaId();
   const [peca, setPeca] = useState({ peca: "", qualidade: "", marca: "", modelo: "" });
+  const [escolhasQualidade, setEscolhasQualidade] = useState<Record<string, string>>({});
+
+  function escolherQualidade(grupo: string, opcao: string) {
+    const novas = { ...escolhasQualidade };
+    if (novas[grupo] === opcao) delete novas[grupo];
+    else novas[grupo] = opcao;
+    setEscolhasQualidade(novas);
+    setPeca((p) => ({ ...p, qualidade: juntarQualidade(qualidadesDe(p.peca), novas) }));
+  }
+
+  function mudarPeca(nome: string) {
+    setEscolhasQualidade({});
+    setPeca((p) => ({ ...p, peca: nome, qualidade: "" }));
+  }
   const [busca, setBusca] = useState("");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   // null = mensagem automática (saudação recalculada na hora de abrir).
@@ -227,6 +261,7 @@ export function ConsultarPecasDialog({
     setSelecionados(new Set());
     setMensagemEditada(null);
     setPeca({ peca: "", qualidade: "", marca: "", modelo: "" });
+    setEscolhasQualidade({});
     setVerMensagem(false);
   }
 
@@ -383,30 +418,28 @@ export function ConsultarPecasDialog({
         {!envios ? (
           <div className="space-y-5">
             <Etapa numero={1} titulo="Qual peça?">
-              <Opcoes
-                opcoes={PECAS}
-                valor={peca.peca}
-                onEscolher={(v) => setPeca({ ...peca, peca: v, qualidade: "" })}
-              />
+              <Opcoes opcoes={PECAS} valor={peca.peca} onEscolher={mudarPeca} />
               <Input
                 value={PECAS.includes(peca.peca) ? "" : peca.peca}
-                onChange={(e) => setPeca({ ...peca, peca: e.target.value, qualidade: "" })}
+                onChange={(e) => mudarPeca(e.target.value)}
                 placeholder="Outra peça? Escreva aqui"
                 className="h-9"
               />
               {peca.peca && (
-                <div className="space-y-1.5 pt-1">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Qualidade <span className="font-normal">(opcional)</span>
-                  </p>
-                  <Opcoes
-                    opcoes={qualidadesDe(peca.peca)}
-                    valor={peca.qualidade}
-                    onEscolher={(v) =>
-                      setPeca({ ...peca, qualidade: peca.qualidade === v ? "" : v })
-                    }
-                    pequeno
-                  />
+                <div className="space-y-2 pt-1">
+                  {qualidadesDe(peca.peca).map((g) => (
+                    <div key={g.titulo} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {g.titulo} <span className="font-normal">(opcional)</span>
+                      </p>
+                      <Opcoes
+                        opcoes={g.opcoes}
+                        valor={escolhasQualidade[g.titulo] ?? ""}
+                        onEscolher={(v) => escolherQualidade(g.titulo, v)}
+                        pequeno
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
             </Etapa>
