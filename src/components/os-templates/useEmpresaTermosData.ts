@@ -13,7 +13,7 @@ import type { RenderOsData } from "@/lib/os-template-render";
 // Termos de Garantia. Falls back to `undefined` (spread away, sample copy
 // wins) only when the empresa hasn't saved either yet.
 export function useEmpresaTermosData(): Partial<
-  Pick<RenderOsData, "condicoesTexto" | "termoGarantiaTexto">
+  Pick<RenderOsData, "condicoesTexto" | "termoGarantiaTexto" | "fotos" | "qrCodeUrl" | "duasVias">
 > {
   const empresaId = useEmpresaId();
 
@@ -23,10 +23,17 @@ export function useEmpresaTermosData(): Partial<
     queryFn: async () => {
       const { data } = await supabase
         .from("os_config")
-        .select("termos_condicoes")
+        .select(
+          "termos_condicoes, exibir_fotos_impressao, imprimir_qrcode_cliente, imprimir_duas_vias",
+        )
         .eq("user_id", empresaId!)
         .maybeSingle();
-      return data as { termos_condicoes: string | null } | null;
+      return data as {
+        termos_condicoes: string | null;
+        exibir_fotos_impressao: boolean | null;
+        imprimir_qrcode_cliente: boolean | null;
+        imprimir_duas_vias: boolean | null;
+      } | null;
     },
   });
 
@@ -46,6 +53,16 @@ export function useEmpresaTermosData(): Partial<
   });
 
   return {
+    // Fotos, QR Code e 2 vias seguem as chaves de Configurações → OS, como a
+    // impressão e o PDF de verdade — a amostra antes mostrava fotos e QR
+    // mesmo com eles desligados.
+    ...(osConfig !== undefined
+      ? {
+          ...(osConfig?.exibir_fotos_impressao ? {} : { fotos: [] }),
+          ...(osConfig?.imprimir_qrcode_cliente ? {} : { qrCodeUrl: null }),
+          duasVias: !!osConfig?.imprimir_duas_vias,
+        }
+      : {}),
     ...(osConfig?.termos_condicoes ? { condicoesTexto: osConfig.termos_condicoes } : {}),
     ...(termoGarantia?.conteudo ? { termoGarantiaTexto: termoGarantia.conteudo } : {}),
   };

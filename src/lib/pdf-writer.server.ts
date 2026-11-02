@@ -485,6 +485,399 @@ export class Escritor {
       this.y = yLinha - alturaUsada - 6;
     }
   }
+
+  // ---- Blocos de documento (PDF de OS/Orçamento para o cliente) ----------
+
+  private texto(
+    t: string,
+    x: number,
+    y: number,
+    tamanho: number,
+    negrito = false,
+    cor = rgb(0.1, 0.1, 0.15),
+  ) {
+    this.pagina.drawText(sanitizePdfText(t, this.fonte), {
+      x,
+      y,
+      size: tamanho,
+      font: negrito ? this.fonteNegrito : this.fonte,
+      color: cor,
+    });
+  }
+
+  private larguraTexto(t: string, tamanho: number, negrito = false) {
+    return (negrito ? this.fonteNegrito : this.fonte).widthOfTextAtSize(
+      sanitizePdfText(t, this.fonte),
+      tamanho,
+    );
+  }
+
+  /** Corta o texto com "…" para caber na largura. */
+  private caber(t: string, tamanho: number, largura: number, negrito = false) {
+    let s = sanitizePdfText(t, this.fonte);
+    if (this.larguraTexto(s, tamanho, negrito) <= largura) return s;
+    while (s.length > 1 && this.larguraTexto(s + "...", tamanho, negrito) > largura) {
+      s = s.slice(0, -1);
+    }
+    return s + "...";
+  }
+
+  /**
+   * Cabeçalho: logo + loja à esquerda; à direita um quadro com o tipo do
+   * documento, número, data e status.
+   */
+  async cabecalhoDocumento(p: {
+    logo: { bytes: Uint8Array; ehPng: boolean } | null;
+    loja: string;
+    linhasLoja: string[];
+    documento: string;
+    numero: string;
+    data: string;
+    status: string | null;
+  }) {
+    const topo = this.y;
+    let xTexto = MARGEM;
+    if (p.logo) {
+      try {
+        const img = p.logo.ehPng
+          ? await this.pdf.embedPng(p.logo.bytes)
+          : await this.pdf.embedJpg(reduzirJpeg(p.logo.bytes));
+        const escala = Math.min(54 / img.width, 54 / img.height, 1);
+        this.pagina.drawImage(img, {
+          x: MARGEM,
+          y: topo - img.height * escala,
+          width: img.width * escala,
+          height: img.height * escala,
+        });
+        xTexto = MARGEM + img.width * escala + 10;
+      } catch {
+        // logo inválida — segue só com o nome
+      }
+    }
+    const larguraQuadro = 170;
+    const xQuadro = LARGURA_PAGINA - MARGEM - larguraQuadro;
+    const larguraLoja = xQuadro - xTexto - 12;
+    this.texto(this.caber(p.loja, 15, larguraLoja, true), xTexto, topo - 14, 15, true);
+    let yl = topo - 28;
+    for (const linha of p.linhasLoja) {
+      for (const parte of this.quebrarTexto(
+        sanitizePdfText(linha, this.fonte),
+        this.fonte,
+        7.5,
+        larguraLoja,
+      )) {
+        this.texto(parte, xTexto, yl, 7.5, false, rgb(0.42, 0.42, 0.48));
+        yl -= 10;
+      }
+    }
+
+    const alturaQuadro = p.status ? 66 : 52;
+    this.pagina.drawRectangle({
+      x: xQuadro,
+      y: topo - alturaQuadro,
+      width: larguraQuadro,
+      height: alturaQuadro,
+      color: this.corSuave(),
+      borderColor: this.corAccent,
+      borderWidth: 0.8,
+    });
+    this.texto(p.documento.toUpperCase(), xQuadro + 10, topo - 15, 8, true, this.corAccent);
+    this.texto(p.numero, xQuadro + 10, topo - 32, 15, true);
+    this.texto(p.data, xQuadro + 10, topo - 45, 7.5, false, rgb(0.4, 0.4, 0.46));
+    if (p.status) {
+      this.texto(`Situação: ${p.status}`, xQuadro + 10, topo - 58, 7.5, true, this.corAccent);
+    }
+
+    this.y = Math.min(yl, topo - alturaQuadro) - 14;
+    this.pagina.drawRectangle({
+      x: MARGEM,
+      y: this.y,
+      width: LARGURA_UTIL,
+      height: 1.5,
+      color: this.corAccent,
+    });
+    this.y -= 14;
+  }
+
+  private corSuave() {
+    const c = this.corAccent as unknown as { red: number; green: number; blue: number };
+    const mistura = (v: number) => 1 - (1 - v) * 0.08;
+    return rgb(mistura(c.red), mistura(c.green), mistura(c.blue));
+  }
+
+  /** Título de seção: marcador colorido + texto em caixa alta + linha fina. */
+  secao(titulo: string) {
+    if (this.y < ALTURA_PAGINA - MARGEM && !this.quebraPendente) this.y -= 8;
+    // Reserva o título + as primeiras linhas do conteúdo, para o título
+    // nunca ficar sozinho no pé da página.
+    this.garantirEspaco(70);
+    this.pagina.drawRectangle({
+      x: MARGEM,
+      y: this.y - 11,
+      width: 3,
+      height: 12,
+      color: this.corAccent,
+    });
+    this.texto(titulo.toUpperCase(), MARGEM + 9, this.y - 9.5, 9.5, true, this.corAccent);
+    this.pagina.drawLine({
+      start: { x: MARGEM, y: this.y - 17 },
+      end: { x: LARGURA_PAGINA - MARGEM, y: this.y - 17 },
+      thickness: 0.4,
+      color: rgb(0.86, 0.86, 0.9),
+    });
+    this.y -= 25;
+  }
+
+  /** Campos em grade (rótulo pequeno em cima, valor embaixo). */
+  grade(campos: [string, string][], colunas = 2) {
+    const visiveis = campos.filter(([, v]) => v && v.trim());
+    const gap = 14;
+    const larguraCol = (LARGURA_UTIL - gap * (colunas - 1)) / colunas;
+    for (let i = 0; i < visiveis.length; i += colunas) {
+      const linha = visiveis.slice(i, i + colunas);
+      const valores = linha.map(([, v]) =>
+        this.linhasDoTexto(v)
+          .filter((l) => l.trim())
+          .flatMap((l) =>
+            this.quebrarTexto(sanitizePdfText(l, this.fonte), this.fonte, 9.5, larguraCol),
+          ),
+      );
+      const alturaLinha = 12 + Math.max(...valores.map((v) => v.length)) * 12 + 6;
+      this.garantirEspaco(alturaLinha);
+      linha.forEach(([rotulo], c) => {
+        const x = MARGEM + c * (larguraCol + gap);
+        this.texto(rotulo.toUpperCase(), x, this.y - 7, 6.5, true, rgb(0.5, 0.5, 0.56));
+        valores[c]!.forEach((l, k) => this.texto(l, x, this.y - 19 - k * 12, 9.5));
+      });
+      this.y -= alturaLinha;
+    }
+  }
+
+  /** Tabela com cabeçalho colorido e linhas zebradas. */
+  tabela(colunas: { titulo: string; largura: number; direita?: boolean }[], linhas: string[][]) {
+    const totalLarg = colunas.reduce((s, c) => s + c.largura, 0);
+    const larguras = colunas.map((c) => (c.largura / totalLarg) * LARGURA_UTIL);
+    const desenharCabecalho = () => {
+      this.garantirEspaco(40);
+      this.pagina.drawRectangle({
+        x: MARGEM,
+        y: this.y - 18,
+        width: LARGURA_UTIL,
+        height: 18,
+        color: this.corAccent,
+      });
+      let x = MARGEM;
+      colunas.forEach((c, i) => {
+        const t = c.titulo.toUpperCase();
+        const tx = c.direita ? x + larguras[i]! - 6 - this.larguraTexto(t, 7, true) : x + 6;
+        this.texto(t, tx, this.y - 12, 7, true, rgb(1, 1, 1));
+        x += larguras[i]!;
+      });
+      this.y -= 18;
+    };
+    desenharCabecalho();
+    linhas.forEach((linha, n) => {
+      const quebras = linha.map((v, i) =>
+        i === 0
+          ? this.quebrarTexto(sanitizePdfText(v, this.fonte), this.fonte, 8.5, larguras[0]! - 12)
+          : [this.caber(v, 8.5, larguras[i]! - 12)],
+      );
+      const altura = Math.max(...quebras.map((q) => q.length)) * 11 + 9;
+      if (this.y - altura < MARGEM) {
+        this.quebrarLinha();
+        desenharCabecalho();
+      }
+      if (n % 2 === 1) {
+        this.pagina.drawRectangle({
+          x: MARGEM,
+          y: this.y - altura,
+          width: LARGURA_UTIL,
+          height: altura,
+          color: rgb(0.965, 0.965, 0.975),
+        });
+      }
+      let x = MARGEM;
+      quebras.forEach((q, i) => {
+        q.forEach((l, k) => {
+          const tx = colunas[i]!.direita ? x + larguras[i]! - 6 - this.larguraTexto(l, 8.5) : x + 6;
+          this.texto(l, tx, this.y - 12 - k * 11, 8.5);
+        });
+        x += larguras[i]!;
+      });
+      this.y -= altura;
+    });
+    this.pagina.drawLine({
+      start: { x: MARGEM, y: this.y },
+      end: { x: LARGURA_PAGINA - MARGEM, y: this.y },
+      thickness: 0.6,
+      color: rgb(0.85, 0.85, 0.9),
+    });
+    this.y -= 6;
+  }
+
+  /** Quadro de totais alinhado à direita; a última linha é o total em destaque. */
+  totais(linhas: [string, string][], total: [string, string]) {
+    const largura = 220;
+    const x = LARGURA_PAGINA - MARGEM - largura;
+    const altura = linhas.length * 14 + 34;
+    this.garantirEspaco(altura + 6);
+    let y = this.y - 6;
+    for (const [r, v] of linhas) {
+      this.texto(r, x + 10, y - 9, 8.5, false, rgb(0.4, 0.4, 0.46));
+      this.texto(v, x + largura - 10 - this.larguraTexto(v, 8.5), y - 9, 8.5);
+      y -= 14;
+    }
+    this.pagina.drawRectangle({
+      x,
+      y: y - 26,
+      width: largura,
+      height: 24,
+      color: this.corAccent,
+    });
+    this.texto(total[0].toUpperCase(), x + 10, y - 17.5, 9, true, rgb(1, 1, 1));
+    this.texto(
+      total[1],
+      x + largura - 10 - this.larguraTexto(total[1], 13, true),
+      y - 19,
+      13,
+      true,
+      rgb(1, 1, 1),
+    );
+    this.y = y - 34;
+  }
+
+  /** Caixa de aviso/explicação com fundo suave e borda à esquerda. */
+  aviso(titulo: string, texto: string, tom: "accent" | "verde" | "amarelo" = "accent") {
+    const cores = {
+      accent: { fundo: this.corSuave(), borda: this.corAccent },
+      verde: { fundo: rgb(0.93, 0.98, 0.95), borda: rgb(0.09, 0.6, 0.35) },
+      amarelo: { fundo: rgb(1, 0.97, 0.9), borda: rgb(0.85, 0.55, 0.05) },
+    }[tom];
+    const larguraTexto = LARGURA_UTIL - 26;
+    const linhas = this.linhasDoTexto(texto)
+      .filter((l) => l.trim())
+      .flatMap((l) =>
+        this.quebrarTexto(sanitizePdfText(l, this.fonte), this.fonte, 8.5, larguraTexto),
+      );
+    const altura = 24 + linhas.length * 11.5 + 4;
+    if (this.y < ALTURA_PAGINA - MARGEM && !this.quebraPendente) this.y -= 6;
+    this.garantirEspaco(altura + 6);
+    this.pagina.drawRectangle({
+      x: MARGEM,
+      y: this.y - altura,
+      width: LARGURA_UTIL,
+      height: altura,
+      color: cores.fundo,
+    });
+    this.pagina.drawRectangle({
+      x: MARGEM,
+      y: this.y - altura,
+      width: 3,
+      height: altura,
+      color: cores.borda,
+    });
+    this.texto(titulo, MARGEM + 13, this.y - 15, 9.5, true, cores.borda);
+    linhas.forEach((l, k) => this.texto(l, MARGEM + 13, this.y - 29 - k * 11.5, 8.5));
+    this.y -= altura + 6;
+  }
+
+  /** QR Code ao lado de um texto curto (link de consulta/aprovação). */
+  async qrComTexto(png: Uint8Array, titulo: string, texto: string) {
+    const lado = 74;
+    this.garantirEspaco(lado + 10);
+    try {
+      const img = await this.pdf.embedPng(png);
+      this.pagina.drawImage(img, { x: MARGEM, y: this.y - lado, width: lado, height: lado });
+    } catch {
+      // QR inválido — segue só com o texto
+    }
+    const x = MARGEM + lado + 14;
+    this.texto(titulo, x, this.y - 20, 10, true, this.corAccent);
+    this.quebrarTexto(sanitizePdfText(texto, this.fonte), this.fonte, 8.5, LARGURA_UTIL - lado - 14)
+      .slice(0, 4)
+      .forEach((l, k) => this.texto(l, x, this.y - 34 - k * 11.5, 8.5, false, rgb(0.3, 0.3, 0.36)));
+    this.y -= lado + 10;
+  }
+
+  /** Linhas de assinatura lado a lado, com a imagem da assinatura quando houver. */
+  async assinaturas(
+    itens: {
+      rotulo: string;
+      nome?: string | null;
+      imagem?: { bytes: Uint8Array; ehPng: boolean } | null;
+    }[],
+  ) {
+    const gap = 30;
+    const largura = (LARGURA_UTIL - gap * (itens.length - 1)) / itens.length;
+    this.garantirEspaco(80);
+    const yLinha = this.y - 56;
+    for (let i = 0; i < itens.length; i++) {
+      const item = itens[i]!;
+      const x = MARGEM + i * (largura + gap);
+      if (item.imagem) {
+        try {
+          const img = item.imagem.ehPng
+            ? await this.pdf.embedPng(item.imagem.bytes)
+            : await this.pdf.embedJpg(reduzirJpeg(item.imagem.bytes));
+          const escala = Math.min((largura - 20) / img.width, 46 / img.height, 1);
+          this.pagina.drawImage(img, {
+            x: x + (largura - img.width * escala) / 2,
+            y: yLinha + 3,
+            width: img.width * escala,
+            height: img.height * escala,
+          });
+        } catch {
+          // assinatura inválida — fica só a linha
+        }
+      }
+      this.pagina.drawLine({
+        start: { x, y: yLinha },
+        end: { x: x + largura, y: yLinha },
+        thickness: 0.7,
+        color: rgb(0.3, 0.3, 0.35),
+      });
+      const rotulo = item.nome ? `${item.rotulo} — ${item.nome}` : item.rotulo;
+      const t = this.caber(rotulo, 7.5, largura);
+      this.texto(
+        t,
+        x + (largura - this.larguraTexto(t, 7.5)) / 2,
+        yLinha - 11,
+        7.5,
+        false,
+        rgb(0.4, 0.4, 0.46),
+      );
+    }
+    this.y = yLinha - 22;
+  }
+
+  /** Rodapé em todas as páginas: texto à esquerda e "Página X de Y" à direita. */
+  rodape(texto: string) {
+    const paginas = this.pdf.getPages();
+    paginas.forEach((pg, i) => {
+      pg.drawLine({
+        start: { x: MARGEM, y: 34 },
+        end: { x: LARGURA_PAGINA - MARGEM, y: 34 },
+        thickness: 0.4,
+        color: rgb(0.86, 0.86, 0.9),
+      });
+      const esquerda = this.caber(texto, 7, LARGURA_UTIL - 80);
+      pg.drawText(esquerda, {
+        x: MARGEM,
+        y: 24,
+        size: 7,
+        font: this.fonte,
+        color: rgb(0.5, 0.5, 0.56),
+      });
+      const dir = `Página ${i + 1} de ${paginas.length}`;
+      pg.drawText(dir, {
+        x: LARGURA_PAGINA - MARGEM - this.fonte.widthOfTextAtSize(dir, 7),
+        y: 24,
+        size: 7,
+        font: this.fonte,
+        color: rgb(0.5, 0.5, 0.56),
+      });
+    });
+  }
 }
 
 /** Convenience: a fresh A4 PDFDocument + Helvetica/HelveticaBold fonts + an Escritor ready to draw. */

@@ -431,6 +431,29 @@ export function secoesOrdenadas(template: OsTemplateRow): OsTemplateSecao[] {
   return ["cabecalho" as const, ...secoesFinal.filter((s) => s !== "cabecalho")];
 }
 
+/** Renders sections, dropping page breaks that would open an empty page
+ * (break at the end, or followed only by sections with nothing to show —
+ * e.g. "quebra_pagina, qrcode" with the QR Code switched off), the same
+ * thing the PDF writer does with its pending page break. */
+function renderSecoes(
+  secoes: OsTemplateSecao[],
+  d: RenderOsData,
+  cfg: OsTemplateConfig,
+  cor: { accent: string; accentSoft: string },
+): string {
+  const partes = secoes
+    .map((s) => ({ s, html: renderSecao(s, d, cfg, cor) }))
+    .filter((p) => p.s === "quebra_pagina" || p.html.trim());
+  return partes
+    .filter(
+      (p, i) =>
+        p.s !== "quebra_pagina" ||
+        (i > 0 && partes[i - 1]!.s !== "quebra_pagina" && i < partes.length - 1),
+    )
+    .map((p) => p.html)
+    .join("");
+}
+
 /** Renders one via (client copy / empresa copy) of the document body. */
 function renderVia(template: OsTemplateRow, d: RenderOsData, viaLabel: string | null): string {
   const cor = TEMA_COR[template.tema];
@@ -438,9 +461,7 @@ function renderVia(template: OsTemplateRow, d: RenderOsData, viaLabel: string | 
   return `
     <div class="via">
       ${viaLabel ? `<p class="via-label">${esc(viaLabel)}</p>` : ""}
-      ${secoesOrdenadas(template)
-        .map((s) => renderSecao(s, d, cfg, cor))
-        .join("")}
+      ${renderSecoes(secoesOrdenadas(template), d, cfg, cor)}
     </div>
   `;
 }
@@ -550,10 +571,14 @@ export function renderOsTemplatePages(template: OsTemplateRow, d: RenderOsData):
   const paginas: string[] = [];
   for (const [label] of vias) {
     grupos.forEach((grupo, i) => {
+      const conteudo = renderSecoes(grupo, d, cfg, cor);
+      // Página sem nada para mostrar (ex.: só o QR Code, desligado) não
+      // entra na pré-visualização — também não sai na impressão.
+      if (i > 0 && !conteudo.trim()) return;
       const corpo = `
         <div class="via">
           ${label && i === 0 ? `<p class="via-label">${esc(label as string)}</p>` : ""}
-          ${grupo.map((s) => renderSecao(s, d, cfg, cor)).join("")}
+          ${conteudo}
         </div>
       `;
       paginas.push(wrapDocument(template, titulo, corpo, multiplasPaginas));
