@@ -26,6 +26,9 @@ import {
   KeyRound,
   Share2,
   UserCheck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,6 +63,12 @@ import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
+import {
+  BarraEtapas,
+  BlocoResumo,
+  LinhaResumo,
+  type EtapaInfo,
+} from "@/components/os/EtapasNovaOs";
 import { avisarOsProntaFn } from "@/lib/whatsapp/whatsapp.functions";
 import { renderOsTemplateHtml, type RenderOsData } from "@/lib/os-template-render";
 
@@ -84,6 +93,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -254,6 +264,14 @@ const ESTADO_FISICO_ITENS = [
   { key: "outros", label: "Outros" },
 ] as const;
 
+const ETAPAS_NOVA_OS: EtapaInfo[] = [
+  { titulo: "Cliente", descricao: "Quem está deixando o aparelho." },
+  { titulo: "Aparelho", descricao: "Qual aparelho, e a senha para testar." },
+  { titulo: "Problema", descricao: "O defeito, como o aparelho chegou e o que veio junto." },
+  { titulo: "Atendimento", descricao: "Técnico, previsão de entrega e diagnóstico." },
+  { titulo: "Revisão", descricao: "Confira tudo antes de criar a OS." },
+];
+
 const OS_POR_PAGINA = 20;
 
 function Ordens() {
@@ -274,6 +292,9 @@ function Ordens() {
   const [enviarOsOpen, setEnviarOsOpen] = useState(false);
   const [assinaturaOs, setAssinaturaOs] = useState<OsListada | null>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
+  // Etapa atual da Nova OS e a mais adiantada já vista (libera voltar/pular).
+  const [etapaNova, setEtapaNova] = useState(0);
+  const [maxEtapaNova, setMaxEtapaNova] = useState(0);
   // Etapa de assinaturas (cliente + quem finalizou) antes de imprimir/gerar o
   // PDF da OS; `seguir` monta o documento depois que elas forem salvas.
   const [assinarAntes, setAssinarAntes] = useState<{
@@ -553,6 +574,18 @@ function Ordens() {
     [produtos],
   );
 
+  // Só passa da etapa do aparelho com ele preenchido; voltar é sempre livre.
+  function irParaEtapa(destino: number) {
+    if (destino > 1 && etapaNova <= 1 && !form.aparelho.trim()) {
+      toast.error("Informe o aparelho para continuar.");
+      setEtapaNova(1);
+      setMaxEtapaNova((m) => Math.max(m, 1));
+      return;
+    }
+    setEtapaNova(destino);
+    setMaxEtapaNova((m) => Math.max(m, destino));
+  }
+
   const criar = useMutation({
     mutationFn: async () => {
       if (!form.aparelho.trim()) throw new Error("Informe o aparelho");
@@ -568,6 +601,7 @@ function Ordens() {
           marca: form.marca,
           modelo: form.modelo,
           imei: form.imei,
+          serial_number: form.serial_number || null,
           cor: form.cor,
           senha_dispositivo: form.senha_dispositivo,
           padrao_desbloqueio: form.padrao_desbloqueio,
@@ -1107,6 +1141,8 @@ function Ordens() {
                 setLadosNovaOs(new Map());
                 setNovoProduto(itemVazio);
                 setNovoServico(itemVazio);
+                setEtapaNova(0);
+                setMaxEtapaNova(0);
               }
             }}
           >
@@ -1115,177 +1151,316 @@ function Ordens() {
                 <Plus className="h-4 w-4" /> Nova OS
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+            <DialogContent className="flex max-h-[92vh] max-w-2xl flex-col gap-4 overflow-hidden p-0 sm:p-0">
+              <DialogHeader className="px-5 pt-5">
                 <DialogTitle>Nova ordem de serviço</DialogTitle>
+                <DialogDescription>
+                  Preencha em etapas — só o aparelho é obrigatório.
+                </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Cliente</Label>
-                  <ClienteCampo
-                    clientes={clientes}
-                    value={form.cliente_id}
-                    onChange={(id) => setForm({ ...form, cliente_id: id })}
-                  />
-                </div>
-                <Campo
-                  label="Aparelho"
-                  value={form.aparelho}
-                  onChange={(v) => setForm({ ...form, aparelho: v })}
-                  sugestoesId="sugestoes-aparelho-novo"
-                  sugestoes={sugestoesAparelho}
+              <div className="px-5">
+                <BarraEtapas
+                  etapas={ETAPAS_NOVA_OS}
+                  atual={etapaNova}
+                  maxVisitada={maxEtapaNova}
+                  onIr={irParaEtapa}
                 />
-                <Campo
-                  label="Marca"
-                  value={form.marca}
-                  onChange={(v) => setForm({ ...form, marca: v })}
-                  sugestoesId="sugestoes-marca-novo"
-                  sugestoes={sugestoesMarca}
-                />
-                <Campo
-                  label="Modelo"
-                  value={form.modelo}
-                  onChange={(v) => setForm({ ...form, modelo: v })}
-                  sugestoesId="sugestoes-modelo-novo"
-                  sugestoes={sugestoesModelo}
-                />
-                <Campo
-                  label="Cor"
-                  value={form.cor}
-                  onChange={(v) => setForm({ ...form, cor: v })}
-                  sugestoesId="sugestoes-cor-novo"
-                  sugestoes={sugestoesCor}
-                />
-                <Campo
-                  label="IMEI"
-                  value={form.imei}
-                  onChange={(v) => setForm({ ...form, imei: v })}
-                />
-                <div className="space-y-1.5">
-                  <Label>Técnico responsável</Label>
-                  <Select
-                    value={form.responsavel_user_id}
-                    onValueChange={(v) => setForm({ ...form, responsavel_user_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sem técnico atribuído" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tecnicos.map((m) => (
-                        <SelectItem key={m.user_id} value={m.user_id}>
-                          {nomeTecnico(m)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Previsão de entrega</Label>
-                  <Input
-                    type="date"
-                    value={previsaoData}
-                    onChange={(e) => setPrevisaoData(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Nº de série</Label>
-                  <Input
-                    value={form.serial_number}
-                    onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Senha (PIN)</Label>
-                  <Input
-                    value={form.senha_dispositivo}
-                    onChange={(e) => setForm({ ...form, senha_dispositivo: e.target.value })}
-                    placeholder="Ex: 1234"
-                  />
-                </div>
-                <div className="space-y-3 sm:col-span-2">
-                  <Label>Padrão de Desbloqueio</Label>
-                  <PatternLock
-                    value={form.padrao_desbloqueio}
-                    onChange={(val) => setForm({ ...form, padrao_desbloqueio: val })}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div className="space-y-1.5 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Defeito relatado</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      disabled={analiseAparelho.isPending}
-                      onClick={() => analiseAparelho.mutate()}
-                    >
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                      {analiseAparelho.isPending ? "Analisando..." : "Identificar aparelho"}
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={form.defeito}
-                    onChange={(e) => setForm({ ...form, defeito: e.target.value })}
-                    placeholder="Ex: iPhone 13 Pro Max dourado com tela quebrada"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Diagnóstico técnico</Label>
-                  <Textarea
-                    value={form.diagnostico}
-                    onChange={(e) => setForm({ ...form, diagnostico: e.target.value })}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <AcessoriosCampo
-                    value={form.acessorios}
-                    onChange={(v) => setForm({ ...form, acessorios: v })}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Estado físico na entrada</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ESTADO_FISICO_ITENS.map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() =>
-                          setEstadoFisico({ ...estadoFisico, [item.key]: !estadoFisico[item.key] })
-                        }
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                          estadoFisico[item.key]
-                            ? "border-red-500/40 bg-red-500/10 text-red-600"
-                            : "border-border hover:border-primary"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                  <Input
-                    value={estadoFisicoObs}
-                    onChange={(e) => setEstadoFisicoObs(e.target.value)}
-                    placeholder="Observações (ex.: trinca no canto superior)"
-                  />
-                </div>
-                <div className="border-t border-border pt-4 sm:col-span-2">
-                  <NovaOsFotos
-                    fotos={fotosNovaOs}
-                    onChange={setFotosNovaOs}
-                    lados={ladosNovaOs}
-                    onLadosChange={setLadosNovaOs}
-                  />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Marque a frente e a traseira do aparelho para vê-lo em 3D na lista de OS.
-                  </p>
-                </div>
               </div>
-              <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
-                Criar OS
-              </Button>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-2">
+                {etapaNova === 0 && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label>Cliente</Label>
+                      <ClienteCampo
+                        clientes={clientes}
+                        value={form.cliente_id}
+                        onChange={(id) => setForm({ ...form, cliente_id: id })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Digite o nome ou o telefone. Se ainda não tiver cadastro, dá para cadastrar
+                        na hora.
+                      </p>
+                    </div>
+                    {!form.cliente_id && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+                        Sem cliente a OS pode ser criada, mas não dá para avisar pelo WhatsApp nem
+                        mandar o link de aprovação do orçamento.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {etapaNova === 1 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Campo
+                      label="Aparelho *"
+                      value={form.aparelho}
+                      onChange={(v) => setForm({ ...form, aparelho: v })}
+                      sugestoesId="sugestoes-aparelho-novo"
+                      sugestoes={sugestoesAparelho}
+                    />
+                    <Campo
+                      label="Marca"
+                      value={form.marca}
+                      onChange={(v) => setForm({ ...form, marca: v })}
+                      sugestoesId="sugestoes-marca-novo"
+                      sugestoes={sugestoesMarca}
+                    />
+                    <Campo
+                      label="Modelo"
+                      value={form.modelo}
+                      onChange={(v) => setForm({ ...form, modelo: v })}
+                      sugestoesId="sugestoes-modelo-novo"
+                      sugestoes={sugestoesModelo}
+                    />
+                    <Campo
+                      label="Cor"
+                      value={form.cor}
+                      onChange={(v) => setForm({ ...form, cor: v })}
+                      sugestoesId="sugestoes-cor-novo"
+                      sugestoes={sugestoesCor}
+                    />
+                    <Campo
+                      label="IMEI"
+                      value={form.imei}
+                      onChange={(v) => setForm({ ...form, imei: v })}
+                    />
+                    <div className="space-y-1.5">
+                      <Label>Nº de série</Label>
+                      <Input
+                        value={form.serial_number}
+                        onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Senha (PIN)</Label>
+                      <Input
+                        value={form.senha_dispositivo}
+                        onChange={(e) => setForm({ ...form, senha_dispositivo: e.target.value })}
+                        placeholder="Ex: 1234"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Padrão de desbloqueio</Label>
+                      <PatternLock
+                        value={form.padrao_desbloqueio}
+                        onChange={(val) => setForm({ ...form, padrao_desbloqueio: val })}
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {etapaNova === 2 && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label>Defeito relatado pelo cliente</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={analiseAparelho.isPending}
+                          onClick={() => analiseAparelho.mutate()}
+                        >
+                          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                          {analiseAparelho.isPending ? "Analisando..." : "Identificar aparelho"}
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={form.defeito}
+                        onChange={(e) => setForm({ ...form, defeito: e.target.value })}
+                        placeholder="Ex: tela quebrada, não carrega, caiu na água..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Estado físico na entrada</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ESTADO_FISICO_ITENS.map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() =>
+                              setEstadoFisico({
+                                ...estadoFisico,
+                                [item.key]: !estadoFisico[item.key],
+                              })
+                            }
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                              estadoFisico[item.key]
+                                ? "border-red-500/40 bg-red-500/10 text-red-600"
+                                : "border-border hover:border-primary"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        value={estadoFisicoObs}
+                        onChange={(e) => setEstadoFisicoObs(e.target.value)}
+                        placeholder="Observações (ex.: trinca no canto superior)"
+                      />
+                    </div>
+                    <AcessoriosCampo
+                      value={form.acessorios}
+                      onChange={(v) => setForm({ ...form, acessorios: v })}
+                    />
+                    <div className="border-t border-border pt-4">
+                      <NovaOsFotos
+                        fotos={fotosNovaOs}
+                        onChange={setFotosNovaOs}
+                        lados={ladosNovaOs}
+                        onLadosChange={setLadosNovaOs}
+                      />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Marque a frente e a traseira do aparelho para vê-lo em 3D na lista de OS.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {etapaNova === 3 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Técnico responsável</Label>
+                      <Select
+                        value={form.responsavel_user_id}
+                        onValueChange={(v) => setForm({ ...form, responsavel_user_id: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sem técnico atribuído" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tecnicos.map((m) => (
+                            <SelectItem key={m.user_id} value={m.user_id}>
+                              {nomeTecnico(m)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Previsão de entrega</Label>
+                      <Input
+                        type="date"
+                        value={previsaoData}
+                        onChange={(e) => setPrevisaoData(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Diagnóstico técnico (se já souber)</Label>
+                      <Textarea
+                        value={form.diagnostico}
+                        onChange={(e) => setForm({ ...form, diagnostico: e.target.value })}
+                        placeholder="Pode deixar em branco e preencher depois da análise."
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground sm:col-span-2">
+                      Serviços, peças e valores entram depois, ao abrir a OS (aba Produtos e
+                      Serviços) — é lá que sai o orçamento para o cliente aprovar.
+                    </p>
+                  </div>
+                )}
+
+                {etapaNova === 4 && (
+                  <div className="space-y-3">
+                    <BlocoResumo titulo="Cliente" onAlterar={() => irParaEtapa(0)}>
+                      <LinhaResumo
+                        rotulo="Nome"
+                        valor={
+                          clientes.find((c) => c.id === form.cliente_id)?.nome ?? "Sem cliente"
+                        }
+                      />
+                    </BlocoResumo>
+                    <BlocoResumo titulo="Aparelho" onAlterar={() => irParaEtapa(1)}>
+                      <LinhaResumo
+                        rotulo="Aparelho"
+                        valor={[form.aparelho, form.marca, form.modelo].filter(Boolean).join(" ")}
+                      />
+                      <LinhaResumo rotulo="Cor" valor={form.cor} />
+                      <LinhaResumo
+                        rotulo="IMEI / série"
+                        valor={[form.imei, form.serial_number].filter(Boolean).join(" · ")}
+                      />
+                      <LinhaResumo
+                        rotulo="Senha / padrão"
+                        valor={
+                          [
+                            form.senha_dispositivo && "PIN informado",
+                            form.padrao_desbloqueio && "Padrão informado",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "Não informado"
+                        }
+                      />
+                    </BlocoResumo>
+                    <BlocoResumo titulo="Problema e entrada" onAlterar={() => irParaEtapa(2)}>
+                      <LinhaResumo rotulo="Defeito" valor={form.defeito} />
+                      <LinhaResumo
+                        rotulo="Estado físico"
+                        valor={
+                          [
+                            ...ESTADO_FISICO_ITENS.filter((i) => estadoFisico[i.key]).map(
+                              (i) => i.label,
+                            ),
+                            estadoFisicoObs.trim(),
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "Sem avarias marcadas"
+                        }
+                      />
+                      <LinhaResumo rotulo="Acessórios" valor={form.acessorios || "Nenhum"} />
+                      <LinhaResumo
+                        rotulo="Fotos"
+                        valor={fotosNovaOs.length ? `${fotosNovaOs.length} foto(s)` : "Nenhuma"}
+                      />
+                    </BlocoResumo>
+                    <BlocoResumo titulo="Atendimento" onAlterar={() => irParaEtapa(3)}>
+                      <LinhaResumo
+                        rotulo="Técnico"
+                        valor={(() => {
+                          const t = tecnicos.find((m) => m.user_id === form.responsavel_user_id);
+                          return t ? nomeTecnico(t) : "Sem técnico";
+                        })()}
+                      />
+                      <LinhaResumo
+                        rotulo="Previsão"
+                        valor={previsaoData ? dataBR(previsaoData) : "Sem previsão"}
+                      />
+                      <LinhaResumo rotulo="Diagnóstico" valor={form.diagnostico} />
+                    </BlocoResumo>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => (etapaNova === 0 ? setOpen(false) : irParaEtapa(etapaNova - 1))}
+                >
+                  {etapaNova === 0 ? (
+                    "Cancelar"
+                  ) : (
+                    <>
+                      <ChevronLeft className="h-4 w-4" /> Voltar
+                    </>
+                  )}
+                </Button>
+                {etapaNova < ETAPAS_NOVA_OS.length - 1 ? (
+                  <Button type="button" onClick={() => irParaEtapa(etapaNova + 1)}>
+                    Próximo <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={() => criar.mutate()} disabled={criar.isPending}>
+                    {criar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Criar OS
+                  </Button>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
         }
