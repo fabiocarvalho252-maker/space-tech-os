@@ -360,7 +360,7 @@ export async function gerarPdfTermoGarantiaAparelho({
     rgb(0.3, 0.3, 0.36),
   );
 
-  w.secao("Assinaturas");
+  w.secao("Assinaturas", 110);
   await w.assinaturas([
     { rotulo: "Cliente", nome: garantia.clientes?.nome ?? null },
     { rotulo: nomeLoja },

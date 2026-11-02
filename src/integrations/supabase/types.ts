@@ -3618,6 +3618,7 @@ export type Database = {
       };
       service_order_photos: {
         Row: {
+          assinante_nome: string | null;
           category: string | null;
           created_at: string | null;
           id: string;
@@ -3627,6 +3628,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          assinante_nome?: string | null;
           category?: string | null;
           created_at?: string | null;
           id?: string;
@@ -3636,6 +3638,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          assinante_nome?: string | null;
           category?: string | null;
           created_at?: string | null;
           id?: string;

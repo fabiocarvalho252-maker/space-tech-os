@@ -432,10 +432,14 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
           assinaturaCliente ? baixarImagem(assinaturaCliente.url) : null,
           assinaturaTecnico ? baixarImagem(assinaturaTecnico.url) : null,
         ]);
-        w.secao("Assinaturas");
+        w.secao("Assinaturas", 110);
         await w.assinaturas([
           { rotulo: "Cliente", nome: cliente?.nome ?? null, imagem: imgCliente },
-          { rotulo: nomeLoja, nome: os.responsavel ?? null, imagem: imgTecnico },
+          {
+            rotulo: `${nomeLoja} — quem finalizou`,
+            nome: assinaturaTecnico?.assinante_nome || os.responsavel || null,
+            imagem: imgTecnico,
+          },
         ]);
         break;
       }

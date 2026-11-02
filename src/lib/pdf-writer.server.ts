@@ -605,12 +605,15 @@ export class Escritor {
     return rgb(mistura(c.red), mistura(c.green), mistura(c.blue));
   }
 
-  /** Título de seção: marcador colorido + texto em caixa alta + linha fina. */
-  secao(titulo: string) {
+  /**
+   * Título de seção: marcador colorido + texto em caixa alta + linha fina.
+   * `reservar` é o espaço garantido para o título + o começo do conteúdo.
+   */
+  secao(titulo: string, reservar = 70) {
     if (this.y < ALTURA_PAGINA - MARGEM && !this.quebraPendente) this.y -= 8;
     // Reserva o título + as primeiras linhas do conteúdo, para o título
     // nunca ficar sozinho no pé da página.
-    this.garantirEspaco(70);
+    this.garantirEspaco(reservar);
     this.pagina.drawRectangle({
       x: MARGEM,
       y: this.y - 11,

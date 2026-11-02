@@ -274,6 +274,13 @@ function Ordens() {
   const [enviarOsOpen, setEnviarOsOpen] = useState(false);
   const [assinaturaOs, setAssinaturaOs] = useState<OsListada | null>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
+  // Etapa de assinaturas (cliente + quem finalizou) antes de imprimir/gerar o
+  // PDF da OS; `seguir` monta o documento depois que elas forem salvas.
+  const [assinarAntes, setAssinarAntes] = useState<{
+    os: OsListada;
+    rotulo: string;
+    seguir: (salvando: Promise<void>) => void;
+  } | null>(null);
   const [form, setForm] = useState(vazio);
   const [filtro, setFiltro] = useState("todas");
   const [showFilters, setShowFilters] = useState(false);
@@ -791,10 +798,29 @@ function Ordens() {
     setWhatsappOpen(true);
   }
 
-  function enviarOs(os: OsListada, modo: "os" | "orcamento" = "os") {
+  function abrirEnviarOs(os: OsListada, modo: "os" | "orcamento") {
     setEnviarOsAlvo(os);
     setEnviarOsModo(modo);
     setEnviarOsOpen(true);
+  }
+
+  function enviarOs(os: OsListada, modo: "os" | "orcamento" = "os") {
+    if (modo === "orcamento") return abrirEnviarOs(os, modo);
+    setAssinarAntes({
+      os,
+      rotulo: "Salvar e gerar PDF",
+      seguir: (salvando) => void salvando.then(() => abrirEnviarOs(os, modo)),
+    });
+  }
+
+  // Orçamento sai direto; OS e não fiscal passam antes pelas assinaturas.
+  function imprimir(os: (typeof ordens)[number], modo: "os" | "orcamento" | "nao_fiscal" = "os") {
+    if (modo === "orcamento") return void imprimirDocumento(os, modo);
+    setAssinarAntes({
+      os,
+      rotulo: "Salvar e imprimir",
+      seguir: (salvando) => void imprimirDocumento(os, modo, salvando),
+    });
   }
 
   const [acesso, setAcesso] = useState<ClienteAcesso | null>(null);
@@ -847,9 +873,10 @@ function Ordens() {
     },
   });
 
-  async function imprimir(
+  async function imprimirDocumento(
     os: (typeof ordens)[number],
     modo: "os" | "orcamento" | "nao_fiscal" = "os",
+    antes?: Promise<void>,
   ) {
     // Open the window synchronously, still inside the click's user-gesture —
     // opening it *after* the awaited queries below would make most browsers
@@ -864,6 +891,8 @@ function Ordens() {
     janela.document.write(
       "<!doctype html><html><body style='font-family:system-ui,sans-serif;padding:40px;color:#666'>Preparando impressão...</body></html>",
     );
+    // Assinaturas recém-feitas precisam estar salvas antes de buscar as fotos.
+    if (antes) await antes;
 
     // Termo padrão, config de impressão, fotos, itens e o modelo (template)
     // configurado em Configurações → Modelos de OS — o padrão da empresa, ou
@@ -965,6 +994,7 @@ function Ordens() {
       fotos: fotosComUrl,
       assinaturaClienteSrc,
       assinaturaTecnicoSrc,
+      assinaturaTecnicoNome: assinaturaTecnico?.assinante_nome || os.responsavel || null,
       termoGarantiaTexto: termo?.conteudo ?? null,
       condicoesTexto: osConfig?.termos_condicoes ?? null,
       empresa: {
@@ -2037,8 +2067,19 @@ function Ordens() {
         open={faturarOpen}
         onOpenChange={setFaturarOpen}
         onFaturado={(os) => {
-          setWhatsappOs(os);
-          setWhatsappOpen(true);
+          // Finalizou: assinaturas do cliente e de quem finalizou, depois o
+          // envio pelo WhatsApp (que pode anexar o PDF já assinado).
+          const alvo = ordens.find((o) => o.id === os.id);
+          const abrirWhatsApp = () => {
+            setWhatsappOs(os);
+            setWhatsappOpen(true);
+          };
+          if (!alvo) return abrirWhatsApp();
+          setAssinarAntes({
+            os: alvo,
+            rotulo: "Salvar e continuar",
+            seguir: (salvando) => void salvando.then(abrirWhatsApp),
+          });
         }}
       />
 
@@ -2055,6 +2096,13 @@ function Ordens() {
         os={assinaturaOs}
         open={assinaturaOpen}
         onOpenChange={setAssinaturaOpen}
+      />
+      <AssinaturaDigitalModal
+        os={assinarAntes?.os ?? null}
+        open={!!assinarAntes}
+        onOpenChange={(v) => !v && setAssinarAntes(null)}
+        aoConcluir={assinarAntes?.seguir ?? (() => {})}
+        rotuloConcluir={assinarAntes?.rotulo ?? "Salvar e gerar"}
       />
 
       <ConfirmDialog

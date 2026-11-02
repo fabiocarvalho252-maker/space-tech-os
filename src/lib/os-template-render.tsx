@@ -246,6 +246,8 @@ export type RenderOsData = {
   fotos: RenderOsFoto[];
   assinaturaClienteSrc: string | null;
   assinaturaTecnicoSrc: string | null;
+  /** Nome de quem finalizou a OS (assinou pela loja). */
+  assinaturaTecnicoNome?: string | null;
   termoGarantiaTexto: string | null;
   condicoesTexto: string | null;
   empresa: {
@@ -510,11 +512,11 @@ function renderSecao(
         <footer class="assinaturas">
           <div class="assinatura">
             ${d.assinaturaClienteSrc ? `<img src="${esc(d.assinaturaClienteSrc)}" />` : ""}
-            <div class="linha">Assinatura do Cliente</div>
+            <div class="linha">Assinatura do Cliente${d.cliente?.nome ? `<br/><small>${esc(d.cliente.nome)}</small>` : ""}</div>
           </div>
           <div class="assinatura">
             ${d.assinaturaTecnicoSrc ? `<img src="${esc(d.assinaturaTecnicoSrc)}" />` : ""}
-            <div class="linha">Assinatura do Técnico</div>
+            <div class="linha">Quem finalizou a OS${d.assinaturaTecnicoNome ? `<br/><small>${esc(d.assinaturaTecnicoNome)}</small>` : ""}</div>
           </div>
         </footer>
       `;
