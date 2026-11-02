@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "online.srmpretech.app",
+      "sha256_cert_fingerprints": [
+        "D4:45:F2:58:AB:91:0B:50:C3:96:24:32:22:CB:F4:FE:31:1F:57:C0:0A:18:10:C1:4B:A8:6D:27:0A:CC:B6:42"
+      ]
+    }
+  }
+]
