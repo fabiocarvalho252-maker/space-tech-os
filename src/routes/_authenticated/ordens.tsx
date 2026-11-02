@@ -63,6 +63,7 @@ import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
+import { MARCAS_COM_MODELOS, sugerirModelos } from "@/lib/catalogo-modelos";
 import {
   BarraEtapas,
   BlocoResumo,
@@ -517,12 +518,17 @@ function Ordens() {
     [ordens],
   );
   const sugestoesMarca = useMemo(
-    () => Array.from(new Set([...MARCAS_CONHECIDAS, ...valoresUsados(ordens, "marca")])).sort(),
+    () =>
+      Array.from(
+        new Set([...MARCAS_CONHECIDAS, ...MARCAS_COM_MODELOS, ...valoresUsados(ordens, "marca")]),
+      ).sort(),
     [ordens],
   );
+  // Só os modelos da marca digitada (e do tipo de aparelho, se for um dos
+  // conhecidos) — catálogo + os já usados em OS daquela marca.
   const sugestoesModelo = useMemo(
-    () => Array.from(new Set(valoresUsados(ordens, "modelo"))).sort(),
-    [ordens],
+    () => sugerirModelos(form.marca, form.aparelho, ordens),
+    [ordens, form.marca, form.aparelho],
   );
   const sugestoesCor = useMemo(
     () => Array.from(new Set([...CORES_CONHECIDAS, ...valoresUsados(ordens, "cor")])).sort(),
