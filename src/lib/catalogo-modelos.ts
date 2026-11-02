@@ -155,15 +155,31 @@ export function sugerirModelos(
   const doHistorico = usados
     .filter((o) => o.modelo && (!m || normalizar(o.marca ?? "") === m))
     .map((o) => o.modelo!.trim());
-  if (!m) return Array.from(new Set(doHistorico)).sort();
+  if (!m) return semRepetidos(doHistorico);
 
   const chave = Object.keys(CATALOGO).find((k) => normalizar(k) === m);
   const porTipo = chave ? CATALOGO[chave]! : {};
   const tipo = (Object.keys(porTipo) as Tipo[]).find((t) => normalizar(t) === normalizar(aparelho));
   const doCatalogo = tipo ? porTipo[tipo]! : Object.values(porTipo).flat();
-  return Array.from(new Set([...doCatalogo, ...doHistorico])).sort((a, b) =>
-    a.localeCompare(b, "pt-BR", { numeric: true }),
-  );
+  return semRepetidos([...doCatalogo, ...doHistorico]);
+}
+
+/**
+ * Tira repetidos sem olhar maiúsculas/acentos ("a03 core" = "A03 CORE") e o
+ * que o catálogo já tem com o nome completo ("A05" quando há "Galaxy A05").
+ * Fica a primeira grafia — o catálogo vem antes do histórico.
+ */
+function semRepetidos(lista: string[]): string[] {
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const item of lista) {
+    const n = normalizar(item);
+    if (!n || vistos.has(n)) continue;
+    if (saida.some((s) => normalizar(s).endsWith(` ${n}`))) continue;
+    vistos.add(n);
+    saida.push(item);
+  }
+  return saida.sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
 }
 
 /** Marcas do catálogo de modelos (para somar às sugestões de Marca). */
