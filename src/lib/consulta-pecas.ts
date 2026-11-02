@@ -47,7 +47,12 @@ export function nomeAparelho(marca: string | undefined, modelo: string): string 
 }
 
 export function montarMensagemConsulta(p: PecaConsulta, data: Date = new Date()): string {
-  const peca = [p.peca.trim(), (p.qualidade ?? "").trim()].filter(Boolean).join(" ");
+  // "Tela" vira "tela" no meio da frase; siglas ("LCD") ficam como estão.
+  const nome = p.peca.trim();
+  const pecaMinuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(nome)
+    ? nome[0]!.toLowerCase() + nome.slice(1)
+    : nome;
+  const peca = [pecaMinuscula, (p.qualidade ?? "").trim()].filter(Boolean).join(" ");
   const aparelho = nomeAparelho(p.marca, p.modelo);
   return `${saudacaoPorHorario(data)}\n\nTem ${peca} para ${aparelho} disponível? Qual o valor?`;
 }

@@ -13,6 +13,7 @@ import {
   Loader2,
   MessageCircle,
   PackageSearch,
+  Pencil,
   RotateCcw,
   Search,
   Send,
@@ -36,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { sugerirModelos } from "@/lib/catalogo-modelos";
 
 type Fornecedor = {
   id: string;
@@ -67,6 +69,97 @@ const PAUSA_ENTRE_ENVIOS_MS = 1500;
 
 const nomeDe = (f: Fornecedor) => f.nome_fantasia?.trim() || f.razao_social;
 
+// Opções prontas para clicar — o campo livre continua para o que não estiver
+// na lista.
+const PECAS = [
+  "Tela",
+  "Bateria",
+  "Conector de carga",
+  "Tampa traseira",
+  "Câmera traseira",
+  "Câmera frontal",
+  "Lente da câmera",
+  "Alto-falante",
+  "Auricular",
+  "Microfone",
+  "Flex power/volume",
+  "Placa",
+];
+
+const QUALIDADES: Record<string, string[]> = {
+  Tela: ["Original", "OLED", "Incell", "Nacional", "Com aro", "Sem aro"],
+  Bateria: ["Original", "Primeira linha", "Nacional"],
+  "Tampa traseira": ["Original", "Com lente", "Sem lente"],
+};
+const QUALIDADES_PADRAO = ["Original", "Primeira linha", "Paralela"];
+const qualidadesDe = (peca: string) => QUALIDADES[peca] ?? QUALIDADES_PADRAO;
+
+const MARCAS = ["Apple", "Samsung", "Motorola", "Xiaomi", "Realme", "Infinix", "LG", "Asus"];
+
+function NumeroEtapa({ n }: { n: number }) {
+  return (
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+      {n}
+    </span>
+  );
+}
+
+function Etapa({
+  numero,
+  titulo,
+  children,
+}: {
+  numero: number;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <NumeroEtapa n={numero} /> {titulo}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+/** Botões de escolha única (o que acontece no clique fica com quem usa). */
+function Opcoes({
+  opcoes,
+  valor,
+  onEscolher,
+  pequeno,
+}: {
+  opcoes: string[];
+  valor: string;
+  onEscolher: (v: string) => void;
+  pequeno?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {opcoes.map((o) => {
+        const ativo = valor.toLowerCase() === o.toLowerCase();
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onEscolher(o)}
+            className={`rounded-full border font-medium transition ${
+              pequeno ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm"
+            } ${
+              ativo
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border hover:border-primary hover:text-primary"
+            }`}
+          >
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ConsultarPecasDialog({
   open,
   onOpenChange,
@@ -88,6 +181,7 @@ export function ConsultarPecasDialog({
   const [envios, setEnvios] = useState<Envio[] | null>(null);
   const [mensagemDoLote, setMensagemDoLote] = useState("");
   const [enviandoTodos, setEnviandoTodos] = useState(false);
+  const [verMensagem, setVerMensagem] = useState(false);
   const statusConexao = useQuery({
     queryKey: ["whatsapp-status"],
     queryFn: () => statusWhatsapp(),
@@ -110,6 +204,10 @@ export function ConsultarPecasDialog({
   );
 
   const camposOk = !!peca.peca.trim() && !!peca.modelo.trim();
+  const modelosSugeridos = useMemo(
+    () => (peca.marca ? sugerirModelos(peca.marca, "", []) : []),
+    [peca.marca],
+  );
   const mensagemAuto = camposOk ? montarMensagemConsulta(peca) : "";
   const mensagem = mensagemEditada ?? mensagemAuto;
 
@@ -129,6 +227,7 @@ export function ConsultarPecasDialog({
     setSelecionados(new Set());
     setMensagemEditada(null);
     setPeca({ peca: "", qualidade: "", marca: "", modelo: "" });
+    setVerMensagem(false);
   }
 
   const preparar = useMutation({
@@ -271,7 +370,7 @@ export function ConsultarPecasDialog({
         if (!v && envios) reiniciar();
       }}
     >
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PackageSearch className="h-5 w-5 text-primary" /> Consultar peças
@@ -283,49 +382,68 @@ export function ConsultarPecasDialog({
 
         {!envios ? (
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Peça *</Label>
-                <Input
-                  value={peca.peca}
-                  onChange={(e) => setPeca({ ...peca, peca: e.target.value })}
-                  placeholder="Ex.: tela, bateria, conector de carga"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Tipo / qualidade</Label>
-                <Input
-                  value={peca.qualidade}
-                  onChange={(e) => setPeca({ ...peca, qualidade: e.target.value })}
-                  placeholder="Ex.: OLED, incell, original (opcional)"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Marca</Label>
-                <Input
-                  value={peca.marca}
-                  onChange={(e) => setPeca({ ...peca, marca: e.target.value })}
-                  placeholder="Ex.: Apple, Samsung, Motorola"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Modelo *</Label>
-                <Input
-                  value={peca.modelo}
-                  onChange={(e) => setPeca({ ...peca, modelo: e.target.value })}
-                  placeholder="Ex.: iPhone 13, Galaxy A54"
-                />
-              </div>
-            </div>
+            <Etapa numero={1} titulo="Qual peça?">
+              <Opcoes
+                opcoes={PECAS}
+                valor={peca.peca}
+                onEscolher={(v) => setPeca({ ...peca, peca: v, qualidade: "" })}
+              />
+              <Input
+                value={PECAS.includes(peca.peca) ? "" : peca.peca}
+                onChange={(e) => setPeca({ ...peca, peca: e.target.value, qualidade: "" })}
+                placeholder="Outra peça? Escreva aqui"
+                className="h-9"
+              />
+              {peca.peca && (
+                <div className="space-y-1.5 pt-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Qualidade <span className="font-normal">(opcional)</span>
+                  </p>
+                  <Opcoes
+                    opcoes={qualidadesDe(peca.peca)}
+                    valor={peca.qualidade}
+                    onEscolher={(v) =>
+                      setPeca({ ...peca, qualidade: peca.qualidade === v ? "" : v })
+                    }
+                    pequeno
+                  />
+                </div>
+              )}
+            </Etapa>
+
+            <Etapa numero={2} titulo="Para qual aparelho?">
+              <Opcoes
+                opcoes={MARCAS}
+                valor={peca.marca}
+                onEscolher={(v) =>
+                  setPeca({ ...peca, marca: peca.marca === v ? "" : v, modelo: "" })
+                }
+              />
+              <Input
+                value={peca.modelo}
+                onChange={(e) => setPeca({ ...peca, modelo: e.target.value })}
+                list="consulta-pecas-modelos"
+                placeholder={
+                  peca.marca
+                    ? `Modelo ${peca.marca} — comece a digitar`
+                    : "Modelo (ex.: Galaxy A54)"
+                }
+              />
+              <datalist id="consulta-pecas-modelos">
+                {modelosSugeridos.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </Etapa>
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label>
-                  Fornecedores{" "}
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <NumeroEtapa n={3} /> Para quais fornecedores?
                   <span className="font-normal text-muted-foreground">
                     ({selecionados.size} selecionado{selecionados.size === 1 ? "" : "s"})
                   </span>
-                </Label>
+                </p>
                 <button
                   type="button"
                   disabled={!validos.length}
@@ -408,7 +526,25 @@ export function ConsultarPecasDialog({
               )}
             </div>
 
-            <div className="space-y-1.5">
+            {camposOk && !verMensagem && (
+              <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Mensagem que vai ser enviada
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setVerMensagem(true)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Pencil className="h-3 w-3" /> Editar
+                  </button>
+                </div>
+                <p className="whitespace-pre-line">{mensagem}</p>
+              </div>
+            )}
+
+            <div className={`space-y-1.5 ${verMensagem ? "" : "hidden"}`}>
               <div className="flex items-center justify-between gap-2">
                 <Label>Mensagem</Label>
                 {mensagemEditada !== null && (
