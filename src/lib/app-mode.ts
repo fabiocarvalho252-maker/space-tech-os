@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 // "Estou dentro do aplicativo?" — app Android (TWA, aberto com ?app=1 ou
 // com referrer android-app://) ou o site instalado na tela inicial
 // (display-mode standalone). Uma vez detectado, fica lembrado no aparelho.
@@ -60,4 +62,11 @@ export function sessaoDeveEncerrar(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Versão React: false no servidor e no 1º render, para não dar diferença de hidratação. */
+export function useAplicativo(): boolean {
+  const [app, setApp] = useState(false);
+  useEffect(() => setApp(ehAplicativo()), []);
+  return app;
 }

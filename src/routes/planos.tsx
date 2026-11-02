@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useAplicativo } from "@/lib/app-mode";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +53,11 @@ function Planos() {
   const navigate = useNavigate();
   const { data: user, isLoading: carregandoUser } = useCurrentUser();
   const [planoContratando, setPlanoContratando] = useState<PlanoComFeatures | null>(null);
+  // No aplicativo não se contrata plano (regra de pagamentos da Google Play).
+  const app = useAplicativo();
+  useEffect(() => {
+    if (app) navigate({ to: "/assinatura", replace: true });
+  }, [app, navigate]);
 
   useEffect(() => {
     if (carregandoUser) return;

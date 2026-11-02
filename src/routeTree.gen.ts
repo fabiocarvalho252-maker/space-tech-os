@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as BemVindoRouteImport } from './routes/bem-vindo'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
 import { Route as PlanosRouteImport } from './routes/planos'
@@ -77,6 +78,11 @@ const BemVindoRoute = BemVindoRouteImport.update({
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExcluirContaRoute = ExcluirContaRouteImport.update({
+  id: '/excluir-conta',
+  path: '/excluir-conta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
@@ -342,6 +349,7 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
@@ -390,6 +398,7 @@ export interface FileRoutesById {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/excluir-conta'
     | '/login'
     | '/minha-conta'
     | '/planos'
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/excluir-conta'
     | '/login'
     | '/minha-conta'
     | '/planos'
@@ -531,6 +542,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/excluir-conta'
     | '/login'
     | '/minha-conta'
     | '/planos'
@@ -579,6 +591,7 @@ export interface RootRouteChildren {
   AssinaturaRoute: typeof AssinaturaRoute
   BemVindoRoute: typeof BemVindoRoute
   CadastroRoute: typeof CadastroRoute
+  ExcluirContaRoute: typeof ExcluirContaRoute
   LoginRoute: typeof LoginRoute
   MinhaContaRoute: typeof MinhaContaRoute
   PlanosRoute: typeof PlanosRoute
@@ -623,6 +636,13 @@ declare module '@tanstack/react-router' {
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/excluir-conta': {
+      id: '/excluir-conta'
+      path: '/excluir-conta'
+      fullPath: '/excluir-conta'
+      preLoaderRoute: typeof ExcluirContaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -989,6 +1009,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssinaturaRoute: AssinaturaRoute,
   BemVindoRoute: BemVindoRoute,
   CadastroRoute: CadastroRoute,
+  ExcluirContaRoute: ExcluirContaRoute,
   LoginRoute: LoginRoute,
   MinhaContaRoute: MinhaContaRoute,
   PlanosRoute: PlanosRoute,

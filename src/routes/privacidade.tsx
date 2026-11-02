@@ -124,7 +124,11 @@ function Privacidade() {
       <p>
         Você pode pedir acesso, correção, exportação ou exclusão dos seus dados, e revogar
         consentimentos. Clientes de uma assistência técnica devem fazer o pedido diretamente à
-        empresa que os atendeu.
+        empresa que os atendeu. Para excluir sua conta e os dados da empresa, use a página{" "}
+        <a href="/excluir-conta" className="text-primary underline">
+          Excluir conta
+        </a>
+        .
       </p>
 
       <h2>9. Contato</h2>

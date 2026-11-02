@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTrialStatus } from "@/hooks/useCurrentUser";
 import { avisarTrialPorEmail } from "@/lib/trial.functions";
+import { useAplicativo } from "@/lib/app-mode";
 
 const AVISAR_A_PARTIR_DE = 3;
 
 export function TrialBanner() {
   const { data: trial } = useTrialStatus();
   const [fechado, setFechado] = useState(false);
+  const app = useAplicativo();
   const diasRestantesEmail = trial?.diasRestantes;
 
   useEffect(() => {
@@ -38,9 +40,11 @@ export function TrialBanner() {
         <AlertTriangle className="h-4 w-4 shrink-0" />
         <span>
           {mensagem}{" "}
-          {expirado
-            ? "Fale com a gente para continuar usando o SpaceTech."
-            : "Ative um plano para não perder o acesso."}
+          {app
+            ? ""
+            : expirado
+              ? "Fale com a gente para continuar usando o SpaceTech."
+              : "Ative um plano para não perder o acesso."}
         </span>
       </div>
       <button

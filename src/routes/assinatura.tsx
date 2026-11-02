@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useAplicativo } from "@/lib/app-mode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -8,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { Button } from "@/components/ui/button";
 import {
   useCurrentUser,
   usePlanoAtual,
@@ -93,6 +95,7 @@ function Assinatura() {
     queryFn: () => historicoPagamentosFn(),
     enabled: !!user,
   });
+  const app = useAplicativo();
   const [planoEscolhido, setPlanoEscolhido] = useState<PlanoDisponivel["value"] | null>(null);
   const [pixCiclo, setPixCiclo] = useState<"monthly" | "yearly" | null>(null);
   const [comprovanteId, setComprovanteId] = useState<string | null>(null);
@@ -132,6 +135,46 @@ function Assinatura() {
   const bloqueado = trial.expirado;
   const status = statusPlano(planoAtual?.plano ?? "trial", trial.expirado);
   const pedidoPendente = planoAtual?.planoSolicitado ?? planoEscolhido;
+
+  // No aplicativo da Play Store não há contratação nem renovação de plano
+  // (regra de pagamentos da Google): só o status e a saída.
+  if (app) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-auth px-5 py-12">
+        <div className="w-full max-w-md rounded-3xl bg-card p-8 text-center shadow-panel">
+          <LogoMark className="mx-auto h-14 w-14" />
+          <h1 className="mt-5 text-2xl font-extrabold tracking-tight">
+            {bloqueado ? "Acesso pausado" : "Seu plano"}
+          </h1>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-left">
+            <div>
+              <p className="text-xs text-muted-foreground">Plano atual</p>
+              <p className="text-lg font-bold">{PLANO_LABEL[planoAtual?.plano ?? "trial"]}</p>
+              {planoAtual?.acessoAte && (
+                <p className="text-xs text-muted-foreground">
+                  Válido até {dataBR(planoAtual.acessoAte)}
+                </p>
+              )}
+            </div>
+            <StatusBadge label={status.label} tone={status.tone} />
+          </div>
+          <p className="mt-5 text-sm text-muted-foreground">
+            {bloqueado
+              ? "Seus dados continuam salvos. A contratação e a renovação do plano não são feitas pelo aplicativo."
+              : "A contratação e a renovação do plano não são feitas pelo aplicativo."}
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            {!bloqueado && (
+              <Button onClick={() => navigate({ to: "/dashboard" })}>Voltar ao painel</Button>
+            )}
+            <Button variant="outline" onClick={sair}>
+              Sair
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-auth px-5 py-12">

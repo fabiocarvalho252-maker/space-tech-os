@@ -24,6 +24,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronLeft,
+  Trash2,
   CreditCard,
   History,
   Lock,
@@ -415,6 +416,13 @@ export function AppShell() {
             >
               <LogOut className="h-5 w-5" /> Sair
             </button>
+            <Link
+              to="/excluir-conta"
+              onClick={() => setOpen(false)}
+              className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium text-white/45 active:bg-white/10"
+            >
+              <Trash2 className="h-4 w-4" /> Excluir minha conta
+            </Link>
           </div>
         </div>
       )}
@@ -789,6 +797,11 @@ function PerfilMenu({ nome, email, onSair }: { nome: string; email?: string; onS
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/excluir-conta" className="flex items-center gap-2 text-muted-foreground">
+            <Trash2 className="h-4 w-4" /> Excluir minha conta
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={onSair} className="flex items-center gap-2 text-destructive">
           <LogOut className="h-4 w-4" /> Sair
         </DropdownMenuItem>
