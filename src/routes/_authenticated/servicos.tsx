@@ -135,8 +135,9 @@ function Servicos() {
           <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Serviço</th>
-              <th className="px-4 py-3 text-right">Custo adicional</th>
-              <th className="px-4 py-3 text-right">Preço de venda</th>
+              <th className="px-4 py-3 text-right">Peça</th>
+              <th className="px-4 py-3 text-right">Mão de obra</th>
+              <th className="px-4 py-3 text-right">Preço</th>
               <th className="px-4 py-3 text-right">Comissão</th>
               <th className="px-4 py-3 text-right">Lucro estimado</th>
               <th className="px-4 py-3 text-right">Ações</th>
@@ -145,13 +146,13 @@ function Servicos() {
           <tbody className="divide-y divide-border">
             {carregando ? (
               <tr>
-                <td colSpan={6} className="p-4">
+                <td colSpan={7} className="p-4">
                   <TableSkeleton />
                 </td>
               </tr>
             ) : erro ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center">
+                <td colSpan={7} className="px-4 py-10 text-center">
                   <p className="mb-2 text-sm text-destructive">
                     Não foi possível carregar os serviços.
                   </p>
@@ -162,7 +163,7 @@ function Servicos() {
               </tr>
             ) : !filtrados.length ? (
               <tr>
-                <td colSpan={6} className="px-4 py-4">
+                <td colSpan={7} className="px-4 py-4">
                   <EmptyState
                     icon={Wrench}
                     title="Nenhum serviço encontrado"
@@ -210,6 +211,9 @@ function Servicos() {
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       {brl(s.preco_custo)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      {brl(Math.max(0, s.preco_venda - s.preco_custo))}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-primary">
                       {brl(s.preco_venda)}

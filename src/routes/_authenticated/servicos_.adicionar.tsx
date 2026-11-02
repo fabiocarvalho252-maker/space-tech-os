@@ -30,8 +30,8 @@ export const Route = createFileRoute("/_authenticated/servicos_/adicionar")({
 
 const vazio = {
   nome: "",
-  preco_venda: "0",
   preco_custo: "0",
+  mao_de_obra: "0",
   comissao_percentual: "0",
   descricao: "",
   fornecedor_id: "",
@@ -86,8 +86,11 @@ function CadastroServico() {
     if (!servicoAtual || carregado) return;
     setForm({
       nome: servicoAtual.nome,
-      preco_venda: String(servicoAtual.preco_venda),
       preco_custo: String(servicoAtual.preco_custo),
+      // Mão de obra = o que se cobra além da peça.
+      mao_de_obra: String(
+        Math.max(0, Number(servicoAtual.preco_venda) - Number(servicoAtual.preco_custo)),
+      ),
       comissao_percentual: String(servicoAtual.comissao_percentual ?? 0),
       descricao: servicoAtual.descricao ?? "",
       fornecedor_id: servicoAtual.fornecedor_id ?? "",
@@ -99,8 +102,10 @@ function CadastroServico() {
     setCarregado(true);
   }, [servicoAtual, carregado]);
 
-  const precoVenda = Number(form.preco_venda) || 0;
+  // Preço do serviço = custo da peça + mão de obra.
   const custoAdicional = Number(form.preco_custo) || 0;
+  const maoDeObra = Number(form.mao_de_obra) || 0;
+  const precoVenda = custoAdicional + maoDeObra;
   const comissaoPercentual = Math.min(100, Math.max(0, Number(form.comissao_percentual) || 0));
   const comissaoValor = (precoVenda * comissaoPercentual) / 100;
   const lucroEstimado = precoVenda - custoAdicional - comissaoValor;
@@ -108,7 +113,7 @@ function CadastroServico() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do serviço");
-      if (precoVenda <= 0) throw new Error("O preço cobrado do cliente deve ser maior que zero");
+      if (precoVenda <= 0) throw new Error("Informe o valor da peça e/ou da mão de obra");
       if (comissaoPercentual < 0 || comissaoPercentual > 100) {
         throw new Error("A comissão deve estar entre 0 e 100%");
       }
@@ -154,8 +159,8 @@ function CadastroServico() {
           <h1 className="text-xl font-extrabold tracking-tight">Cadastro de serviço</h1>
         </div>
         <p className="mt-3 max-w-xl text-sm text-white/85">
-          Informe o nome e o preço cobrado do cliente. Se o serviço tiver um gasto seu (material ou
-          terceiros), preencha o custo adicional para o lucro sair certo no DRE.
+          O serviço é a peça com a mão de obra: informe quanto a peça custa para você e quanto cobra
+          de mão de obra — o preço para o cliente é a soma dos dois.
         </p>
       </div>
 
@@ -171,23 +176,33 @@ function CadastroServico() {
               placeholder="Ex: Troca de conector de carga"
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-start gap-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
             <div className="space-y-1.5">
-              <Label>Preço cobrado do cliente</Label>
-              <MoneyInput
-                value={form.preco_venda}
-                onChange={(v) => setForm({ ...form, preco_venda: String(v) })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Custo adicional</Label>
+              <Label>Peça (seu custo)</Label>
               <MoneyInput
                 value={form.preco_custo}
                 onChange={(v) => setForm({ ...form, preco_custo: String(v) })}
               />
               <p className="text-xs text-muted-foreground">
-                Custos diretamente relacionados à execução do serviço.
+                Quanto você paga na peça. Sem peça, deixe 0.
               </p>
+            </div>
+            <span className="hidden pt-8 text-lg font-bold text-muted-foreground sm:block">+</span>
+            <div className="space-y-1.5">
+              <Label>Mão de obra</Label>
+              <MoneyInput
+                value={form.mao_de_obra}
+                onChange={(v) => setForm({ ...form, mao_de_obra: String(v) })}
+              />
+              <p className="text-xs text-muted-foreground">O valor do seu trabalho.</p>
+            </div>
+            <span className="hidden pt-8 text-lg font-bold text-muted-foreground sm:block">=</span>
+            <div className="space-y-1.5">
+              <Label>Preço para o cliente</Label>
+              <div className="flex h-10 items-center rounded-md border border-primary/40 bg-primary/5 px-3 text-base font-bold text-primary">
+                {brl(precoVenda)}
+              </div>
+              <p className="text-xs text-muted-foreground">Calculado sozinho.</p>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -277,8 +292,8 @@ function CadastroServico() {
 
       <SectionCard title="DRE do serviço" icon={Sparkles}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metrica label="Preço de venda" valor={brl(precoVenda)} />
-          <Metrica label="Custo adicional" valor={brl(custoAdicional)} />
+          <Metrica label="Preço para o cliente" valor={brl(precoVenda)} />
+          <Metrica label="Peça" valor={brl(custoAdicional)} />
           <Metrica label={`Comissão (${comissaoPercentual}%)`} valor={brl(comissaoValor)} />
           <Metrica
             label="Lucro estimado"
