@@ -32,6 +32,7 @@ const vazio = {
   nome: "",
   preco_custo: "0",
   mao_de_obra: "0",
+  preco_venda: "0",
   comissao_percentual: "0",
   descricao: "",
   fornecedor_id: "",
@@ -39,6 +40,11 @@ const vazio = {
   garantia_dias: "",
   ativo: true,
 };
+
+/** Arredonda para centavos (evita 200.29999… nas somas). */
+function centavos(v: number): string {
+  return String(Math.round(v * 100) / 100);
+}
 
 /** "" → null; senão inteiro >= 0. */
 function inteiroOuNulo(v: string): number | null {
@@ -88,9 +94,8 @@ function CadastroServico() {
       nome: servicoAtual.nome,
       preco_custo: String(servicoAtual.preco_custo),
       // Mão de obra = o que se cobra além da peça.
-      mao_de_obra: String(
-        Math.max(0, Number(servicoAtual.preco_venda) - Number(servicoAtual.preco_custo)),
-      ),
+      mao_de_obra: centavos(Number(servicoAtual.preco_venda) - Number(servicoAtual.preco_custo)),
+      preco_venda: String(servicoAtual.preco_venda),
       comissao_percentual: String(servicoAtual.comissao_percentual ?? 0),
       descricao: servicoAtual.descricao ?? "",
       fornecedor_id: servicoAtual.fornecedor_id ?? "",
@@ -102,10 +107,30 @@ function CadastroServico() {
     setCarregado(true);
   }, [servicoAtual, carregado]);
 
-  // Preço do serviço = custo da peça + mão de obra.
+  // Peça + mão de obra = preço para o cliente. Os três são editáveis e
+  // ficam amarrados: mexer na peça ou na mão de obra refaz o preço; digitar
+  // o preço ajusta a mão de obra.
   const custoAdicional = Number(form.preco_custo) || 0;
   const maoDeObra = Number(form.mao_de_obra) || 0;
-  const precoVenda = custoAdicional + maoDeObra;
+  const precoVenda = Number(form.preco_venda) || 0;
+  const mudarPeca = (v: number) =>
+    setForm((f) => ({
+      ...f,
+      preco_custo: String(v),
+      preco_venda: centavos(v + (Number(f.mao_de_obra) || 0)),
+    }));
+  const mudarMaoDeObra = (v: number) =>
+    setForm((f) => ({
+      ...f,
+      mao_de_obra: String(v),
+      preco_venda: centavos((Number(f.preco_custo) || 0) + v),
+    }));
+  const mudarPreco = (v: number) =>
+    setForm((f) => ({
+      ...f,
+      preco_venda: String(v),
+      mao_de_obra: centavos(v - (Number(f.preco_custo) || 0)),
+    }));
   const comissaoPercentual = Math.min(100, Math.max(0, Number(form.comissao_percentual) || 0));
   const comissaoValor = (precoVenda * comissaoPercentual) / 100;
   const lucroEstimado = precoVenda - custoAdicional - comissaoValor;
@@ -113,7 +138,7 @@ function CadastroServico() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do serviço");
-      if (precoVenda <= 0) throw new Error("Informe o valor da peça e/ou da mão de obra");
+      if (precoVenda <= 0) throw new Error("O preço para o cliente deve ser maior que zero");
       if (comissaoPercentual < 0 || comissaoPercentual > 100) {
         throw new Error("A comissão deve estar entre 0 e 100%");
       }
@@ -159,8 +184,8 @@ function CadastroServico() {
           <h1 className="text-xl font-extrabold tracking-tight">Cadastro de serviço</h1>
         </div>
         <p className="mt-3 max-w-xl text-sm text-white/85">
-          O serviço é a peça com a mão de obra: informe quanto a peça custa para você e quanto cobra
-          de mão de obra — o preço para o cliente é a soma dos dois.
+          O serviço é a peça com a mão de obra. Informe a peça e a mão de obra e o preço sai somado
+          — ou digite direto o preço para o cliente e a mão de obra se ajusta.
         </p>
       </div>
 
@@ -179,10 +204,7 @@ function CadastroServico() {
           <div className="grid items-start gap-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
             <div className="space-y-1.5">
               <Label>Peça (seu custo)</Label>
-              <MoneyInput
-                value={form.preco_custo}
-                onChange={(v) => setForm({ ...form, preco_custo: String(v) })}
-              />
+              <MoneyInput value={form.preco_custo} onChange={mudarPeca} />
               <p className="text-xs text-muted-foreground">
                 Quanto você paga na peça. Sem peça, deixe 0.
               </p>
@@ -190,19 +212,24 @@ function CadastroServico() {
             <span className="hidden pt-8 text-lg font-bold text-muted-foreground sm:block">+</span>
             <div className="space-y-1.5">
               <Label>Mão de obra</Label>
-              <MoneyInput
-                value={form.mao_de_obra}
-                onChange={(v) => setForm({ ...form, mao_de_obra: String(v) })}
-              />
-              <p className="text-xs text-muted-foreground">O valor do seu trabalho.</p>
+              <MoneyInput value={form.mao_de_obra} onChange={mudarMaoDeObra} />
+              <p
+                className={`text-xs ${maoDeObra < 0 ? "font-medium text-destructive" : "text-muted-foreground"}`}
+              >
+                {maoDeObra < 0 ? "Preço abaixo do custo da peça." : "O valor do seu trabalho."}
+              </p>
             </div>
             <span className="hidden pt-8 text-lg font-bold text-muted-foreground sm:block">=</span>
             <div className="space-y-1.5">
               <Label>Preço para o cliente</Label>
-              <div className="flex h-10 items-center rounded-md border border-primary/40 bg-primary/5 px-3 text-base font-bold text-primary">
-                {brl(precoVenda)}
-              </div>
-              <p className="text-xs text-muted-foreground">Calculado sozinho.</p>
+              <MoneyInput
+                value={form.preco_venda}
+                onChange={mudarPreco}
+                className="border-primary/40 bg-primary/5 font-bold text-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                Soma sozinho, mas você pode digitar outro valor.
+              </p>
             </div>
           </div>
           <div className="space-y-1.5">
