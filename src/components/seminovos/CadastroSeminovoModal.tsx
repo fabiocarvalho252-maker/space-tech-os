@@ -303,7 +303,7 @@ export function CadastroSeminovoModal({
       throw new Error("O valor para cliente não pode ser negativo.");
     }
     if (form.preco_lojista && Number(form.preco_lojista) < 0) {
-      throw new Error("O valor para lojista não pode ser negativo.");
+      throw new Error("O menor preço não pode ser negativo.");
     }
     // CPF é obrigatório somente no momento da compra (pedido, seção 1) — ao
     // editar um aparelho já comprado sem CPF registrado, não força a
@@ -791,7 +791,7 @@ export function CadastroSeminovoModal({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Preço para lojista</Label>
+                <Label>Menor preço</Label>
                 <MoneyInput
                   className="h-11"
                   value={form.preco_lojista}
@@ -827,7 +827,7 @@ export function CadastroSeminovoModal({
                   <p
                     className={`text-[11px] ${lucroMinimo >= 0 ? "text-muted-foreground" : "text-destructive"}`}
                   >
-                    lojista: {brl(lucroMinimo)}
+                    no menor preço: {brl(lucroMinimo)}
                   </p>
                 )}
               </div>

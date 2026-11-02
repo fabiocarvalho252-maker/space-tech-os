@@ -241,7 +241,7 @@ export function FinalizarSeminovoDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Preço lojista</Label>
+              <Label>Menor preço</Label>
               <Input
                 type="number"
                 inputMode="decimal"

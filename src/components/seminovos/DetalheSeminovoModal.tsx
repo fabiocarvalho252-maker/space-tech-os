@@ -367,11 +367,11 @@ export function DetalheSeminovoModal({
                 <p className="font-bold">{brl(seminovo.valor_total_gasto)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Venda (cliente)</p>
+                <p className="text-xs text-muted-foreground">Preço de venda</p>
                 <p className="font-medium">{brl(seminovo.preco_venda)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Venda (lojista)</p>
+                <p className="text-xs text-muted-foreground">Menor preço</p>
                 <p className="font-medium">{brl(seminovo.preco_lojista)}</p>
               </div>
               <div>

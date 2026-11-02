@@ -669,7 +669,7 @@ function Seminovos() {
                       </p>
                       {s.preco_lojista != null && (
                         <p className="text-xs text-muted-foreground">
-                          lojista {brl(s.preco_lojista)}
+                          mínimo {brl(s.preco_lojista)}
                         </p>
                       )}
                     </td>
