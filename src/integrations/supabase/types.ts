@@ -2705,6 +2705,7 @@ export type Database = {
           created_at: string;
           endereco: string | null;
           horario_funcionamento: Json | null;
+          menu_preferencias: Json | null;
           ia_creditos: number;
           id: string;
           logo_url: string | null;
@@ -2729,6 +2730,7 @@ export type Database = {
           created_at?: string;
           endereco?: string | null;
           horario_funcionamento?: Json | null;
+          menu_preferencias?: Json | null;
           ia_creditos?: number;
           id: string;
           logo_url?: string | null;
@@ -2753,6 +2755,7 @@ export type Database = {
           created_at?: string;
           endereco?: string | null;
           horario_funcionamento?: Json | null;
+          menu_preferencias?: Json | null;
           ia_creditos?: number;
           id?: string;
           logo_url?: string | null;

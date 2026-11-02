@@ -52,6 +52,7 @@ import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useC
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
+import { NAV, lerMenuPreferencias, lerUsoMenu, ordenarMenu } from "@/lib/menu-lateral";
 import { listarPedidosPlanoPendentesFn } from "@/lib/site-admin.functions";
 import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
 import {
@@ -95,32 +96,6 @@ const SISTEMA_ITENS: ItemMenu[] = [
   { label: "Conexão WhatsApp", to: "/whatsapp-conexao", icon: MessageSquare },
   { label: "Fila WhatsApp", to: "/whatsapp-fila", icon: MessageSquare },
 ];
-
-const NAV = [
-  { to: "/dashboard", label: "Painel", icon: LayoutDashboard, modulo: null },
-  { to: "/ordens", label: "Ordens de serviço", icon: Wrench, modulo: "ordens" },
-  { to: "/pdv", label: "PDV", icon: ShoppingCart, modulo: "vendas" },
-  { to: "/agenda", label: "Agenda", icon: Calendar, modulo: "agenda" },
-  { to: "/vendas", label: "Vendas", icon: Receipt, modulo: "vendas" },
-  { to: "/estoque", label: "Produtos", icon: Package, modulo: "produtos" },
-  { to: "/servicos", label: "Serviços", icon: Wrench, modulo: "produtos" },
-  { to: "/clientes", label: "Clientes", icon: Users, modulo: "clientes" },
-  { to: "/fornecedores", label: "Fornecedores", icon: Truck, modulo: "fornecedores" },
-  { to: "/financeiro", label: "Financeiro", icon: Wallet, modulo: "financeiro" },
-  { to: "/compras", label: "Compras", icon: ShoppingCart, modulo: "compras" },
-  { to: "/aparelhos", label: "Aparelhos", icon: Boxes, modulo: "aparelhos" },
-  { to: "/seminovos", label: "Compra de Seminovos", icon: Smartphone, modulo: "seminovos" },
-  { to: "/whatsapp", label: "WhatsApp", icon: MessageSquare, modulo: "whatsapp" },
-  { to: "/cobrancas", label: "Cobranças", icon: Wallet, modulo: "cobrancas" },
-  { to: "/crediario", label: "Crediário", icon: HandCoins, modulo: "crediario" },
-  { to: "/garantia", label: "Termos de Garantia", icon: ShieldCheck, modulo: "garantia" },
-  { to: "/relatorios", label: "Relatórios", icon: BarChart3, modulo: "relatorios" },
-  { to: "/ia-spacetech", label: "IA SPACE TECH", icon: Bot, modulo: null },
-  { to: "/ferramentas", label: "Ferramentas Inteligentes", icon: Wand2, modulo: "produtos" },
-  { to: "/indicacoes", label: "Programa de Indicações", icon: Gift, modulo: null },
-  { to: "/usuarios", label: "Usuários", icon: UserCog, modulo: "configuracoes" },
-  { to: "/configuracoes", label: "Configurações", icon: Settings, modulo: "configuracoes" },
-] as const;
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -193,7 +168,28 @@ export function AppShell() {
 
   const nomeExibicao = profile?.nome || user?.email?.split("@")[0] || "Usuário";
 
-  const itensVisiveis = NAV.filter((item) => !item.modulo || podeVer(permissoes, item.modulo));
+  // Ordem do menu: automática (mais usadas primeiro, contadas por navegador)
+  // ou manual (Configurações → Menu). A ordem automática só é recalculada ao
+  // abrir o sistema, para o menu não pular enquanto se usa.
+  const [usoMenu, setUsoMenu] = useState<Record<string, number>>({});
+  useEffect(() => setUsoMenu(lerUsoMenu()), []);
+  useEffect(() => {
+    const item = NAV.find((i) => pathname === i.to || pathname.startsWith(`${i.to}/`));
+    if (!item) return;
+    try {
+      const uso = lerUsoMenu();
+      uso[item.to] = (uso[item.to] ?? 0) + 1;
+      localStorage.setItem("menu-uso", JSON.stringify(uso));
+    } catch {
+      /* ignora */
+    }
+  }, [pathname]);
+
+  const itensVisiveis = ordenarMenu(
+    NAV.filter((item) => !item.modulo || podeVer(permissoes, item.modulo)),
+    lerMenuPreferencias(profile?.menu_preferencias),
+    usoMenu,
+  );
 
   // Conversas com mensagem nova, sem dono ou do próprio atendente.
   const { data: whatsappNaoLidas } = useQuery({

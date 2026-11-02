@@ -9,6 +9,7 @@ import { horarioInvalido } from "@/lib/horario-loja";
 import { HORARIO_COMERCIAL, lerHorario, resumoHorario, type Horario } from "@/lib/whatsapp/robo";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
+import { MenuLateralConfig } from "@/components/MenuLateralConfig";
 import { statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 import { AUTOMACOES } from "@/lib/whatsapp/automacoes";
 
@@ -33,6 +34,7 @@ import {
   MessageSquare,
   FileCheck,
   Layout,
+  PanelLeft,
   Users2,
   Lock,
   Upload,
@@ -444,6 +446,7 @@ function Configuracoes() {
 
   const tabs = [
     { id: "empresa", label: "Minha Empresa", icon: Building2 },
+    { id: "menu", label: "Menu", icon: PanelLeft },
     { id: "financeiro", label: "Financeiro", icon: Wallet },
     { id: "estoque", label: "Estoque", icon: Package },
     { id: "os", label: "OS", icon: Wrench },
@@ -2640,6 +2643,18 @@ function Configuracoes() {
           </div>
         </TabsContent>
 
+        {/* Menu lateral (preferência de cada login) */}
+        <TabsContent value="menu" className="space-y-6 outline-none">
+          <section className="max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <h2 className="text-lg font-bold">Ordem do menu</h2>
+            <p className="mb-6 mt-1 text-sm text-muted-foreground">
+              Escolha a ordem das telas no menu lateral (no celular, na barra de cima). Vale só para
+              o seu login, em qualquer aparelho.
+            </p>
+            <MenuLateralConfig />
+          </section>
+        </TabsContent>
+
         {/* Assistente (preferência de cada login, não da empresa) */}
         <TabsContent value="assistente" className="space-y-6 outline-none">
           <section className="max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-soft">
@@ -2691,6 +2706,7 @@ function Configuracoes() {
                 "funcionarios",
                 "modelos",
                 "assistente",
+                "menu",
               ].includes(t.id),
           )
           .map((tab) => (
