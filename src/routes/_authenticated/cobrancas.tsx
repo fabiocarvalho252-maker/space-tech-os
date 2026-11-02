@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { criarCobrancaPixFn, verificarPagamentoPixFn } from "@/lib/pix/pix.functions";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 export const Route = createFileRoute("/_authenticated/cobrancas")({
   head: () => ({
@@ -294,21 +295,12 @@ function Cobrancas() {
               <div className="space-y-4 py-4">
                 <div className="space-y-1.5">
                   <Label>Cliente</Label>
-                  <Select
+                  <ClienteCampo
+                    clientes={clientes}
                     value={form.cliente_id}
-                    onValueChange={(v) => setForm({ ...form, cliente_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setForm({ ...form, cliente_id: v })}
+                    obrigatorio
+                  />
                 </div>
 
                 <div className="space-y-1.5">

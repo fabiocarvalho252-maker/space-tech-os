@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 type AparelhoRow = Database["public"]["Tables"]["aparelhos"]["Row"];
 
@@ -181,7 +182,10 @@ export function DetalheAparelhoModal({
     queryKey: ["clientes-aparelhos"],
     enabled: reservarAberto,
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("id, nome").order("nome");
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone")
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },
@@ -668,18 +672,12 @@ export function DetalheAparelhoModal({
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Cliente *</Label>
-              <Select value={reservarClienteId} onValueChange={setReservarClienteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clientesParaReserva.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClienteCampo
+                clientes={clientesParaReserva}
+                value={reservarClienteId}
+                onChange={setReservarClienteId}
+                obrigatorio
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Data de expiração</Label>

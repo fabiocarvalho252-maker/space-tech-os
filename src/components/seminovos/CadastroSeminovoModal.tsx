@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
+import { ClienteSelect } from "@/components/ClienteSelect";
 
 type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"];
 type ClienteRow = { id: string; nome: string; telefone: string | null; documento: string | null };
@@ -685,13 +686,12 @@ export function CadastroSeminovoModal({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Cliente cadastrado</Label>
-                <Select
-                  value={form.cliente_id || "none"}
-                  onValueChange={(v) => {
-                    if (v === "none") {
-                      setForm((f) => ({ ...f, cliente_id: "" }));
-                      return;
-                    }
+                <ClienteSelect
+                  clientes={clientes}
+                  value={form.cliente_id}
+                  semClienteLabel="Pessoa não cadastrada — preencher abaixo"
+                  className="h-11"
+                  onChange={(v) => {
                     const cliente = clientes.find((c) => c.id === v);
                     setForm((f) => ({
                       ...f,
@@ -701,19 +701,7 @@ export function CadastroSeminovoModal({
                         : f.vendedor_documento,
                     }));
                   }}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Nenhum" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Pessoa não cadastrada — preencher abaixo</SelectItem>
-                    {clientes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               {!form.cliente_id && (
                 <>

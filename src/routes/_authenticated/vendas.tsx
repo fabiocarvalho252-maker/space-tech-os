@@ -33,6 +33,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 // O que basta para pôr um item no carrinho (produto do cadastro ou item já no carrinho).
 type ProdutoAdicionavel = Pick<
@@ -370,22 +371,12 @@ function Vendas() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Cliente</Label>
-                  <Select
-                    value={clienteId || "none"}
-                    onValueChange={(v) => setClienteId(v === "none" ? "" : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Consumidor final" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Consumidor final</SelectItem>
-                      {clientes.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ClienteCampo
+                    clientes={clientes}
+                    value={clienteId}
+                    onChange={setClienteId}
+                    semClienteLabel="Consumidor final"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Forma de pagamento</Label>
@@ -589,7 +580,9 @@ function Vendas() {
                   <td className="px-4 py-3 font-medium">
                     #{String(v.numero ?? "—").padStart(4, "0")}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dataHoraBR(v.created_at)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                    {dataHoraBR(v.created_at)}
+                  </td>
                   <td className="px-4 py-3">{v.cliente?.nome ?? "Consumidor final"}</td>
                   <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                     {v.forma_pagamento}

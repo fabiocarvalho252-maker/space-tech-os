@@ -14,18 +14,27 @@ import { ClienteSelect } from "@/components/ClienteSelect";
 import { digitsOnlyBR, isValidPhoneBR, maskPhoneBR } from "@/lib/whatsapp";
 import { formatarDocumento, somenteDigitos, validarCnpj, validarCpf } from "@/lib/documento";
 
-type ClienteBasico = { id: string; nome: string };
+type ClienteBasico = {
+  id: string;
+  nome: string;
+  telefone?: string | null;
+  documento?: string | null;
+};
 
 export function ClienteCampo({
   clientes,
   value,
   onChange,
   semClienteLabel,
+  obrigatorio,
+  className,
 }: {
   clientes: ClienteBasico[];
   value: string;
   onChange: (id: string) => void;
   semClienteLabel?: string;
+  obrigatorio?: boolean;
+  className?: string;
 }) {
   const [novoNome, setNovoNome] = useState<string | null>(null);
 
@@ -48,6 +57,8 @@ export function ClienteCampo({
       value={value}
       onChange={onChange}
       semClienteLabel={semClienteLabel}
+      obrigatorio={obrigatorio}
+      className={className}
       onNovoCliente={(busca) => setNovoNome(busca)}
     />
   );
@@ -129,8 +140,12 @@ function ClienteRapidoForm({
           ? [...lista, data].sort((a, b) => a.nome.localeCompare(b.nome))
           : lista,
       );
-      qc.invalidateQueries({ queryKey: ["clientes"] });
-      qc.invalidateQueries({ queryKey: ["clientes-pdv"] });
+      // Toda lista de clientes do sistema (["clientes"], ["clientes-pdv"],
+      // ["clientes-vendas"], ["clientes-agenda"]...), para o novo cliente
+      // aparecer em qualquer tela que o tenha cadastrado.
+      qc.invalidateQueries({
+        predicate: (q) => String(q.queryKey[0] ?? "").startsWith("clientes"),
+      });
       toast.success(`Cliente ${data.nome} cadastrado`);
       onCriado(data);
     } catch (e) {

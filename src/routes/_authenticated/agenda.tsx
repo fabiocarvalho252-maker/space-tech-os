@@ -48,6 +48,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({
@@ -140,7 +141,10 @@ function Agenda() {
   const { data: clientes = [] } = useQuery({
     queryKey: ["clientes-agenda"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("id, nome").order("nome");
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone")
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },
@@ -319,24 +323,12 @@ function Agenda() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Cliente</Label>
-                    <Select
-                      value={form.cliente_id || "none"}
-                      onValueChange={(v) =>
-                        setForm({ ...form, cliente_id: v === "none" ? "" : v, os_id: "" })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Nenhum" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {clientes.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ClienteCampo
+                      clientes={clientes}
+                      value={form.cliente_id}
+                      onChange={(v) => setForm({ ...form, cliente_id: v, os_id: "" })}
+                      semClienteLabel="Nenhum"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Ordem de serviço</Label>

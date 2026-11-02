@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"];
 
@@ -68,7 +69,10 @@ export function VenderSeminovoModal({
     queryKey: ["clientes-seminovos"],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("id, nome").order("nome");
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone, documento")
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },
@@ -147,18 +151,13 @@ export function VenderSeminovoModal({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Cliente *</Label>
-            <Select value={clienteId} onValueChange={setClienteId}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Selecione o cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClienteCampo
+              clientes={clientes}
+              value={clienteId}
+              onChange={setClienteId}
+              obrigatorio
+              className="h-11"
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

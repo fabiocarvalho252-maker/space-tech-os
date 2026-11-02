@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ClienteCampo } from "@/components/ClienteRapido";
 
 const SEM_FORMA = "__nenhuma__";
 
@@ -163,18 +164,12 @@ export function NovoContratoModal({
               <h3 className="text-sm font-bold">Cliente e aparelho</h3>
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
-                <Select value={form.clienteId} onValueChange={(v) => set("clienteId", v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ClienteCampo
+                  clientes={clientes}
+                  value={form.clienteId}
+                  onChange={(v) => set("clienteId", v)}
+                  obrigatorio
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
