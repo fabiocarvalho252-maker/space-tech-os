@@ -23,6 +23,7 @@ import {
   Smartphone,
   BarChart3,
   ChevronDown,
+  ChevronLeft,
   CreditCard,
   History,
   Lock,
@@ -203,27 +204,86 @@ export function AppShell() {
     retry: false,
   });
 
+  // Bolinhas laranjas de pendência: mesmos dados do sino de notificações.
+  const { data: notificacoes } = useNotificacoes();
+  const pendencias = new Set<string>();
+  for (const n of notificacoes ?? []) {
+    if (n.id === "os-aguardando") pendencias.add("/ordens");
+    if (n.id === "estoque-baixo") pendencias.add("/estoque");
+  }
+
+  const [recolhida, setRecolhida] = useState(false);
+  useEffect(() => {
+    try {
+      setRecolhida(localStorage.getItem("sidebar-recolhida") === "1");
+    } catch {
+      /* sem storage: começa aberta */
+    }
+  }, []);
+  function alternarSidebar() {
+    setRecolhida((v) => {
+      try {
+        localStorage.setItem("sidebar-recolhida", v ? "0" : "1");
+      } catch {
+        /* ignora */
+      }
+      return !v;
+    });
+  }
+
+  const ativo = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
+  const itemAtivo = itensVisiveis.find((i) => ativo(i.to));
+  const tituloPagina = itemAtivo?.label ?? "SPACE TECH";
+
+  // Barra horizontal do celular: mantém o item ativo à vista.
+  useEffect(() => {
+    document
+      .querySelector('[data-barra-mobile] [data-ativo="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [pathname]);
+
+  const bolinha = (to: string) =>
+    pendencias.has(to) ? (
+      <span
+        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.9)] ring-2 ring-[#120a24]"
+        aria-label="Pendências"
+      />
+    ) : null;
+
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3">
+    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2 [scrollbar-width:thin]">
       {itensVisiveis.map((item) => {
-        const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+        const active = ativo(item.to);
         return (
           <Link
             key={item.to}
             to={item.to}
-            onClick={() => setOpen(false)}
+            title={recolhida ? item.label : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors active:scale-[0.98] lg:py-2.5",
+              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 active:scale-[0.98]",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                ? "bg-gradient-to-r from-violet-600/90 to-fuchsia-600/60 text-white shadow-[0_4px_20px_-4px_rgba(139,92,246,0.7)]"
+                : "text-white/65 hover:bg-white/10 hover:text-white",
             )}
           >
-            <item.icon className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
-            {item.label}
+            <span className="relative shrink-0">
+              <item.icon className="h-[18px] w-[18px]" />
+              {bolinha(item.to)}
+            </span>
+            <span
+              className={cn(
+                "whitespace-nowrap transition-all duration-300",
+                recolhida ? "pointer-events-none w-0 opacity-0" : "opacity-100",
+              )}
+            >
+              {item.label}
+            </span>
             {item.to === "/whatsapp" && !!whatsappNaoLidas && (
               <span
-                className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground"
+                className={cn(
+                  "rounded-full bg-violet-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-black",
+                  recolhida ? "absolute right-1 top-1" : "ml-auto",
+                )}
                 aria-label={`${whatsappNaoLidas} conversas não lidas`}
               >
                 {whatsappNaoLidas > 99 ? "99+" : whatsappNaoLidas}
@@ -235,32 +295,65 @@ export function AppShell() {
     </nav>
   );
 
+  const vidro =
+    "border border-white/10 bg-gradient-to-b from-[#1a0f33]/80 via-[#0d0820]/80 to-black/80 shadow-[0_20px_60px_-15px_rgba(88,28,135,0.6)] backdrop-blur-xl";
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 shrink-0 flex-col bg-sidebar lg:flex">
-        <div className="flex items-center gap-3 px-5 py-6">
-          <LogoMark className="h-10 w-10" />
-          <LogoWord className="text-lg text-sidebar-accent-foreground" />
+    <div className="relative min-h-screen bg-background">
+      {/* brilho roxo atrás do vidro */}
+      <div className="pointer-events-none fixed -left-32 top-1/4 hidden h-96 w-96 rounded-full bg-violet-600/25 blur-3xl lg:block" />
+
+      <aside
+        className={cn(
+          "fixed bottom-3 left-3 top-3 z-30 hidden flex-col rounded-3xl text-white transition-[width] duration-300 ease-out lg:flex",
+          vidro,
+          recolhida ? "w-[76px]" : "w-64",
+        )}
+      >
+        <button
+          onClick={alternarSidebar}
+          aria-label={recolhida ? "Expandir menu" : "Recolher menu"}
+          title={recolhida ? "Expandir menu" : "Recolher menu"}
+          className="absolute -right-3.5 top-9 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white text-violet-900 shadow-lg shadow-violet-900/50 transition-transform hover:scale-110"
+        >
+          <ChevronLeft
+            className={cn("h-4 w-4 transition-transform duration-300", recolhida && "rotate-180")}
+          />
+        </button>
+        <div className="flex items-center gap-3 overflow-hidden px-[18px] py-6">
+          <LogoMark className="h-10 w-10 shrink-0" />
+          <LogoWord
+            className={cn(
+              "whitespace-nowrap text-lg text-white transition-opacity duration-300",
+              recolhida && "opacity-0",
+            )}
+          />
         </div>
         {nav}
-        <div className="border-t border-sidebar-border p-3">
-          <div className="px-2 pb-2">
-            <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
-              {profile?.loja || profile?.nome || "Minha assistência"}
-            </p>
-            <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
-          </div>
+        <div className="border-t border-white/10 p-3">
+          {!recolhida && (
+            <div className="px-2 pb-2">
+              <p className="truncate text-sm font-semibold text-white">
+                {profile?.loja || profile?.nome || "Minha assistência"}
+              </p>
+              <p className="truncate text-xs text-white/50">{user?.email}</p>
+            </div>
+          )}
           <a
             href={APP_DESKTOP_WINDOWS_URL}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            title={recolhida ? "Baixar app (Windows)" : undefined}
+            className="flex w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <MonitorDown className="h-4 w-4" /> Baixar app (Windows)
+            <MonitorDown className="h-[18px] w-[18px] shrink-0" />
+            {!recolhida && "Baixar app (Windows)"}
           </a>
           <button
             onClick={sair}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            title={recolhida ? "Sair" : undefined}
+            className="flex w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <LogOut className="h-4 w-4" /> Sair
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
+            {!recolhida && "Sair"}
           </button>
         </div>
       </aside>
@@ -268,103 +361,149 @@ export function AppShell() {
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-foreground/40 animate-in fade-in duration-200"
+            className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
             onClick={() => setOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[80vw] max-w-72 flex-col overflow-hidden bg-sidebar shadow-xl animate-in slide-in-from-left duration-200">
-            <div className="flex shrink-0 items-center justify-between px-5 py-6">
-              <div className="flex items-center gap-3">
-                <LogoMark className="h-9 w-9" />
-                <LogoWord className="text-base text-sidebar-accent-foreground" />
+          <div
+            className={cn(
+              "absolute right-3 top-3 w-64 rounded-2xl p-3 text-white animate-in fade-in slide-in-from-top-2 duration-200",
+              vidro,
+            )}
+          >
+            <div className="flex items-start justify-between px-2 pb-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {profile?.loja || profile?.nome || "Minha assistência"}
+                </p>
+                <p className="truncate text-xs text-white/50">{user?.email}</p>
               </div>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="Fechar menu"
-                className="-mr-2 rounded-lg p-2 text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+                aria-label="Fechar"
+                className="-mr-1 rounded-lg p-1 text-white/70 active:bg-white/10"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            {nav}
-            <div className="shrink-0 border-t border-sidebar-border p-3">
-              <div className="px-2 pb-2">
-                <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
-                  {profile?.loja || profile?.nome || "Minha assistência"}
-                </p>
-                <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
-              </div>
-              {/* Mesma conta única do PerfilMenu (o painel /admin ainda checa no
-                  servidor) — no celular o PerfilMenu não aparece, então o
-                  acesso ao admin ficava escondido. */}
-              {user?.email === "admin@spacetech.app" && (
-                <Link
-                  to="/admin"
-                  onClick={() => setOpen(false)}
-                  className="mb-1 flex w-full items-center gap-3 rounded-xl bg-primary/10 px-3 py-3 text-sm font-semibold text-primary active:bg-primary/20"
-                >
-                  <ShieldCheck className="h-5 w-5" /> Administração do site
-                </Link>
-              )}
+            {/* Mesma conta única do PerfilMenu (o painel /admin ainda checa no servidor). */}
+            {user?.email === SITE_ADMIN_EMAIL && (
               <Link
-                to="/assinatura"
+                to="/admin"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
+                className="mb-1 flex w-full items-center gap-3 rounded-xl bg-violet-500/20 px-3 py-3 text-sm font-semibold active:bg-violet-500/30"
               >
-                <CreditCard className="h-5 w-5" /> Meu Plano
+                <ShieldCheck className="h-5 w-5" /> Administração do site
               </Link>
-              <a
-                href={APP_DESKTOP_WINDOWS_URL}
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
-              >
-                <MonitorDown className="h-5 w-5" /> Baixar app (Windows)
-              </a>
-              <InstalarAppMobile
-                onDone={() => setOpen(false)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
-              />
-              <button
-                onClick={sair}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-sidebar-foreground/70 active:bg-sidebar-accent/60"
-              >
-                <LogOut className="h-5 w-5" /> Sair
-              </button>
-            </div>
-          </aside>
+            )}
+            <Link
+              to="/assinatura"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 active:bg-white/10"
+            >
+              <CreditCard className="h-5 w-5" /> Meu Plano
+            </Link>
+            <a
+              href={APP_DESKTOP_WINDOWS_URL}
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 active:bg-white/10"
+            >
+              <MonitorDown className="h-5 w-5" /> Baixar app (Windows)
+            </a>
+            <InstalarAppMobile
+              onDone={() => setOpen(false)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 active:bg-white/10"
+            />
+            <button
+              onClick={sair}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 active:bg-white/10"
+            >
+              <LogOut className="h-5 w-5" /> Sair
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-border bg-card/70 px-4 py-3 backdrop-blur lg:hidden">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setOpen(true)}
-              aria-label="Abrir menu"
-              className="-ml-2 rounded-lg p-2 active:bg-accent/60"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <LogoWord className="text-base" />
-          </div>
-          <div className="flex items-center gap-1">
-            {user?.email === "admin@spacetech.app" && (
-              <Link
-                to="/admin"
-                aria-label="Administração do site"
-                title="Administração do site"
-                className="rounded-lg p-2 text-primary active:bg-accent/60"
+      <div
+        className={cn(
+          "flex min-h-screen min-w-0 flex-col transition-[padding] duration-300 ease-out",
+          recolhida ? "lg:pl-[100px]" : "lg:pl-[280px]",
+        )}
+      >
+        {/* Celular: cabeçalho + menu em barra horizontal de vidro */}
+        <div className="sticky top-0 z-30 lg:hidden">
+          <header className="flex items-center justify-between gap-3 bg-gradient-to-r from-[#1a0f33] to-black px-4 py-2.5 text-white">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <LogoMark className="h-8 w-8 shrink-0" />
+              <p className="truncate text-base font-semibold">{tituloPagina}</p>
+            </div>
+            <div className="flex items-center gap-1 [&_button]:text-white">
+              {user?.email === SITE_ADMIN_EMAIL && (
+                <Link
+                  to="/admin"
+                  aria-label="Administração do site"
+                  title="Administração do site"
+                  className="rounded-lg p-2 text-violet-300 active:bg-white/10"
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                </Link>
+              )}
+              <FinancialVisibilityToggle />
+              <ThemeToggle />
+              <button
+                onClick={() => setOpen(true)}
+                aria-label="Abrir menu da conta"
+                className="-mr-2 rounded-lg p-2 active:bg-white/10"
               >
-                <ShieldCheck className="h-5 w-5" />
-              </Link>
-            )}
-            <FinancialVisibilityToggle />
-            <ThemeToggle />
+                <Menu className="h-5 w-5" />
+              </button>
+            </div>
+          </header>
+          <nav
+            data-barra-mobile
+            className="flex gap-1.5 overflow-x-auto border-b border-white/10 bg-black/75 px-3 py-2 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {itensVisiveis.map((item) => {
+              const active = ativo(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  data-ativo={active}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium transition-all duration-200 active:scale-95",
+                    active
+                      ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-[0_2px_12px_-2px_rgba(139,92,246,0.8)]"
+                      : "bg-white/5 text-white/70",
+                  )}
+                >
+                  <span className="relative">
+                    <item.icon className="h-4 w-4" />
+                    {bolinha(item.to)}
+                  </span>
+                  {item.label}
+                  {item.to === "/whatsapp" && !!whatsappNaoLidas && (
+                    <span className="rounded-full bg-violet-300 px-1.5 text-[10px] font-bold text-black">
+                      {whatsappNaoLidas > 99 ? "99+" : whatsappNaoLidas}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <header className="sticky top-0 z-20 hidden items-center justify-between gap-3 border-b border-border bg-background/70 px-6 py-3 backdrop-blur lg:flex">
+          <div className="min-w-0">
+            <h1
+              key={tituloPagina}
+              className="truncate text-lg font-bold tracking-tight text-foreground animate-in fade-in slide-in-from-left-2 duration-300"
+            >
+              {tituloPagina}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {saudacao()}, <span className="font-medium text-foreground/80">{nomeExibicao}</span>
+            </p>
           </div>
-        </header>
-        <header className="hidden items-center justify-between gap-3 border-b border-border bg-card/70 px-6 py-2.5 backdrop-blur lg:flex">
-          <p className="text-sm font-semibold text-foreground/80">
-            {saudacao()}, <span className="text-foreground">{nomeExibicao}</span>
-          </p>
           <div className="flex items-center gap-2">
             <HeaderMenu label="Relatórios" icon={BarChart3} itens={RELATORIOS_ITENS} />
             <HeaderMenu
