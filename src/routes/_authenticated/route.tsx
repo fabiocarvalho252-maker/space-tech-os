@@ -3,10 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { redirect } from "@tanstack/react-router";
 import { prazoAcesso } from "@/lib/acesso";
+import { sessaoDeveEncerrar } from "@/lib/app-mode";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
+    // App com "Lembrar meus dados" desmarcado: reabriu o app, pede login de novo.
+    if (sessaoDeveEncerrar()) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/login" });
+    }
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session) throw redirect({ to: "/login" });
     const user = data.session.user;

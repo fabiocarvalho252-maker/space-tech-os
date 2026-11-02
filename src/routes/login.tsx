@@ -23,6 +23,7 @@ import { LogoMark, LogoWord } from "@/components/Logo";
 import { vincularContaCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { emailDeLogin } from "@/lib/cliente-conta/usuario";
 import { useRedirecionarSeLogado } from "@/hooks/useRedirecionarSeLogado";
+import { ehAplicativo, emailLembrado, guardarPreferenciaLogin } from "@/lib/app-mode";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -59,6 +60,17 @@ function Login() {
   const [modo, setModo] = useState<"empresa" | "cliente">(area ?? "empresa");
 
   useRedirecionarSeLogado();
+
+  // Dentro do aplicativo: tela só de entrar/criar conta, sem a parte de site.
+  const [app, setApp] = useState(false);
+  useEffect(() => setApp(ehAplicativo()), []);
+  if (app) {
+    return (
+      <div className="flex min-h-screen flex-col justify-center bg-gradient-auth px-5 py-10">
+        <PainelEmpresa app />
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -135,9 +147,15 @@ function Login() {
   );
 }
 
-function PainelEmpresa() {
+function PainelEmpresa({ app = false }: { app?: boolean }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [lembrar, setLembrar] = useState(true);
+  useEffect(() => {
+    if (!app) return;
+    const salvo = emailLembrado();
+    if (salvo) setEmail(salvo);
+  }, [app]);
   const [senha, setSenha] = useState("");
   const [ver, setVer] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -154,6 +172,7 @@ function PainelEmpresa() {
       toast.error("Não foi possível entrar", { description: error.message });
       return;
     }
+    if (app) guardarPreferenciaLogin(lembrar, email.trim());
     navigate({ to: "/dashboard" });
   }
 
@@ -181,7 +200,14 @@ function PainelEmpresa() {
       </div>
 
       <form onSubmit={entrar} className="mt-7 space-y-4">
-        <Campo icon={Mail} label="Email" type="email" value={email} onChange={setEmail} />
+        <Campo
+          icon={Mail}
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="username"
+        />
         <div className="space-y-1.5">
           <label htmlFor="senha" className="text-sm font-semibold">
             Senha
@@ -191,6 +217,7 @@ function PainelEmpresa() {
             <input
               id="senha"
               type={ver ? "text" : "password"}
+              autoComplete="current-password"
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
@@ -210,8 +237,18 @@ function PainelEmpresa() {
 
         <div className="flex items-center justify-between text-sm">
           <label className="flex items-center gap-2 text-muted-foreground">
-            <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
-            Lembrar de mim
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-input accent-primary"
+              {...(app
+                ? {
+                    checked: lembrar,
+                    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLembrar(e.target.checked),
+                  }
+                : {})}
+            />
+            {app ? "Lembrar meus dados" : "Lembrar de mim"}
           </label>
           <button type="button" onClick={recuperar} className="font-semibold text-primary">
             Esqueci minha senha
@@ -227,12 +264,27 @@ function PainelEmpresa() {
         </button>
       </form>
 
-      <p className="mt-7 text-center text-sm text-muted-foreground">
-        Ainda não tem conta?{" "}
-        <Link to="/cadastro" className="font-semibold text-primary underline">
-          Criar conta grátis
-        </Link>
-      </p>
+      {app ? (
+        <>
+          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" /> Ainda não tem conta?
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <Link
+            to="/cadastro"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-primary text-sm font-semibold text-primary transition hover:bg-primary/5"
+          >
+            Criar minha conta grátis
+          </Link>
+        </>
+      ) : (
+        <p className="mt-7 text-center text-sm text-muted-foreground">
+          Ainda não tem conta?{" "}
+          <Link to="/cadastro" className="font-semibold text-primary underline">
+            Criar conta grátis
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
@@ -486,6 +538,7 @@ function Campo({
   placeholder,
   required = true,
   autoCapitalize,
+  autoComplete,
 }: {
   icon: React.ElementType;
   label: string;
@@ -495,6 +548,7 @@ function Campo({
   placeholder?: string;
   required?: boolean;
   autoCapitalize?: string;
+  autoComplete?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -508,6 +562,7 @@ function Campo({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
           className="h-12 w-full rounded-xl border border-input bg-card pl-10 pr-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
         />
       </div>
