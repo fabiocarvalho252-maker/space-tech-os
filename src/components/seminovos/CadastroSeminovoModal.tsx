@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
 import { ClienteSelect } from "@/components/ClienteSelect";
+import { SEMINOVO_DEFEITOS, descreverDefeitos } from "@/lib/seminovos-defeitos";
 
 type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"];
 type ClienteRow = { id: string; nome: string; telefone: string | null; documento: string | null };
@@ -101,6 +102,8 @@ type FormState = {
   senha_dispositivo: string;
   padrao_desbloqueio: string;
   observacoes: string;
+  defeitos_visiveis: string[];
+  defeitos_obs: string;
   data_avaliacao: string;
   valor_pago: string;
   outros_custos: string;
@@ -130,6 +133,8 @@ const formVazio: FormState = {
   senha_dispositivo: "",
   padrao_desbloqueio: "",
   observacoes: "",
+  defeitos_visiveis: [],
+  defeitos_obs: "",
   data_avaliacao: hoje(),
   valor_pago: "0",
   outros_custos: "0",
@@ -224,6 +229,8 @@ export function CadastroSeminovoModal({
         senha_dispositivo: seminovo.senha_dispositivo ?? "",
         padrao_desbloqueio: seminovo.padrao_desbloqueio ?? "",
         observacoes: seminovo.observacoes ?? "",
+        defeitos_visiveis: seminovo.defeitos_visiveis ?? [],
+        defeitos_obs: seminovo.defeitos_obs ?? "",
         data_avaliacao: seminovo.data_avaliacao ? seminovo.data_avaliacao.slice(0, 10) : hoje(),
         valor_pago: String(seminovo.valor_pago ?? 0),
         outros_custos: String(seminovo.outros_custos ?? 0),
@@ -403,6 +410,8 @@ export function CadastroSeminovoModal({
           estado: form.estado || null,
           bateria_percentual: form.bateria_percentual ? Number(form.bateria_percentual) : null,
           acessorios: form.acessorios.trim() || null,
+          defeitos_visiveis: form.defeitos_visiveis,
+          defeitos_obs: form.defeitos_obs.trim() || null,
           observacoes: observacoes || null,
           data_avaliacao: new Date(form.data_avaliacao + "T12:00:00").toISOString(),
           valor_oferecido: oferecido,
@@ -449,6 +458,8 @@ export function CadastroSeminovoModal({
         acessorios: form.acessorios.trim() || null,
         senha_dispositivo: form.senha_dispositivo.trim() || null,
         padrao_desbloqueio: form.padrao_desbloqueio || null,
+        defeitos_visiveis: form.defeitos_visiveis,
+        defeitos_obs: form.defeitos_obs.trim() || null,
         observacoes: form.observacoes.trim() || null,
         data_avaliacao: new Date(form.data_avaliacao + "T12:00:00").toISOString(),
         valor_pago: valorPago,
@@ -589,6 +600,55 @@ export function CadastroSeminovoModal({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Defeitos visíveis</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({ ...f, defeitos_visiveis: [], defeitos_obs: "" }))
+                  }
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    !form.defeitos_visiveis.length && !form.defeitos_obs.trim()
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      : "border-border text-muted-foreground hover:border-primary"
+                  }`}
+                >
+                  Sem defeitos visíveis
+                </button>
+                {SEMINOVO_DEFEITOS.map((d) => {
+                  const marcado = form.defeitos_visiveis.includes(d.key);
+                  return (
+                    <button
+                      key={d.key}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          defeitos_visiveis: marcado
+                            ? f.defeitos_visiveis.filter((k) => k !== d.key)
+                            : [...f.defeitos_visiveis, d.key],
+                        }))
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                        marcado
+                          ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
+                          : "border-border text-muted-foreground hover:border-primary"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <Input
+                className="h-11"
+                value={form.defeitos_obs}
+                onChange={(e) => setForm((f) => ({ ...f, defeitos_obs: e.target.value }))}
+                placeholder="Outros defeitos (ex.: trinca no canto superior direito)"
+              />
             </div>
 
             {/* Fotos só na compra; depois de registrado, ficam no botão de
@@ -896,6 +956,10 @@ export function CadastroSeminovoModal({
               <p>
                 {[form.armazenamento, form.cor].filter(Boolean).join(" · ") || "—"}
                 {form.bateria_percentual ? ` · Bateria: ${form.bateria_percentual}%` : ""}
+              </p>
+              <p>
+                Defeitos visíveis:{" "}
+                {descreverDefeitos(form.defeitos_visiveis, form.defeitos_obs) ?? "nenhum"}
               </p>
               <p>Fotos: {fotosCompra.length ? `${fotosCompra.length} anexada(s)` : "nenhuma"}</p>
             </div>

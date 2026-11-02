@@ -3390,6 +3390,8 @@ export type Database = {
           cor: string | null;
           created_at: string;
           data_avaliacao: string;
+          defeitos_obs: string | null;
+          defeitos_visiveis: string[];
           devolucao_data: string | null;
           devolucao_motivo: string | null;
           estado: string | null;
@@ -3433,6 +3435,8 @@ export type Database = {
           cor?: string | null;
           created_at?: string;
           data_avaliacao?: string;
+          defeitos_obs?: string | null;
+          defeitos_visiveis?: string[];
           devolucao_data?: string | null;
           devolucao_motivo?: string | null;
           estado?: string | null;
@@ -3476,6 +3480,8 @@ export type Database = {
           cor?: string | null;
           created_at?: string;
           data_avaliacao?: string;
+          defeitos_obs?: string | null;
+          defeitos_visiveis?: string[];
           devolucao_data?: string | null;
           devolucao_motivo?: string | null;
           estado?: string | null;

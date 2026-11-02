@@ -10,6 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { TEMA_RGB } from "@/lib/os-template-render";
 import { criarEscritor } from "@/lib/pdf-writer.server";
 import { linhaHorarioLoja } from "@/lib/horario-loja";
+import { descreverDefeitos } from "@/lib/seminovos-defeitos";
 
 const CORREGIONAL = rgb(TEMA_RGB.roxo.r, TEMA_RGB.roxo.g, TEMA_RGB.roxo.b);
 
@@ -76,6 +77,11 @@ export async function gerarPdfComprovanteSeminovo({
   w.linhaCampo(
     "Bateria",
     seminovo.bateria_percentual != null ? `${seminovo.bateria_percentual}%` : "—",
+  );
+  w.linhaCampo("Estado", seminovo.estado ?? "—");
+  w.linhaCampo(
+    "Defeitos visíveis",
+    descreverDefeitos(seminovo.defeitos_visiveis, seminovo.defeitos_obs) ?? "Nenhum",
   );
   if (seminovo.observacoes) w.linhaCampo("Observações", seminovo.observacoes);
   w.espaco(6);

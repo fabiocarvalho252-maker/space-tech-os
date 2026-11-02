@@ -22,6 +22,7 @@ import { SubstituirAssinaturaModal } from "./SubstituirAssinaturaModal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Database } from "@/integrations/supabase/types";
+import { descreverDefeitos } from "@/lib/seminovos-defeitos";
 
 type SeminovoRow = Database["public"]["Tables"]["seminovos"]["Row"] & {
   cliente?: { nome: string } | null;
@@ -426,6 +427,14 @@ export function DetalheSeminovoModal({
                 {seminovo.finalizacao_observacao && <p>{seminovo.finalizacao_observacao}</p>}
               </div>
             )}
+
+            <div className="rounded-xl border border-border bg-card p-4 text-sm">
+              <p className="mb-1 font-semibold text-foreground">Defeitos visíveis na compra</p>
+              <p className="text-muted-foreground">
+                {descreverDefeitos(seminovo.defeitos_visiveis, seminovo.defeitos_obs) ??
+                  "Nenhum defeito visível anotado."}
+              </p>
+            </div>
 
             {seminovo.observacoes && (
               <div className="rounded-xl border border-border bg-card p-4 text-sm">
