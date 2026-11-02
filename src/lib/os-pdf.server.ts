@@ -16,14 +16,13 @@ import QRCode from "qrcode";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { dataHoraBR, statusLabel } from "@/lib/format";
 import {
-  FALLBACK_TEMPLATE,
   TEMA_RGB,
   fotosGridColunas,
   secoesOrdenadas,
-  type OsTemplateRow,
   type OsTemplateSecao,
 } from "@/lib/os-template-render";
 import { Escritor } from "@/lib/pdf-writer.server";
+import { buscarTemplatePadrao } from "@/lib/os-template-busca";
 import { linhaHorarioLoja } from "@/lib/horario-loja";
 
 // site-url.ts's origemPublica() falls back to window.location.origin, which
@@ -97,7 +96,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
     { data: termo },
     { data: osConfig },
     { data: fotos },
-    { data: templatesData },
+    templatesData,
   ] = await Promise.all([
     supabaseAdmin
       .from("ordens_servico")
@@ -122,24 +121,16 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
 
     supabaseAdmin.from("service_order_photos").select("*").eq("service_order_id", osId),
 
-    // Empresa's chosen template (padrão first, otherwise any active one) —
-    // same query ordens.tsx's imprimir() uses, so the WhatsApp PDF matches
-    // whatever the empresa sees when printing from the browser.
-    supabaseAdmin
-      .from("os_templates")
-      .select("*")
-      .eq("user_id", empresaId)
-      .eq("ativo", true)
-      .order("padrao", { ascending: false })
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true })
-      .limit(1),
+    // Modelo padrão do tipo do documento (Orçamento ou Faturamento) — a
+    // mesma busca da impressão (ordens.tsx imprimir()), então o PDF bate
+    // com o que a empresa vê ao imprimir.
+    buscarTemplatePadrao(supabaseAdmin, empresaId, modo === "orcamento" ? "orcamento" : "os"),
   ]);
   if (erroOs || !os) throw new Error("OS não encontrada para gerar o PDF.");
 
   const itens = await supabaseAdmin.from("os_itens").select("*").eq("os_id", osId);
 
-  const template = (templatesData?.[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
+  const template = templatesData;
   const secoes = new Set<OsTemplateSecao>(secoesOrdenadas(template));
   const corTema = TEMA_RGB[template.tema];
   const corAccent = rgb(corTema.r, corTema.g, corTema.b);
@@ -385,15 +376,15 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
         break;
 
       case "termos":
-        if (!ehOrcamento && (termo?.conteudo || osConfig?.termos_condicoes)) {
+        // Mesma regra da impressão (os-template-render.tsx): o texto de
+        // "Condições" é o termo do serviço; o termo padrão só entra sem ele.
+        if (!ehOrcamento && (osConfig?.termos_condicoes || termo?.conteudo)) {
           w.secao("Termos e condições");
-          if (termo?.conteudo) {
-            w.paragrafo(textoParaPdf(termo.conteudo), 7.5, rgb(0.3, 0.3, 0.36));
-            w.espaco(4);
-          }
-          if (osConfig?.termos_condicoes) {
-            w.paragrafo(textoParaPdf(osConfig.termos_condicoes), 7.5, rgb(0.3, 0.3, 0.36));
-          }
+          w.paragrafo(
+            textoParaPdf(osConfig?.termos_condicoes || termo?.conteudo || ""),
+            7.5,
+            rgb(0.3, 0.3, 0.36),
+          );
         }
         break;
 
@@ -487,7 +478,7 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
  */
 function textoParaPdf(texto: string): string {
   return texto
-    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+    .replace(/\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\u{20E3}/gu, "")
     .split(/\r?\n/)
     .map((l) => (/^\s*-{3,}\s*$/.test(l) ? "" : l.replace(/^\s+/, "")))
     .join("\n")

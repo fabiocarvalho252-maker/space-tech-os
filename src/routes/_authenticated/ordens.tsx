@@ -61,12 +61,7 @@ import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAces
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
 import { AssinaturaDigitalModal } from "@/components/AssinaturaDigitalModal";
 import { avisarOsProntaFn } from "@/lib/whatsapp/whatsapp.functions";
-import {
-  renderOsTemplateHtml,
-  FALLBACK_TEMPLATE,
-  type OsTemplateRow,
-  type RenderOsData,
-} from "@/lib/os-template-render";
+import { renderOsTemplateHtml, type RenderOsData } from "@/lib/os-template-render";
 
 import { useCurrentUser, useMinhaEmpresa, useProfile } from "@/hooks/useCurrentUser";
 import { dataBR, dataHoraBR, STATUS_OS, STATUS_OS_COR, statusLabel } from "@/lib/format";
@@ -84,6 +79,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buscarTemplatePadrao } from "@/lib/os-template-busca";
 import {
   Dialog,
   DialogContent,
@@ -877,7 +873,7 @@ function Ordens() {
       { data: osConfigData },
       { data: fotosData },
       { data: itensData },
-      { data: templatesData },
+      templatesData,
     ] = await Promise.all([
       supabase
         .from("termos_garantia")
@@ -893,21 +889,14 @@ function Ordens() {
         .maybeSingle(),
       supabase.from("service_order_photos").select("*").eq("service_order_id", os.id),
       supabase.from("os_itens").select("*").eq("os_id", os.id),
-      supabase
-        .from("os_templates")
-        .select("*")
-        .eq("user_id", empresaId || "")
-        .eq("ativo", true)
-        .order("padrao", { ascending: false })
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(1),
+      // Orçamento usa o modelo de Orçamento; OS e não fiscal, o de Faturamento.
+      buscarTemplatePadrao(supabase, empresaId || "", modo === "orcamento" ? "orcamento" : "os"),
     ]);
 
     const osConfig = osConfigData;
     const fotos = fotosData ?? [];
     const itensOs = itensData ?? [];
-    const template = (templatesData?.[0] as OsTemplateRow | undefined) ?? FALLBACK_TEMPLATE;
+    const template = templatesData;
 
     // Fotos e assinaturas: bucket "os-fotos" é privado — precisa de signed
     // URL, uma public URL retornaria 400/403 em silêncio na <img>.

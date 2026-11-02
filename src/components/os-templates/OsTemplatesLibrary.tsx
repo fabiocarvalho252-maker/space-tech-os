@@ -33,7 +33,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { buildSampleOsRenderData, renderOsTemplateHtml } from "@/lib/os-template-render";
+import {
+  amostraPorUso,
+  renderOsTemplateHtml,
+  USO_LABEL,
+  type OsTemplateUso,
+  type RenderOsData,
+} from "@/lib/os-template-render";
 import { OsTemplateThumbnail } from "./OsTemplateThumbnail";
 import { OsTemplatePreviewModal } from "./OsTemplatePreviewModal";
 import { OsTemplateEditorModal } from "./OsTemplateEditorModal";
@@ -53,7 +59,7 @@ function TemplateCard({
   onExcluir,
 }: {
   template: OsTemplateDbRow;
-  sample: ReturnType<typeof buildSampleOsRenderData>;
+  sample: RenderOsData;
   onPreview: () => void;
   onEditar: () => void;
   onUsar: () => void;
@@ -184,7 +190,8 @@ export function OsTemplatesLibrary() {
   const qc = useQueryClient();
   const empresa = useEmpresaTemplateData();
   const termos = useEmpresaTermosData();
-  const sample = useMemo(() => buildSampleOsRenderData(empresa, termos), [empresa, termos]);
+  const [uso, setUso] = useState<OsTemplateUso>("os");
+  const sample = useMemo(() => amostraPorUso(empresa, uso, termos), [empresa, uso, termos]);
 
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState("todos");
@@ -220,13 +227,16 @@ export function OsTemplatesLibrary() {
     },
   });
 
-  // First visit for this empresa: seed the 6 starter templates, then load
-  // the real list — matches how every other lazily-seeded config screen in
-  // this app self-heals instead of depending on the signup trigger.
+  // First visit for this empresa (or a tipo with no model yet): seed the
+  // starter templates — garantir_templates_padrao() also seeds the
+  // Orçamento/Venda de aparelho ones — then load the real list.
   const seedTentadoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!empresaId || isLoading || seedTentadoRef.current === empresaId) return;
-    if (templates && templates.length === 0) {
+    const faltaTipo = (["os", "orcamento", "venda_aparelho"] as const).some(
+      (u) => !templates?.some((t) => (t.uso ?? "os") === u),
+    );
+    if (templates && faltaTipo) {
       seedTentadoRef.current = empresaId;
       supabase.rpc("garantir_templates_padrao", { p_user_id: empresaId }).then(({ error }) => {
         if (error) {
@@ -258,7 +268,7 @@ export function OsTemplatesLibrary() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Modelo definido como padrão para impressão e PDF.");
+      toast.success(`Modelo definido como padrão de ${USO_LABEL[uso]}.`);
       qc.invalidateQueries({ queryKey: ["os-templates"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -277,6 +287,7 @@ export function OsTemplatesLibrary() {
           paginas: t.paginas,
           tema: t.tema,
           config: t.config,
+          uso: t.uso ?? "os",
           builtin: false,
           created_by: user!.id,
         })
@@ -306,7 +317,7 @@ export function OsTemplatesLibrary() {
   });
 
   const lista = useMemo(() => {
-    let base = templates ?? [];
+    let base = (templates ?? []).filter((t) => (t.uso ?? "os") === uso);
     if (categoria !== "todos") base = base.filter((t) => t.categoria === categoria);
     if (paginasFiltro !== "todas") base = base.filter((t) => t.paginas === Number(paginasFiltro));
     if (orientacaoFiltro !== "todas") base = base.filter((t) => t.orientacao === orientacaoFiltro);
@@ -321,7 +332,7 @@ export function OsTemplatesLibrary() {
       if (a.padrao !== b.padrao) return a.padrao ? -1 : 1;
       return 0;
     });
-  }, [templates, categoria, paginasFiltro, orientacaoFiltro, busca]);
+  }, [templates, uso, categoria, paginasFiltro, orientacaoFiltro, busca]);
 
   function handleUsarModelo(t: OsTemplateDbRow) {
     duplicar.mutate(t, {
@@ -341,10 +352,33 @@ export function OsTemplatesLibrary() {
           <FileStack className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-bold">Biblioteca de modelos</h2>
         </div>
-        <p className="text-sm text-muted-foreground mb-5">
-          Escolha um modelo pronto para começar sua Ordem de Serviço e personalize à vontade. O
-          modelo marcado como <strong>Padrão</strong> é o usado automaticamente na impressão e no
-          PDF da OS.
+        <p className="text-sm text-muted-foreground mb-4">
+          Cada tipo de documento tem os seus modelos. O marcado como <strong>Padrão</strong> em cada
+          aba é o usado automaticamente na impressão e no PDF enviado ao cliente.
+        </p>
+
+        <div className="mb-5 grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
+          {(Object.keys(USO_LABEL) as OsTemplateUso[]).map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setUso(u)}
+              className={`rounded-lg px-2 py-2 text-xs font-semibold transition sm:text-sm ${
+                uso === u
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {USO_LABEL[u]}
+            </button>
+          ))}
+        </div>
+        <p className="mb-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          {uso === "os"
+            ? "Faturamento: a Ordem de Serviço completa — usada ao imprimir/enviar a OS e no faturamento, com garantia e termos."
+            : uso === "orcamento"
+              ? "Orçamento: o documento enviado para o cliente aprovar — serviços e valores, com o link/QR Code de aprovação. Não mostra garantia nem termos."
+              : "Venda de aparelho: o comprovante entregue ao vender um aparelho (lacrado ou seminovo) — comprador, aparelho, valores, pagamento, garantia e termos."}
         </p>
 
         <div className="flex flex-col gap-3">

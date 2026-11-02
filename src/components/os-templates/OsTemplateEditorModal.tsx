@@ -16,9 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  buildSampleOsRenderData,
+  amostraPorUso,
   renderOsTemplateHtml,
+  secoesOrdenadas,
   SECAO_LABEL,
+  SECOES_POR_USO,
+  USO_LABEL,
   TEMA_LABEL,
   type OsTemplateConfig,
   type OsTemplateFotosLayout,
@@ -31,7 +34,6 @@ import { useEmpresaTemplateData } from "./useEmpresaTemplateData";
 import { useEmpresaTermosData } from "./useEmpresaTermosData";
 import { CATEGORIA_LABEL, CATEGORIAS, type OsTemplateDbRow } from "./types";
 
-const TODAS_SECOES = Object.keys(SECAO_LABEL) as OsTemplateSecao[];
 const SECOES_OBRIGATORIAS: OsTemplateSecao[] = ["cabecalho", "valores"];
 const TEMAS: OsTemplateTema[] = ["roxo", "azul", "verde", "preto", "vermelho", "minimalista"];
 const TEMA_SWATCH: Record<OsTemplateTema, string> = {
@@ -82,7 +84,7 @@ export function OsTemplateEditorModal({
     setOrientacao(template.orientacao);
     setPaginas(template.paginas);
     setTema(template.tema);
-    setSecoes(template.config.secoes);
+    setSecoes(secoesOrdenadas(template).filter((s) => s !== "cabecalho"));
     setFotosLayout(template.config.fotos_layout);
   }, [template, open]);
 
@@ -109,9 +111,11 @@ export function OsTemplateEditorModal({
     });
   }
 
+  // Ordem escolhida pelo usuário; "valores" (obrigatória) pode ser movida
+  // como as outras, só não removida.
   const config: OsTemplateConfig = useMemo(
     () => ({
-      secoes: Array.from(new Set([...SECOES_OBRIGATORIAS, ...secoes])),
+      secoes: ["cabecalho", ...secoes.filter((s) => s !== "cabecalho")],
       fotos_layout: fotosLayout,
     }),
     [secoes, fotosLayout],
@@ -119,7 +123,7 @@ export function OsTemplateEditorModal({
 
   const previewHtml = useMemo(() => {
     if (!template) return "";
-    const sample = buildSampleOsRenderData(empresa, termos);
+    const sample = amostraPorUso(empresa, template.uso ?? "os", termos);
     return renderOsTemplateHtml({ ...template, orientacao, tema, config }, sample);
   }, [template, empresa, termos, orientacao, tema, config]);
 
@@ -154,7 +158,10 @@ export function OsTemplateEditorModal({
   });
 
   if (!template) return null;
-  const ordenadas = secoes.filter((s) => TODAS_SECOES.includes(s));
+  // Só as seções que fazem sentido para o tipo do modelo (ex.: venda de
+  // aparelho não tem defeito/diagnóstico; orçamento não tem garantia).
+  const TODAS_SECOES = SECOES_POR_USO[template.uso ?? "os"];
+  const ordenadas = secoes.filter((s) => TODAS_SECOES.includes(s) && s !== "cabecalho");
   const disponiveis = TODAS_SECOES.filter(
     (s) =>
       !ordenadas.includes(s) &&
@@ -166,7 +173,7 @@ export function OsTemplateEditorModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar modelo</DialogTitle>
+          <DialogTitle>Editar modelo — {USO_LABEL[template.uso ?? "os"]}</DialogTitle>
         </DialogHeader>
 
         <div className="grid md:grid-cols-[380px_1fr] gap-6">
@@ -277,15 +284,10 @@ export function OsTemplateEditorModal({
             <div className="space-y-2">
               <Label>Seções incluídas (ordem de impressão)</Label>
               <div className="space-y-1">
-                {SECOES_OBRIGATORIAS.map((s) => (
-                  <div
-                    key={s}
-                    className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
-                  >
-                    <span>{SECAO_LABEL[s]}</span>
-                    <span className="text-xs text-muted-foreground">obrigatória</span>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <span>{SECAO_LABEL.cabecalho}</span>
+                  <span className="text-xs text-muted-foreground">sempre no topo</span>
+                </div>
                 {ordenadas.map((s, i) => (
                   <div
                     key={s}
@@ -313,15 +315,24 @@ export function OsTemplateEditorModal({
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-destructive"
-                        onClick={() => alternarSecao(s)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      {SECOES_OBRIGATORIAS.includes(s) ? (
+                        <span
+                          className="w-6 text-center text-[10px] text-muted-foreground"
+                          title="Obrigatória"
+                        >
+                          •
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => alternarSecao(s)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}

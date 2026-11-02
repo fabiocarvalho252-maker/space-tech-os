@@ -12,7 +12,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
-  buildSampleOsRenderData,
+  amostraPorUso,
   renderOsTemplateHtml,
   renderOsTemplatePages,
 } from "@/lib/os-template-render";
@@ -47,7 +47,10 @@ export function OsTemplatePreviewModal({
   const [scale, setScale] = useState<number | "fit">("fit");
   const [pagina, setPagina] = useState(0);
 
-  const sample = useMemo(() => buildSampleOsRenderData(empresa, termos), [empresa, termos]);
+  const sample = useMemo(
+    () => amostraPorUso(empresa, template?.uso ?? "os", termos),
+    [empresa, template?.uso, termos],
+  );
   const paginas = useMemo(
     () => (template ? renderOsTemplatePages(template, sample) : []),
     [template, sample],

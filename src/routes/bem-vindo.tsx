@@ -873,13 +873,14 @@ function EscolherModeloPdf({
   const [ampliado, setAmpliado] = useState<OsTemplateDbRow | null>(null);
 
   const { data: modelos, isLoading } = useQuery({
-    queryKey: ["os-templates", empresaId],
+    queryKey: ["os-templates", empresaId, "os"],
     queryFn: async () => {
       const buscar = () =>
         supabase
           .from("os_templates")
           .select("*")
           .eq("user_id", empresaId)
+          .eq("uso", "os")
           .eq("ativo", true)
           .order("created_at", { ascending: true })
           .order("id", { ascending: true });

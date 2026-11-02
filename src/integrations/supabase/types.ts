@@ -2372,6 +2372,7 @@ export type Database = {
           tema: string;
           updated_at: string;
           updated_by: string | null;
+          uso: string;
           user_id: string;
         };
         Insert: {
@@ -2391,6 +2392,7 @@ export type Database = {
           tema?: string;
           updated_at?: string;
           updated_by?: string | null;
+          uso?: string;
           user_id: string;
         };
         Update: {
@@ -2410,6 +2412,7 @@ export type Database = {
           tema?: string;
           updated_at?: string;
           updated_by?: string | null;
+          uso?: string;
           user_id?: string;
         };
         Relationships: [];
@@ -5113,6 +5116,10 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      garantir_templates_por_uso: {
+        Args: { p_user_id: string };
+        Returns: undefined;
       };
       garantir_templates_padrao: {
         Args: { p_user_id: string };

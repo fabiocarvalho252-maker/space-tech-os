@@ -59,8 +59,64 @@ export type OsTemplateConfig = {
   fotos_layout: OsTemplateFotosLayout;
 };
 
+/** Tipo de documento do modelo (Configurações → Modelos): cada tipo tem o seu padrão. */
+export type OsTemplateUso = "os" | "orcamento" | "venda_aparelho";
+
+export const USO_LABEL: Record<OsTemplateUso, string> = {
+  os: "Faturamento (OS)",
+  orcamento: "Orçamento",
+  venda_aparelho: "Venda de aparelho",
+};
+
+/** Seções que cada tipo de documento pode ter (o editor só oferece estas). */
+export const SECOES_POR_USO: Record<OsTemplateUso, OsTemplateSecao[]> = {
+  os: [
+    "cabecalho",
+    "cliente",
+    "aparelho",
+    "defeito",
+    "diagnostico",
+    "checklist",
+    "estado_fisico",
+    "itens",
+    "valores",
+    "garantia",
+    "termos",
+    "fotos",
+    "qrcode",
+    "assinaturas",
+    "quebra_pagina",
+  ],
+  orcamento: [
+    "cabecalho",
+    "cliente",
+    "aparelho",
+    "defeito",
+    "diagnostico",
+    "checklist",
+    "estado_fisico",
+    "itens",
+    "valores",
+    "fotos",
+    "qrcode",
+    "assinaturas",
+    "quebra_pagina",
+  ],
+  venda_aparelho: [
+    "cabecalho",
+    "cliente",
+    "aparelho",
+    "valores",
+    "garantia",
+    "termos",
+    "assinaturas",
+    "quebra_pagina",
+  ],
+};
+
 export type OsTemplateRow = {
   id: string;
+  uso?: OsTemplateUso;
   nome: string;
   categoria: string;
   orientacao: OsTemplateOrientacao;
@@ -98,6 +154,38 @@ export const FALLBACK_TEMPLATE: OsTemplateRow = {
       "assinaturas",
     ],
     fotos_layout: "0",
+  },
+};
+
+/** Sem nenhum modelo do tipo: layout padrão de cada documento. */
+export const FALLBACK_TEMPLATE_POR_USO: Record<OsTemplateUso, OsTemplateRow> = {
+  os: FALLBACK_TEMPLATE,
+  orcamento: {
+    ...FALLBACK_TEMPLATE,
+    uso: "orcamento",
+    config: {
+      secoes: [
+        "cabecalho",
+        "cliente",
+        "aparelho",
+        "defeito",
+        "diagnostico",
+        "estado_fisico",
+        "itens",
+        "valores",
+        "qrcode",
+        "assinaturas",
+      ],
+      fotos_layout: "0",
+    },
+  },
+  venda_aparelho: {
+    ...FALLBACK_TEMPLATE,
+    uso: "venda_aparelho",
+    config: {
+      secoes: ["cabecalho", "cliente", "aparelho", "valores", "garantia", "termos", "assinaturas"],
+      fotos_layout: "0",
+    },
   },
 };
 
@@ -169,7 +257,7 @@ export type RenderOsData = {
     responsavel: string | null;
   };
   qrCodeUrl: string | null;
-  modo: "os" | "orcamento" | "nao_fiscal";
+  modo: "os" | "orcamento" | "nao_fiscal" | "venda_aparelho";
   duasVias: boolean;
 };
 
@@ -212,6 +300,14 @@ const ESTADO_FISICO_LABELS: Record<string, string> = {
   outros: "Outros",
 };
 
+function tituloDocumento(modo: RenderOsData["modo"]) {
+  return modo === "orcamento"
+    ? "Orçamento"
+    : modo === "venda_aparelho"
+      ? "Venda de aparelho"
+      : "Ordem de Serviço";
+}
+
 const brl = (v: number | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));
 const dataBR = (v: string | null | undefined) =>
@@ -247,7 +343,7 @@ function renderSecao(
             </div>
           </div>
           <div class="cabecalho-os">
-            <strong>${d.modo === "orcamento" ? "Orçamento" : "Ordem de Serviço"} nº ${esc(String(d.numero))}</strong>
+            <strong>${tituloDocumento(d.modo)} nº ${esc(String(d.numero))}</strong>
             <span>Emissão: ${dataHoraBR(d.createdAt)}</span>
             <span class="status-badge">${esc(d.statusLabel)}</span>
           </div>
@@ -272,8 +368,12 @@ function renderSecao(
             ${d.cor ? `<tr><td>Cor</td><td>${esc(d.cor)}</td></tr>` : ""}
             ${d.imei ? `<tr><td>IMEI</td><td>${esc(d.imei)}</td></tr>` : ""}
             ${d.serialNumber ? `<tr><td>Número de série</td><td>${esc(d.serialNumber)}</td></tr>` : ""}
-            <tr><td>Senha (PIN)</td><td>${esc(d.senhaDispositivo) || "—"}</td></tr>
-            <tr><td>Padrão</td><td>${d.padraoDesbloqueio ? `Sequência: ${esc(d.padraoDesbloqueio)}` : "—"}</td></tr>
+            ${
+              d.modo === "venda_aparelho"
+                ? ""
+                : `<tr><td>Senha (PIN)</td><td>${esc(d.senhaDispositivo) || "—"}</td></tr>
+            <tr><td>Padrão</td><td>${d.padraoDesbloqueio ? `Sequência: ${esc(d.padraoDesbloqueio)}` : "—"}</td></tr>`
+            }
           </table>
         </section>
       `;
@@ -363,14 +463,16 @@ function renderSecao(
       // condições descrevem um serviço já realizado, não uma proposta ainda
       // em aprovação.
       if (d.modo === "orcamento") return "";
-      return d.termoGarantiaTexto || d.condicoesTexto
-        ? `
-        <section class="bloco">
-          ${d.termoGarantiaTexto ? `<div class="termos"><strong>Termos de Garantia:</strong><br>${esc(d.termoGarantiaTexto)}</div>` : ""}
-          ${d.condicoesTexto ? `<div class="termos"><strong>Condições:</strong><br>${esc(d.condicoesTexto)}</div>` : ""}
-        </section>
-      `
-        : "";
+      // Com o texto de "Condições" (Configurações → OS, o termo do serviço)
+      // preenchido, ele é o termo da OS; o termo padrão de Termos de Garantia
+      // ("defeitos de fabricação do aparelho") fica para venda de aparelho e
+      // só entra aqui quando não há Condições — antes saíam os dois.
+      {
+        const texto = d.condicoesTexto || d.termoGarantiaTexto;
+        return texto
+          ? `<section class="bloco"><h2>Termos e condições</h2><div class="termos">${esc(texto)}</div></section>`
+          : "";
+      }
     case "fotos": {
       const galeria = d.fotos.filter(
         (f) => f.category !== "assinatura_cliente" && f.category !== "assinatura_tecnico",
@@ -423,12 +525,17 @@ function renderSecao(
   }
 }
 
-// Sections in config order, with "cabecalho" pinned first — reorder
-// minimally instead of trusting arbitrary user order for that one
-// structural anchor, everything else keeps config's order.
+// Sections in config order, with "cabecalho" pinned first. "valores" is
+// mandatory: when a config lacks it, it goes right after "itens" (or at the
+// end) — it used to be forced right after the cabeçalho, which put the total
+// above the list of services in every template.
 export function secoesOrdenadas(template: OsTemplateRow): OsTemplateSecao[] {
-  const secoesFinal = Array.from(new Set([...SECOES_OBRIGATORIAS, ...template.config.secoes]));
-  return ["cabecalho" as const, ...secoesFinal.filter((s) => s !== "cabecalho")];
+  const resto = Array.from(new Set(template.config.secoes)).filter((s) => s !== "cabecalho");
+  if (!resto.includes("valores")) {
+    const i = resto.indexOf("itens");
+    resto.splice(i >= 0 ? i + 1 : resto.length, 0, "valores");
+  }
+  return ["cabecalho", ...resto];
 }
 
 /** Renders sections, dropping page breaks that would open an empty page
@@ -543,7 +650,7 @@ function wrapDocument(
 
 export function renderOsTemplateHtml(template: OsTemplateRow, d: RenderOsData): string {
   const vias = d.duasVias ? [["Via do Cliente"], ["Via da Empresa"]] : [[null]];
-  const titulo = `${d.modo === "orcamento" ? "Orçamento" : "Ordem de Serviço"} ${d.numero}`;
+  const titulo = `${tituloDocumento(d.modo)} ${d.numero}`;
 
   const corpo = vias
     .map(([label], i) => {
@@ -564,7 +671,7 @@ export function renderOsTemplatePages(template: OsTemplateRow, d: RenderOsData):
   const cor = TEMA_COR[template.tema];
   const cfg = template.config;
   const vias = d.duasVias ? [["Via do Cliente"], ["Via da Empresa"]] : [[null]];
-  const titulo = `${d.modo === "orcamento" ? "Orçamento" : "Ordem de Serviço"} ${d.numero}`;
+  const titulo = `${tituloDocumento(d.modo)} ${d.numero}`;
   const grupos = agruparPorPagina(secoesOrdenadas(template));
   const multiplasPaginas = vias.length > 1 || grupos.length > 1;
 
@@ -593,6 +700,49 @@ export function renderOsTemplatePages(template: OsTemplateRow, d: RenderOsData):
 // render against.
 const FOTO_PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e5e7eb'/%3E%3Cpath d='M60 100l25-30 20 22 15-16 20 24H60z' fill='%23cbd5e1'/%3E%3Ccircle cx='80' cy='55' r='12' fill='%23cbd5e1'/%3E%3C/svg%3E";
+
+/** Amostra de cada tipo de documento para as prévias da biblioteca de modelos. */
+export function amostraPorUso(
+  empresa: RenderOsData["empresa"],
+  uso: OsTemplateUso,
+  overrides?: Partial<RenderOsData>,
+): RenderOsData {
+  if (uso === "orcamento") {
+    return buildSampleOsRenderData(empresa, {
+      ...overrides,
+      modo: "orcamento",
+      statusLabel: "Aguardando aprovação",
+    });
+  }
+  if (uso === "venda_aparelho") {
+    return buildSampleOsRenderData(empresa, {
+      ...overrides,
+      modo: "venda_aparelho",
+      statusLabel: "Vendido",
+      aparelho: "iPhone",
+      marca: "Apple",
+      modelo: "13 128GB — Seminovo",
+      defeito: null,
+      diagnostico: null,
+      checklist: {},
+      estadoFisico: {},
+      estadoFisicoObs: null,
+      acessorios: null,
+      fotos: [],
+      itens: [
+        {
+          descricao: "iPhone 13 128GB Meia-noite (seminovo)",
+          tipo: "produto",
+          quantidade: 1,
+          precoUnitario: 3200,
+        },
+      ],
+      valor: 3100,
+      desconto: 100,
+    });
+  }
+  return buildSampleOsRenderData(empresa, overrides);
+}
 
 /** Realistic sample data for a card thumbnail or the library's preview
  * modal, where there's no real Ordem de Serviço to render against — reuses

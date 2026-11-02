@@ -6,11 +6,11 @@
 // caller's RLS session.
 import { rgb } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { TEMA_RGB } from "@/lib/os-template-render";
+import { TEMA_RGB, secoesOrdenadas } from "@/lib/os-template-render";
+import { buscarTemplatePadrao } from "@/lib/os-template-busca";
 import { criarEscritor } from "@/lib/pdf-writer.server";
+import { dataHoraBR } from "@/lib/format";
 import { linhaHorarioLoja } from "@/lib/horario-loja";
-
-const CORREGIONAL = rgb(TEMA_RGB.roxo.r, TEMA_RGB.roxo.g, TEMA_RGB.roxo.b);
 
 const brl = (v: number | string | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));
@@ -26,19 +26,37 @@ async function carregarEmpresa(empresaId: string) {
   return data;
 }
 
-async function desenharCabecalhoEmpresa(
-  w: Awaited<ReturnType<typeof criarEscritor>>["w"],
-  empresa: Awaited<ReturnType<typeof carregarEmpresa>>,
-) {
-  w.titulo(empresa?.loja || empresa?.nome || "SPACE TECH", 16);
-  const infoEmpresa = [empresa?.cnpj_cpf, empresa?.endereco, empresa?.whatsapp]
-    .filter(Boolean)
-    .join("  ·  ");
-  if (infoEmpresa) w.paragrafo(infoEmpresa, 8, rgb(0.5, 0.5, 0.55));
-  const horarioLoja = linhaHorarioLoja(empresa?.horario_funcionamento);
-  if (horarioLoja) w.paragrafo(horarioLoja, 8, rgb(0.5, 0.5, 0.55));
-  w.espaco(6);
-  w.linhaDivisoria();
+function linhasDaLoja(empresa: Awaited<ReturnType<typeof carregarEmpresa>>): string[] {
+  return [
+    empresa?.cnpj_cpf ? `CNPJ/CPF: ${empresa.cnpj_cpf}` : null,
+    empresa?.endereco ?? null,
+    empresa?.whatsapp ? `WhatsApp: ${empresa.whatsapp}` : null,
+    linhaHorarioLoja(empresa?.horario_funcionamento),
+  ].filter((l): l is string => !!l);
+}
+
+async function baixarLogo(url: string | null | undefined) {
+  if (!url) return null;
+  try {
+    const resposta = await fetch(url);
+    if (!resposta.ok) return null;
+    return {
+      bytes: new Uint8Array(await resposta.arrayBuffer()),
+      ehPng: url.toLowerCase().includes(".png"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Termos digitados com emoji e separadores "---" (a fonte do PDF não tem emoji). */
+function textoSemEmoji(texto: string): string {
+  return texto
+    .replace(/\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\u{20E3}/gu, "")
+    .split(/\r?\n/)
+    .map((l) => (/^\s*-{3,}\s*$/.test(l) ? "" : l.replace(/^\s+/, "")))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
 }
 
 // ============================================================
@@ -69,86 +87,169 @@ export async function gerarPdfComprovanteAparelho({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- joined row shape, matches os-pdf.server.ts's osAny pattern
   const aparelho = item.aparelhos as any;
 
-  const { data: garantia } = await supabaseAdmin
-    .from("aparelho_garantias")
-    .select("dias, inicio, fim")
-    .eq("venda_id", vendaId)
-    .maybeSingle();
+  const [{ data: garantia }, empresa, template] = await Promise.all([
+    supabaseAdmin
+      .from("aparelho_garantias")
+      .select("dias, inicio, fim, termo_id")
+      .eq("venda_id", vendaId)
+      .maybeSingle(),
+    carregarEmpresa(empresaId),
+    // Modelo padrão de "Venda de aparelho" (Configurações → Modelos): cor,
+    // seções e ordem.
+    buscarTemplatePadrao(supabaseAdmin, empresaId, "venda_aparelho"),
+  ]);
 
-  const empresa = await carregarEmpresa(empresaId);
+  // Termo: o da garantia emitida na venda; sem ele, o termo padrão da loja.
+  const { data: termo } = garantia?.termo_id
+    ? await supabaseAdmin
+        .from("termos_garantia")
+        .select("conteudo")
+        .eq("id", garantia.termo_id)
+        .maybeSingle()
+    : await supabaseAdmin
+        .from("termos_garantia")
+        .select("conteudo")
+        .eq("user_id", empresaId)
+        .eq("is_default", true)
+        .eq("ativo", true)
+        .maybeSingle();
 
-  const { pdf, w } = await criarEscritor(CORREGIONAL);
-  await desenharCabecalhoEmpresa(w, empresa);
+  const cor = TEMA_RGB[template.tema];
+  const { pdf, w } = await criarEscritor(rgb(cor.r, cor.g, cor.b));
+  const nomeLoja = empresa?.loja || empresa?.nome || "SPACE TECH";
+  const cliente = venda.clientes as {
+    nome?: string | null;
+    telefone?: string | null;
+    email?: string | null;
+    documento?: string | null;
+  } | null;
+  const numero = String(venda.numero).padStart(6, "0");
 
-  w.subtitulo(
-    `Comprovante de Venda de Aparelho nº ${String(venda.numero).padStart(6, "0")}`,
-    rgb(0.1, 0.1, 0.15),
+  await w.cabecalhoDocumento({
+    logo: await baixarLogo(empresa?.logo_url),
+    loja: nomeLoja,
+    linhasLoja: linhasDaLoja(empresa),
+    documento: "Comprovante de venda",
+    numero: `Nº ${numero}`,
+    data: `Vendido em ${dataHoraBR(venda.created_at)}`,
+    status: null,
+  });
+  w.aviso(
+    "Obrigado pela compra!",
+    `Este é o comprovante da compra do seu aparelho${garantia ? ` e da garantia de ${garantia.dias} dias, válida até ${dataBR(garantia.fim)}` : ""}. Guarde este documento: ele é necessário para qualquer atendimento em garantia.`,
+    "verde",
   );
-  w.paragrafo(`Data: ${dataBR(venda.created_at)}`, 8, rgb(0.5, 0.5, 0.55));
-  w.espaco(8);
 
-  w.subtitulo("Cliente");
-  w.linhaCampo("Nome", venda.clientes?.nome ?? "—");
-  w.linhaCampo("CPF/CNPJ", venda.clientes?.documento ?? "—");
-  w.linhaCampo("Telefone", venda.clientes?.telefone ?? "—");
-  if (venda.clientes?.email) w.linhaCampo("E-mail", venda.clientes.email);
-  w.espaco(6);
+  for (const secao of secoesOrdenadas(template)) {
+    switch (secao) {
+      case "cliente":
+        w.secao("Comprador");
+        w.grade([
+          ["Nome", cliente?.nome ?? "Não informado"],
+          ["CPF / CNPJ", cliente?.documento ?? ""],
+          ["Telefone / WhatsApp", cliente?.telefone ?? ""],
+          ["E-mail", cliente?.email ?? ""],
+        ]);
+        break;
 
-  w.subtitulo("Aparelho");
-  w.linhaCampo("Tipo", aparelho.tipo === "lacrado" ? "Lacrado" : "Seminovo");
-  w.linhaCampo(
-    "Marca / Modelo",
-    [aparelho.marca, aparelho.modelo, aparelho.variante].filter(Boolean).join(" "),
-  );
-  w.linhaCampo("Armazenamento", aparelho.armazenamento ?? "—");
-  if (aparelho.ram) w.linhaCampo("RAM", aparelho.ram);
-  w.linhaCampo("Cor", aparelho.cor ?? "—");
-  w.linhaCampo("IMEI", aparelho.imei1 ?? "—");
-  if (aparelho.imei2) w.linhaCampo("IMEI 2", aparelho.imei2);
-  if (aparelho.numero_serie) w.linhaCampo("Número de série", aparelho.numero_serie);
-  if (aparelho.tipo === "seminovo" && aparelho.estado_conservacao)
-    w.linhaCampo("Condição", aparelho.estado_conservacao);
-  w.espaco(6);
+      case "aparelho":
+        w.secao("Aparelho");
+        w.grade([
+          [
+            "Marca / Modelo",
+            [aparelho.marca, aparelho.modelo, aparelho.variante].filter(Boolean).join(" "),
+          ],
+          ["Tipo", aparelho.tipo === "lacrado" ? "Lacrado (novo)" : "Seminovo"],
+          ["Armazenamento", aparelho.armazenamento ?? ""],
+          ["RAM", aparelho.ram ?? ""],
+          ["Cor", aparelho.cor ?? ""],
+          ["IMEI", aparelho.imei1 ?? ""],
+          ["IMEI 2", aparelho.imei2 ?? ""],
+          ["Número de série", aparelho.numero_serie ?? ""],
+          ["Condição", aparelho.tipo === "seminovo" ? (aparelho.estado_conservacao ?? "") : ""],
+          [
+            "Saúde da bateria",
+            aparelho.tipo === "seminovo" && aparelho.saude_bateria != null
+              ? `${aparelho.saude_bateria}%`
+              : "",
+          ],
+        ]);
+        break;
 
-  w.subtitulo("Valores");
-  w.linhaCampo("Preço", brl(Number(venda.total) + Number(venda.desconto ?? 0)));
-  w.linhaCampo("Desconto", brl(venda.desconto ?? 0));
-  w.subtitulo(`Total: ${brl(venda.total)}`, rgb(0.1, 0.1, 0.15));
-  w.espaco(6);
+      case "valores": {
+        const desconto = Number(venda.desconto ?? 0);
+        const linhas: [string, string][] = [
+          ["Preço do aparelho", brl(Number(venda.total) + desconto)],
+        ];
+        if (desconto > 0) linhas.push(["Desconto", `- ${brl(desconto)}`]);
+        linhas.push(["Forma de pagamento", venda.forma_pagamento || "Não informada"]);
+        w.secao("Valores e pagamento");
+        w.totais(linhas, ["Total pago", brl(venda.total)]);
+        if (venda.observacoes) {
+          w.grade([["Observações", venda.observacoes]], 1);
+        }
+        break;
+      }
 
-  w.subtitulo("Pagamento");
-  w.linhaCampo("Forma de pagamento", venda.forma_pagamento ?? "—");
-  w.espaco(6);
+      case "garantia":
+        if (garantia) {
+          w.secao("Garantia");
+          w.grade(
+            [
+              ["Prazo", `${garantia.dias} dias`],
+              ["Início", dataBR(garantia.inicio)],
+              ["Válida até", dataBR(garantia.fim)],
+            ],
+            3,
+          );
+        }
+        break;
 
-  if (garantia) {
-    w.subtitulo("Garantia");
-    w.linhaCampo("Prazo", `${garantia.dias} dias`);
-    w.linhaCampo("Início", dataBR(garantia.inicio));
-    w.linhaCampo("Fim", dataBR(garantia.fim));
-    w.espaco(6);
+      case "termos": {
+        const texto =
+          termo?.conteudo ||
+          (garantia
+            ? `Este aparelho tem garantia de ${garantia.dias} dias contra defeitos de funcionamento, a partir da data da venda. A garantia não cobre danos causados por mau uso, quedas, contato com líquidos, violação do aparelho por terceiros ou desgaste natural de peças e bateria.`
+            : null);
+        if (texto) {
+          w.secao("Termos da garantia");
+          w.paragrafo(textoSemEmoji(texto), 7.5, rgb(0.3, 0.3, 0.36));
+        }
+        break;
+      }
+
+      case "assinaturas":
+        w.secao("Declaração e assinaturas");
+        w.paragrafo(
+          "Declaro ter recebido o aparelho descrito acima, junto com os acessórios combinados, em perfeito estado e nas condições aqui apresentadas.",
+          8.5,
+          rgb(0.35, 0.35, 0.4),
+        );
+        await w.assinaturas([
+          { rotulo: "Comprador", nome: cliente?.nome ?? null },
+          { rotulo: nomeLoja },
+        ]);
+        break;
+
+      case "quebra_pagina":
+        w.novaPagina();
+        break;
+
+      default:
+        break;
+    }
   }
 
-  if (venda.observacoes) {
-    w.subtitulo("Observações");
-    w.paragrafo(venda.observacoes, 9, rgb(0.35, 0.35, 0.4));
-    w.espaco(6);
-  }
-
-  w.subtitulo("Declaração");
-  w.paragrafo(
-    "Declaro ter recebido o aparelho descrito acima, junto com os acessórios e itens combinados no ato da venda, nas condições aqui apresentadas.",
-    9,
-    rgb(0.35, 0.35, 0.4),
+  w.rodape(
+    [
+      nomeLoja,
+      empresa?.whatsapp ? `WhatsApp ${empresa.whatsapp}` : null,
+      `Venda nº ${numero}`,
+      `Emitido em ${dataHoraBR(new Date().toISOString())}`,
+    ]
+      .filter(Boolean)
+      .join("  ·  "),
   );
-  w.espaco(30);
-
-  w.linhaDivisoria();
-  w.espaco(6);
-  w.paragrafo("________________________________", 9);
-  w.paragrafo(venda.clientes?.nome ?? "Cliente", 8, rgb(0.5, 0.5, 0.55));
-  w.espaco(20);
-  w.paragrafo("________________________________", 9);
-  w.paragrafo(empresa?.loja || empresa?.nome || "SPACE TECH", 8, rgb(0.5, 0.5, 0.55));
 
   return pdf.save();
 }
@@ -195,59 +296,81 @@ export async function gerarPdfTermoGarantiaAparelho({
     conteudoTermo = termo?.conteudo ?? null;
   }
 
-  const empresa = await carregarEmpresa(empresaId);
+  const [empresa, template] = await Promise.all([
+    carregarEmpresa(empresaId),
+    buscarTemplatePadrao(supabaseAdmin, empresaId, "venda_aparelho"),
+  ]);
+  const cor = TEMA_RGB[template.tema];
+  const { pdf, w } = await criarEscritor(rgb(cor.r, cor.g, cor.b));
+  const nomeLoja = empresa?.loja || empresa?.nome || "SPACE TECH";
+  const numero = `GAR-${String(garantia.numero).padStart(6, "0")}`;
 
-  const { pdf, w } = await criarEscritor(CORREGIONAL);
-  await desenharCabecalhoEmpresa(w, empresa);
+  await w.cabecalhoDocumento({
+    logo: await baixarLogo(empresa?.logo_url),
+    loja: nomeLoja,
+    linhasLoja: linhasDaLoja(empresa),
+    documento: "Termo de garantia",
+    numero,
+    data: `Emitido em ${dataBR(garantia.created_at)}`,
+    status: null,
+  });
+  w.aviso(
+    `Garantia válida até ${dataBR(garantia.fim)}`,
+    `Este aparelho tem ${garantia.dias} dias de garantia, de ${dataBR(garantia.inicio)} a ${dataBR(garantia.fim)}. Para usar a garantia, traga o aparelho e este termo (ou o número ${numero}) à loja.`,
+    "verde",
+  );
 
-  w.titulo("Termo de Garantia", 14);
+  w.secao("Cliente");
+  w.grade([
+    ["Nome", garantia.clientes?.nome ?? "Não informado"],
+    ["CPF / CNPJ", garantia.clientes?.documento ?? ""],
+    ["Telefone / WhatsApp", garantia.clientes?.telefone ?? ""],
+  ]);
+
+  w.secao("Aparelho");
+  w.grade([
+    [
+      "Marca / Modelo",
+      [aparelho.marca, aparelho.modelo, aparelho.variante].filter(Boolean).join(" "),
+    ],
+    ["IMEI", aparelho.imei1 ?? ""],
+    ["Número de série", aparelho.numero_serie ?? ""],
+    ["Cor", aparelho.cor ?? ""],
+  ]);
+
+  w.secao("Garantia");
+  w.grade(
+    [
+      ["Venda", garantia.vendas ? `nº ${String(garantia.vendas.numero).padStart(6, "0")}` : ""],
+      ["Valor da venda", garantia.vendas ? brl(garantia.vendas.total) : ""],
+      ["Prazo", `${garantia.dias} dias`],
+      ["Início", dataBR(garantia.inicio)],
+      ["Válida até", dataBR(garantia.fim)],
+    ],
+    3,
+  );
+
+  w.secao("Condições da garantia");
   w.paragrafo(
-    `Documento nº GAR-${String(garantia.numero).padStart(6, "0")}`,
-    8,
-    rgb(0.5, 0.5, 0.55),
+    textoSemEmoji(
+      conteudoTermo ||
+        `Este termo garante o aparelho descrito acima contra defeitos de fabricação pelo prazo de ${garantia.dias} dias a partir da data da venda. A garantia não cobre danos causados por mau uso, quedas, contato com líquidos, violação do aparelho por terceiros ou desgaste natural de peças e bateria.`,
+    ),
+    7.5,
+    rgb(0.3, 0.3, 0.36),
   );
-  w.espaco(8);
 
-  w.subtitulo("Cliente");
-  w.linhaCampo("Nome", garantia.clientes?.nome ?? "—");
-  w.linhaCampo("CPF/CNPJ", garantia.clientes?.documento ?? "—");
-  w.linhaCampo("Telefone", garantia.clientes?.telefone ?? "—");
-  w.espaco(6);
+  w.secao("Assinaturas");
+  await w.assinaturas([
+    { rotulo: "Cliente", nome: garantia.clientes?.nome ?? null },
+    { rotulo: nomeLoja },
+  ]);
 
-  w.subtitulo("Aparelho");
-  w.linhaCampo(
-    "Marca / Modelo",
-    [aparelho.marca, aparelho.modelo, aparelho.variante].filter(Boolean).join(" "),
+  w.rodape(
+    [nomeLoja, empresa?.whatsapp ? `WhatsApp ${empresa.whatsapp}` : null, `Termo ${numero}`]
+      .filter(Boolean)
+      .join("  ·  "),
   );
-  w.linhaCampo("IMEI", aparelho.imei1 ?? "—");
-  if (aparelho.numero_serie) w.linhaCampo("Número de série", aparelho.numero_serie);
-  w.linhaCampo("Cor", aparelho.cor ?? "—");
-  w.espaco(6);
-
-  w.subtitulo("Garantia");
-  if (garantia.vendas) w.linhaCampo("Venda", `#${String(garantia.vendas.numero).padStart(4, "0")}`);
-  w.linhaCampo("Data da venda", dataBR(garantia.created_at));
-  w.linhaCampo("Início da garantia", dataBR(garantia.inicio));
-  w.linhaCampo("Fim da garantia", dataBR(garantia.fim));
-  if (garantia.vendas) w.linhaCampo("Valor da venda", brl(garantia.vendas.total));
-  w.espaco(6);
-
-  w.subtitulo("Condições da garantia");
-  w.paragrafo(
-    conteudoTermo ||
-      `Este termo garante o aparelho descrito acima contra defeitos de fabricação pelo prazo de ${garantia.dias} dias a partir da data da venda. A garantia não cobre danos causados por mau uso, quedas, contato com líquidos, violação do aparelho por terceiros ou desgaste natural de peças e bateria.`,
-    9,
-    rgb(0.35, 0.35, 0.4),
-  );
-  w.espaco(20);
-
-  w.linhaDivisoria();
-  w.espaco(6);
-  w.paragrafo("________________________________", 9);
-  w.paragrafo(garantia.clientes?.nome ?? "Cliente", 8, rgb(0.5, 0.5, 0.55));
-  w.espaco(20);
-  w.paragrafo("________________________________", 9);
-  w.paragrafo(empresa?.loja || empresa?.nome || "SPACE TECH", 8, rgb(0.5, 0.5, 0.55));
 
   return pdf.save();
 }
