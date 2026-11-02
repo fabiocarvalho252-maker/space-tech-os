@@ -19,7 +19,7 @@ import { WhatsAppMessageEditor } from "@/components/whatsapp/WhatsAppMessageEdit
 import { WhatsAppScheduleOptions } from "@/components/whatsapp/WhatsAppScheduleOptions";
 import { WhatsAppAttachmentOptions } from "@/components/whatsapp/WhatsAppAttachmentOptions";
 import { WhatsAppModalFooter } from "@/components/whatsapp/WhatsAppModalFooter";
-import { enviarNotificacaoOsWhatsAppFn } from "@/lib/whatsapp/whatsapp.functions";
+import { enviarNotificacaoOsWhatsAppFn, statusWhatsapp } from "@/lib/whatsapp/whatsapp.functions";
 import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
 import { base64ParaBytes, baixarArquivo } from "@/lib/pdf-share";
 import { linkAprovacaoOrcamento, marcarOrcamentoEnviado } from "@/lib/orcamento-link";
@@ -141,6 +141,13 @@ export function WhatsAppSendModal({
   const telefoneValido = isValidPhoneBR(telefone);
   const orcamentoDisponivel = Number(os?.valor ?? 0) > 0;
   const isMobile = useIsMobile();
+  const statusConexao = useQuery({
+    queryKey: ["whatsapp-status"],
+    queryFn: () => statusWhatsapp(),
+    enabled: open,
+    retry: false,
+  });
+  const empresaConectada = statusConexao.data?.status === "conectado";
 
   const agendamentoValido =
     agendamento.tipo === "agora" || (!!agendamento.data && !!agendamento.hora);
@@ -160,14 +167,15 @@ export function WhatsAppSendModal({
     mutationFn: async () => {
       if (!os) throw new Error("OS não carregada.");
 
-      // No celular, manda direto sem depender da conexão da empresa com a
-      // Evolution API: sem anexo é só o link wa.me; com anexo, gera o(s)
+      // Com o WhatsApp da empresa conectado, sempre envia por ele (também no
+      // celular). Só sem conexão, no celular, cai no envio manual: sem anexo
+      // é só o link wa.me; com anexo, gera o(s)
       // PDF(s) no cliente e usa o share sheet nativo — que já inclui o
       // WhatsApp como destino, com o arquivo anexado — caindo para baixar o
       // PDF + abrir o wa.me (anexo manual) quando o navegador não suporta
       // compartilhar arquivo. Agendamento sempre passa pelo servidor, já que
       // nenhum dos dois caminhos acima suporta isso.
-      if (isMobile && agendamento.tipo === "agora") {
+      if (isMobile && !empresaConectada && agendamento.tipo === "agora") {
         if (!anexos.os && !anexos.orcamento) {
           window.open(buildWaMeLink(telefone, texto), "_blank");
           return "wa_me" as const;
