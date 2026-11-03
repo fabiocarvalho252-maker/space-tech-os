@@ -601,7 +601,16 @@ function PDV() {
                     className="group relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
                   >
                     <div className="aspect-square w-full overflow-hidden rounded-xl bg-muted/50 flex items-center justify-center">
-                      <Icone className="h-8 w-8 text-muted-foreground/40" />
+                      {p.imagem_url ? (
+                        <img
+                          src={p.imagem_url}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full bg-white object-contain"
+                        />
+                      ) : (
+                        <Icone className="h-8 w-8 text-muted-foreground/40" />
+                      )}
                     </div>
                     <div className="space-y-0.5">
                       <p className="truncate text-xs font-semibold leading-tight">{p.nome}</p>

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 import JsBarcode from "jsbarcode";
@@ -10,6 +10,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   Copy,
+  ImagePlus,
   Eye,
   History,
   PackagePlus,
@@ -20,6 +21,7 @@ import {
   Printer,
   Tag,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +47,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HistoricoEstoqueDialog } from "@/components/HistoricoEstoqueDialog";
 import { AjustarEstoqueDialog } from "@/components/AjustarEstoqueDialog";
+import { enviarImagemProduto, removerImagemProduto } from "@/lib/produto-imagem";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({
@@ -73,6 +76,7 @@ type Produto = {
   estoque_minimo: number;
   marca: string | null;
   localizacao: string | null;
+  imagem_url: string | null;
   ativo: boolean;
 };
 
@@ -87,6 +91,7 @@ const vazio = {
   estoque_minimo: "1",
   marca: "",
   localizacao: "",
+  imagem_url: "",
   ativo: true,
 };
 
@@ -94,6 +99,16 @@ type FiltroSituacao = "ativos" | "inativos" | "baixo" | "todos";
 
 const POR_PAGINA = 15;
 type Ordenacao = { campo: "nome" | "preco_venda" | "quantidade"; direcao: "asc" | "desc" };
+
+// Apaga a imagem do storage só se nenhum outro produto (ex.: cópia) a usa.
+async function descartarImagem(url: string | null | undefined) {
+  if (!url) return;
+  const { count } = await supabase
+    .from("produtos")
+    .select("id", { count: "exact", head: true })
+    .eq("imagem_url", url);
+  if (!count) await removerImagemProduto(url).catch(() => {});
+}
 
 function situacaoEstoque(p: Produto) {
   if (p.quantidade <= 0)
@@ -217,7 +232,18 @@ function Estoque() {
     },
   });
 
+  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
+  const previewImagem = useMemo(
+    () => (arquivoImagem ? URL.createObjectURL(arquivoImagem) : null),
+    [arquivoImagem],
+  );
+  useEffect(
+    () => () => void (previewImagem && URL.revokeObjectURL(previewImagem)),
+    [previewImagem],
+  );
+
   function abrirCriar() {
+    setArquivoImagem(null);
     setForm({ ...vazio, estoque_minimo: String(estoqueConfig?.estoque_minimo_padrao ?? 1) });
     setProdutoAtual(null);
     setModo("criar");
@@ -234,8 +260,10 @@ function Estoque() {
       estoque_minimo: String(p.estoque_minimo),
       marca: p.marca ?? "",
       localizacao: p.localizacao ?? "",
+      imagem_url: p.imagem_url ?? "",
       ativo: p.ativo,
     });
+    setArquivoImagem(null);
     setProdutoAtual(p);
     setModo("editar");
   }
@@ -275,6 +303,9 @@ function Estoque() {
         if (existente) throw new Error(`Este código de barras já está em "${existente.nome}"`);
       }
 
+      let imagemUrl = form.imagem_url || null;
+      if (arquivoImagem) imagemUrl = await enviarImagemProduto(arquivoImagem, empresaId!);
+
       const payload = {
         nome: form.nome,
         sku: form.sku || null,
@@ -286,12 +317,15 @@ function Estoque() {
         estoque_minimo: Number(form.estoque_minimo) || 0,
         marca: form.marca.trim() || null,
         localizacao: form.localizacao.trim() || null,
+        imagem_url: imagemUrl,
         ativo: form.ativo,
       };
 
       if (produtoAtual) {
         const { error } = await supabase.from("produtos").update(payload).eq("id", produtoAtual.id);
         if (error) throw error;
+        if (produtoAtual.imagem_url && produtoAtual.imagem_url !== imagemUrl)
+          await descartarImagem(produtoAtual.imagem_url);
       } else {
         const { error } = await supabase
           .from("produtos")
@@ -321,6 +355,7 @@ function Estoque() {
         estoque_minimo: p.estoque_minimo,
         marca: p.marca,
         localizacao: p.localizacao,
+        imagem_url: p.imagem_url,
       });
       if (error) throw error;
     },
@@ -345,9 +380,10 @@ function Estoque() {
   });
 
   const remover = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("produtos").delete().eq("id", id);
+    mutationFn: async (p: Produto) => {
+      const { error } = await supabase.from("produtos").delete().eq("id", p.id);
       if (error) throw error;
+      await descartarImagem(p.imagem_url);
     },
     onSuccess: () => {
       toast.success("Produto removido");
@@ -559,9 +595,7 @@ function Estoque() {
                   <tr key={p.id} className={`hover:bg-secondary/30 ${p.ativo ? "" : "opacity-60"}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-                          <Package className="h-4 w-4" />
-                        </div>
+                        <ProdutoThumb url={p.imagem_url} />
                         <div className="min-w-0">
                           <p className="truncate font-medium">
                             {p.nome}
@@ -676,7 +710,15 @@ function Estoque() {
           <DialogHeader>
             <DialogTitle>{produtoAtual ? "Editar produto" : "Novo produto"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+            <ImagemProdutoCampo
+              url={previewImagem ?? (form.imagem_url || null)}
+              onEscolher={setArquivoImagem}
+              onRemover={() => {
+                setArquivoImagem(null);
+                setForm({ ...form, imagem_url: "" });
+              }}
+            />
             <Campo label="Nome" value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} />
             <Campo label="SKU" value={form.sku} onChange={(v) => setForm({ ...form, sku: v })} />
             <Campo
@@ -765,6 +807,20 @@ function Estoque() {
           </DialogHeader>
           {produtoAtual && (
             <div className="grid gap-3 text-sm sm:grid-cols-2">
+              {produtoAtual.imagem_url && (
+                <a
+                  href={produtoAtual.imagem_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="sm:col-span-2"
+                >
+                  <img
+                    src={produtoAtual.imagem_url}
+                    alt={produtoAtual.nome}
+                    className="mx-auto max-h-64 rounded-xl border border-border object-contain"
+                  />
+                </a>
+              )}
               <Info label="SKU" value={produtoAtual.sku || "—"} />
               <Info label="Código de barras" value={produtoAtual.codigo_barras || "—"} />
               <Info label="Categoria" value={produtoAtual.categoria || "Sem categoria"} />
@@ -795,7 +851,7 @@ function Estoque() {
         confirmLabel="Excluir"
         destructive
         loading={remover.isPending}
-        onConfirm={() => confirmExcluir && remover.mutate(confirmExcluir.id)}
+        onConfirm={() => confirmExcluir && remover.mutate(confirmExcluir)}
       />
     </div>
   );
@@ -912,6 +968,83 @@ function Campo({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function ProdutoThumb({ url }: { url: string | null }) {
+  const [falhou, setFalhou] = useState(false);
+  if (url && !falhou)
+    return (
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        onError={() => setFalhou(true)}
+        className="h-10 w-10 shrink-0 rounded-lg border border-border bg-white object-cover"
+      />
+    );
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+      <Package className="h-4 w-4" />
+    </div>
+  );
+}
+
+function ImagemProdutoCampo({
+  url,
+  onEscolher,
+  onRemover,
+}: {
+  url: string | null;
+  onEscolher: (f: File) => void;
+  onRemover: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-dashed border-border p-3 sm:col-span-2">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary text-muted-foreground hover:opacity-90"
+        aria-label="Escolher imagem do produto"
+      >
+        {url ? (
+          <img src={url} alt="Imagem do produto" className="h-full w-full object-cover" />
+        ) : (
+          <ImagePlus className="h-8 w-8" />
+        )}
+      </button>
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Imagem do produto</p>
+        <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP até 5 MB. Opcional.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => input.current?.click()}>
+            <ImagePlus className="h-4 w-4" /> {url ? "Trocar" : "Escolher imagem"}
+          </Button>
+          {url && (
+            <Button type="button" size="sm" variant="ghost" onClick={onRemover}>
+              <X className="h-4 w-4" /> Remover
+            </Button>
+          )}
+        </div>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (!f) return;
+          if (!f.type.startsWith("image/"))
+            return void toast.error("Escolha um arquivo de imagem.");
+          if (f.size > 5 * 1024 * 1024)
+            return void toast.error("A imagem deve ter no máximo 5 MB.");
+          onEscolher(f);
+        }}
       />
     </div>
   );

@@ -2612,6 +2612,7 @@ export type Database = {
           ativo: boolean;
           garantia_dias: number | null;
           tempo_estimado_min: number | null;
+          imagem_url: string | null;
           localizacao: string | null;
           marca: string | null;
           categoria: string | null;
@@ -2636,6 +2637,7 @@ export type Database = {
           ativo?: boolean;
           garantia_dias?: number | null;
           tempo_estimado_min?: number | null;
+          imagem_url?: string | null;
           localizacao?: string | null;
           marca?: string | null;
           categoria?: string | null;
@@ -2660,6 +2662,7 @@ export type Database = {
           ativo?: boolean;
           garantia_dias?: number | null;
           tempo_estimado_min?: number | null;
+          imagem_url?: string | null;
           localizacao?: string | null;
           marca?: string | null;
           categoria?: string | null;
