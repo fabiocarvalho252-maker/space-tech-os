@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   Copy,
   ImagePlus,
+  Globe,
   Eye,
   History,
   PackagePlus,
@@ -48,6 +49,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { HistoricoEstoqueDialog } from "@/components/HistoricoEstoqueDialog";
 import { AjustarEstoqueDialog } from "@/components/AjustarEstoqueDialog";
 import { enviarImagemProduto, removerImagemProduto } from "@/lib/produto-imagem";
+import { BuscarImagemWebDialog } from "@/components/BuscarImagemWebDialog";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({
@@ -713,6 +715,10 @@ function Estoque() {
           <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
             <ImagemProdutoCampo
               url={previewImagem ?? (form.imagem_url || null)}
+              termoBusca={[form.nome, form.marca]
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .join(" ")}
               onEscolher={setArquivoImagem}
               onRemover={() => {
                 setArquivoImagem(null);
@@ -994,14 +1000,17 @@ function ProdutoThumb({ url }: { url: string | null }) {
 
 function ImagemProdutoCampo({
   url,
+  termoBusca,
   onEscolher,
   onRemover,
 }: {
   url: string | null;
+  termoBusca: string;
   onEscolher: (f: File) => void;
   onRemover: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const [buscaWeb, setBuscaWeb] = useState(false);
   return (
     <div className="flex items-center gap-4 rounded-xl border border-dashed border-border p-3 sm:col-span-2">
       <button
@@ -1022,6 +1031,17 @@ function ImagemProdutoCampo({
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => input.current?.click()}>
             <ImagePlus className="h-4 w-4" /> {url ? "Trocar" : "Escolher imagem"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (!termoBusca) return void toast.error("Digite o nome do produto primeiro.");
+              setBuscaWeb(true);
+            }}
+          >
+            <Globe className="h-4 w-4" /> Buscar na internet
           </Button>
           {url && (
             <Button type="button" size="sm" variant="ghost" onClick={onRemover}>
@@ -1045,6 +1065,12 @@ function ImagemProdutoCampo({
             return void toast.error("A imagem deve ter no máximo 5 MB.");
           onEscolher(f);
         }}
+      />
+      <BuscarImagemWebDialog
+        open={buscaWeb}
+        onOpenChange={setBuscaWeb}
+        termoInicial={termoBusca}
+        onConfirmar={onEscolher}
       />
     </div>
   );
