@@ -90,6 +90,28 @@ const WEBHOOK_EVENTOS = [
 ];
 
 /**
+ * Faz a Evolution ignorar mensagens de grupo. O sistema não usa grupos
+ * (webhook-parse.ts descarta), e num número que participa de grupos
+ * movimentados elas são quase todo o tráfego: a fila de eventos atrasa e o
+ * fechamento da conexão só é percebido no fim dela — nesse intervalo a
+ * instância diz "open", os envios voltam "Connection Closed" e as mensagens
+ * recebidas chegam com atraso. Os grupos continuam normais no celular.
+ */
+export async function ignorarGrupos(instanceName: string): Promise<void> {
+  const config = configuracao();
+  if (!config) throw new EvolutionApiError("Evolution API não configurada no servidor.");
+  await chamar(config, "POST", `/settings/set/${encodeURIComponent(instanceName)}`, {
+    rejectCall: false,
+    msgCall: "",
+    groupsIgnore: true,
+    alwaysOnline: false,
+    readMessages: false,
+    readStatus: false,
+    syncFullHistory: false,
+  });
+}
+
+/**
  * Reaponta o webhook de uma instância que já existe (criarInstancia só
  * configura na criação). Usado para ligar eventos novos sem pedir QR Code.
  */

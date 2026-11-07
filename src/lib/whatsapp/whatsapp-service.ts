@@ -19,6 +19,7 @@ import {
   enviarMensagemMidia,
   enviarMensagemTexto,
   evolutionConfigurado,
+  ignorarGrupos,
   nomeInstancia,
   statusInstancia,
 } from "./evolution-api";
@@ -125,6 +126,10 @@ export async function conectar(userId: string, origin: string): Promise<Whatsapp
 
   try {
     const criado = await criarInstancia(instanceName, webhookUrl);
+    // Só otimização: se falhar, a conexão segue mesmo assim.
+    await ignorarGrupos(instanceName).catch((erro) =>
+      console.error("Não foi possível configurar a instância para ignorar grupos:", erro),
+    );
     let qrcode = criado.qrcodeBase64;
     if (!qrcode) {
       const conectado = await conectarInstancia(instanceName);
@@ -958,8 +963,9 @@ export async function aplicarAtualizacaoConexaoWebhook(
     .update({
       status,
       ...(phoneNumber != null ? { phone_number: phoneNumber } : {}),
+      // Reconectou: o aviso de sessão caída deixa de valer.
       ...(status === "conectado"
-        ? { qr_code: null, last_connected_at: new Date().toISOString() }
+        ? { qr_code: null, last_connected_at: new Date().toISOString(), last_error: null }
         : {}),
     })
     .eq("instance_name", instanceName);
