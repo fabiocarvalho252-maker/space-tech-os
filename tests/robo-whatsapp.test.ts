@@ -314,3 +314,11 @@ test("resumoHorario agrupa dias seguidos com o mesmo expediente", () => {
   );
   assert.equal(resumoHorario([null, null, null, null, null, null, null]), "");
 });
+
+test("lerOpcao: número falado (áudio transcrito)", () => {
+  assert.equal(lerOpcao("Opção dois."), 2);
+  assert.equal(lerOpcao("Um"), 1);
+  assert.equal(lerOpcao("a três"), 3);
+  assert.equal(lerOpcao("quatro"), 4);
+  assert.equal(lerOpcao("um celular"), null);
+});

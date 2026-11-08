@@ -168,12 +168,26 @@ export function normalizar(texto: string): string {
 
 export type Opcao = 0 | 1 | 2 | 3 | 4 | 5;
 
+const NUMEROS_FALADOS: Record<string, Opcao> = {
+  zero: 0,
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  quatro: 4,
+  cinco: 5,
+};
+
 /** Número do menu (também "1.", "1️⃣", "opção 2") ou palavra-chave clara. */
 export function lerOpcao(texto: string | null): Opcao | null {
   const t = normalizar(texto ?? "");
   if (!t) return null;
   const numero = t.match(/^(?:opcao |op )?([0-5])$/);
   if (numero) return Number(numero[1]) as Opcao;
+  // Áudio transcrito: "opção dois", "a um".
+  const falado = t.match(/^(?:opcao |a |numero )?(zero|um|uma|dois|duas|tres|quatro|cinco)$/);
+  if (falado) return NUMEROS_FALADOS[falado[1]!]!;
   if (/^(menu|inicio|voltar ao menu)$/.test(t)) return 0;
   if (/\b(atendente|humano|pessoa|falar com alguem|falar com voce|vendedor)\b/.test(t)) return 4;
   if (/\bgarantia\b/.test(t)) return 3;

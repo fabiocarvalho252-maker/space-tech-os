@@ -4411,6 +4411,7 @@ export type Database = {
           sent_by: string | null;
           status: string;
           template_id: string | null;
+          transcricao: string | null;
           user_id: string;
         };
         Insert: {
@@ -4442,6 +4443,7 @@ export type Database = {
           sent_by?: string | null;
           status?: string;
           template_id?: string | null;
+          transcricao?: string | null;
           user_id: string;
         };
         Update: {
@@ -4473,6 +4475,7 @@ export type Database = {
           sent_by?: string | null;
           status?: string;
           template_id?: string | null;
+          transcricao?: string | null;
           user_id?: string;
         };
         Relationships: [

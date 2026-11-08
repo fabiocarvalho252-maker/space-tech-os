@@ -22,6 +22,7 @@ import { enviarAutomatico, obterEmpresaDoOperador } from "./whatsapp-service";
 import { comTaxaRepassada } from "@/lib/mercadopago/fees";
 import { origemPublicaServer } from "@/lib/site-url.server";
 import * as robo from "./robo";
+import { textoParaRobo } from "./transcricao";
 
 const HORA = 3_600_000;
 const PAUSA_APOS_HUMANO_MS = 2 * HORA;
@@ -40,6 +41,8 @@ type Params = {
   numero: string;
   texto: string | null;
   temMidia: boolean;
+  /** Transcrição do áudio (em andamento): o robô usa como texto digitado. */
+  transcricao?: Promise<string | null> | undefined;
   /** Horário de envio no WhatsApp; mensagem velha (sessão travada) não é respondida. */
   enviadaEm?: string | null;
   recebidaEm?: number;
@@ -83,7 +86,12 @@ async function evento(
   if (error) console.error("[robo-whatsapp] evento não gravado:", tipo, error.message);
 }
 
-async function processar(params: Params): Promise<void> {
+async function processar(entrada: Params): Promise<void> {
+  let params = entrada;
+  if (entrada.transcricao) {
+    const falado = textoParaRobo(await entrada.transcricao);
+    if (falado) params = { ...entrada, texto: falado, temMidia: false };
+  }
   if (pedidoDeParar(params.texto) || pedidoDeVoltar(params.texto)) return;
   if (
     params.enviadaEm &&

@@ -23,6 +23,8 @@ export type MensagemWebhook = {
     mime: string | null;
     nome: string | null;
     base64: string | null;
+    /** Duração do áudio/vídeo em segundos, quando o WhatsApp informa. */
+    segundos: number | null;
   } | null;
   /** Id da mensagem citada, quando o cliente respondeu uma específica. */
   respostaA: string | null;
@@ -146,6 +148,10 @@ export function lerMensagem(data: Record<string, unknown>): MensagemWebhook {
           mime: texto(subtipo["mimetype"])?.split(";")[0]?.trim() ?? null,
           nome: texto(subtipo["fileName"]) ?? texto(subtipo["title"]) ?? null,
           base64: texto(mensagem["base64"]) ?? texto(data["base64"]) ?? null,
+          segundos:
+            Number.isFinite(Number(subtipo["seconds"])) && Number(subtipo["seconds"]) > 0
+              ? Number(subtipo["seconds"])
+              : null,
         }
       : null,
     respostaA,

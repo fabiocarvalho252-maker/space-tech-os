@@ -14,6 +14,7 @@ import {
   Hand,
   Image as ImageIcon,
   Loader2,
+  Mic,
   MoreVertical,
   Paperclip,
   Plus,
@@ -471,6 +472,7 @@ function Bolha({
           </div>
         )}
         {m.midia_tipo && <Anexo m={m} />}
+        {m.midia_tipo === "audio" && <Transcricao m={m} claro={roxa} />}
         {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
         <div
           className={cn(
@@ -510,6 +512,32 @@ function Bolha({
         )}
       </div>
     </div>
+  );
+}
+
+/** Texto falado no áudio; enquanto o Gemini transcreve, um aviso curto. */
+function Transcricao({ m, claro }: { m: MensagemCentral; claro: boolean }) {
+  if (m.transcricao) {
+    return (
+      <p
+        className={cn(
+          "mb-1 flex items-start gap-1.5 whitespace-pre-wrap break-words rounded-md px-2 py-1 text-xs italic",
+          claro ? "bg-white/10" : "bg-background/50 text-muted-foreground",
+        )}
+        title="Transcrição automática do áudio"
+      >
+        <Mic className="mt-0.5 h-3 w-3 shrink-0" />
+        <span>{m.transcricao}</span>
+      </p>
+    );
+  }
+  // Só mostra "transcrevendo" logo depois de chegar (depois disso não veio).
+  const recente = Date.now() - new Date(m.created_at).getTime() < 90_000;
+  if (m.direction !== "inbound" || !m.tem_midia || !recente) return null;
+  return (
+    <p className="mb-1 flex items-center gap-1.5 text-[11px] italic opacity-70">
+      <Loader2 className="h-3 w-3 animate-spin" /> Transcrevendo áudio…
+    </p>
   );
 }
 

@@ -89,6 +89,8 @@ export type MensagemCentral = {
   midia_nome: string | null;
   midia_mime: string | null;
   midia_tamanho: number | null;
+  /** Texto falado no áudio (transcrito pelo Gemini). */
+  transcricao: string | null;
   tem_midia: boolean;
   resposta_a: string | null;
   resposta_a_texto: string | null;
@@ -302,7 +304,7 @@ export async function listarMensagens(params: {
   let q = supabaseAdmin
     .from("whatsapp_messages")
     .select(
-      "id, direction, content, status, entrega, error, created_at, sent_by, template_id, os_id, midia_tipo, midia_nome, midia_mime, midia_tamanho, midia_path, resposta_a, evolution_message_id, metadata",
+      "id, direction, content, status, entrega, error, created_at, sent_by, template_id, os_id, midia_tipo, midia_nome, midia_mime, midia_tamanho, midia_path, transcricao, resposta_a, evolution_message_id, metadata",
     )
     .eq("user_id", params.empresaId)
     .eq("conversa_id", params.conversaId)
@@ -327,12 +329,16 @@ export async function listarMensagens(params: {
   if (citadas.length) {
     const { data: originais } = await supabaseAdmin
       .from("whatsapp_messages")
-      .select("evolution_message_id, content, midia_tipo")
+      .select("evolution_message_id, content, midia_tipo, transcricao")
       .eq("user_id", params.empresaId)
       .in("evolution_message_id", citadas);
     for (const o of originais ?? []) {
       if (o.evolution_message_id)
-        textos.set(o.evolution_message_id, o.content ?? (o.midia_tipo ? `[${o.midia_tipo}]` : ""));
+        textos.set(
+          o.evolution_message_id,
+          o.content ??
+            (o.transcricao ? `🎤 ${o.transcricao}` : o.midia_tipo ? `[${o.midia_tipo}]` : ""),
+        );
     }
   }
 
@@ -1541,7 +1547,9 @@ export async function sugestaoIA(params: {
   const historico = mensagens
     .map((m) => {
       const quem = m.direction === "inbound" ? "CLIENTE" : "LOJA";
-      const corpo = m.content ?? (m.midia_tipo ? `[${m.midia_tipo}]` : "");
+      const corpo =
+        m.content ??
+        (m.transcricao ? `[áudio] ${m.transcricao}` : m.midia_tipo ? `[${m.midia_tipo}]` : "");
       return `${quem}: ${corpo.slice(0, 600)}`;
     })
     .join("\n");

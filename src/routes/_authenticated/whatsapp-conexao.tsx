@@ -10,6 +10,7 @@ import {
   RotateCw,
   Send,
   Smartphone,
+  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -47,6 +48,18 @@ export const Route = createFileRoute("/_authenticated/whatsapp-conexao")({
   }),
   component: WhatsappPage,
 });
+
+function AvisoSomenteBusiness() {
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <p>
+        <strong>Somente WhatsApp Business.</strong> Conecte o número da empresa pelo aplicativo{" "}
+        <strong>WhatsApp Business</strong>, não pelo WhatsApp comum (pessoal).
+      </p>
+    </div>
+  );
+}
 
 function ehNaoConfigurado(erro: unknown): boolean {
   return erro instanceof Error && /não foi configurada/i.test(erro.message);
@@ -208,6 +221,12 @@ function WhatsappPage() {
                 )}
                 {status === "erro" && conexao?.last_error && (
                   <p className="mt-3 text-xs text-destructive">{conexao.last_error}</p>
+                )}
+
+                {!conectado && (
+                  <div className="mt-3">
+                    <AvisoSomenteBusiness />
+                  </div>
                 )}
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -440,10 +459,11 @@ function WhatsappPage() {
               <QrCode className="h-5 w-5 text-green-600" /> Conectar WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Abra o WhatsApp no celular da empresa → Aparelhos conectados → Conectar um aparelho, e
-              escaneie o código abaixo.
+              Abra o WhatsApp Business no celular da empresa → Aparelhos conectados → Conectar um
+              aparelho, e escaneie o código abaixo.
             </DialogDescription>
           </DialogHeader>
+          <AvisoSomenteBusiness />
           <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
             {conexao?.qr_code ? (
               <img

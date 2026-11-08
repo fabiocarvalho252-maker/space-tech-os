@@ -24,6 +24,7 @@ import {
 } from "./central.server";
 import { foiEnviadoPorEsteServidor } from "./evolution-api";
 import { processarMensagemRobo } from "./robo.server";
+import { transcreverAudioRecebido } from "./transcricao.server";
 import { lerApagada, lerMensagem, lerStatus, objeto, texto } from "./webhook-parse";
 import {
   SYSTEM_INSTANCE_NAME,
@@ -98,6 +99,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         return new Response("ok", { status: 200 });
       }
 
+      let empresaId = null as string | null;
       await registrarMensagemRecebida({
         instanceName,
         numero: mensagem.numero,
@@ -106,16 +108,32 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         evolutionMessageId: mensagem.id,
         metadata: { event },
         enviadaEm: mensagem.enviadaEm,
-        extras: async (conexao) => ({
-          resposta_a: mensagem.respostaA,
-          ...((await guardarMidiaRecebida({
-            empresaId: conexao.user_id,
-            instanceName,
-            mensagem,
-          })) ?? {}),
-        }),
+        extras: async (conexao) => {
+          empresaId = conexao.user_id;
+          return {
+            resposta_a: mensagem.respostaA,
+            ...((await guardarMidiaRecebida({
+              empresaId: conexao.user_id,
+              instanceName,
+              mensagem,
+            })) ?? {}),
+          };
+        },
       });
       await tratarPedidoParar({ instanceName, numero: mensagem.numero, texto: mensagem.texto });
+      // Áudio do cliente: transcreve pelo Gemini (aparece na Central e o
+      // robô entende). Roda depois do 200, como o robô.
+      const transcricao =
+        mensagem.midia?.tipo === "audio" && mensagem.id && empresaId
+          ? transcreverAudioRecebido({
+              empresaId,
+              evolutionMessageId: mensagem.id,
+              segundos: mensagem.midia.segundos,
+            }).catch((e) => {
+              console.error("[transcricao] falha:", e instanceof Error ? e.message : e);
+              return null;
+            })
+          : undefined;
       // Robô de atendimento (se ligado): responde depois do 200, como a IA da
       // pesquisa — o envio leva alguns segundos e o Evolution não espera.
       void processarMensagemRobo({
@@ -124,6 +142,7 @@ export async function handleWhatsappWebhook(request: Request): Promise<Response>
         texto: mensagem.texto,
         temMidia: !!mensagem.midia,
         enviadaEm: mensagem.enviadaEm,
+        transcricao,
       });
     } else if (event.toUpperCase().includes("MESSAGES_DELETE") || event === "messages.delete") {
       // A loja apagou "para todos", no celular, uma mensagem da conversa
