@@ -20,6 +20,7 @@ import {
   Eye,
   EyeOff,
   Clock,
+  Tag,
   Star,
   Sparkles,
   Wand2,
@@ -64,6 +65,7 @@ import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
 import { useOsParadas } from "@/hooks/useOsParadas";
+import { imprimirEtiquetaOs } from "@/lib/etiqueta-os";
 import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
@@ -659,9 +661,22 @@ function Ordens() {
           );
         }
       }
+      const cliente = clientes.find((c) => c.id === os.cliente_id);
+      return { ...os, clientes: cliente ? { nome: cliente.nome, telefone: null } : null };
     },
-    onSuccess: () => {
-      toast.success("OS criada");
+    onSuccess: (nova) => {
+      // O aparelho acabou de chegar no balcão: oferece a etiqueta na hora.
+      toast.success(`OS #${nova.numero} criada`, {
+        duration: 10_000,
+        action: {
+          label: "Imprimir etiqueta",
+          onClick: () => {
+            if (!imprimirEtiquetaOs(nova, profile?.loja || "Assistência")) {
+              toast.error("Permita pop-ups para imprimir a etiqueta.");
+            }
+          },
+        },
+      });
       setForm(vazio);
       setFotosNovaOs([]);
       setLadosNovaOs(new Map());
@@ -1132,6 +1147,11 @@ function Ordens() {
     enviarOs,
     imprimir,
     enviarWhatsAppOs,
+    imprimirEtiqueta: (os) => {
+      if (!imprimirEtiquetaOs(os, profile?.loja || "Assistência")) {
+        toast.error("Permita pop-ups para imprimir a etiqueta.");
+      }
+    },
     gerarAcessoOs,
     abrirAssinatura: (os) => {
       setAssinaturaOs(os);
@@ -2359,6 +2379,7 @@ type AcoesListaOs = {
   enviarOs: (os: OsListada, modo?: "os" | "orcamento") => void;
   imprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
   enviarWhatsAppOs: (os: OsListada, modelo?: string) => void;
+  imprimirEtiqueta: (os: OsListada) => void;
   gerarAcessoOs: (os: OsListada) => void;
   abrirAssinatura: (os: OsListada) => void;
   confirmarEstorno: (os: OsListada) => void;
@@ -2602,6 +2623,7 @@ const ListaOs = memo(function ListaOs({
                       onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
                       onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
                       onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
+                      onEtiqueta={(o) => acoes.current.imprimirEtiqueta(o)}
                       onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                       onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                       onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2722,6 +2744,7 @@ const ListaOs = memo(function ListaOs({
                 onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
                 onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
                 onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
+                onEtiqueta={(o) => acoes.current.imprimirEtiqueta(o)}
                 onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                 onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                 onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2755,6 +2778,7 @@ function AcoesOsMenu({
   onEnviarOrcamento,
   onWhatsApp,
   onLinkCliente,
+  onEtiqueta,
   onGerarAcesso,
   onAssinatura,
   onEstornar,
@@ -2765,6 +2789,7 @@ function AcoesOsMenu({
   onEnviarOrcamento: (os: OsListada) => void;
   onWhatsApp: (os: OsListada) => void;
   onLinkCliente: (os: OsListada) => void;
+  onEtiqueta: (os: OsListada) => void;
   onGerarAcesso: (os: OsListada) => void;
   onAssinatura: (os: OsListada) => void;
   onEstornar: (os: OsListada) => void;
@@ -2785,6 +2810,9 @@ function AcoesOsMenu({
         <DropdownMenuItem onClick={() => onImprimir(os, "os")}>Imprimir A4</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onImprimir(os, "nao_fiscal")}>
           Imprimir não fiscal
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onEtiqueta(os)}>
+          <Tag className="mr-2 h-4 w-4" /> Etiqueta do aparelho
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onAssinatura(os)}>Assinatura digital</DropdownMenuItem>
         <DropdownMenuSeparator />
