@@ -428,6 +428,14 @@ function Ordens() {
     }
     const catalogo = tipo === "produto" ? pecas : servicosCadastrados;
     const item = catalogo.find((p) => p.nome === base.descricao);
+    // Peça sem estoque suficiente: avisa (a OS fica com o estoque negativo e
+    // a peça entra em "Peças em falta" no sininho).
+    const qtdPedida = Number(base.quantidade) || 1;
+    if (tipo === "produto" && item && Number(item.quantidade) < qtdPedida) {
+      toast.warning(`Sem estoque suficiente de ${item.nome}`, {
+        description: `Em estoque: ${Number(item.quantidade)}. Faltam ${qtdPedida - Math.max(0, Number(item.quantidade))} — vai para “Peças em falta”.`,
+      });
+    }
     setItensEdicao([
       ...itensEdicao,
       {
@@ -812,7 +820,10 @@ function Ordens() {
     },
     onSuccess: (salva) => {
       toast.success("OS atualizada");
-      if (salva) avisarSePronta(salva.id, salva.status);
+      if (salva) {
+        avisarSePronta(salva.id, salva.status);
+        oferecerDevolucaoPecas(salva.id, salva.status);
+      }
       setEditOpen(false);
       setSelectedOsId(null);
       setForm(vazio);
@@ -849,6 +860,43 @@ function Ordens() {
       description: "Mande o link da Área do Cliente para o cliente acompanhar.",
       duration: 10_000,
       action: { label: "Enviar link", onClick: () => enviarWhatsAppOs(os, "area_cliente") },
+    });
+  }
+
+  // OS reprovada/cancelada com peças lançadas: oferece devolver ao estoque
+  // (devolver_pecas_os; se a OS for reaberta, as peças saem de novo).
+  async function oferecerDevolucaoPecas(osId: string, status: string) {
+    if (status !== "reprovado" && status !== "cancelado") return;
+    const { data: itens } = await supabase
+      .from("os_itens")
+      .select("quantidade, produtos(categoria), ordens_servico(numero, pecas_devolvidas_em)")
+      .eq("os_id", osId)
+      .not("produto_id", "is", null);
+    const pecas = (itens ?? []).filter(
+      (i) => (i.produtos as { categoria: string | null } | null)?.categoria !== "Serviço",
+    );
+    const os = (itens?.[0]?.ordens_servico ?? null) as {
+      numero: number;
+      pecas_devolvidas_em: string | null;
+    } | null;
+    if (!pecas.length || os?.pecas_devolvidas_em) return;
+    const qtd = pecas.reduce((t, i) => t + Number(i.quantidade), 0);
+    toast.info(`OS #${os?.numero ?? ""}: ${qtd} peça(s) lançada(s)`, {
+      description: "Se não foram usadas, devolva ao estoque.",
+      duration: 15_000,
+      action: {
+        label: "Devolver ao estoque",
+        onClick: async () => {
+          const { data, error } = await supabase.rpc("devolver_pecas_os", { p_os_id: osId });
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+          toast.success(`${data} peça(s) devolvida(s) ao estoque`);
+          qc.invalidateQueries({ queryKey: ["produtos"] });
+          qc.invalidateQueries({ queryKey: ["os-historico", osId] });
+        },
+      },
     });
   }
 
@@ -909,6 +957,7 @@ function Ordens() {
       toast.success("Status atualizado");
       avisarSePronta(variables.id, variables.status);
       lembrarChecklistSaida(variables.id, variables.status);
+      oferecerDevolucaoPecas(variables.id, variables.status);
     },
     onError: (error: Error) => {
       toast.error(error.message);

@@ -209,7 +209,7 @@ export function AppShell() {
   const pendencias = new Set<string>();
   for (const n of notificacoes ?? []) {
     if (n.id === "os-aguardando") pendencias.add("/ordens");
-    if (n.id === "estoque-baixo") pendencias.add("/estoque");
+    if (n.id === "estoque-baixo" || n.id === "pecas-em-falta") pendencias.add("/estoque");
   }
 
   const [recolhida, setRecolhida] = useState(false);
@@ -676,7 +676,10 @@ function useNotificacoes() {
         { data: avaliacoesVenda },
         paradas,
       ] = await Promise.all([
-        supabase.from("produtos").select("id, nome, quantidade, estoque_minimo").eq("ativo", true),
+        supabase
+          .from("produtos")
+          .select("id, nome, quantidade, estoque_minimo, categoria")
+          .eq("ativo", true),
         supabase.from("ordens_servico").select("id").eq("status", "aguardando_aprovacao"),
         // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
         listarReclamacoesPesquisaFn().catch(() => []),
@@ -707,7 +710,16 @@ function useNotificacoes() {
         buscarOsParadas().catch(() => []),
       ]);
 
-      const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
+      // Estoque negativo = peça lançada em OS/venda sem ter: lista de compra.
+      const emFalta = (produtos ?? []).filter(
+        (p) => p.categoria !== "Serviço" && Number(p.quantidade) < 0,
+      );
+      const baixoEstoque = (produtos ?? []).filter(
+        (p) =>
+          p.categoria !== "Serviço" &&
+          Number(p.quantidade) >= 0 &&
+          p.quantidade <= p.estoque_minimo,
+      );
 
       const itens: Notificacao[] = [];
       if (pedidosPlano.length > 0) {
@@ -721,6 +733,19 @@ function useNotificacoes() {
           to: "/admin",
           icon: CreditCard,
           assinatura: assinar(pedidosPlano.map((p) => `${p.loja}/${p.plano}`)),
+        });
+      }
+      if (emFalta.length > 0) {
+        itens.push({
+          id: "pecas-em-falta",
+          titulo: `${emFalta.length} peça${emFalta.length > 1 ? "s" : ""} em falta (comprar)`,
+          descricao: emFalta
+            .slice(0, 3)
+            .map((p) => `${p.nome} (faltam ${-Number(p.quantidade)})`)
+            .join(", "),
+          to: "/estoque",
+          icon: Package,
+          assinatura: assinar(emFalta.map((p) => `${p.id}:${p.quantidade}`)),
         });
       }
       if (baixoEstoque.length > 0) {

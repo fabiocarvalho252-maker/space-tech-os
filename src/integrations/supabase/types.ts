@@ -1940,6 +1940,7 @@ export type Database = {
       };
       ordens_servico: {
         Row: {
+          pecas_devolvidas_em: string | null;
           os_origem_id: string | null;
           checklist_saida: Json;
           checklist_saida_em: string | null;
@@ -1978,6 +1979,7 @@ export type Database = {
           valor_pago: number;
         };
         Insert: {
+          pecas_devolvidas_em?: string | null;
           os_origem_id?: string | null;
           checklist_saida?: Json;
           checklist_saida_em?: string | null;
@@ -2016,6 +2018,7 @@ export type Database = {
           valor_pago?: number;
         };
         Update: {
+          pecas_devolvidas_em?: string | null;
           os_origem_id?: string | null;
           checklist_saida?: Json;
           checklist_saida_em?: string | null;
@@ -5012,6 +5015,10 @@ export type Database = {
           preco_unitario: number;
           desconto: number;
         }[];
+      };
+      devolver_pecas_os: {
+        Args: { p_os_id: string };
+        Returns: number;
       };
       previsao_sugerida: {
         Args: { p_produtos?: string[] | null };
