@@ -162,7 +162,14 @@ export const messageTemplates: WhatsAppMessageTemplate[] = [
     name: "Pronto p/ retirar",
     builtin: true,
     message:
-      "Olá {cliente}! Sua OS nº {numero_os} está pronta para retirada. Valor: {valor}. Aguardamos você!",
+      "Olá {cliente}! Sua OS nº {numero_os} está pronta para retirada. Valor: {valor}. Aguardamos você!\n\nDetalhes, fotos e garantia: {link}",
+  },
+  {
+    id: "area_cliente",
+    name: "Área do Cliente",
+    builtin: true,
+    message:
+      "Olá {cliente}! Acompanhe sua OS nº {numero_os} pelo link abaixo — status, linha do tempo, fotos, garantia e o PDF da OS:\n{link}",
   },
   {
     id: "aguardando_peca",
@@ -221,6 +228,9 @@ export function buildMensagensRapidas(
 // do cliente — e é só nesse status (ou em "orcamento") que a página
 // /consulta/:id mostra os botões Aprovar / Recusar.
 const STATUS_ANTES_DO_ORCAMENTO = ["recebido", "em_analise", "orcamento"];
+
+/** Modelos que levam o link só para acompanhar — não contam como orçamento enviado. */
+export const MODELOS_LINK_ACOMPANHAMENTO = ["area_cliente", "pronto_retirar"];
 
 export function statusAposEnviarOrcamento(status: string): string | null {
   return STATUS_ANTES_DO_ORCAMENTO.includes(status) ? "aguardando_aprovacao" : null;

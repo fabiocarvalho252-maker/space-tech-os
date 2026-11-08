@@ -29,6 +29,7 @@ import {
   digitsOnlyBR,
   isValidPhoneBR,
   maskPhoneBR,
+  MODELOS_LINK_ACOMPANHAMENTO,
   preencherVariaveisWhatsApp,
   type VariaveisWhatsApp,
   type WhatsAppSchedule,
@@ -157,6 +158,8 @@ export function WhatsAppSendModal({
   // o cliente aprovar: a OS passa para "Aguardando aprovação".
   async function aposEnviar() {
     if (!os || !texto.includes(linkAprovacaoOrcamento(os.id))) return;
+    // Link mandado só para acompanhar a OS não mexe no status.
+    if (templateId && MODELOS_LINK_ACOMPANHAMENTO.includes(templateId)) return;
     if (await marcarOrcamentoEnviado(os)) {
       qc.invalidateQueries({ queryKey: ["ordens"] });
       qc.invalidateQueries({ queryKey: ["os-historico", os.id] });

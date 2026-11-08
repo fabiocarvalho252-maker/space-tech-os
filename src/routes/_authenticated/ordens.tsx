@@ -25,6 +25,8 @@ import {
   Undo2,
   KeyRound,
   Share2,
+  ExternalLink,
+  Link2,
   UserCheck,
   ChevronLeft,
   ChevronRight,
@@ -288,6 +290,7 @@ function Ordens() {
   const [faturarOpen, setFaturarOpen] = useState(false);
   const [whatsappOs, setWhatsappOs] = useState<WhatsAppOsAlvo | null>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [whatsappModelo, setWhatsappModelo] = useState<string | undefined>(undefined);
   const [enviarOsAlvo, setEnviarOsAlvo] = useState<OsListada | null>(null);
   const [enviarOsModo, setEnviarOsModo] = useState<"os" | "orcamento">("os");
   const [enviarOsOpen, setEnviarOsOpen] = useState(false);
@@ -764,10 +767,25 @@ function Ordens() {
   // Aviso automático "OS pronta" no WhatsApp (se ligado em Configurações).
   // O servidor confere tudo — ligado, telefone, já enviado — e só avisa
   // aqui quando a mensagem saiu ou falhou de verdade.
+  // Sem o aviso automático (desligado, sem conexão, falhou...), oferece
+  // mandar o link da Área do Cliente na hora, já com o modelo escolhido.
+  function oferecerLinkCliente(osId: string) {
+    const os = ordens.find((o) => o.id === osId);
+    if (!os) return;
+    toast.info(`OS #${os.numero} pronta`, {
+      description: "Mande o link da Área do Cliente para o cliente acompanhar.",
+      duration: 10_000,
+      action: { label: "Enviar link", onClick: () => enviarWhatsAppOs(os, "area_cliente") },
+    });
+  }
+
   function avisarSePronta(osId: string, status: string) {
     if (status !== "pronto") return;
     avisarOsProntaFn({ data: { osId } })
       .then((r) => {
+        if (!r.enviado && r.motivo !== "aguardando_aprovacao" && r.motivo !== "ja_enviado") {
+          oferecerLinkCliente(osId);
+        }
         if (r.enviado) {
           toast.success("Cliente avisado no WhatsApp que a OS está pronta");
           qc.invalidateQueries({ queryKey: ["os-historico", osId] });
@@ -833,8 +851,9 @@ function Ordens() {
     null,
   );
 
-  function enviarWhatsAppOs(os: OsListada) {
+  function enviarWhatsAppOs(os: OsListada, modelo?: string) {
     setWhatsappOs(os);
+    setWhatsappModelo(modelo);
     setWhatsappOpen(true);
   }
 
@@ -2264,7 +2283,12 @@ function Ordens() {
         }}
       />
 
-      <WhatsAppSendModal os={whatsappOs} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+      <WhatsAppSendModal
+        os={whatsappOs}
+        open={whatsappOpen}
+        onOpenChange={setWhatsappOpen}
+        templateInicial={whatsappModelo}
+      />
       <EnviarOsModal
         os={enviarOsAlvo}
         modo={enviarOsModo}
@@ -2331,7 +2355,7 @@ type AcoesListaOs = {
   abrirEdicao: (os: OsListada) => void;
   enviarOs: (os: OsListada, modo?: "os" | "orcamento") => void;
   imprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
-  enviarWhatsAppOs: (os: OsListada) => void;
+  enviarWhatsAppOs: (os: OsListada, modelo?: string) => void;
   gerarAcessoOs: (os: OsListada) => void;
   abrirAssinatura: (os: OsListada) => void;
   confirmarEstorno: (os: OsListada) => void;
@@ -2473,6 +2497,7 @@ const ListaOs = memo(function ListaOs({
                       onImprimir={(o, modo) => acoes.current.imprimir(o, modo)}
                       onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
                       onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
+                      onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
                       onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                       onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                       onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2587,6 +2612,7 @@ const ListaOs = memo(function ListaOs({
                 onImprimir={(o, modo) => acoes.current.imprimir(o, modo)}
                 onEnviarOrcamento={(o) => acoes.current.enviarOs(o, "orcamento")}
                 onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
+                onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
                 onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                 onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                 onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2619,6 +2645,7 @@ function AcoesOsMenu({
   onImprimir,
   onEnviarOrcamento,
   onWhatsApp,
+  onLinkCliente,
   onGerarAcesso,
   onAssinatura,
   onEstornar,
@@ -2628,6 +2655,7 @@ function AcoesOsMenu({
   onImprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
   onEnviarOrcamento: (os: OsListada) => void;
   onWhatsApp: (os: OsListada) => void;
+  onLinkCliente: (os: OsListada) => void;
   onGerarAcesso: (os: OsListada) => void;
   onAssinatura: (os: OsListada) => void;
   onEstornar: (os: OsListada) => void;
@@ -2655,6 +2683,16 @@ function AcoesOsMenu({
           Enviar orçamento (PDF)
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onWhatsApp(os)}>Enviar por WhatsApp</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Área do Cliente</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onLinkCliente(os)}>
+          <Link2 className="mr-2 h-4 w-4" /> Enviar link por WhatsApp
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => window.open(`${origemPublica()}/consulta/${os.id}`, "_blank", "noopener")}
+        >
+          <ExternalLink className="mr-2 h-4 w-4" /> Abrir Área do Cliente
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onGerarAcesso(os)}>
           <KeyRound className="mr-2 h-4 w-4" /> Gerar acesso do cliente
         </DropdownMenuItem>
