@@ -3,7 +3,8 @@
 // fotos e o próprio PDF. Os dados vêm de detalhes_os_publica() (sem senha,
 // anotações internas, e com IMEI/série mascarados).
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CalendarClock,
   Camera,
@@ -15,6 +16,7 @@ import {
   Smartphone,
   Wallet,
   FileText,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -107,7 +109,13 @@ export function DetalhesOsCliente({
   const checklist = Object.keys(CHECKLIST_LABELS).filter((k) => d.checklist_entrada?.[k]);
   const avarias = Object.keys(ESTADO_FISICO_LABELS).filter((k) => d.estado_fisico?.[k]);
   const temEntrada =
-    d.cor || d.imei || d.serie || d.acessorios || checklist.length || avarias.length || d.estado_fisico_obs;
+    d.cor ||
+    d.imei ||
+    d.serie ||
+    d.acessorios ||
+    checklist.length ||
+    avarias.length ||
+    d.estado_fisico_obs;
   const garantiaVigente =
     d.garantia_vencimento && new Date(`${d.garantia_vencimento}T23:59:59`) >= new Date();
 
@@ -219,7 +227,9 @@ export function DetalhesOsCliente({
                       ultimo ? "bg-primary ring-2 ring-primary/30" : "bg-muted-foreground/40"
                     }`}
                   />
-                  <p className={`text-sm ${ultimo ? "font-bold" : "font-medium"}`}>{textoEvento(h)}</p>
+                  <p className={`text-sm ${ultimo ? "font-bold" : "font-medium"}`}>
+                    {textoEvento(h)}
+                  </p>
                   <p className="text-xs text-muted-foreground">{dataHoraBR(h.data)}</p>
                 </li>
               );
@@ -297,6 +307,8 @@ export function DetalhesOsCliente({
 
       {d.qtd_fotos > 0 && <FotosOs osId={osId} qtd={d.qtd_fotos} />}
 
+      <AvaliacaoOs osId={osId} />
+
       <BaixarPdf osId={osId} numero={numero} />
     </div>
   );
@@ -304,7 +316,11 @@ export function DetalhesOsCliente({
 
 function FotosOs({ osId, qtd }: { osId: string; qtd: number }) {
   const [abrir, setAbrir] = useState(false);
-  const { data: fotos = [], isLoading, error } = useQuery({
+  const {
+    data: fotos = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["os-publica-fotos", osId],
     queryFn: () => fotosOsPublicaFn({ data: { osId } }),
     enabled: abrir,
@@ -370,8 +386,16 @@ function BaixarPdf({ osId, numero }: { osId: string; numero: number }) {
 
   return (
     <div className="space-y-2">
-      <Button className="w-full h-12 gap-2" disabled={baixar.isPending} onClick={() => baixar.mutate()}>
-        {baixar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+      <Button
+        className="w-full h-12 gap-2"
+        disabled={baixar.isPending}
+        onClick={() => baixar.mutate()}
+      >
+        {baixar.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Download className="h-4 w-4" />
+        )}
         Baixar PDF da OS
       </Button>
       {baixar.error && (
@@ -379,6 +403,125 @@ function BaixarPdf({ osId, numero }: { osId: string; numero: number }) {
           Não foi possível gerar o PDF agora. Tente de novo em instantes.
         </p>
       )}
+    </div>
+  );
+}
+
+type SituacaoAvaliacao = { pode_avaliar: boolean; nota: number | null; comentario: string | null };
+
+const ROTULO_NOTA = ["", "Muito ruim", "Ruim", "Regular", "Bom", "Excelente"];
+
+/** Nota de 1 a 5 + comentário, só depois da entrega e uma vez por OS. */
+function AvaliacaoOs({ osId }: { osId: string }) {
+  const qc = useQueryClient();
+  const [nota, setNota] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comentario, setComentario] = useState("");
+
+  const { data: situacao } = useQuery({
+    queryKey: ["os-publica-avaliacao", osId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("avaliacao_os_publica", { p_identificador: osId });
+      if (error) throw error;
+      return (data ?? null) as SituacaoAvaliacao | null;
+    },
+  });
+
+  const enviar = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("avaliar_os_publica", {
+        p_identificador: osId,
+        p_nota: nota,
+        p_comentario: comentario.trim(),
+      });
+      if (error) throw error;
+      if (data !== "ok" && data !== "ja_avaliada") throw new Error(data ?? "erro");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["os-publica-avaliacao", osId] }),
+  });
+
+  if (!situacao?.pode_avaliar) return null;
+
+  if (situacao.nota) {
+    return (
+      <section className="space-y-3">
+        <Titulo icon={Star}>Sua avaliação</Titulo>
+        <div className="rounded-xl border border-border/50 bg-muted/40 p-4 text-sm">
+          <Estrelas nota={situacao.nota} />
+          {situacao.comentario && (
+            <p className="mt-2 text-muted-foreground whitespace-pre-line">
+              &ldquo;{situacao.comentario}&rdquo;
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Obrigado por avaliar o nosso atendimento!
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const ativa = hover || nota;
+  return (
+    <section className="space-y-3">
+      <Titulo icon={Star}>Avalie o atendimento</Titulo>
+      <div className="rounded-xl border border-border/50 bg-muted/40 p-4 space-y-3">
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex gap-1" onMouseLeave={() => setHover(0)}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-label={`${n} de 5 — ${ROTULO_NOTA[n]}`}
+                onClick={() => setNota(n)}
+                onMouseEnter={() => setHover(n)}
+                className="p-1 transition-transform hover:scale-110"
+              >
+                <Star
+                  className={`h-8 w-8 ${
+                    n <= ativa ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+          <p className="h-4 text-xs font-medium text-muted-foreground">{ROTULO_NOTA[ativa]}</p>
+        </div>
+        {nota > 0 && (
+          <>
+            <textarea
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value.slice(0, 500))}
+              rows={3}
+              placeholder="Quer deixar um comentário? (opcional)"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            />
+            <Button className="w-full" disabled={enviar.isPending} onClick={() => enviar.mutate()}>
+              {enviar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Enviar avaliação
+            </Button>
+            {enviar.error && (
+              <p className="text-xs text-destructive text-center">
+                Não foi possível enviar agora. Tente de novo em instantes.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Estrelas({ nota }: { nota: number }) {
+  return (
+    <div className="flex items-center gap-0.5" aria-label={`${nota} de 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={`h-5 w-5 ${n <= nota ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`}
+        />
+      ))}
+      <span className="ml-2 font-semibold">{ROTULO_NOTA[nota]}</span>
     </div>
   );
 }

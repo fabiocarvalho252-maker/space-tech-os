@@ -40,6 +40,7 @@ import {
   MonitorDown,
   MessageSquareWarning,
   Eye,
+  Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -668,6 +669,7 @@ function useNotificacoes() {
         reclamacoes,
         pedidosPlano,
         { data: visualizacoes },
+        { data: avaliacoes },
       ] = await Promise.all([
         supabase.from("produtos").select("id, nome, quantidade, estoque_minimo").eq("ativo", true),
         supabase.from("ordens_servico").select("id").eq("status", "aguardando_aprovacao"),
@@ -680,6 +682,13 @@ function useNotificacoes() {
           .select("os_id, created_at, ordens_servico(numero, clientes(nome))")
           .eq("evento", "cliente_visualizou")
           .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(20),
+        // Avaliações feitas na Área do Cliente nos últimos 7 dias.
+        supabase
+          .from("os_avaliacoes")
+          .select("id, nota, ordens_servico(numero)")
+          .gte("created_at", new Date(Date.now() - 7 * 86400_000).toISOString())
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
@@ -746,6 +755,26 @@ function useNotificacoes() {
           to: "/ordens",
           icon: Eye,
           assinatura: assinar(vistas.map((v) => `${v.os_id}@${v.created_at}`)),
+        });
+      }
+      const avaliadas = avaliacoes ?? [];
+      if (avaliadas.length > 0) {
+        const baixas = avaliadas.filter((a) => a.nota <= 2).length;
+        itens.push({
+          id: "avaliacoes-cliente",
+          titulo:
+            `${avaliadas.length} avaliaç${avaliadas.length > 1 ? "ões" : "ão"} de cliente` +
+            (baixas ? ` (${baixas} baixa${baixas > 1 ? "s" : ""})` : ""),
+          descricao: avaliadas
+            .slice(0, 4)
+            .map(
+              (a) =>
+                `#${(a.ordens_servico as { numero: number } | null)?.numero ?? "?"} ${a.nota}★`,
+            )
+            .join(", "),
+          to: "/ordens",
+          icon: Star,
+          assinatura: assinar(avaliadas.map((a) => a.id)),
         });
       }
       const aguardando = osAguardando ?? [];

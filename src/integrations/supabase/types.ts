@@ -28,6 +28,41 @@ export type Database = {
   };
   public: {
     Tables: {
+      os_avaliacoes: {
+        Row: {
+          id: string;
+          user_id: string;
+          os_id: string;
+          nota: number;
+          comentario: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          os_id: string;
+          nota: number;
+          comentario?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          os_id?: string;
+          nota?: number;
+          comentario?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "os_avaliacoes_os_id_fkey";
+            columns: ["os_id"];
+            isOneToOne: true;
+            referencedRelation: "ordens_servico";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notificacoes_lidas: {
         Row: { user_id: string; chave: string; assinatura: string; lida_em: string };
         Insert: { user_id?: string; chave: string; assinatura: string; lida_em?: string };
@@ -4924,6 +4959,14 @@ export type Database = {
           preco_unitario: number;
           desconto: number;
         }[];
+      };
+      avaliacao_os_publica: {
+        Args: { p_identificador: string };
+        Returns: Json;
+      };
+      avaliar_os_publica: {
+        Args: { p_identificador: string; p_nota: number; p_comentario?: string };
+        Returns: string;
       };
       registrar_visualizacao_os_publica: {
         Args: { p_identificador: string };
