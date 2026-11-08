@@ -382,6 +382,8 @@ function Ordens() {
     quantidade: number;
     preco_unitario: number;
     produto_id?: string | null | undefined;
+    /** Itens com o mesmo grupo são alternativas (o cliente escolhe uma). */
+    opcao_grupo?: string | null | undefined;
   };
   const [tabEdicao, setTabEdicao] = useState("detalhes");
   const [itensEdicao, setItensEdicao] = useState<ItemOs[]>([]);
@@ -404,19 +406,40 @@ function Ordens() {
   const [ladosNovaOs, setLadosNovaOs] = useState<Map<File, LadoFoto>>(new Map());
   const [novoServico, setNovoServico] = useState(itemVazio);
 
+  // Orçamento com opções: de cada grupo conta só a opção mais barata (o
+  // valor "a partir de") até o cliente escolher na Área do Cliente.
+  const itensQueContam = useMemo(() => {
+    const maisBarata = new Map<string, ItemOs>();
+    const fixos: ItemOs[] = [];
+    for (const i of itensEdicao) {
+      const g = i.opcao_grupo?.trim();
+      if (!g) {
+        fixos.push(i);
+        continue;
+      }
+      const atual = maisBarata.get(g);
+      if (!atual || i.quantidade * i.preco_unitario < atual.quantidade * atual.preco_unitario)
+        maisBarata.set(g, i);
+    }
+    return [...fixos, ...maisBarata.values()];
+  }, [itensEdicao]);
+  const gruposOpcao = useMemo(
+    () => [...new Set(itensEdicao.map((i) => i.opcao_grupo?.trim()).filter(Boolean))] as string[],
+    [itensEdicao],
+  );
   const totalProdutos = useMemo(
     () =>
-      itensEdicao
+      itensQueContam
         .filter((i) => i.tipo === "produto")
         .reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
-    [itensEdicao],
+    [itensQueContam],
   );
   const totalServicos = useMemo(
     () =>
-      itensEdicao
+      itensQueContam
         .filter((i) => i.tipo === "servico")
         .reduce((s, i) => s + i.quantidade * i.preco_unitario, 0),
-    [itensEdicao],
+    [itensQueContam],
   );
   const totalOs = Math.max(totalProdutos + totalServicos - (Number(desconto) || 0), 0);
 
@@ -516,6 +539,7 @@ function Ordens() {
         quantidade: Number(i.quantidade) || 1,
         preco_unitario: Number(i.preco_unitario) || 0,
         produto_id: i.produto_id,
+        opcao_grupo: i.opcao_grupo,
       })),
     );
   }
@@ -810,6 +834,7 @@ function Ordens() {
             observacao: i.observacao ?? null,
             quantidade: i.quantidade,
             preco_unitario: i.preco_unitario,
+            opcao_grupo: i.opcao_grupo?.trim() || null,
           })),
         );
         if (insError) throw insError;
@@ -1253,7 +1278,9 @@ function Ordens() {
       defeito: os.defeito ?? null,
       diagnostico: os.diagnostico ?? null,
       itens: itensOs.map((i) => ({
-        descricao: i.descricao,
+        descricao: i.opcao_grupo?.trim()
+          ? `[Opção ${i.opcao_grupo.trim()}] ${i.descricao}`
+          : i.descricao,
         tipo: i.tipo,
         quantidade: Number(i.quantidade),
         precoUnitario: Number(i.preco_unitario),
@@ -2169,6 +2196,24 @@ function Ordens() {
                                   {it.observacao}
                                 </span>
                               )}
+                              <input
+                                list="grupos-opcao-os"
+                                value={it.opcao_grupo ?? ""}
+                                onChange={(e) =>
+                                  setItensEdicao(
+                                    itensEdicao.map((x, i) =>
+                                      i === idx ? { ...x, opcao_grupo: e.target.value } : x,
+                                    ),
+                                  )
+                                }
+                                placeholder="Opção do cliente? (ex.: Tela)"
+                                title="Itens com o mesmo nome de opção viram alternativas: o cliente escolhe uma ao aprovar pela Área do Cliente"
+                                className={`mt-1 block h-7 w-full max-w-[220px] rounded-md border px-2 text-xs ${
+                                  it.opcao_grupo?.trim()
+                                    ? "border-primary/40 bg-primary/5 text-primary font-medium"
+                                    : "border-dashed border-border bg-transparent text-muted-foreground"
+                                }`}
+                              />
                             </td>
                             <td className="p-3 capitalize">{it.tipo}</td>
                             <td className="p-3 text-right">{it.quantidade}</td>
@@ -2192,7 +2237,19 @@ function Ordens() {
                         ))}
                       </tbody>
                     </table>
+                    <datalist id="grupos-opcao-os">
+                      {gruposOpcao.map((g) => (
+                        <option key={g} value={g} />
+                      ))}
+                    </datalist>
                   </div>
+                  {gruposOpcao.length > 0 && (
+                    <p className="border-t border-border bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                      Orçamento com opções ({gruposOpcao.join(", ")}): o total conta a mais barata
+                      de cada uma até o cliente escolher na Área do Cliente. Mande o orçamento pelo
+                      link para ele aprovar escolhendo.
+                    </p>
+                  )}
                 </div>
               )}
 

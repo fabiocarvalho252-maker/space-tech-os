@@ -31,6 +31,8 @@ export const Route = createFileRoute("/consulta/$osId")({
 
 function ConsultaPublica() {
   const { osId } = Route.useParams();
+  // Orçamento com opções: a escolha do cliente em cada grupo (id do item).
+  const [escolhas, setEscolhas] = useState<Record<string, string>>({});
 
   // Avisa a loja que o cliente abriu o link (histórico da OS + sino). O banco
   // ignora quem é da loja e repete no máximo a cada 6 h por OS.
@@ -78,6 +80,28 @@ function ConsultaPublica() {
       return (data ?? null) as DetalhesOsPublica | null;
     },
   });
+
+  const fixos = itens.filter((i) => !i.opcao_grupo);
+  const grupos = [
+    ...itens
+      .filter((i) => i.opcao_grupo)
+      .reduce(
+        (m, i) => m.set(i.opcao_grupo!, [...(m.get(i.opcao_grupo!) ?? []), i]),
+        new Map<string, typeof itens>(),
+      ),
+  ];
+  const aguardando = os?.status === "orcamento" || os?.status === "aguardando_aprovacao";
+  const todasEscolhidas = grupos.every(([g]) => !!escolhas[g]);
+  const valorItem = (i: (typeof itens)[number]) => i.quantidade * Number(i.preco_unitario);
+  const totalComEscolhas = Math.max(
+    fixos.reduce((t, i) => t + valorItem(i), 0) +
+      grupos.reduce((t, [g, ops]) => {
+        const escolhido = ops.find((o) => o.id === escolhas[g]);
+        return t + (escolhido ? valorItem(escolhido) : Math.min(...ops.map(valorItem)));
+      }, 0) -
+      Number(itens[0]?.desconto ?? 0),
+    0,
+  );
 
   if (isLoading) {
     return (
@@ -211,7 +235,7 @@ function ConsultaPublica() {
               </h3>
               {itens.length > 0 && (
                 <div className="rounded-xl border border-border/50 divide-y divide-border/50">
-                  {itens.map((item, i) => (
+                  {fixos.map((item, i) => (
                     <div key={i} className="flex items-start justify-between gap-3 p-3 text-sm">
                       <div className="min-w-0">
                         <p className="font-medium break-words">{item.descricao}</p>
@@ -226,6 +250,54 @@ function ConsultaPublica() {
                       </span>
                     </div>
                   ))}
+                  {grupos.map(([grupo, opcoes]) => (
+                    <fieldset key={grupo} className="p-3 space-y-2">
+                      <legend className="sr-only">{grupo}</legend>
+                      <p className="text-sm font-bold">
+                        {grupo}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {aguardando ? "— escolha uma opção" : ""}
+                        </span>
+                      </p>
+                      {opcoes.map((op) => {
+                        const marcado = escolhas[grupo] === op.id;
+                        return (
+                          <label
+                            key={op.id}
+                            className={`flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 text-sm transition ${
+                              marcado
+                                ? "border-primary bg-primary/10"
+                                : "border-border/60 hover:bg-muted/40"
+                            }`}
+                          >
+                            <span className="flex min-w-0 items-start gap-2">
+                              <input
+                                type="radio"
+                                name={`opcao-${grupo}`}
+                                checked={marcado}
+                                disabled={!aguardando}
+                                onChange={() => setEscolhas({ ...escolhas, [grupo]: op.id })}
+                                className="mt-1 accent-[hsl(var(--primary))]"
+                              />
+                              <span className="min-w-0">
+                                <span className="block font-medium break-words">
+                                  {op.descricao}
+                                </span>
+                                {op.quantidade > 1 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {op.quantidade} × {brl(op.preco_unitario)}
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                            <span className="shrink-0 font-semibold">
+                              {brl(op.quantidade * Number(op.preco_unitario))}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </fieldset>
+                  ))}
                   {Number(itens[0]?.desconto) > 0 && (
                     <div className="flex justify-between p-3 text-sm text-emerald-600">
                       <span>Desconto</span>
@@ -235,12 +307,21 @@ function ConsultaPublica() {
                 </div>
               )}
               <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl border border-primary/10">
-                <span className="text-sm font-medium">Valor Total</span>
-                <span className="text-xl font-black text-primary">{brl(os.valor)}</span>
+                <span className="text-sm font-medium">
+                  {grupos.length && !todasEscolhidas ? "Valor a partir de" : "Valor Total"}
+                </span>
+                <span className="text-xl font-black text-primary">
+                  {brl(grupos.length ? totalComEscolhas : os.valor)}
+                </span>
               </div>
             </section>
 
-            <DecisaoOrcamento osId={osId} status={os.status} />
+            <DecisaoOrcamento
+              osId={osId}
+              status={os.status}
+              grupos={grupos.map(([g]) => g)}
+              escolhas={escolhas}
+            />
 
             {detalhes && <DetalhesOsCliente osId={osId} numero={os.numero} d={detalhes} />}
 
@@ -264,7 +345,18 @@ function ConsultaPublica() {
 
 // Aprovar / recusar o orçamento pelo próprio link (decidir_orcamento_por_link
 // só aceita enquanto a OS está em "orcamento" ou "aguardando_aprovacao").
-function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
+function DecisaoOrcamento({
+  osId,
+  status,
+  grupos,
+  escolhas,
+}: {
+  osId: string;
+  status: string;
+  grupos: string[];
+  escolhas: Record<string, string>;
+}) {
+  const faltam = grupos.filter((g) => !escolhas[g]);
   const qc = useQueryClient();
   const [confirmar, setConfirmar] = useState<boolean | null>(null);
 
@@ -273,6 +365,7 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
       const { error } = await supabase.rpc("decidir_orcamento_por_link", {
         p_os_id: osId,
         p_aprovar: aprovar,
+        p_escolhas: Object.values(escolhas),
       });
       if (error) throw error;
       // Aviso à loja no WhatsApp; se falhar, o cron manda depois.
@@ -282,6 +375,7 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
       setConfirmar(null);
       qc.invalidateQueries({ queryKey: ["os-publica", osId] });
       qc.invalidateQueries({ queryKey: ["os-publica-detalhes", osId] });
+      qc.invalidateQueries({ queryKey: ["os-publica-itens", osId] });
     },
   });
 
@@ -320,6 +414,11 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
             ? "Confirmar a APROVAÇÃO do orçamento?"
             : "Confirmar que você RECUSA o orçamento?"}
       </p>
+      {confirmar === null && faltam.length > 0 && (
+        <p className="text-xs text-center text-muted-foreground">
+          Para aprovar, escolha a opção de: <strong>{faltam.join(", ")}</strong>.
+        </p>
+      )}
       {decidir.error && (
         <p className="text-xs text-destructive text-center">
           {decidir.error.message || "Não foi possível registrar sua resposta. Tente de novo."}
@@ -329,6 +428,7 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
         <div className="grid grid-cols-2 gap-3">
           <Button
             className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            disabled={faltam.length > 0}
             onClick={() => setConfirmar(true)}
           >
             <ThumbsUp className="h-4 w-4" /> Aprovar

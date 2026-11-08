@@ -304,7 +304,10 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
               { titulo: "Total", largura: 17, direita: true },
             ],
             listaItens.map((item) => [
-              item.descricao,
+              // Orçamento com opções: deixa claro que é uma alternativa.
+              item.opcao_grupo?.trim()
+                ? `[Opção ${item.opcao_grupo.trim()}] ${item.descricao}`
+                : item.descricao,
               item.tipo === "servico" ? "Serviço" : "Peça",
               String(item.quantidade),
               brl(item.preco_unitario),

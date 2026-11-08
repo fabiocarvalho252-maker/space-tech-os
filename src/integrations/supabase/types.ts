@@ -2365,6 +2365,7 @@ export type Database = {
       };
       os_itens: {
         Row: {
+          opcao_grupo: string | null;
           created_at: string;
           descricao: string;
           id: string;
@@ -2377,6 +2378,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          opcao_grupo?: string | null;
           created_at?: string;
           descricao: string;
           id?: string;
@@ -2389,6 +2391,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          opcao_grupo?: string | null;
           created_at?: string;
           descricao?: string;
           id?: string;
@@ -5009,11 +5012,13 @@ export type Database = {
       itens_os_publica: {
         Args: { p_identificador: string };
         Returns: {
+          id: string;
           descricao: string;
           tipo: string;
           quantidade: number;
           preco_unitario: number;
           desconto: number;
+          opcao_grupo: string | null;
         }[];
       };
       devolver_pecas_os: {
@@ -5063,7 +5068,7 @@ export type Database = {
         Returns: Json;
       };
       decidir_orcamento_por_link: {
-        Args: { p_os_id: string; p_aprovar: boolean };
+        Args: { p_os_id: string; p_aprovar: boolean; p_escolhas?: string[] };
         Returns: string;
       };
       crediario_enfileirar: {
