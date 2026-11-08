@@ -39,6 +39,7 @@ import {
   HandCoins,
   MonitorDown,
   MessageSquareWarning,
+  Eye,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoMark, LogoWord } from "@/components/Logo";
@@ -643,7 +644,16 @@ type Notificacao = {
   descricao: string;
   to: string;
   icon: React.ElementType;
+  /** Muda quando o conteúdo muda — a notificação lida volta a aparecer. */
+  assinatura: string;
 };
+
+/** Hash curto (djb2) só para comparar listas de ids. */
+function assinar(partes: string[]): string {
+  let h = 5381;
+  for (const c of [...partes].sort().join("|")) h = ((h << 5) + h + c.charCodeAt(0)) | 0;
+  return `${partes.length}:${(h >>> 0).toString(36)}`;
+}
 
 function useNotificacoes() {
   const { data: user } = useCurrentUser();
@@ -652,20 +662,27 @@ function useNotificacoes() {
   return useQuery({
     queryKey: ["notificacoes-header", souOperador],
     queryFn: async () => {
-      const [{ data: produtos }, { count: osAguardando }, reclamacoes, pedidosPlano] =
-        await Promise.all([
-          supabase
-            .from("produtos")
-            .select("id, nome, quantidade, estoque_minimo")
-            .eq("ativo", true),
-          supabase
-            .from("ordens_servico")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "aguardando_aprovacao"),
-          // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
-          listarReclamacoesPesquisaFn().catch(() => []),
-          souOperador ? listarPedidosPlanoPendentesFn().catch(() => []) : Promise.resolve([]),
-        ]);
+      const [
+        { data: produtos },
+        { data: osAguardando },
+        reclamacoes,
+        pedidosPlano,
+        { data: visualizacoes },
+      ] = await Promise.all([
+        supabase.from("produtos").select("id, nome, quantidade, estoque_minimo").eq("ativo", true),
+        supabase.from("ordens_servico").select("id").eq("status", "aguardando_aprovacao"),
+        // Sem permissão de WhatsApp (ou servidor fora) o aviso só não aparece.
+        listarReclamacoesPesquisaFn().catch(() => []),
+        souOperador ? listarPedidosPlanoPendentesFn().catch(() => []) : Promise.resolve([]),
+        // Clientes que abriram o link da OS (Área do Cliente) nas últimas 24 h.
+        supabase
+          .from("os_historico")
+          .select("os_id, created_at, ordens_servico(numero, clientes(nome))")
+          .eq("evento", "cliente_visualizou")
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
 
       const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
 
@@ -680,6 +697,7 @@ function useNotificacoes() {
             .join(", "),
           to: "/admin",
           icon: CreditCard,
+          assinatura: assinar(pedidosPlano.map((p) => `${p.loja}/${p.plano}`)),
         });
       }
       if (baixoEstoque.length > 0) {
@@ -692,6 +710,7 @@ function useNotificacoes() {
             .join(", "),
           to: "/estoque",
           icon: Package,
+          assinatura: assinar(baixoEstoque.map((p) => p.id)),
         });
       }
       if (reclamacoes.length > 0) {
@@ -704,15 +723,40 @@ function useNotificacoes() {
             .join(" · "),
           to: "/whatsapp-conexao",
           icon: MessageSquareWarning,
+          assinatura: assinar(reclamacoes.map((r) => r.id)),
         });
       }
-      if ((osAguardando ?? 0) > 0) {
+      // Uma linha por OS, mesmo que o cliente tenha aberto mais de uma vez.
+      const vistas = [...new Map((visualizacoes ?? []).map((v) => [v.os_id, v])).values()];
+      if (vistas.length > 0) {
+        itens.push({
+          id: "os-vistas-cliente",
+          titulo: `${vistas.length} cliente${vistas.length > 1 ? "s" : ""} abri${vistas.length > 1 ? "ram" : "u"} o link da OS`,
+          descricao: vistas
+            .slice(0, 3)
+            .map((v) => {
+              const os = v.ordens_servico as {
+                numero: number;
+                clientes: { nome: string | null } | null;
+              } | null;
+              const nome = (os?.clientes?.nome ?? "").trim().split(/\s+/)[0];
+              return `#${os?.numero ?? "?"}${nome ? ` ${nome}` : ""}`;
+            })
+            .join(", "),
+          to: "/ordens",
+          icon: Eye,
+          assinatura: assinar(vistas.map((v) => `${v.os_id}@${v.created_at}`)),
+        });
+      }
+      const aguardando = osAguardando ?? [];
+      if (aguardando.length > 0) {
         itens.push({
           id: "os-aguardando",
-          titulo: `${osAguardando} ordem${osAguardando! > 1 ? "s" : ""} aguardando aprovação`,
+          titulo: `${aguardando.length} ordem${aguardando.length > 1 ? "s" : ""} aguardando aprovação`,
           descricao: "Clientes precisam aprovar o orçamento",
           to: "/ordens",
           icon: Clock,
+          assinatura: assinar(aguardando.map((o) => o.id)),
         });
       }
       return itens;
@@ -722,9 +766,51 @@ function useNotificacoes() {
   });
 }
 
+// Notificação aberta some do sino e só volta quando o conteúdo muda
+// (tabela notificacoes_lidas, por usuário — vale em qualquer aparelho).
+function useNotificacoesLidas() {
+  const { data: user } = useCurrentUser();
+  return useQuery({
+    queryKey: ["notificacoes-lidas", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("notificacoes_lidas").select("chave, assinatura");
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((l) => [l.chave, l.assinatura]));
+    },
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+  });
+}
+
 function NotificacoesMenu() {
-  const { data: notificacoes } = useNotificacoes();
-  const total = notificacoes?.length ?? 0;
+  const qc = useQueryClient();
+  const { data: user } = useCurrentUser();
+  const { data: todas } = useNotificacoes();
+  const { data: lidas } = useNotificacoesLidas();
+  const notificacoes = (todas ?? []).filter((n) => lidas?.[n.id] !== n.assinatura);
+  const total = notificacoes.length;
+
+  function marcarLidas(itens: Notificacao[]) {
+    if (!user || itens.length === 0) return;
+    const chave = ["notificacoes-lidas", user.id];
+    qc.setQueryData<Record<string, string>>(chave, (antes) => ({
+      ...antes,
+      ...Object.fromEntries(itens.map((n) => [n.id, n.assinatura])),
+    }));
+    void supabase
+      .from("notificacoes_lidas")
+      .upsert(
+        itens.map((n) => ({
+          user_id: user.id,
+          chave: n.id,
+          assinatura: n.assinatura,
+          lida_em: new Date().toISOString(),
+        })),
+      )
+      .then(({ error }) => {
+        if (error) qc.invalidateQueries({ queryKey: chave });
+      });
+  }
 
   return (
     <DropdownMenu>
@@ -740,8 +826,17 @@ function NotificacoesMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="text-[10px] tracking-widest text-muted-foreground">
+        <DropdownMenuLabel className="flex items-center justify-between text-[10px] tracking-widest text-muted-foreground">
           NOTIFICAÇÕES
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={() => marcarLidas(notificacoes)}
+              className="text-[10px] font-medium normal-case tracking-normal text-primary hover:underline"
+            >
+              Limpar tudo
+            </button>
+          )}
         </DropdownMenuLabel>
         {total === 0 ? (
           <div className="flex flex-col items-center gap-1.5 px-3 py-6 text-center">
@@ -749,9 +844,13 @@ function NotificacoesMenu() {
             <p className="text-xs text-muted-foreground">Nenhuma notificação no momento</p>
           </div>
         ) : (
-          notificacoes!.map((n) => (
+          notificacoes.map((n) => (
             <DropdownMenuItem key={n.id} asChild>
-              <Link to={n.to} className="flex items-start gap-2.5 py-2.5">
+              <Link
+                to={n.to}
+                onClick={() => marcarLidas([n])}
+                className="flex items-start gap-2.5 py-2.5"
+              >
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
                   <n.icon className="h-3.5 w-3.5" />
                 </span>

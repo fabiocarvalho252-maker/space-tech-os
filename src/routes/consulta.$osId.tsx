@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { avisarOrcamentoRespondidoFn } from "@/lib/orcamento-link.functions";
@@ -30,6 +30,12 @@ export const Route = createFileRoute("/consulta/$osId")({
 
 function ConsultaPublica() {
   const { osId } = Route.useParams();
+
+  // Avisa a loja que o cliente abriu o link (histórico da OS + sino). O banco
+  // ignora quem é da loja e repete no máximo a cada 6 h por OS.
+  useEffect(() => {
+    void supabase.rpc("registrar_visualizacao_os_publica", { p_identificador: osId });
+  }, [osId]);
 
   const {
     data: os,

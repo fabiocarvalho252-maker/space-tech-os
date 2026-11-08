@@ -28,6 +28,12 @@ export type Database = {
   };
   public: {
     Tables: {
+      notificacoes_lidas: {
+        Row: { user_id: string; chave: string; assinatura: string; lida_em: string };
+        Insert: { user_id?: string; chave: string; assinatura: string; lida_em?: string };
+        Update: { user_id?: string; chave?: string; assinatura?: string; lida_em?: string };
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           acao: string;
@@ -4918,6 +4924,10 @@ export type Database = {
           preco_unitario: number;
           desconto: number;
         }[];
+      };
+      registrar_visualizacao_os_publica: {
+        Args: { p_identificador: string };
+        Returns: undefined;
       };
       detalhes_os_publica: {
         Args: { p_identificador: string };
