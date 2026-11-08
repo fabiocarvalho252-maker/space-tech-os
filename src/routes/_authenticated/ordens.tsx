@@ -693,7 +693,7 @@ function Ordens() {
           responsavel: tecnicoSelecionado ? nomeTecnico(tecnicoSelecionado) : null,
           defeito: form.defeito,
           diagnostico: form.diagnostico,
-          laudo_tecnico: laudo,
+          laudo_tecnico: laudo.trim() || null,
           anotacoes,
           desconto: Number(desconto) || 0,
           valor_pago: Number(valorPago) || 0,

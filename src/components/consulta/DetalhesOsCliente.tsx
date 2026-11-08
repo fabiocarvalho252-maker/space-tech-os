@@ -131,7 +131,7 @@ export function DetalhesOsCliente({
         </section>
       )}
 
-      {d.laudo_tecnico && (
+      {d.laudo_tecnico?.trim() && (
         <section className="space-y-3">
           <Titulo icon={FileText}>Laudo Técnico</Titulo>
           <p className="text-sm whitespace-pre-line rounded-xl border border-border/50 bg-muted/40 p-4">
