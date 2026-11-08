@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { endOfMonth, endOfYear, format, startOfMonth, startOfYear, subDays } from "date-fns";
-import { Download, FileText } from "lucide-react";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { dataBR, statusLabel } from "@/lib/format";
 import { categoriaConsertoInfo } from "@/lib/seminovos-conserto";
-import { exportToCSV, generateFinancePDF } from "@/lib/exports";
+import { exportarTabela, generateFinancePDF, type FormatoExportacao } from "@/lib/exports";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -523,8 +523,9 @@ function Relatorios() {
           <Secao
             id="ordens"
             titulo="Faturamento de OS"
-            onExportar={() =>
-              exportToCSV(
+            onExportar={(f) =>
+              exportarTabela(
+                f,
                 resumo.faturamentoOs.map((f) => ({
                   os: f.numero,
                   data: format(new Date(f.data), "dd/MM/yyyy"),
@@ -604,8 +605,9 @@ function Relatorios() {
 
           <Secao
             titulo="Ordens de serviço por status"
-            onExportar={() =>
-              exportToCSV(
+            onExportar={(f) =>
+              exportarTabela(
+                f,
                 Object.entries(resumo.osPorStatus).map(([status, qtd]) => ({
                   status: statusLabel(status),
                   quantidade: qtd,
@@ -634,14 +636,14 @@ function Relatorios() {
             <Secao
               id="produtos"
               titulo="Top 10 produtos vendidos"
-              onExportar={() => exportToCSV(resumo.topProdutos, "relatorio-top-produtos")}
+              onExportar={(f) => exportarTabela(f, resumo.topProdutos, "relatorio-top-produtos")}
             >
               <TabelaTop itens={resumo.topProdutos} />
             </Secao>
             <Secao
               id="servicos"
               titulo="Top 10 serviços vendidos"
-              onExportar={() => exportToCSV(resumo.topServicos, "relatorio-top-servicos")}
+              onExportar={(f) => exportarTabela(f, resumo.topServicos, "relatorio-top-servicos")}
             >
               <TabelaTop itens={resumo.topServicos} />
             </Secao>
@@ -650,7 +652,7 @@ function Relatorios() {
           <Secao
             id="tecnicos"
             titulo="Produção e comissões por técnico"
-            onExportar={() => exportToCSV(tecnicos, "relatorio-producao-tecnicos")}
+            onExportar={(f) => exportarTabela(f, tecnicos, "relatorio-producao-tecnicos")}
           >
             {tecnicos.length ? (
               <div className="overflow-x-auto">
@@ -695,7 +697,7 @@ function Relatorios() {
 
           <Secao
             titulo="Estoque"
-            onExportar={() => exportToCSV(resumo.baixoEstoque, "relatorio-estoque-baixo")}
+            onExportar={(f) => exportarTabela(f, resumo.baixoEstoque, "relatorio-estoque-baixo")}
           >
             <div className="mb-3 flex flex-wrap gap-4 text-sm">
               <span>
@@ -757,8 +759,9 @@ function Relatorios() {
                 <FileText className="h-4 w-4" /> PDF
               </Button>
             }
-            onExportar={() =>
-              exportToCSV(
+            onExportar={(f) =>
+              exportarTabela(
+                f,
                 resumo.porCategoria.map(([categoria, v]) => ({
                   categoria,
                   entradas: v.entradas,
@@ -792,8 +795,9 @@ function Relatorios() {
           <Secao
             id="aparelhos-comprados"
             titulo="Despesas com aparelhos comprados"
-            onExportar={() =>
-              exportToCSV(
+            onExportar={(f) =>
+              exportarTabela(
+                f,
                 resumo.aparelhosComprados.map((a) => ({
                   data_compra: dataBR(a.data),
                   aparelho: a.aparelho,
@@ -932,8 +936,9 @@ function Relatorios() {
           <Secao
             id="aparelhos-vendidos"
             titulo="Lucro com vendas de aparelhos no período"
-            onExportar={() =>
-              exportToCSV(
+            onExportar={(f) =>
+              exportarTabela(
+                f,
                 resumo.vendasAparelhos.map((a) => ({
                   data_venda: a.dataVenda ? dataBR(a.dataVenda) : "",
                   aparelho: a.aparelho,
@@ -1025,7 +1030,7 @@ function Relatorios() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Secao
               titulo="Compras (aparelhos e seminovos)"
-              onExportar={() => exportToCSV(data.comprasAparelhos, "relatorio-compras")}
+              onExportar={(f) => exportarTabela(f, data.comprasAparelhos, "relatorio-compras")}
             >
               <div className="space-y-2 text-sm">
                 <p>
@@ -1040,7 +1045,7 @@ function Relatorios() {
             </Secao>
             <Secao
               titulo="Garantias"
-              onExportar={() => exportToCSV(data.termos, "relatorio-garantias")}
+              onExportar={(f) => exportarTabela(f, data.termos, "relatorio-garantias")}
             >
               <div className="divide-y divide-border rounded-xl border border-border">
                 {data.termos.map((t) => (
@@ -1102,7 +1107,7 @@ function Secao({
 }: {
   titulo: string;
   children: React.ReactNode;
-  onExportar?: () => void;
+  onExportar?: (formato: FormatoExportacao) => void;
   action?: React.ReactNode;
   id?: string;
 }) {
@@ -1116,9 +1121,14 @@ function Secao({
         <div className="flex items-center gap-2">
           {action}
           {onExportar && (
-            <Button size="sm" variant="outline" onClick={onExportar}>
-              <Download className="h-4 w-4" /> CSV
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => onExportar("csv")}>
+                <Download className="h-4 w-4" /> CSV
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onExportar("excel")}>
+                <FileSpreadsheet className="h-4 w-4" /> Excel
+              </Button>
+            </>
           )}
         </div>
       </div>

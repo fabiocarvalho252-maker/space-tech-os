@@ -12,16 +12,40 @@ export async function exportToCSV(data: Record<string, unknown>[], filename: str
   );
 
   const csvContent = [headers, ...rows].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  baixarArquivo(new Blob([csvContent], { type: "text/csv;charset=utf-8;" }), `${filename}.csv`);
+}
+
+function baixarArquivo(blob: Blob, nome: string) {
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
-
   link.setAttribute("href", url);
-  link.setAttribute("download", `${filename}.csv`);
+  link.setAttribute("download", nome);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Planilha Excel (.xlsx) com as mesmas linhas do CSV. */
+export async function exportToExcel(
+  data: Record<string, unknown>[],
+  filename: string,
+  aba?: string,
+) {
+  if (!data || !data.length) return;
+  const { gerarXlsx } = await import("@/lib/excel");
+  baixarArquivo(await gerarXlsx(data, aba), `${filename}.xlsx`);
+}
+
+export type FormatoExportacao = "csv" | "excel";
+
+export function exportarTabela(
+  formato: FormatoExportacao,
+  data: Record<string, unknown>[],
+  filename: string,
+) {
+  return formato === "excel" ? exportToExcel(data, filename) : exportToCSV(data, filename);
 }
 
 export async function generateFinancePDF(
