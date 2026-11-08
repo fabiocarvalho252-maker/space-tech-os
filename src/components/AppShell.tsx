@@ -672,6 +672,7 @@ function useNotificacoes() {
         pedidosPlano,
         { data: visualizacoes },
         { data: avaliacoes },
+        { data: avaliacoesVenda },
       ] = await Promise.all([
         supabase.from("produtos").select("id, nome, quantidade, estoque_minimo").eq("ativo", true),
         supabase.from("ordens_servico").select("id").eq("status", "aguardando_aprovacao"),
@@ -689,7 +690,14 @@ function useNotificacoes() {
         // Avaliações feitas na Área do Cliente nos últimos 7 dias.
         supabase
           .from("os_avaliacoes")
-          .select("id, nota, ordens_servico(numero)")
+          .select("id, nota, created_at, ordens_servico(numero)")
+          .gte("created_at", new Date(Date.now() - 7 * 86400_000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(20),
+        // ...e na página de avaliação da compra.
+        supabase
+          .from("venda_avaliacoes")
+          .select("id, nota, created_at, vendas(numero)")
           .gte("created_at", new Date(Date.now() - 7 * 86400_000).toISOString())
           .order("created_at", { ascending: false })
           .limit(20),
@@ -759,7 +767,20 @@ function useNotificacoes() {
           assinatura: assinar(vistas.map((v) => `${v.os_id}@${v.created_at}`)),
         });
       }
-      const avaliadas = avaliacoes ?? [];
+      const avaliadas = [
+        ...(avaliacoes ?? []).map((a) => ({
+          id: a.id,
+          nota: a.nota,
+          created_at: a.created_at,
+          rotulo: `OS #${(a.ordens_servico as { numero: number } | null)?.numero ?? "?"}`,
+        })),
+        ...(avaliacoesVenda ?? []).map((a) => ({
+          id: a.id,
+          nota: a.nota,
+          created_at: a.created_at,
+          rotulo: `Venda #${(a.vendas as { numero: number | null } | null)?.numero ?? "?"}`,
+        })),
+      ].sort((a, b) => b.created_at.localeCompare(a.created_at));
       if (avaliadas.length > 0) {
         const baixas = avaliadas.filter((a) => a.nota <= 2).length;
         itens.push({
@@ -769,10 +790,7 @@ function useNotificacoes() {
             (baixas ? ` (${baixas} baixa${baixas > 1 ? "s" : ""})` : ""),
           descricao: avaliadas
             .slice(0, 4)
-            .map(
-              (a) =>
-                `#${(a.ordens_servico as { numero: number } | null)?.numero ?? "?"} ${a.nota}★`,
-            )
+            .map((a) => `${a.rotulo} ${a.nota}★`)
             .join(", "),
           to: "/relatorios",
           hash: "avaliacoes",

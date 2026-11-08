@@ -114,6 +114,7 @@ function Configuracoes() {
     cidade: "",
     cnpj_cpf: "",
     logo_url: "",
+    link_avaliacao_google: "",
   });
   // null = horário de funcionamento não informado (não sai nos comprovantes).
   const [horarioLoja, setHorarioLoja] = useState<Horario | null>(null);
@@ -146,6 +147,7 @@ function Configuracoes() {
         cidade: profile.cidade || "",
         cnpj_cpf: profile.cnpj_cpf || "",
         logo_url: profile.logo_url || "",
+        link_avaliacao_google: profile.link_avaliacao_google || "",
       });
       setHorarioLoja(
         profile.horario_funcionamento ? lerHorario(profile.horario_funcionamento) : null,
@@ -178,6 +180,9 @@ function Configuracoes() {
   const salvarEmpresa = useMutation({
     mutationFn: async () => {
       if (!user) return;
+      const google = empresaForm.link_avaliacao_google.trim();
+      if (google && !/^https:\/\/\S+$/i.test(google))
+        throw new Error("o link de avaliação do Google precisa começar com https://");
       if (horarioLoja && horarioInvalido(horarioLoja))
         throw new Error(
           "confira o horário de funcionamento: o fechamento precisa ser depois da abertura",
@@ -186,6 +191,7 @@ function Configuracoes() {
         .from("profiles")
         .update({
           horario_funcionamento: horarioLoja,
+          link_avaliacao_google: empresaForm.link_avaliacao_google.trim() || null,
           loja: empresaForm.loja,
           nome: empresaForm.nome,
           whatsapp: empresaForm.whatsapp,
@@ -530,6 +536,22 @@ function Configuracoes() {
                     value={empresaForm.endereco}
                     onChange={(e) => setEmpresaForm({ ...empresaForm, endereco: e.target.value })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Link de avaliação no Google</Label>
+                  <Input
+                    inputMode="url"
+                    placeholder="https://g.page/r/..."
+                    value={empresaForm.link_avaliacao_google}
+                    onChange={(e) =>
+                      setEmpresaForm({ ...empresaForm, link_avaliacao_google: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quem der 5 estrelas na OS ou na compra é convidado a avaliar também no Google.
+                    Pegue o link no Perfil da Empresa no Google → “Pedir avaliações”. Vazio = não
+                    convida.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
@@ -1951,7 +1973,7 @@ function Configuracoes() {
                         },
                         {
                           id: "pesquisa_link_avaliacao",
-                          label: "Pesquisa: incluir link para avaliar com estrelas",
+                          label: "Pesquisas (OS e venda): incluir link para avaliar com estrelas",
                           key: "pesquisa_link_avaliacao",
                           uso: "auto",
                         },
@@ -2130,12 +2152,13 @@ function Configuracoes() {
                             <div className="space-y-2">
                               {item.key === "pesquisa_link_avaliacao" ? (
                                 <p className="text-[11px] text-muted-foreground">
-                                  Com a pesquisa pós-OS automática ligada, a mensagem termina com o
-                                  link da Área do Cliente, onde o cliente dá de 1 a 5 estrelas e
-                                  deixa um comentário. A nota aparece no histórico da OS, no sininho
-                                  e em Relatórios → Avaliações. Quem já avaliou pela página não
-                                  recebe a pesquisa. Você também pode pôr o link onde quiser no
-                                  texto da pesquisa com a variável {"{{link}}"}.
+                                  Com as pesquisas automáticas ligadas (pós-OS e pós-venda), a
+                                  mensagem termina com o link para o cliente dar de 1 a 5 estrelas e
+                                  deixar um comentário — na OS, a Área do Cliente; na venda, a
+                                  página de avaliação da compra. A nota aparece no sininho e em
+                                  Relatórios → Avaliações. Quem já avaliou pela página não recebe a
+                                  pesquisa. Você também pode pôr o link onde quiser no texto da
+                                  pesquisa com a variável {"{{link}}"}.
                                 </p>
                               ) : item.key === "ia_pesquisa_personalizada" ? (
                                 <p className="text-[11px] text-muted-foreground">

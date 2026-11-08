@@ -28,6 +28,41 @@ export type Database = {
   };
   public: {
     Tables: {
+      venda_avaliacoes: {
+        Row: {
+          id: string;
+          user_id: string;
+          venda_id: string;
+          nota: number;
+          comentario: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          venda_id: string;
+          nota: number;
+          comentario?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          venda_id?: string;
+          nota?: number;
+          comentario?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "venda_avaliacoes_venda_id_fkey";
+            columns: ["venda_id"];
+            isOneToOne: true;
+            referencedRelation: "vendas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       os_avaliacoes: {
         Row: {
           id: string;
@@ -2741,6 +2776,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          link_avaliacao_google: string | null;
           acesso_ate: string | null;
           aviso_inatividade_enviado_em: string | null;
           billing_day: number | null;
@@ -2766,6 +2802,7 @@ export type Database = {
           whatsapp: string | null;
         };
         Insert: {
+          link_avaliacao_google?: string | null;
           acesso_ate?: string | null;
           aviso_inatividade_enviado_em?: string | null;
           billing_day?: number | null;
@@ -2791,6 +2828,7 @@ export type Database = {
           whatsapp?: string | null;
         };
         Update: {
+          link_avaliacao_google?: string | null;
           acesso_ate?: string | null;
           aviso_inatividade_enviado_em?: string | null;
           billing_day?: number | null;
@@ -4962,6 +5000,14 @@ export type Database = {
           preco_unitario: number;
           desconto: number;
         }[];
+      };
+      venda_publica_avaliacao: {
+        Args: { p_identificador: string };
+        Returns: Json;
+      };
+      avaliar_venda_publica: {
+        Args: { p_identificador: string; p_nota: number; p_comentario?: string };
+        Returns: string;
       };
       avaliacao_os_publica: {
         Args: { p_identificador: string };

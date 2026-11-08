@@ -1,7 +1,8 @@
 // Relatórios → Avaliações: notas que os clientes deram pela Área do Cliente
-// (os_avaliacoes) no período — média, distribuição, média por técnico e a
-// lista com comentários. Avaliação baixa (1–2★) tem o botão de responder
-// pelo WhatsApp, já com a mensagem de retorno escolhida.
+// (os_avaliacoes) e pela página de avaliação da compra (venda_avaliacoes) no
+// período — média, distribuição, média por técnico (só OS) e a lista com
+// comentários. Avaliação baixa (1–2★) tem o botão de responder pelo WhatsApp:
+// na OS, a janela de envio com o modelo de retorno; na venda, o wa.me.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
@@ -10,15 +11,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
 import { dataHoraBR } from "@/lib/format";
+import { buildWaMeLink } from "@/lib/whatsapp";
+import { primeiroNome } from "@/lib/whatsapp/robo";
+import { useProfile } from "@/hooks/useCurrentUser";
 import { exportarTabela, type FormatoExportacao } from "@/lib/exports";
+
+type Cliente = { nome: string | null; telefone: string | null } | null;
 
 type Avaliacao = {
   id: string;
+  tipo: "os" | "venda";
+  numero: number | null;
+  cliente: Cliente;
+  tecnico: string | null;
   nota: number;
   comentario: string | null;
   created_at: string;
-  ordens_servico:
-    (WhatsAppOsAlvo & { clientes: { nome: string | null; telefone: string | null } | null }) | null;
+  /** Só nas OS: alvo da janela de envio do WhatsApp. */
+  os: WhatsAppOsAlvo | null;
 };
 
 const ROTULO_NOTA = ["", "Muito ruim", "Ruim", "Regular", "Bom", "Excelente"];
@@ -42,21 +52,67 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
   const secaoRef = useRef<HTMLElement>(null);
   const hash = useRouterState({ select: (s) => s.location.hash });
 
+  const { data: profile } = useProfile();
   const { data: avaliacoes = [], isLoading } = useQuery({
     queryKey: ["relatorio-avaliacoes", inicioISO, fimISO],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("os_avaliacoes")
-        .select(
-          "id, nota, comentario, created_at, ordens_servico(id, numero, status, valor, aparelho, marca, modelo, responsavel, created_at, garantia_dias, clientes(nome, telefone))",
-        )
-        .gte("created_at", inicioISO)
-        .lte("created_at", fimISO)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as Avaliacao[];
+    queryFn: async (): Promise<Avaliacao[]> => {
+      const [os, vendas] = await Promise.all([
+        supabase
+          .from("os_avaliacoes")
+          .select(
+            "id, nota, comentario, created_at, ordens_servico(id, numero, status, valor, aparelho, marca, modelo, responsavel, created_at, garantia_dias, clientes(nome, telefone))",
+          )
+          .gte("created_at", inicioISO)
+          .lte("created_at", fimISO),
+        supabase
+          .from("venda_avaliacoes")
+          .select("id, nota, comentario, created_at, vendas(numero, clientes(nome, telefone))")
+          .gte("created_at", inicioISO)
+          .lte("created_at", fimISO),
+      ]);
+      if (os.error) throw os.error;
+      // Sem permissão de vendas a parte das vendas só não aparece.
+      const daOs = (os.data ?? []).map((a) => {
+        const o = a.ordens_servico as unknown as (WhatsAppOsAlvo & { clientes: Cliente }) | null;
+        return {
+          id: a.id,
+          tipo: "os" as const,
+          numero: o?.numero ?? null,
+          cliente: o?.clientes ?? null,
+          tecnico: o?.responsavel?.trim() || null,
+          nota: a.nota,
+          comentario: a.comentario,
+          created_at: a.created_at,
+          os: o,
+        };
+      });
+      const daVenda = (vendas.data ?? []).map((a) => {
+        const v = a.vendas as unknown as { numero: number | null; clientes: Cliente } | null;
+        return {
+          id: a.id,
+          tipo: "venda" as const,
+          numero: v?.numero ?? null,
+          cliente: v?.clientes ?? null,
+          tecnico: null,
+          nota: a.nota,
+          comentario: a.comentario,
+          created_at: a.created_at,
+          os: null,
+        };
+      });
+      return [...daOs, ...daVenda].sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
   });
+
+  function linkRetornoVenda(a: Avaliacao): string | null {
+    const telefone = a.cliente?.telefone ?? "";
+    if (telefone.replace(/\D/g, "").length < 10) return null;
+    const nome = primeiroNome(a.cliente?.nome);
+    return buildWaMeLink(
+      telefone,
+      `Olá${nome ? ` ${nome}` : ""}, aqui é da ${profile?.loja || "loja"}. Vimos sua avaliação da compra${a.numero ? ` nº ${a.numero}` : ""} e sentimos muito que a experiência não tenha sido boa. Pode nos contar o que aconteceu? Queremos resolver.`,
+    );
+  }
 
   // Vindo do sininho (/relatorios#avaliacoes): rola até aqui depois de carregar.
   useEffect(() => {
@@ -72,7 +128,8 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
     for (const a of avaliacoes) porNota[a.nota]!++;
     const tecnicos = new Map<string, { soma: number; qtd: number }>();
     for (const a of avaliacoes) {
-      const nome = a.ordens_servico?.responsavel?.trim() || "Sem técnico";
+      if (a.tipo !== "os") continue;
+      const nome = a.tecnico || "Sem técnico";
       const t = tecnicos.get(nome) ?? { soma: 0, qtd: 0 };
       t.soma += a.nota;
       t.qtd++;
@@ -97,9 +154,10 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
       formato,
       avaliacoes.map((a) => ({
         Data: dataHoraBR(a.created_at),
-        OS: a.ordens_servico?.numero ?? "",
-        Cliente: a.ordens_servico?.clientes?.nome ?? "",
-        Técnico: a.ordens_servico?.responsavel ?? "",
+        Tipo: a.tipo === "os" ? "OS" : "Venda",
+        Número: a.numero ?? "",
+        Cliente: a.cliente?.nome ?? "",
+        Técnico: a.tecnico ?? "",
         Nota: a.nota,
         Avaliação: ROTULO_NOTA[a.nota],
         Comentário: a.comentario ?? "",
@@ -131,7 +189,7 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
       ) : resumo.total === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nenhuma avaliação no período. Os clientes avaliam pela Área do Cliente (link da OS) depois
-          da entrega.
+          da entrega, e pelo link de avaliação da compra que vai na pesquisa pós-venda.
         </p>
       ) : (
         <div className="space-y-6">
@@ -216,8 +274,8 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
             </div>
             <div className="divide-y divide-border rounded-xl border border-border">
               {lista.map((a) => {
-                const os = a.ordens_servico;
                 const baixa = a.nota <= 2;
+                const waVenda = baixa && a.tipo === "venda" ? linkRetornoVenda(a) : null;
                 return (
                   <div
                     key={a.id}
@@ -227,11 +285,12 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
                       <p className="flex flex-wrap items-center gap-2">
                         <Estrelas nota={a.nota} />
                         <span className="font-semibold">
-                          #{os?.numero ?? "?"} · {os?.clientes?.nome ?? "Cliente"}
+                          {a.tipo === "os" ? "OS" : "Venda"} #{a.numero ?? "?"} ·{" "}
+                          {a.cliente?.nome ?? "Cliente"}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {dataHoraBR(a.created_at)}
-                          {os?.responsavel ? ` · ${os.responsavel}` : ""}
+                          {a.tecnico ? ` · ${a.tecnico}` : ""}
                         </span>
                       </p>
                       {a.comentario ? (
@@ -242,14 +301,26 @@ export function RelatorioAvaliacoes({ inicioISO, fimISO }: { inicioISO: string; 
                         <p className="text-xs text-muted-foreground/70">Sem comentário</p>
                       )}
                     </div>
-                    {baixa && os && (
+                    {baixa && a.os && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="shrink-0 gap-1.5 border-green-600/40 text-green-600 hover:bg-green-600/10"
-                        onClick={() => setResponder(os)}
+                        onClick={() => setResponder(a.os)}
                       >
                         <MessageCircle className="h-4 w-4" /> Responder no WhatsApp
+                      </Button>
+                    )}
+                    {waVenda && (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1.5 border-green-600/40 text-green-600 hover:bg-green-600/10"
+                      >
+                        <a href={waVenda} target="_blank" rel="noopener noreferrer">
+                          <MessageCircle className="h-4 w-4" /> Responder no WhatsApp
+                        </a>
                       </Button>
                     )}
                   </div>

@@ -54,6 +54,7 @@ import { Route as AuthenticatedWhatsappFilaRouteImport } from './routes/_authent
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
 import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
 import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
+import { Route as AvaliarVendaVendaIdRouteImport } from './routes/avaliar.venda.$vendaId'
 import { Route as AuthenticatedOrdensFaturarOsIdRouteImport } from './routes/_authenticated/ordens_.faturar.$osId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -290,6 +291,11 @@ const AuthenticatedServicosAdicionarRoute =
     path: '/servicos/adicionar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AvaliarVendaVendaIdRoute = AvaliarVendaVendaIdRouteImport.update({
+  id: '/avaliar/venda/$vendaId',
+  path: '/avaliar/venda/$vendaId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedOrdensFaturarOsIdRoute =
   AuthenticatedOrdensFaturarOsIdRouteImport.update({
     id: '/ordens_/faturar/$osId',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/avaliar/venda/$vendaId': typeof AvaliarVendaVendaIdRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRoutesByTo {
@@ -389,6 +396,7 @@ export interface FileRoutesByTo {
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/avaliar/venda/$vendaId': typeof AvaliarVendaVendaIdRoute
   '/ordens/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRoutesById {
@@ -438,6 +446,7 @@ export interface FileRoutesById {
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
   '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
+  '/avaliar/venda/$vendaId': typeof AvaliarVendaVendaIdRoute
   '/_authenticated/ordens_/faturar/$osId': typeof AuthenticatedOrdensFaturarOsIdRoute
 }
 export interface FileRouteTypes {
@@ -487,6 +496,7 @@ export interface FileRouteTypes {
     | '/consulta/$osId'
     | '/admin/landing'
     | '/servicos/adicionar'
+    | '/avaliar/venda/$vendaId'
     | '/ordens/faturar/$osId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/consulta/$osId'
     | '/admin/landing'
     | '/servicos/adicionar'
+    | '/avaliar/venda/$vendaId'
     | '/ordens/faturar/$osId'
   id:
     | '__root__'
@@ -582,6 +593,7 @@ export interface FileRouteTypes {
     | '/consulta/$osId'
     | '/_authenticated/admin_/landing'
     | '/_authenticated/servicos_/adicionar'
+    | '/avaliar/venda/$vendaId'
     | '/_authenticated/ordens_/faturar/$osId'
   fileRoutesById: FileRoutesById
 }
@@ -599,6 +611,7 @@ export interface RootRouteChildren {
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
   ConsultaOsIdRoute: typeof ConsultaOsIdRoute
+  AvaliarVendaVendaIdRoute: typeof AvaliarVendaVendaIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -918,6 +931,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedServicosAdicionarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/avaliar/venda/$vendaId': {
+      id: '/avaliar/venda/$vendaId'
+      path: '/avaliar/venda/$vendaId'
+      fullPath: '/avaliar/venda/$vendaId'
+      preLoaderRoute: typeof AvaliarVendaVendaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/ordens_/faturar/$osId': {
       id: '/_authenticated/ordens_/faturar/$osId'
       path: '/ordens/faturar/$osId'
@@ -1017,6 +1037,7 @@ const rootRouteChildren: RootRouteChildren = {
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
   ConsultaOsIdRoute: ConsultaOsIdRoute,
+  AvaliarVendaVendaIdRoute: AvaliarVendaVendaIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

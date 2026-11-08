@@ -1434,13 +1434,16 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   const { data: config } = await supabaseAdmin
 
     .from("whatsapp_config")
-    .select("notif_pesquisa_venda_auto, notif_pesquisa_venda_auto_desde, pesquisa_pos_venda_texto")
+    .select(
+      "notif_pesquisa_venda_auto, notif_pesquisa_venda_auto_desde, pesquisa_pos_venda_texto, pesquisa_link_avaliacao",
+    )
     .eq("user_id", empresaId)
     .maybeSingle();
   const cfg = config as unknown as {
     notif_pesquisa_venda_auto: boolean;
     notif_pesquisa_venda_auto_desde: string | null;
     pesquisa_pos_venda_texto: string | null;
+    pesquisa_link_avaliacao: boolean;
   } | null;
   if (
     !cfg?.notif_pesquisa_venda_auto ||
@@ -1482,6 +1485,16 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
   const enviadas = new Set(
     ((jaEnviadas ?? []) as unknown as { template_id: string }[]).map((m) => m.template_id),
   );
+  // Quem já avaliou a compra pela página de avaliação não recebe a pesquisa.
+  const { data: avaliadas } = await supabaseAdmin
+    .from("venda_avaliacoes")
+    .select("venda_id")
+    .in(
+      "venda_id",
+      vendas.map((v) => v.id),
+    );
+  for (const a of avaliadas ?? []) enviadas.add(`pos_venda_${a.venda_id}`);
+  const site = import.meta.env["VITE_SITE_URL"] ?? "";
 
   const conexao = await obterConexao(empresaId);
   if (!conexao || conexao.status !== "conectado") return 0;
@@ -1495,12 +1508,17 @@ export async function enviarPesquisasPosVenda(empresaId: string): Promise<number
     const telefone = (cliente?.telefone ?? "").replace(/\D/g, "");
     if (telefone.length < 10) continue;
     const primeiroNome = (cliente?.nome ?? "").trim().split(/\s+/)[0] || "";
-    const mensagem = cfg.pesquisa_pos_venda_texto
+    const linkAvaliacao = site ? `${site}/avaliar/venda/${venda.id}` : "";
+    let mensagem = cfg.pesquisa_pos_venda_texto
       .replace(/\{\{\s*cliente\s*\}\}/g, primeiroNome)
       .replace(/\{\{\s*numero\s*\}\}/g, String(venda.numero ?? ""))
       .replace(/\{\{\s*(status|tecnico)\s*\}\}/g, "")
       .replace(/\{\{\s*loja\s*\}\}/g, loja)
+      .replace(/\{\{\s*link\s*\}\}/g, linkAvaliacao)
       .replace(/Olá\s+([,!])/g, "Olá$1");
+    if (cfg.pesquisa_link_avaliacao && linkAvaliacao && !mensagem.includes(linkAvaliacao)) {
+      mensagem += `\n\nSe preferir, avalie com estrelas em 1 toque: ${linkAvaliacao}`;
+    }
     const resultado = await enviarAutomatico({
       empresaId,
       conexao,
