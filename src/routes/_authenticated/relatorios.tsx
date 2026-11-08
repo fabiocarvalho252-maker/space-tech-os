@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/AppShell";
 import { RelatorioAvaliacoes } from "@/components/relatorios/RelatorioAvaliacoes";
+import { RelatorioRetornos } from "@/components/relatorios/RelatorioRetornos";
 import { useEmpresaId, useProfile } from "@/hooks/useCurrentUser";
 import { dataBR, statusLabel } from "@/lib/format";
 import { categoriaConsertoInfo } from "@/lib/seminovos-conserto";
@@ -1069,6 +1070,7 @@ function Relatorios() {
           </div>
 
           <RelatorioAvaliacoes inicioISO={inicioISO} fimISO={fimISO} />
+          <RelatorioRetornos inicioISO={inicioISO} fimISO={fimISO} />
         </>
       )}
     </div>

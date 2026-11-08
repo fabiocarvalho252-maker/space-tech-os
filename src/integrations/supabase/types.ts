@@ -1940,6 +1940,7 @@ export type Database = {
       };
       ordens_servico: {
         Row: {
+          os_origem_id: string | null;
           checklist_saida: Json;
           checklist_saida_em: string | null;
           acessorios: string | null;
@@ -1977,6 +1978,7 @@ export type Database = {
           valor_pago: number;
         };
         Insert: {
+          os_origem_id?: string | null;
           checklist_saida?: Json;
           checklist_saida_em?: string | null;
           acessorios?: string | null;
@@ -2014,6 +2016,7 @@ export type Database = {
           valor_pago?: number;
         };
         Update: {
+          os_origem_id?: string | null;
           checklist_saida?: Json;
           checklist_saida_em?: string | null;
           acessorios?: string | null;

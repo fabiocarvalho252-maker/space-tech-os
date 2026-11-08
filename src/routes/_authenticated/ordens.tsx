@@ -21,6 +21,7 @@ import {
   EyeOff,
   Clock,
   Tag,
+  ShieldCheck,
   Star,
   Sparkles,
   Wand2,
@@ -913,6 +914,81 @@ function Ordens() {
     },
   });
 
+  // Retorno em garantia: nº da OS de origem e quais OS já voltaram.
+  const indiceGarantia = useMemo(() => {
+    const numero = new Map(ordens.map((o) => [o.id, o.numero]));
+    const origemDe: Record<string, number> = {};
+    const retornos: Record<string, number> = {};
+    for (const o of ordens) {
+      if (!o.os_origem_id) continue;
+      const n = numero.get(o.os_origem_id);
+      if (n !== undefined) origemDe[o.id] = n;
+      retornos[o.os_origem_id] = (retornos[o.os_origem_id] ?? 0) + 1;
+    }
+    return { origemDe, retornos };
+  }, [ordens]);
+
+  const [confirmRetorno, setConfirmRetorno] = useState<OsListada | null>(null);
+  const abrirRetorno = useMutation({
+    mutationFn: async (origem: OsListada) => {
+      const { data: nova, error } = await supabase
+        .from("ordens_servico")
+        .insert({
+          user_id: empresaId!,
+          os_origem_id: origem.id,
+          cliente_id: origem.cliente_id,
+          aparelho: origem.aparelho,
+          marca: origem.marca,
+          modelo: origem.modelo,
+          imei: origem.imei,
+          serial_number: origem.serial_number,
+          cor: origem.cor,
+          responsavel_user_id: origem.responsavel_user_id,
+          responsavel: origem.responsavel,
+          defeito: `Retorno em garantia da OS #${origem.numero}: `,
+          valor: 0,
+          status: "recebido",
+        })
+        .select("*, clientes(nome, telefone)")
+        .single();
+      if (error) throw error;
+      await supabase.from("os_historico").insert({
+        user_id: origem.user_id,
+        os_id: origem.id,
+        evento: "garantia_retorno",
+        descricao: `Retorno em garantia aberto: OS #${nova.numero}`,
+        created_by: user?.id ?? null,
+      });
+      await supabase.from("os_historico").insert({
+        user_id: origem.user_id,
+        os_id: nova.id,
+        evento: "garantia_retorno",
+        descricao: `Retorno em garantia da OS #${origem.numero}`,
+        created_by: user?.id ?? null,
+      });
+      return nova as OsListada;
+    },
+    onSuccess: async (nova) => {
+      setConfirmRetorno(null);
+      toast.success(`OS #${nova.numero} aberta como retorno em garantia`);
+      await qc.invalidateQueries({ queryKey: ["ordens"] });
+      abrirEdicao(nova);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function pedirRetorno(os: OsListada) {
+    if (!["entregue", "faturado"].includes(os.status) && !os.data_entrega) {
+      toast.error("O retorno em garantia é aberto a partir de uma OS já entregue.");
+      return;
+    }
+    // Garantia vencida: confirma antes (às vezes a loja cobre por cortesia).
+    const vencida =
+      !!os.garantia_vencimento && new Date(`${os.garantia_vencimento}T23:59:59`) < new Date();
+    if (vencida) setConfirmRetorno(os);
+    else abrirRetorno.mutate(os);
+  }
+
   const remover = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("ordens_servico").delete().eq("id", id);
@@ -1229,6 +1305,7 @@ function Ordens() {
       }
     },
     gerarAcessoOs,
+    abrirRetorno: pedirRetorno,
     abrirAssinatura: (os) => {
       setAssinaturaOs(os);
       setAssinaturaOpen(true);
@@ -1697,7 +1774,25 @@ function Ordens() {
         </div>
       )}
 
-      <ListaOs lista={lista.slice(0, limiteLista)} acoes={acoesListaRef} navigate={navigate} />
+      <ListaOs
+        lista={lista.slice(0, limiteLista)}
+        acoes={acoesListaRef}
+        navigate={navigate}
+        garantia={indiceGarantia}
+      />
+      <ConfirmDialog
+        open={!!confirmRetorno}
+        onOpenChange={(v) => !v && setConfirmRetorno(null)}
+        title="Garantia vencida"
+        description={
+          confirmRetorno
+            ? `A garantia da OS Nº ${confirmRetorno.numero} venceu em ${dataBR(confirmRetorno.garantia_vencimento)}. Abrir o retorno em garantia mesmo assim?`
+            : ""
+        }
+        confirmLabel="Abrir retorno"
+        loading={abrirRetorno.isPending}
+        onConfirm={() => confirmRetorno && abrirRetorno.mutate(confirmRetorno)}
+      />
       {lista.length > limiteLista ? (
         <div className="mt-4 flex flex-col items-center gap-1">
           <Button
@@ -2466,6 +2561,7 @@ type AcoesListaOs = {
   imprimir: (os: OsListada, modo: "os" | "orcamento" | "nao_fiscal") => void;
   enviarWhatsAppOs: (os: OsListada, modelo?: string) => void;
   imprimirEtiqueta: (os: OsListada) => void;
+  abrirRetorno: (os: OsListada) => void;
   gerarAcessoOs: (os: OsListada) => void;
   abrirAssinatura: (os: OsListada) => void;
   confirmarEstorno: (os: OsListada) => void;
@@ -2546,6 +2642,35 @@ function OsParadaSelo({ dias }: { dias: number | undefined }) {
   );
 }
 
+function SeloGarantia({
+  origem,
+  retornos,
+}: {
+  origem: number | undefined;
+  retornos: number | undefined;
+}) {
+  return (
+    <>
+      {origem !== undefined && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400"
+          title={`Retorno em garantia da OS #${origem}`}
+        >
+          <ShieldCheck className="h-3 w-3" /> Garantia da #{origem}
+        </span>
+      )}
+      {!!retornos && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600"
+          title={`${retornos} retorno(s) em garantia`}
+        >
+          <Undo2 className="h-3 w-3" /> Retornou{retornos > 1 ? ` ${retornos}x` : ""}
+        </span>
+      )}
+    </>
+  );
+}
+
 function haQuanto(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   if (min < 60) return min <= 1 ? "agora" : `há ${min} min`;
@@ -2571,10 +2696,12 @@ const ListaOs = memo(function ListaOs({
   lista,
   acoes,
   navigate,
+  garantia,
 }: {
   lista: OsListada[];
   acoes: { current: AcoesListaOs };
   navigate: ReturnType<typeof useNavigate>;
+  garantia: { origemDe: Record<string, number>; retornos: Record<string, number> };
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const { data: ladosPorOs = {} } = useLadosAparelhos();
@@ -2618,6 +2745,10 @@ const ListaOs = memo(function ListaOs({
                         <VistoPeloCliente em={vistas[os.id]} />
                         <NotaDoCliente av={avaliacoes[os.id]} />
                         <OsParadaSelo dias={paradas[os.id]} />
+                        <SeloGarantia
+                          origem={garantia.origemDe[os.id]}
+                          retornos={garantia.retornos[os.id]}
+                        />
                       </span>
                       <span className="font-bold text-base">
                         {os.clientes?.nome ?? "Sem cliente"}
@@ -2710,6 +2841,7 @@ const ListaOs = memo(function ListaOs({
                       onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
                       onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
                       onEtiqueta={(o) => acoes.current.imprimirEtiqueta(o)}
+                      onRetorno={(o) => acoes.current.abrirRetorno(o)}
                       onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                       onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                       onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2751,6 +2883,10 @@ const ListaOs = memo(function ListaOs({
                     <VistoPeloCliente em={vistas[os.id]} />
                     <NotaDoCliente av={avaliacoes[os.id]} />
                     <OsParadaSelo dias={paradas[os.id]} />
+                    <SeloGarantia
+                      origem={garantia.origemDe[os.id]}
+                      retornos={garantia.retornos[os.id]}
+                    />
                   </span>
                   <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
                   <p className="text-xs text-muted-foreground">
@@ -2831,6 +2967,7 @@ const ListaOs = memo(function ListaOs({
                 onWhatsApp={(o) => acoes.current.enviarWhatsAppOs(o)}
                 onLinkCliente={(o) => acoes.current.enviarWhatsAppOs(o, "area_cliente")}
                 onEtiqueta={(o) => acoes.current.imprimirEtiqueta(o)}
+                onRetorno={(o) => acoes.current.abrirRetorno(o)}
                 onGerarAcesso={(o) => acoes.current.gerarAcessoOs(o)}
                 onAssinatura={(o) => acoes.current.abrirAssinatura(o)}
                 onEstornar={(o) => acoes.current.confirmarEstorno(o)}
@@ -2865,6 +3002,7 @@ function AcoesOsMenu({
   onWhatsApp,
   onLinkCliente,
   onEtiqueta,
+  onRetorno,
   onGerarAcesso,
   onAssinatura,
   onEstornar,
@@ -2876,6 +3014,7 @@ function AcoesOsMenu({
   onWhatsApp: (os: OsListada) => void;
   onLinkCliente: (os: OsListada) => void;
   onEtiqueta: (os: OsListada) => void;
+  onRetorno: (os: OsListada) => void;
   onGerarAcesso: (os: OsListada) => void;
   onAssinatura: (os: OsListada) => void;
   onEstornar: (os: OsListada) => void;
@@ -2919,6 +3058,11 @@ function AcoesOsMenu({
         <DropdownMenuItem onClick={() => onGerarAcesso(os)}>
           <KeyRound className="mr-2 h-4 w-4" /> Gerar acesso do cliente
         </DropdownMenuItem>
+        {(os.status === "entregue" || os.status === "faturado" || !!os.data_entrega) && (
+          <DropdownMenuItem onClick={() => onRetorno(os)}>
+            <ShieldCheck className="mr-2 h-4 w-4" /> Abrir retorno em garantia
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => navigate({ to: "/cobrancas" })}>
           Emitir cobrança
         </DropdownMenuItem>
