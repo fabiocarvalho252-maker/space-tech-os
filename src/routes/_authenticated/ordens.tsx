@@ -67,6 +67,7 @@ import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
 import { useOsParadas } from "@/hooks/useOsParadas";
 import { imprimirEtiquetaOs } from "@/lib/etiqueta-os";
+import { SugestaoPrevisao } from "@/components/os/SugestaoPrevisao";
 import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
@@ -1550,6 +1551,13 @@ function Ordens() {
                         value={previsaoData}
                         onChange={(e) => setPrevisaoData(e.target.value)}
                       />
+                      <SugestaoPrevisao
+                        produtos={form.itens
+                          .filter((i) => i.tipo === "servico" && i.produto_id)
+                          .map((i) => i.produto_id!)}
+                        atual={previsaoData}
+                        onUsar={setPrevisaoData}
+                      />
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label>Diagnóstico técnico (se já souber)</Label>
@@ -2324,6 +2332,17 @@ function Ordens() {
                     value={previsaoData}
                     onChange={(e) => setPrevisaoData(e.target.value)}
                   />
+                  {!["pronto", "entregue", "faturado", "cancelado", "reprovado"].includes(
+                    form.status,
+                  ) && (
+                    <SugestaoPrevisao
+                      produtos={itensEdicao
+                        .filter((i) => i.tipo === "servico" && i.produto_id)
+                        .map((i) => i.produto_id!)}
+                      atual={previsaoData}
+                      onUsar={setPrevisaoData}
+                    />
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Data de entrega</Label>

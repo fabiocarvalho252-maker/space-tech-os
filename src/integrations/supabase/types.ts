@@ -5013,6 +5013,10 @@ export type Database = {
           desconto: number;
         }[];
       };
+      previsao_sugerida: {
+        Args: { p_produtos?: string[] | null };
+        Returns: Json;
+      };
       os_paradas: {
         Args: { p_dias: number; p_empresa?: string };
         Returns: {
