@@ -2366,6 +2366,49 @@ type AcoesListaOs = {
 // Nova OS/edição vive no estado da página, e sem isso cada tecla digitada
 // redesenhava todas as OS (tabela + cards mobile), deixando a digitação
 // lenta. As ações vão por ref para que o memo não seja quebrado.
+// Última vez que o cliente abriu o link da OS (Área do Cliente) — evento
+// gravado por registrar_visualizacao_os_publica(), no máx. 1 a cada 6 h.
+function useVistasCliente() {
+  return useQuery({
+    queryKey: ["os-vistas-cliente"],
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("os_historico")
+        .select("os_id, created_at")
+        .eq("evento", "cliente_visualizou")
+        .gte("created_at", new Date(Date.now() - 90 * 86400_000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      const mapa: Record<string, string> = {};
+      for (const v of data ?? []) mapa[v.os_id] ??= v.created_at;
+      return mapa;
+    },
+  });
+}
+
+function haQuanto(iso: string): string {
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (min < 60) return min <= 1 ? "agora" : `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "ontem" : `há ${d} dias`;
+}
+
+function VistoPeloCliente({ em }: { em: string | undefined }) {
+  if (!em) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+      title={`Cliente abriu o link da OS em ${dataHoraBR(em)}`}
+    >
+      <Eye className="h-3 w-3" /> Visto {haQuanto(em)}
+    </span>
+  );
+}
+
 const ListaOs = memo(function ListaOs({
   lista,
   acoes,
@@ -2377,6 +2420,7 @@ const ListaOs = memo(function ListaOs({
 }) {
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const { data: ladosPorOs = {} } = useLadosAparelhos();
+  const { data: vistas = {} } = useVistasCliente();
   const tituloAparelho = (os: OsListada) =>
     `OS #${os.numero} — ${[os.aparelho, os.marca, os.modelo].filter(Boolean).join(" ") || "Aparelho"}`;
   return (
@@ -2405,8 +2449,9 @@ const ListaOs = memo(function ListaOs({
                   <div className="flex items-center gap-3">
                     <AparelhoCard3D lados={ladosPorOs[os.id]} titulo={tituloAparelho(os)} />
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-muted-foreground">
+                      <span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                         #{os.numero}
+                        <VistoPeloCliente em={vistas[os.id]} />
                       </span>
                       <span className="font-bold text-base">
                         {os.clientes?.nome ?? "Sem cliente"}
@@ -2534,7 +2579,10 @@ const ListaOs = memo(function ListaOs({
               <div className="flex items-start gap-3">
                 <AparelhoCard3D lados={ladosPorOs[os.id]} titulo={tituloAparelho(os)} />
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground">#{os.numero}</span>
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                    #{os.numero}
+                    <VistoPeloCliente em={vistas[os.id]} />
+                  </span>
                   <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
                   <p className="text-xs text-muted-foreground">
                     {os.responsavel || "Técnico não atribuído"}
