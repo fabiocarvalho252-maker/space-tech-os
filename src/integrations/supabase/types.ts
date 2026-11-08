@@ -2082,6 +2082,7 @@ export type Database = {
       };
       os_config: {
         Row: {
+          dias_alerta_os_parada: number;
           created_at: string;
           dias_garantia_padrao: number | null;
           exibir_fotos_impressao: boolean | null;
@@ -2095,6 +2096,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          dias_alerta_os_parada?: number;
           created_at?: string;
           dias_garantia_padrao?: number | null;
           exibir_fotos_impressao?: boolean | null;
@@ -2108,6 +2110,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          dias_alerta_os_parada?: number;
           created_at?: string;
           dias_garantia_padrao?: number | null;
           exibir_fotos_impressao?: boolean | null;
@@ -4999,6 +5002,16 @@ export type Database = {
           quantidade: number;
           preco_unitario: number;
           desconto: number;
+        }[];
+      };
+      os_paradas: {
+        Args: { p_dias: number; p_empresa?: string };
+        Returns: {
+          os_id: string;
+          numero: number;
+          status: string;
+          dias: number;
+          responsavel_user_id: string | null;
         }[];
       };
       nota_publica_loja: {

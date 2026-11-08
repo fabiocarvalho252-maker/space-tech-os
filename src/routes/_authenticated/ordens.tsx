@@ -19,6 +19,7 @@ import {
   Receipt,
   Eye,
   EyeOff,
+  Clock,
   Star,
   Sparkles,
   Wand2,
@@ -62,6 +63,7 @@ import { useLadosAparelho, useLadosAparelhos } from "@/hooks/useLadosAparelho";
 import { PatternLock } from "@/components/PatternLock";
 import { FaturarOsModal } from "@/components/FaturarOsModal";
 import { WhatsAppSendModal, type WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
+import { useOsParadas } from "@/hooks/useOsParadas";
 import { EnviarOsModal } from "@/components/EnviarOsModal";
 import { ClienteAcessoModal, type ClienteAcesso } from "@/components/ClienteAcessoModal";
 import { gerarAcessoCliente } from "@/lib/cliente-conta/cliente-conta.functions";
@@ -2425,6 +2427,18 @@ function NotaDoCliente({ av }: { av: { nota: number; comentario: string | null }
   );
 }
 
+function OsParadaSelo({ dias }: { dias: number | undefined }) {
+  if (dias === undefined) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive"
+      title={`Sem mudar de status há ${dias} dias`}
+    >
+      <Clock className="h-3 w-3" /> Parada há {dias}d
+    </span>
+  );
+}
+
 function haQuanto(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   if (min < 60) return min <= 1 ? "agora" : `há ${min} min`;
@@ -2459,6 +2473,11 @@ const ListaOs = memo(function ListaOs({
   const { data: ladosPorOs = {} } = useLadosAparelhos();
   const { data: vistas = {} } = useVistasCliente();
   const { data: avaliacoes = {} } = useAvaliacoesOs();
+  const { data: paradasLista = [] } = useOsParadas();
+  const paradas = useMemo(
+    () => Object.fromEntries(paradasLista.map((p) => [p.os_id, p.dias])),
+    [paradasLista],
+  );
   const tituloAparelho = (os: OsListada) =>
     `OS #${os.numero} — ${[os.aparelho, os.marca, os.modelo].filter(Boolean).join(" ") || "Aparelho"}`;
   return (
@@ -2491,6 +2510,7 @@ const ListaOs = memo(function ListaOs({
                         #{os.numero}
                         <VistoPeloCliente em={vistas[os.id]} />
                         <NotaDoCliente av={avaliacoes[os.id]} />
+                        <OsParadaSelo dias={paradas[os.id]} />
                       </span>
                       <span className="font-bold text-base">
                         {os.clientes?.nome ?? "Sem cliente"}
@@ -2622,6 +2642,7 @@ const ListaOs = memo(function ListaOs({
                     #{os.numero}
                     <VistoPeloCliente em={vistas[os.id]} />
                     <NotaDoCliente av={avaliacoes[os.id]} />
+                    <OsParadaSelo dias={paradas[os.id]} />
                   </span>
                   <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
                   <p className="text-xs text-muted-foreground">

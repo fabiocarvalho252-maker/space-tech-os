@@ -1286,6 +1286,34 @@ function Configuracoes() {
                     }}
                   />
                 </div>
+                <div className="space-y-2 pt-4 border-t border-border">
+                  <Label>Avisar OS parada após (dias)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    key={osConfig?.dias_alerta_os_parada ?? 5}
+                    defaultValue={osConfig?.dias_alerta_os_parada ?? 5}
+                    onBlur={async (e) => {
+                      const dias = Math.min(
+                        365,
+                        Math.max(0, Math.round(Number(e.target.value) || 0)),
+                      );
+                      await supabase
+                        .from("os_config")
+                        .upsert(
+                          { user_id: empresaId!, dias_alerta_os_parada: dias },
+                          { onConflict: "user_id" },
+                        );
+                      refetchOsConfig();
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    OS em andamento que não mudam de status há esse tempo aparecem no sininho, com o
+                    selo “Parada” na lista e no lembrete diário do técnico. OS prontas e encerradas
+                    não contam. 0 = desligado.
+                  </p>
+                </div>
               </div>
             </section>
           </div>

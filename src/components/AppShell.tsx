@@ -52,6 +52,7 @@ import { SpaceTechAI } from "@/components/ai/SpaceTechAI";
 import { SuporteWhatsapp } from "@/components/SuporteWhatsapp";
 import { InstalarAppMobile } from "@/components/InstalarAppMobile";
 import { useProfile, useCurrentUser, usePermissoes, podeVer } from "@/hooks/useCurrentUser";
+import { buscarOsParadas } from "@/hooks/useOsParadas";
 import { ATALHOS, estaDigitando, teclasDaTela } from "@/lib/atalhos";
 import { APP_DESKTOP_WINDOWS_URL } from "@/lib/download-app";
 import { cn } from "@/lib/utils";
@@ -673,6 +674,7 @@ function useNotificacoes() {
         { data: visualizacoes },
         { data: avaliacoes },
         { data: avaliacoesVenda },
+        paradas,
       ] = await Promise.all([
         supabase.from("produtos").select("id, nome, quantidade, estoque_minimo").eq("ativo", true),
         supabase.from("ordens_servico").select("id").eq("status", "aguardando_aprovacao"),
@@ -701,6 +703,8 @@ function useNotificacoes() {
           .gte("created_at", new Date(Date.now() - 7 * 86400_000).toISOString())
           .order("created_at", { ascending: false })
           .limit(20),
+        // OS sem mudar de status há X dias (Configurações → OS).
+        buscarOsParadas().catch(() => []),
       ]);
 
       const baixoEstoque = (produtos ?? []).filter((p) => p.quantidade <= p.estoque_minimo);
@@ -796,6 +800,20 @@ function useNotificacoes() {
           hash: "avaliacoes",
           icon: Star,
           assinatura: assinar(avaliadas.map((a) => a.id)),
+        });
+      }
+      if (paradas.length > 0) {
+        itens.push({
+          id: "os-paradas",
+          titulo: `${paradas.length} OS parada${paradas.length > 1 ? "s" : ""}`,
+          descricao: paradas
+            .slice(0, 4)
+            .map((p) => `#${p.numero} (${p.dias} dias)`)
+            .join(", "),
+          to: "/ordens",
+          icon: Clock,
+          // Volta a avisar quando entra outra OS na lista.
+          assinatura: assinar(paradas.map((p) => p.os_id)),
         });
       }
       const aguardando = osAguardando ?? [];

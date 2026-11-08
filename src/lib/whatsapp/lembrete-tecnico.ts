@@ -9,6 +9,7 @@ export type OsDoDia = {
   cliente: string | null;
   status: string;
 };
+export type OsParadaTecnico = { numero: number; aparelho: string | null; dias: number };
 export type VisitaDoDia = { inicio: string; titulo: string; cliente: string | null };
 
 /** "09:30" no horário de Brasília. */
@@ -37,8 +38,11 @@ export function montarLembreteTecnico(params: {
   loja: string;
   os: OsDoDia[];
   visitas: VisitaDoDia[];
+  /** OS dele sem mudar de status há X dias (Configurações → OS). */
+  paradas?: OsParadaTecnico[];
 }): string | null {
-  if (!params.os.length && !params.visitas.length) return null;
+  const paradas = params.paradas ?? [];
+  if (!params.os.length && !params.visitas.length && !paradas.length) return null;
   const primeiroNome = params.tecnico.trim().split(/\s+/)[0] ?? "";
   const cabecalho = params.texto
     .replace(/\{\{\s*tecnico\s*\}\}/g, primeiroNome)
@@ -59,6 +63,13 @@ export function montarLembreteTecnico(params: {
         `• OS #${o.numero}${o.aparelho ? ` — ${o.aparelho}` : ""}${o.cliente ? ` (${o.cliente})` : ""} · ${status}`,
       );
     }
+  }
+  if (paradas.length) {
+    linhas.push("", "⏳ *OS paradas* (sem mudar de status)");
+    for (const p of [...paradas].sort((a, b) => b.dias - a.dias).slice(0, 10)) {
+      linhas.push(`• OS #${p.numero}${p.aparelho ? ` — ${p.aparelho}` : ""} · há ${p.dias} dias`);
+    }
+    if (paradas.length > 10) linhas.push(`• ...e mais ${paradas.length - 10}`);
   }
   return linhas.join("\n");
 }

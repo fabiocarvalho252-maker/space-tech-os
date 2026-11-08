@@ -28,6 +28,30 @@ function agoraBrasilia(): { hoje: string; hora: number } {
 const normalizar = (t: string | null | undefined) =>
   (t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 
+// OS paradas da empresa (os_paradas, com os dias de Configurações → OS).
+async function osParadasDaEmpresa(empresaId: string) {
+  const { data: cfg } = await supabaseAdmin
+    .from("os_config")
+    .select("dias_alerta_os_parada")
+    .eq("user_id", empresaId)
+    .maybeSingle();
+  const dias = cfg?.dias_alerta_os_parada ?? 5;
+  if (dias <= 0) return [];
+  const { data } = await supabaseAdmin.rpc("os_paradas", { p_dias: dias, p_empresa: empresaId });
+  if (!data?.length) return [];
+  const { data: detalhes } = await supabaseAdmin
+    .from("ordens_servico")
+    .select("id, aparelho, modelo")
+    .in(
+      "id",
+      data.map((o) => o.os_id),
+    );
+  const aparelho = new Map(
+    (detalhes ?? []).map((d) => [d.id, [d.aparelho, d.modelo].filter(Boolean).join(" ") || null]),
+  );
+  return data.map((o) => ({ ...o, aparelho: aparelho.get(o.os_id) ?? null }));
+}
+
 export async function enviarLembretesTecnicos(empresaId: string): Promise<number> {
   const { hoje, hora } = agoraBrasilia();
   if (hora < HORA_INICIO || hora >= HORA_FIM) return 0;
@@ -68,7 +92,7 @@ export async function enviarLembretesTecnicos(empresaId: string): Promise<number
 
   const inicioDia = new Date(`${hoje}T00:00:00-03:00`).toISOString();
   const fimDia = new Date(`${hoje}T23:59:59-03:00`).toISOString();
-  const [{ data: ordens }, { data: agenda }] = await Promise.all([
+  const [{ data: ordens }, { data: agenda }, paradas] = await Promise.all([
     supabaseAdmin
       .from("ordens_servico")
       .select("numero, aparelho, modelo, status, responsavel_user_id, clientes(nome)")
@@ -83,6 +107,7 @@ export async function enviarLembretesTecnicos(empresaId: string): Promise<number
       .gte("inicio", inicioDia)
       .lte("inicio", fimDia)
       .not("status", "in", "(cancelado,concluido)"),
+    osParadasDaEmpresa(empresaId),
   ]);
 
   const loja = (perfis?.find((p) => p.id === empresaId)?.loja || "a loja").trim();
@@ -104,12 +129,16 @@ export async function enviarLembretesTecnicos(empresaId: string): Promise<number
         titulo: a.titulo,
         cliente: (a.clientes as unknown as { nome: string } | null)?.nome ?? null,
       }));
+    const paradasDele = paradas
+      .filter((o) => o.responsavel_user_id === p.id)
+      .map((o) => ({ numero: o.numero, aparelho: o.aparelho, dias: o.dias }));
     const mensagem = montarLembreteTecnico({
       texto: config.lembrete_tecnico_texto || "Bom dia, {{tecnico}}! Seu dia na {{loja}}:",
       tecnico: p.nome ?? "",
       loja,
       os,
       visitas,
+      paradas: paradasDele,
     });
     if (!mensagem) continue;
     const r = await enviarAutomatico({
