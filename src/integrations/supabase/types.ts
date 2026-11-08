@@ -145,6 +145,9 @@ export type Database = {
       };
       agendamentos: {
         Row: {
+          origem: string;
+          contato_nome: string | null;
+          contato_telefone: string | null;
           cliente_id: string | null;
           created_at: string;
           fim: string;
@@ -160,6 +163,9 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          origem?: string;
+          contato_nome?: string | null;
+          contato_telefone?: string | null;
           cliente_id?: string | null;
           created_at?: string;
           fim: string;
@@ -175,6 +181,9 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          origem?: string;
+          contato_nome?: string | null;
+          contato_telefone?: string | null;
           cliente_id?: string | null;
           created_at?: string;
           fim?: string;
@@ -2794,6 +2803,11 @@ export type Database = {
       };
       profiles: {
         Row: {
+          agenda_online: boolean;
+          agenda_slug: string | null;
+          agenda_duracao_min: number;
+          agenda_antecedencia_h: number;
+          agenda_dias: number;
           link_avaliacao_google: string | null;
           acesso_ate: string | null;
           aviso_inatividade_enviado_em: string | null;
@@ -2820,6 +2834,11 @@ export type Database = {
           whatsapp: string | null;
         };
         Insert: {
+          agenda_online?: boolean;
+          agenda_slug?: string | null;
+          agenda_duracao_min?: number;
+          agenda_antecedencia_h?: number;
+          agenda_dias?: number;
           link_avaliacao_google?: string | null;
           acesso_ate?: string | null;
           aviso_inatividade_enviado_em?: string | null;
@@ -2846,6 +2865,11 @@ export type Database = {
           whatsapp?: string | null;
         };
         Update: {
+          agenda_online?: boolean;
+          agenda_slug?: string | null;
+          agenda_duracao_min?: number;
+          agenda_antecedencia_h?: number;
+          agenda_dias?: number;
           link_avaliacao_google?: string | null;
           acesso_ate?: string | null;
           aviso_inatividade_enviado_em?: string | null;
@@ -5020,6 +5044,25 @@ export type Database = {
           desconto: number;
           opcao_grupo: string | null;
         }[];
+      };
+      agenda_publica: {
+        Args: { p_slug: string };
+        Returns: Json;
+      };
+      agenda_horarios_livres: {
+        Args: { p_slug: string; p_data: string };
+        Returns: string[];
+      };
+      agendar_publica: {
+        Args: {
+          p_slug: string;
+          p_inicio: string;
+          p_nome: string;
+          p_telefone: string;
+          p_aparelho?: string;
+          p_problema?: string;
+        };
+        Returns: string;
       };
       devolver_pecas_os: {
         Args: { p_os_id: string };

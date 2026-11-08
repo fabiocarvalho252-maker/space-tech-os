@@ -25,9 +25,11 @@ import {
   CalendarClock,
   User,
   Wrench,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { buildWaMeLink, maskPhoneBR } from "@/lib/whatsapp";
 import { PageHeader } from "@/components/AppShell";
 import { useCurrentUser, useEmpresaId, usePermissoes, podeGerenciar } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
@@ -520,12 +522,28 @@ function Agenda() {
                         >
                           {STATUS_AGENDA.find((s) => s.value === a.status)?.label ?? a.status}
                         </span>
+                        {a.origem === "online" && (
+                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-600 dark:text-sky-400">
+                            Online
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        {a.cliente?.nome && (
+                        {(a.cliente?.nome || a.contato_nome) && (
                           <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" /> {a.cliente.nome}
+                            <User className="h-3 w-3" /> {a.cliente?.nome || a.contato_nome}
                           </span>
+                        )}
+                        {a.origem === "online" && a.contato_telefone && (
+                          <a
+                            href={buildWaMeLink(a.contato_telefone, "")}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-green-600 hover:underline"
+                          >
+                            <MessageCircle className="h-3 w-3" />{" "}
+                            {maskPhoneBR(a.contato_telefone.replace(/^55(?=\d{10,11}$)/, ""))}
+                          </a>
                         )}
                         {a.tecnico && (
                           <span className="flex items-center gap-1">

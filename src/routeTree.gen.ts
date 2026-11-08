@@ -51,6 +51,7 @@ import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedWhatsappConexaoRouteImport } from './routes/_authenticated/whatsapp-conexao'
 import { Route as AuthenticatedWhatsappFilaRouteImport } from './routes/_authenticated/whatsapp-fila'
+import { Route as AgendarSlugRouteImport } from './routes/agendar.$slug'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
 import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
 import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
@@ -274,6 +275,11 @@ const AuthenticatedWhatsappFilaRoute =
     path: '/whatsapp-fila',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AgendarSlugRoute = AgendarSlugRouteImport.update({
+  id: '/agendar/$slug',
+  path: '/agendar/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   id: '/consulta/$osId',
   path: '/consulta/$osId',
@@ -345,6 +351,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
+  '/agendar/$slug': typeof AgendarSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -393,6 +400,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
+  '/agendar/$slug': typeof AgendarSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -443,6 +451,7 @@ export interface FileRoutesById {
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/_authenticated/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/_authenticated/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
+  '/agendar/$slug': typeof AgendarSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
   '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -493,6 +502,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-conexao'
     | '/whatsapp-fila'
+    | '/agendar/$slug'
     | '/consulta/$osId'
     | '/admin/landing'
     | '/servicos/adicionar'
@@ -541,6 +551,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-conexao'
     | '/whatsapp-fila'
+    | '/agendar/$slug'
     | '/consulta/$osId'
     | '/admin/landing'
     | '/servicos/adicionar'
@@ -590,6 +601,7 @@ export interface FileRouteTypes {
     | '/_authenticated/whatsapp'
     | '/_authenticated/whatsapp-conexao'
     | '/_authenticated/whatsapp-fila'
+    | '/agendar/$slug'
     | '/consulta/$osId'
     | '/_authenticated/admin_/landing'
     | '/_authenticated/servicos_/adicionar'
@@ -610,6 +622,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  AgendarSlugRoute: typeof AgendarSlugRoute
   ConsultaOsIdRoute: typeof ConsultaOsIdRoute
   AvaliarVendaVendaIdRoute: typeof AvaliarVendaVendaIdRoute
 }
@@ -910,6 +923,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWhatsappFilaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/agendar/$slug': {
+      id: '/agendar/$slug'
+      path: '/agendar/$slug'
+      fullPath: '/agendar/$slug'
+      preLoaderRoute: typeof AgendarSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/consulta/$osId': {
       id: '/consulta/$osId'
       path: '/consulta/$osId'
@@ -1036,6 +1056,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  AgendarSlugRoute: AgendarSlugRoute,
   ConsultaOsIdRoute: ConsultaOsIdRoute,
   AvaliarVendaVendaIdRoute: AvaliarVendaVendaIdRoute,
 }

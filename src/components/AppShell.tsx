@@ -34,6 +34,7 @@ import {
   Percent,
   Bell,
   Clock,
+  CalendarClock,
   Boxes,
   Gift,
   HandCoins,
@@ -675,6 +676,7 @@ function useNotificacoes() {
         { data: avaliacoes },
         { data: avaliacoesVenda },
         paradas,
+        { data: agendadosOnline },
       ] = await Promise.all([
         supabase
           .from("produtos")
@@ -708,6 +710,15 @@ function useNotificacoes() {
           .limit(20),
         // OS sem mudar de status há X dias (Configurações → OS).
         buscarOsParadas().catch(() => []),
+        // Horários marcados pelo cliente na página de agendamento (24 h).
+        supabase
+          .from("agendamentos")
+          .select("id, inicio, contato_nome")
+          .eq("origem", "online")
+          .neq("status", "cancelado")
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("inicio")
+          .limit(20),
       ]);
 
       // Estoque negativo = peça lançada em OS/venda sem ter: lista de compra.
@@ -825,6 +836,27 @@ function useNotificacoes() {
           hash: "avaliacoes",
           icon: Star,
           assinatura: assinar(avaliadas.map((a) => a.id)),
+        });
+      }
+      const online = agendadosOnline ?? [];
+      if (online.length > 0) {
+        const quando = (iso: string) =>
+          new Date(iso).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        itens.push({
+          id: "agendamentos-online",
+          titulo: `${online.length} agendamento${online.length > 1 ? "s" : ""} online novo${online.length > 1 ? "s" : ""}`,
+          descricao: online
+            .slice(0, 3)
+            .map((a) => `${a.contato_nome ?? "Cliente"} (${quando(a.inicio)})`)
+            .join(", "),
+          to: "/agenda",
+          icon: CalendarClock,
+          assinatura: assinar(online.map((a) => a.id)),
         });
       }
       if (paradas.length > 0) {

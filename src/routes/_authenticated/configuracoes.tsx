@@ -64,6 +64,7 @@ import {
   Bot,
 } from "lucide-react";
 import { Explicacao } from "@/components/Explicacao";
+import { AgendaOnlineConfig } from "@/components/configuracoes/AgendaOnlineConfig";
 import { OsTemplatesLibrary } from "@/components/os-templates/OsTemplatesLibrary";
 import { BackupGoogleDriveCard } from "@/components/backup/BackupGoogleDriveCard";
 import { PreferenciasAssistente } from "@/components/assistente/PreferenciasAssistente";
@@ -671,6 +672,7 @@ function Configuracoes() {
               </div>
             </section>
           </div>
+          <AgendaOnlineConfig />
         </TabsContent>
 
         {/* Mercado Pago */}
