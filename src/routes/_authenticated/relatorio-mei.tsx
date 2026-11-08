@@ -4,7 +4,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Download, Printer, Receipt } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, Printer, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { useEmpresaId } from "@/hooks/useCurrentUser";
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { exportToCSV } from "@/lib/exports";
+import { exportarTabela, type FormatoExportacao } from "@/lib/exports";
 import {
   LIMITE_MEI_ANUAL,
   calcularReceitaMei,
@@ -145,6 +145,26 @@ function RelatorioMei() {
     }
     return t;
   }, [data]);
+  const exportarMei = (formato: FormatoExportacao) =>
+    exportarTabela(
+      formato,
+      [
+        ...(data ?? []).map((m) => ({
+          mes: MESES[m.mes - 1]!,
+          comercio: m.comercio.toFixed(2),
+          servicos: m.servicos.toFixed(2),
+          total: m.total.toFixed(2),
+        })),
+        {
+          mes: `Total ${ano}`,
+          comercio: totais.comercio.toFixed(2),
+          servicos: totais.servicos.toFixed(2),
+          total: totais.total.toFixed(2),
+        },
+      ],
+      `receitas-brutas-mei-${ano}`,
+    );
+
   const usoLimite = (totais.total / LIMITE_MEI_ANUAL) * 100;
   const anos = Array.from({ length: 4 }, (_, i) => anoAtual - i);
 
@@ -172,27 +192,18 @@ function RelatorioMei() {
               size="sm"
               className="h-9"
               disabled={!data}
-              onClick={() =>
-                exportToCSV(
-                  [
-                    ...(data ?? []).map((m) => ({
-                      mes: MESES[m.mes - 1]!,
-                      comercio: m.comercio.toFixed(2),
-                      servicos: m.servicos.toFixed(2),
-                      total: m.total.toFixed(2),
-                    })),
-                    {
-                      mes: `Total ${ano}`,
-                      comercio: totais.comercio.toFixed(2),
-                      servicos: totais.servicos.toFixed(2),
-                      total: totais.total.toFixed(2),
-                    },
-                  ],
-                  `receitas-brutas-mei-${ano}`,
-                )
-              }
+              onClick={() => exportarMei("csv")}
             >
               <Download className="h-4 w-4" /> CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              disabled={!data}
+              onClick={() => exportarMei("excel")}
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Excel
             </Button>
             <Button variant="outline" size="sm" className="h-9" onClick={() => window.print()}>
               <Printer className="h-4 w-4" /> Imprimir

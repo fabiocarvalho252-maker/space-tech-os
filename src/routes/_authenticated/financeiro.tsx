@@ -12,6 +12,7 @@ import {
   FileText,
   Filter,
   X,
+  FileSpreadsheet,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ import { useCurrentUser, useEmpresaId, useProfile } from "@/hooks/useCurrentUser
 import { dataBR, dataHoraBR } from "@/lib/format";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
 import { useMemo } from "react";
-import { exportToCSV, generateFinancePDF } from "@/lib/exports";
+import { exportarTabela, generateFinancePDF } from "@/lib/exports";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -436,25 +437,34 @@ function Financeiro() {
               {showFilters ? <X className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
               Filtros
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                exportToCSV(
-                  listaFiltrada.map((l) => ({
-                    Data: dataBR(l.data),
-                    "Lançado em": dataHoraBR(l.created_at),
-                    Descricao: l.descricao,
-                    Categoria: l.categoria,
-                    Tipo: l.tipo,
-                    Valor: l.valor,
-                  })),
-                  "financeiro-spacetech",
-                )
-              }
-            >
-              <Download className="mr-2 h-4 w-4" /> CSV
-            </Button>
+            {(["csv", "excel"] as const).map((formato) => (
+              <Button
+                key={formato}
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportarTabela(
+                    formato,
+                    listaFiltrada.map((l) => ({
+                      Data: dataBR(l.data),
+                      "Lançado em": dataHoraBR(l.created_at),
+                      Descricao: l.descricao,
+                      Categoria: l.categoria,
+                      Tipo: l.tipo,
+                      Valor: Number(l.valor).toFixed(2),
+                    })),
+                    "financeiro-spacetech",
+                  )
+                }
+              >
+                {formato === "csv" ? (
+                  <Download className="mr-2 h-4 w-4" />
+                ) : (
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                )}
+                {formato === "csv" ? "CSV" : "Excel"}
+              </Button>
+            ))}
             <Button
               variant="outline"
               onClick={() =>
