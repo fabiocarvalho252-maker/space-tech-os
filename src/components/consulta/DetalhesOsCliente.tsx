@@ -36,6 +36,8 @@ export type DetalhesOsPublica = {
   serie: string | null;
   acessorios: string | null;
   checklist_entrada: Record<string, string>;
+  checklist_saida?: Record<string, string>;
+  checklist_saida_em?: string | null;
   estado_fisico: Record<string, boolean>;
   estado_fisico_obs: string | null;
   laudo_tecnico: string | null;
@@ -109,6 +111,9 @@ export function DetalhesOsCliente({
   d: DetalhesOsPublica;
 }) {
   const checklist = Object.keys(CHECKLIST_LABELS).filter((k) => d.checklist_entrada?.[k]);
+  const saida = Object.keys(CHECKLIST_LABELS).filter(
+    (k) => d.checklist_saida?.[k] && d.checklist_saida[k] !== "nao_testado",
+  );
   const avarias = Object.keys(ESTADO_FISICO_LABELS).filter((k) => d.estado_fisico?.[k]);
   const temEntrada =
     d.cor ||
@@ -212,6 +217,48 @@ export function DetalhesOsCliente({
                 </div>
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {saida.length > 0 && (
+        <section className="space-y-4">
+          <Titulo icon={ClipboardCheck}>Testes na entrega</Titulo>
+          <div className="rounded-xl border border-border/50 bg-muted/40 p-4 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Refeitos antes de devolver o aparelho
+              {d.checklist_saida_em ? ` (${dataHoraBR(d.checklist_saida_em)})` : ""}.
+            </p>
+            <div className="grid grid-cols-1 gap-y-1 text-sm sm:grid-cols-2 sm:gap-x-4">
+              {saida.map((k) => {
+                const antes = d.checklist_entrada?.[k];
+                const depois = d.checklist_saida![k]!;
+                const cor = (st: string | undefined) =>
+                  st === "ok"
+                    ? "font-semibold text-emerald-600"
+                    : st === "defeito"
+                      ? "font-semibold text-rose-600"
+                      : "text-muted-foreground";
+                return (
+                  <div key={k} className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">{CHECKLIST_LABELS[k]}</span>
+                    <span className="flex items-center gap-1.5">
+                      {antes && antes !== depois && (
+                        <>
+                          <span className={`text-xs line-through opacity-70 ${cor(antes)}`}>
+                            {CHECKLIST_STATUS_LABELS[antes] ?? antes}
+                          </span>
+                          <span className="text-xs text-muted-foreground">→</span>
+                        </>
+                      )}
+                      <span className={cor(depois)}>
+                        {CHECKLIST_STATUS_LABELS[depois] ?? depois}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}

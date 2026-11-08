@@ -156,6 +156,10 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
 
   const listaItens = itens.data ?? [];
   const checklist = (os.checklist_entrada ?? {}) as Record<string, string>;
+  const checklistSaida = (os.checklist_saida_em ? (os.checklist_saida ?? {}) : {}) as Record<
+    string,
+    string
+  >;
   const estadoFisico = (os.estado_fisico ?? {}) as Record<string, boolean>;
   const fotosLista = fotos ?? [];
   const assinaturaCliente = fotosLista.find((f) => f.category === "assinatura_cliente");
@@ -245,6 +249,17 @@ export async function gerarPdfOs({ osId, empresaId, modo }: GerarPdfOsInput): Pr
             preenchido.map((k) => [
               CHECKLIST_LABELS[k] ?? k,
               CHECKLIST_STATUS_LABELS[checklist[k]!] ?? checklist[k]!,
+            ]),
+            4,
+          );
+        }
+        const saida = Object.keys(checklistSaida).filter((k) => checklistSaida[k]);
+        if (saida.length) {
+          w.secao("Testes feitos na saída (entrega)");
+          w.grade(
+            saida.map((k) => [
+              CHECKLIST_LABELS[k] ?? k,
+              CHECKLIST_STATUS_LABELS[checklistSaida[k]!] ?? checklistSaida[k]!,
             ]),
             4,
           );

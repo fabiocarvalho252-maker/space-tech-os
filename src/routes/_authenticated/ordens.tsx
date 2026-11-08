@@ -259,6 +259,51 @@ const CHECKLIST_ITENS = [
   { key: "nfc", label: "NFC" },
 ] as const;
 
+function checklistPreenchido(c: Record<string, string> | null | undefined) {
+  return Object.values(c ?? {}).some((v) => v && v !== "nao_testado");
+}
+
+function ChecklistGrade({
+  valor,
+  onChange,
+}: {
+  valor: Record<string, string>;
+  onChange: (v: Record<string, string>) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {CHECKLIST_ITENS.map((item) => {
+        const atual = valor[item.key] || "nao_testado";
+        return (
+          <div
+            key={item.key}
+            className="flex items-center justify-between gap-2 rounded-lg border border-border p-2"
+          >
+            <span className="text-sm font-medium">{item.label}</span>
+            <div className="flex gap-1">
+              {CHECKLIST_STATUS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  title={s.label}
+                  onClick={() => onChange({ ...valor, [item.key]: s.value })}
+                  className={`h-7 rounded-md border px-2 text-[11px] font-semibold transition ${
+                    atual === s.value
+                      ? s.className
+                      : "border-border bg-transparent text-muted-foreground/50 hover:bg-muted"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const ESTADO_FISICO_ITENS = [
   { key: "tela_trincada", label: "Tela trincada" },
   { key: "tela_riscada", label: "Tela riscada" },
@@ -345,6 +390,7 @@ function Ordens() {
   const [statusPagamento, setStatusPagamento] = useState("pendente");
   const [verSenha, setVerSenha] = useState(false);
   const [checklist, setChecklist] = useState<Record<string, string>>({});
+  const [checklistSaida, setChecklistSaida] = useState<Record<string, string>>({});
   const [estadoFisico, setEstadoFisico] = useState<Record<string, boolean>>({});
   const [estadoFisicoObs, setEstadoFisicoObs] = useState("");
   const [garantiaDias, setGarantiaDias] = useState("");
@@ -424,6 +470,7 @@ function Ordens() {
     setValorPago(String(os.valor_pago ?? 0));
     setStatusPagamento(os.status_pagamento || "pendente");
     setChecklist((os.checklist_entrada || {}) as Record<string, string>);
+    setChecklistSaida((os.checklist_saida || {}) as Record<string, string>);
     setEstadoFisico((os.estado_fisico || {}) as Record<string, boolean>);
     setEstadoFisicoObs(os.estado_fisico_obs || "");
     setGarantiaDias(os.garantia_dias != null ? String(os.garantia_dias) : "");
@@ -719,6 +766,12 @@ function Ordens() {
           valor: totalOs,
           status: form.status,
           checklist_entrada: checklist,
+          checklist_saida: checklistSaida,
+          // Data em que a saída foi feita: mantém a primeira; limpa se esvaziar.
+          checklist_saida_em: checklistPreenchido(checklistSaida)
+            ? (ordens.find((o) => o.id === selectedOsId)?.checklist_saida_em ??
+              new Date().toISOString())
+            : null,
           estado_fisico: estadoFisico,
           estado_fisico_obs: estadoFisicoObs || null,
           acessorios: form.acessorios.trim() || null,
@@ -797,6 +850,24 @@ function Ordens() {
     });
   }
 
+  // Entregou sem refazer os testes: lembra do checklist de saída.
+  function lembrarChecklistSaida(osId: string, status: string) {
+    if (status !== "entregue" && status !== "faturado") return;
+    const os = ordens.find((o) => o.id === osId);
+    if (!os || os.checklist_saida_em) return;
+    toast.info(`OS #${os.numero}: faça o checklist de saída`, {
+      description: "Registra que o aparelho saiu funcionando — protege a loja em reclamação.",
+      duration: 10_000,
+      action: {
+        label: "Abrir",
+        onClick: () => {
+          abrirEdicao(os);
+          setTabEdicao("checklist");
+        },
+      },
+    });
+  }
+
   function avisarSePronta(osId: string, status: string) {
     if (status !== "pronto") return;
     avisarOsProntaFn({ data: { osId } })
@@ -835,6 +906,7 @@ function Ordens() {
       qc.invalidateQueries({ queryKey: ["os-historico", variables.id] });
       toast.success("Status atualizado");
       avisarSePronta(variables.id, variables.status);
+      lembrarChecklistSaida(variables.id, variables.status);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -1065,6 +1137,10 @@ function Ordens() {
       garantiaDias: os.garantia_dias ?? null,
       garantiaVencimento: os.garantia_vencimento ?? null,
       checklist: (os.checklist_entrada ?? {}) as Record<string, string>,
+      checklistSaida: (os.checklist_saida_em ? (os.checklist_saida ?? {}) : {}) as Record<
+        string,
+        string
+      >,
       estadoFisico: (os.estado_fisico ?? {}) as Record<string, boolean>,
       estadoFisicoObs: os.estado_fisico_obs ?? null,
       acessorios: os.acessorios ?? null,
@@ -2055,36 +2131,46 @@ function Ordens() {
                 <p className="text-xs text-muted-foreground">
                   Registre o estado de cada item no momento em que o aparelho foi recebido.
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {CHECKLIST_ITENS.map((item) => {
-                    const atual = checklist[item.key] || "nao_testado";
-                    return (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-border p-2"
-                      >
-                        <span className="text-sm font-medium">{item.label}</span>
-                        <div className="flex gap-1">
-                          {CHECKLIST_STATUS.map((s) => (
-                            <button
-                              key={s.value}
-                              type="button"
-                              title={s.label}
-                              onClick={() => setChecklist({ ...checklist, [item.key]: s.value })}
-                              className={`h-7 rounded-md border px-2 text-[11px] font-semibold transition ${
-                                atual === s.value
-                                  ? s.className
-                                  : "border-border bg-transparent text-muted-foreground/50 hover:bg-muted"
-                              }`}
-                            >
-                              {s.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <ChecklistGrade valor={checklist} onChange={setChecklist} />
+              </div>
+
+              <div className="space-y-3 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-base font-bold">Checklist de saída</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setChecklistSaida({ ...checklist })}
+                      disabled={!checklistPreenchido(checklist)}
+                    >
+                      Copiar da entrada
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setChecklistSaida(
+                          Object.fromEntries(
+                            CHECKLIST_ITENS.map((i) => [
+                              i.key,
+                              checklist[i.key] === "nao_se_aplica" ? "nao_se_aplica" : "ok",
+                            ]),
+                          ),
+                        )
+                      }
+                    >
+                      Tudo OK
+                    </Button>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Refaça os testes na entrega: fica registrado que o aparelho saiu funcionando (sai
+                  no PDF e na Área do Cliente, ao lado da entrada).
+                </p>
+                <ChecklistGrade valor={checklistSaida} onChange={setChecklistSaida} />
               </div>
             </TabsContent>
 

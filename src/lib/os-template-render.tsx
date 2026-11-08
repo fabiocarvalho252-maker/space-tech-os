@@ -245,6 +245,8 @@ export type RenderOsData = {
   garantiaDias: number | null;
   garantiaVencimento: string | null;
   checklist: Record<string, string>;
+  /** Testes refeitos na entrega (vazio se não foi feito). */
+  checklistSaida?: Record<string, string>;
   estadoFisico: Record<string, boolean>;
   estadoFisicoObs: string | null;
   acessorios: string | null;
@@ -354,21 +356,27 @@ function renderSecao(
         ? `<section class="bloco"><h2>Diagnóstico técnico</h2><p>${esc(d.diagnostico)}</p></section>`
         : "";
     case "checklist": {
-      const itens = Object.keys(CHECKLIST_LABELS).filter((k) => d.checklist[k]);
-      if (!itens.length) return "";
-      return `
+      const bloco = (titulo: string, c: Record<string, string>) => {
+        const itens = Object.keys(CHECKLIST_LABELS).filter((k) => c[k]);
+        if (!itens.length) return "";
+        return `
         <section class="bloco">
-          <h2>Checklist de Entrada</h2>
+          <h2>${titulo}</h2>
           <div class="grid-checklist">
             ${itens
               .map(
                 (k) =>
-                  `<div>${CHECKLIST_LABELS[k]}: <strong>${CHECKLIST_STATUS_LABELS[d.checklist[k]!] ?? d.checklist[k]}</strong></div>`,
+                  `<div>${CHECKLIST_LABELS[k]}: <strong>${CHECKLIST_STATUS_LABELS[c[k]!] ?? c[k]}</strong></div>`,
               )
               .join("")}
           </div>
         </section>
       `;
+      };
+      return (
+        bloco("Checklist de Entrada", d.checklist) +
+        bloco("Checklist de Saída", d.checklistSaida ?? {})
+      );
     }
     case "estado_fisico": {
       const marcados = Object.keys(ESTADO_FISICO_LABELS).filter((k) => d.estadoFisico[k]);
