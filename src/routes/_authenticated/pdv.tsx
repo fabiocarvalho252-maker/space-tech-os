@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { UsarCashback } from "@/components/cashback/UsarCashback";
 import type { Tables } from "@/integrations/supabase/types";
 import { useCurrentUser, useEmpresaId } from "@/hooks/useCurrentUser";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
@@ -185,7 +186,10 @@ function PDV() {
         : descontoBruto) * 100,
     ) / 100,
   );
-  const total = Math.max(0, subtotal - desconto);
+  // Cashback do cliente usado como desconto (UsarCashback calcula o valor).
+  const [usarCashback, setUsarCashback] = useState(false);
+  const [cashback, setCashback] = useState(0);
+  const total = Math.max(0, subtotal - desconto - cashback);
   const valorRecebido = Math.max(0, Number(valorRecebidoInput.replace(",", ".")) || 0);
   const troco = Math.max(0, Math.round((valorRecebido - total) * 100) / 100);
 
@@ -233,20 +237,34 @@ function PDV() {
 
       // Venda, itens, baixa de estoque e receita numa única transação no
       // banco (registrar_venda): ou grava tudo, ou nada.
-      const { data: venda, error: vendaErro } = await supabase.rpc("registrar_venda", {
-        p_empresa_id: empresaId!,
-        p_itens: carrinho.map((i) => ({
-          produto_id: i.id,
-          descricao: i.nome,
-          quantidade: i.qtd,
-          preco_unitario: i.preco,
-        })),
-        p_cliente_id: clienteId as string,
-        p_desconto: desconto,
-        p_forma_pagamento: formaPagamento,
-        p_observacoes: (observacoes.trim() || null) as string,
-        p_categoria: "Venda PDV",
-      });
+      const itensVenda = carrinho.map((i) => ({
+        produto_id: i.id,
+        descricao: i.nome,
+        quantidade: i.qtd,
+        preco_unitario: i.preco,
+      }));
+      // Com cashback: a venda e o uso do crédito são gravados juntos.
+      const { data: venda, error: vendaErro } =
+        cashback > 0
+          ? await supabase.rpc("registrar_venda_com_cashback", {
+              p_empresa_id: empresaId!,
+              p_itens: itensVenda,
+              p_cliente_id: clienteId as string,
+              p_desconto: desconto,
+              p_cashback: cashback,
+              p_forma_pagamento: formaPagamento,
+              p_observacoes: (observacoes.trim() || null) as string,
+              p_categoria: "Venda PDV",
+            })
+          : await supabase.rpc("registrar_venda", {
+              p_empresa_id: empresaId!,
+              p_itens: itensVenda,
+              p_cliente_id: clienteId as string,
+              p_desconto: desconto,
+              p_forma_pagamento: formaPagamento,
+              p_observacoes: (observacoes.trim() || null) as string,
+              p_categoria: "Venda PDV",
+            });
       if (vendaErro) throw vendaErro;
       if (!venda) throw new Error("Erro ao criar venda");
       return venda as { id: string; numero: number | null };
@@ -268,6 +286,8 @@ function PDV() {
       setObservacoes("");
       setClienteId(null);
       setDescontoInput("");
+      setUsarCashback(false);
+      void qc.invalidateQueries({ queryKey: ["cashback-saldo"] });
       setValorRecebidoInput("");
       setFormaPagamento("PIX");
       setFinalizarAberto(false);
@@ -455,18 +475,36 @@ function PDV() {
     </>
   );
 
-  const resumoDesconto = desconto > 0 && (
+  const cashbackCampo = (
+    <UsarCashback
+      clienteId={clienteId}
+      base={Math.max(0, subtotal - desconto)}
+      usar={usarCashback}
+      onUsarChange={setUsarCashback}
+      onValor={setCashback}
+    />
+  );
+
+  const resumoDesconto = (desconto > 0 || cashback > 0) && (
     <div className="space-y-1 text-sm">
       <div className="flex items-center justify-between text-muted-foreground">
         <span>Subtotal</span>
         <span>{brl(subtotal)}</span>
       </div>
-      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-        <span>
-          Desconto{descontoTipo === "percentual" ? ` (${Math.min(descontoBruto, 100)}%)` : ""}
-        </span>
-        <span>− {brl(desconto)}</span>
-      </div>
+      {desconto > 0 && (
+        <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+          <span>
+            Desconto{descontoTipo === "percentual" ? ` (${Math.min(descontoBruto, 100)}%)` : ""}
+          </span>
+          <span>− {brl(desconto)}</span>
+        </div>
+      )}
+      {cashback > 0 && (
+        <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+          <span>Cashback</span>
+          <span>− {brl(cashback)}</span>
+        </div>
+      )}
     </div>
   );
 
@@ -731,6 +769,7 @@ function PDV() {
             </div>
 
             {descontoCampo}
+            {cashbackCampo}
 
             {resumoDesconto}
 
@@ -1000,7 +1039,10 @@ function PDV() {
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-4">{descontoCampo}</div>
+                  <div className="space-y-4">
+                    {descontoCampo}
+                    {cashbackCampo}
+                  </div>
                   <div className="space-y-4">{pagamentoCampos}</div>
                 </div>
                 {resumoDesconto}
@@ -1064,6 +1106,7 @@ function PDV() {
             </div>
 
             {descontoCampo}
+            {cashbackCampo}
 
             {pagamentoCampos}
 

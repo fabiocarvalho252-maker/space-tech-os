@@ -28,6 +28,75 @@ export type Database = {
   };
   public: {
     Tables: {
+      cashback_config: {
+        Row: {
+          user_id: string;
+          ativo: boolean;
+          percentual: number;
+          validade_dias: number;
+          uso_max_percentual: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          ativo?: boolean;
+          percentual?: number;
+          validade_dias?: number;
+          uso_max_percentual?: number;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          ativo?: boolean;
+          percentual?: number;
+          validade_dias?: number;
+          uso_max_percentual?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      cashback_movimentos: {
+        Row: {
+          id: string;
+          user_id: string;
+          cliente_id: string;
+          tipo: string;
+          valor: number;
+          origem: string;
+          origem_id: string;
+          descricao: string | null;
+          expira_em: string | null;
+          cancelado_em: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          cliente_id: string;
+          tipo: string;
+          valor: number;
+          origem: string;
+          origem_id: string;
+          descricao?: string | null;
+          expira_em?: string | null;
+          cancelado_em?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          cliente_id?: string;
+          tipo?: string;
+          valor?: number;
+          origem?: string;
+          origem_id?: string;
+          descricao?: string | null;
+          expira_em?: string | null;
+          cancelado_em?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       venda_avaliacoes: {
         Row: {
           id: string;
@@ -5044,6 +5113,42 @@ export type Database = {
           desconto: number;
           opcao_grupo: string | null;
         }[];
+      };
+      cashback_saldo: {
+        Args: { p_cliente: string };
+        Returns: Json;
+      };
+      cashback_publico: {
+        Args: { p_identificador: string };
+        Returns: Json;
+      };
+      registrar_venda_com_cashback: {
+        Args: {
+          p_empresa_id: string;
+          p_itens: Json;
+          p_cliente_id: string;
+          p_desconto: number;
+          p_cashback: number;
+          p_forma_pagamento: string;
+          p_observacoes?: string;
+          p_categoria?: string;
+        };
+        Returns: Database["public"]["Tables"]["vendas"]["Row"];
+      };
+      faturar_os_com_cashback: {
+        Args: {
+          p_cashback: number;
+          p_os_id: string;
+          p_categoria_id: string;
+          p_valor_total: number;
+          p_parcelas: Json;
+          p_tecnicos?: Json;
+          p_observacoes?: string;
+          p_descricao?: string;
+          p_custo_tecnico?: number;
+          p_custo_tecnico_nome?: string;
+        };
+        Returns: Database["public"]["Tables"]["os_faturamentos"]["Row"];
       };
       agenda_publica: {
         Args: { p_slug: string };

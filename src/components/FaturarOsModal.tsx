@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addMonths, format } from "date-fns";
 import {
@@ -70,6 +70,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { WhatsAppOsAlvo } from "@/components/WhatsAppSendModal";
+import { UsarCashback } from "@/components/cashback/UsarCashback";
 
 type OsFaturar = Tables<"ordens_servico"> & {
   clientes: { nome: string; telefone: string | null; email: string | null } | null;
@@ -304,10 +305,31 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
   const [clientePopoverAberto, setClientePopoverAberto] = useState(false);
 
   useEffect(() => {
-    if (open) setInicializado(false);
+    if (open) {
+      setInicializado(false);
+      setUsarCashback(false);
+    }
   }, [open, osId]);
 
-  const totalOs = Math.max(totalItens - desconto, 0);
+  // Cashback do cliente abatido no faturamento (o banco soma ao desconto da
+  // OS e registra o uso junto com o faturamento — faturar_os_com_cashback).
+  const [usarCashback, setUsarCashback] = useState(false);
+  const [cashback, setCashback] = useState(0);
+  const totalOs = Math.max(totalItens - desconto - cashback, 0);
+
+  // Marcar/desmarcar o cashback muda o total: redistribui as parcelas e, com
+  // um técnico só, o valor dele (mais técnicos: a loja ajusta à mão).
+  const totalRef = useRef(0);
+  totalRef.current = Math.max(totalItens - desconto - cashback, 0);
+  useEffect(() => {
+    if (!inicializado) return;
+    const total = totalRef.current;
+    setParcelas((ps) =>
+      ajustarQuantidadeParcelas(ps, Math.max(ps.length, 1), total, ps[0]?.vencimento || hojeISO()),
+    );
+    setTecnicos((ts) => (ts.length === 1 ? [{ ...ts[0]!, valor: total }] : ts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cashback]);
 
   useEffect(() => {
     if (inicializado || !open || carregandoOs || carregandoItens || faturamento === undefined) {
@@ -425,7 +447,7 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
       }
 
       // NULL é aceito pelas funções SQL; os tipos gerados não marcam argumentos como anuláveis.
-      const { data, error } = await supabase.rpc("faturar_os", {
+      const args = {
         p_os_id: osId as string,
         p_categoria_id: (categoriaId || null) as string,
         p_valor_total: totalOs,
@@ -446,13 +468,19 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
         p_descricao: (descricao || null) as string,
         p_custo_tecnico: custoTecnico > 0 ? custoTecnico : 0,
         p_custo_tecnico_nome: (custoTecnico > 0 ? custoTecnicoNome.trim() || null : null) as string,
-      });
+      };
+      const { data, error } =
+        cashback > 0
+          ? await supabase.rpc("faturar_os_com_cashback", { ...args, p_cashback: cashback })
+          : await supabase.rpc("faturar_os", args);
       if (error) throw error;
       return data;
     },
     onMutate: () => setErro(null),
     onSuccess: () => {
       toast.success(`OS Nº ${os?.numero} faturada com sucesso.`);
+      setUsarCashback(false);
+      qc.invalidateQueries({ queryKey: ["cashback-saldo"] });
       qc.invalidateQueries({ queryKey: ["os-faturamento-ativo", osId] });
       qc.invalidateQueries({ queryKey: ["os-faturar", osId] });
       qc.invalidateQueries({ queryKey: ["ordens"] });
@@ -717,7 +745,20 @@ export function FaturarOsModal({ osId, open, onOpenChange, onFaturado }: Faturar
                       <Input value={fmt(totalOs)} disabled className="font-semibold" />
                       <p className="text-xs text-muted-foreground">
                         Desconto aplicado na OS: {fmt(os.desconto ?? 0)}
+                        {cashback > 0 && ` · cashback − ${fmt(cashback)}`}
                       </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <UsarCashback
+                        clienteId={clienteId || null}
+                        base={Math.max(totalItens - desconto, 0)}
+                        usar={usarCashback}
+                        onUsarChange={(v) => {
+                          setUsarCashback(v);
+                          setSujo(true);
+                        }}
+                        onValor={setCashback}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label>

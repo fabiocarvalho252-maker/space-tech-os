@@ -7,6 +7,7 @@ import { DetalhesOsCliente, type DetalhesOsPublica } from "@/components/consulta
 import { brl, dataBR, dataHoraBR, statusLabel } from "@/lib/format";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { NotaDaLoja } from "@/components/consulta/NotaDaLoja";
+import { CashbackCliente } from "@/components/consulta/CashbackCliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -166,6 +167,7 @@ function ConsultaPublica() {
 
       <main className="max-w-2xl mx-auto px-4">
         <NotaDaLoja tipo="os" id={osId} />
+        <CashbackCliente osId={osId} />
         <Card className="border-none shadow-soft overflow-hidden bg-card">
           <CardHeader className="bg-primary/5 border-b border-primary/10 py-6">
             <div className="flex justify-between items-start">
