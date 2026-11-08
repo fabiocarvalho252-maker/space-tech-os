@@ -112,6 +112,7 @@ export const prepararGoogleLens = createServerFn({ method: "POST" })
       const base = new URL(publico);
       link.protocol = base.protocol;
       link.host = base.host;
+      link.port = base.port;
     }
     return {
       url: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(link.toString())}`,

@@ -33,9 +33,21 @@ export const fotosOsPublicaFn = createServerFn({ method: "POST" })
         galeria.map((f) => f.url),
         60 * 60,
       );
+    // O servidor fala com o Supabase por localhost; o navegador do cliente
+    // precisa do domínio público.
+    const publico = process.env["SUPABASE_PUBLIC_URL"] || process.env["VITE_SUPABASE_URL"];
+    const paraPublico = (u: string) => {
+      if (!u || !publico) return u;
+      const link = new URL(u);
+      const base = new URL(publico);
+      link.protocol = base.protocol;
+      link.host = base.host;
+      link.port = base.port;
+      return link.toString();
+    };
     return galeria
       .map((f, i) => ({
-        url: assinadas?.[i]?.signedUrl ?? "",
+        url: paraPublico(assinadas?.[i]?.signedUrl ?? ""),
         categoria: f.category ?? "entrada",
         criadaEm: f.created_at,
       }))
