@@ -172,6 +172,13 @@ export const messageTemplates: WhatsAppMessageTemplate[] = [
       "Olá {cliente}! Acompanhe sua OS nº {numero_os} pelo link abaixo — status, linha do tempo, fotos, garantia e o PDF da OS:\n{link}",
   },
   {
+    id: "retorno_avaliacao",
+    name: "Retorno de avaliação",
+    builtin: true,
+    message:
+      "Olá {cliente}, aqui é da {nome_loja}. Vimos sua avaliação da OS nº {numero_os} e sentimos muito que a experiência não tenha sido boa. Pode nos contar o que aconteceu? Queremos resolver.",
+  },
+  {
     id: "aguardando_peca",
     name: "Aguardando peça",
     builtin: true,

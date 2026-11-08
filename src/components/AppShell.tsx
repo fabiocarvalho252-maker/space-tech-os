@@ -644,6 +644,8 @@ type Notificacao = {
   titulo: string;
   descricao: string;
   to: string;
+  /** Âncora na página de destino (ex.: seção de Relatórios). */
+  hash?: string;
   icon: React.ElementType;
   /** Muda quando o conteúdo muda — a notificação lida volta a aparecer. */
   assinatura: string;
@@ -772,7 +774,8 @@ function useNotificacoes() {
                 `#${(a.ordens_servico as { numero: number } | null)?.numero ?? "?"} ${a.nota}★`,
             )
             .join(", "),
-          to: "/ordens",
+          to: "/relatorios",
+          hash: "avaliacoes",
           icon: Star,
           assinatura: assinar(avaliadas.map((a) => a.id)),
         });
@@ -877,6 +880,7 @@ function NotificacoesMenu() {
             <DropdownMenuItem key={n.id} asChild>
               <Link
                 to={n.to}
+                {...(n.hash ? { hash: n.hash } : {})}
                 onClick={() => marcarLidas([n])}
                 className="flex items-start gap-2.5 py-2.5"
               >
