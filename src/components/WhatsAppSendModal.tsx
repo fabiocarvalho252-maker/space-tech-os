@@ -23,6 +23,7 @@ import { enviarNotificacaoOsWhatsAppFn, statusWhatsapp } from "@/lib/whatsapp/wh
 import { gerarPdfOsCompartilharFn } from "@/lib/os-pdf-share.functions";
 import { base64ParaBytes, baixarArquivo } from "@/lib/pdf-share";
 import { linkAprovacaoOrcamento, marcarOrcamentoEnviado } from "@/lib/orcamento-link";
+import { primeiroNome } from "@/lib/whatsapp/robo";
 import {
   buildMensagensRapidas,
   buildWaMeLink,
@@ -90,7 +91,9 @@ export function WhatsAppSendModal({
 
   const variaveis: VariaveisWhatsApp = useMemo(
     () => ({
-      cliente: os?.clientes?.nome ?? "",
+      // Primeiro nome com a inicial maiúscula ("Olá Joao,"), como nas
+      // mensagens automáticas; nome sem letras fica com o cadastro.
+      cliente: primeiroNome(os?.clientes?.nome) ?? (os?.clientes?.nome ?? "").trim(),
       os: os ? String(os.numero) : "",
       numero: os ? String(os.numero) : "",
       numero_os: os ? String(os.numero) : "",
