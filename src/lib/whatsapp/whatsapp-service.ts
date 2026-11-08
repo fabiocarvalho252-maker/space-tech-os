@@ -1716,6 +1716,41 @@ export async function enviarRelatorioSemanal(empresaId: string): Promise<boolean
   linhas.push("", `👥 Clientes novos: ${n("clientes_novos")}`);
   if (n("estoque_baixo") > 0) linhas.push(`📦 Produtos no estoque mínimo: ${n("estoque_baixo")}`);
 
+  // Avaliações da semana (OS pela Área do Cliente + vendas pela página de
+  // avaliação): média, quantas e o melhor comentário.
+  const [avOs, avVenda] = await Promise.all([
+    supabaseAdmin
+      .from("os_avaliacoes")
+      .select("nota, comentario, created_at")
+      .eq("user_id", empresaId)
+      .gte("created_at", inicio.toISOString())
+      .lt("created_at", fim.toISOString()),
+    supabaseAdmin
+      .from("venda_avaliacoes")
+      .select("nota, comentario, created_at")
+      .eq("user_id", empresaId)
+      .gte("created_at", inicio.toISOString())
+      .lt("created_at", fim.toISOString()),
+  ]);
+  const avaliacoes = [...(avOs.data ?? []), ...(avVenda.data ?? [])];
+  if (avaliacoes.length) {
+    const media = avaliacoes.reduce((t, a) => t + a.nota, 0) / avaliacoes.length;
+    const baixas = avaliacoes.filter((a) => a.nota <= 2).length;
+    linhas.push(
+      "",
+      "*Avaliações dos clientes*",
+      `• Nota média: ${media.toFixed(1).replace(".", ",")} ⭐ (${avaliacoes.length} avaliaç${avaliacoes.length > 1 ? "ões" : "ão"})`,
+    );
+    if (baixas) linhas.push(`• Baixas (1–2★): ${baixas}`);
+    // Melhor comentário: maior nota com comentário; empate, o mais recente.
+    const destaque = avaliacoes
+      .filter((a) => a.comentario?.trim())
+      .sort((a, b) => b.nota - a.nota || b.created_at.localeCompare(a.created_at))[0];
+    if (destaque && destaque.nota >= 4) {
+      linhas.push(`• Destaque: "${destaque.comentario!.trim().slice(0, 200)}" (${destaque.nota}★)`);
+    }
+  }
+
   const envio = await enviarAutomatico({
     empresaId,
     conexao,
