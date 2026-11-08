@@ -28,6 +28,7 @@ import {
   ESTADO_FISICO_LABELS,
 } from "@/lib/os-checklist-labels";
 import { fotosOsPublicaFn, pdfOsPublicaFn } from "@/lib/consulta-publica.functions";
+import { avisarAvaliacaoBaixaFn } from "@/lib/aviso-avaliacao.functions";
 
 export type DetalhesOsPublica = {
   cor: string | null;
@@ -427,6 +428,10 @@ function AvaliacaoOs({ osId }: { osId: string }) {
           p_comentario: comentario,
         });
         if (error) throw error;
+        // Nota baixa: alerta a loja no WhatsApp na hora (o cron cobre falhas).
+        if (data === "ok" && nota <= 2) {
+          void avisarAvaliacaoBaixaFn({ data: { tipo: "os", id: osId } }).catch(() => {});
+        }
         return data;
       }}
       titulo="Avalie o atendimento"

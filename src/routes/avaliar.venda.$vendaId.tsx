@@ -7,6 +7,7 @@ import { AlertCircle, Loader2, ShoppingBag, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dataBR } from "@/lib/format";
 import { primeiroNome } from "@/lib/whatsapp/robo";
+import { avisarAvaliacaoBaixaFn } from "@/lib/aviso-avaliacao.functions";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { Badge } from "@/components/ui/badge";
 import { AvaliacaoEstrelas, type SituacaoAvaliacao } from "@/components/consulta/AvaliacaoEstrelas";
@@ -128,6 +129,12 @@ function AvaliarVenda() {
                 p_comentario: comentario,
               });
               if (error) throw error;
+              // Nota baixa: alerta a loja no WhatsApp na hora (o cron cobre falhas).
+              if (data === "ok" && nota <= 2) {
+                void avisarAvaliacaoBaixaFn({ data: { tipo: "venda", id: vendaId } }).catch(
+                  () => {},
+                );
+              }
               return data;
             }}
             titulo="Avalie sua compra"

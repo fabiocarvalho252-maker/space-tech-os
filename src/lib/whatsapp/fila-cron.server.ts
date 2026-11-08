@@ -12,6 +12,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { conferirAvisosDeCadastro } from "@/lib/aviso-novo-cadastro.server";
 import { conferirAvisosDeOrcamento } from "@/lib/aviso-orcamento-respondido.server";
+import { conferirAvisosDeAvaliacaoBaixa } from "@/lib/aviso-avaliacao-baixa.server";
 import { evolutionConfigurado } from "./evolution-api";
 import { processarFila, rodarAutomacoes } from "./whatsapp-service";
 
@@ -47,6 +48,7 @@ export async function handleWhatsappFilaCron(request: Request): Promise<Response
   try {
     const avisosCadastro = await conferirAvisosDeCadastro();
     const avisosOrcamento = await conferirAvisosDeOrcamento();
+    const avisosAvaliacao = await conferirAvisosDeAvaliacaoBaixa();
 
     const { data: conexoes, error } = await supabaseAdmin
       .from("whatsapp_connections")
@@ -66,7 +68,13 @@ export async function handleWhatsappFilaCron(request: Request): Promise<Response
         }
       }),
     );
-    return Response.json({ automacoes, avisosCadastro, avisosOrcamento, empresas: resultados });
+    return Response.json({
+      automacoes,
+      avisosCadastro,
+      avisosOrcamento,
+      avisosAvaliacao,
+      empresas: resultados,
+    });
   } catch (erro) {
     console.error("[Fila WhatsApp] Falha no worker:", erro instanceof Error ? erro.message : erro);
     return new Response("erro", { status: 500 });
