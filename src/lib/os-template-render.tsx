@@ -9,6 +9,11 @@
 import { renderToString } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 import { dataHoraBR } from "@/lib/format";
+import {
+  CHECKLIST_LABELS,
+  CHECKLIST_STATUS_LABELS,
+  ESTADO_FISICO_LABELS,
+} from "@/lib/os-checklist-labels";
 
 export type OsTemplateTema = "azul" | "verde" | "roxo" | "preto" | "vermelho" | "minimalista";
 export type OsTemplateOrientacao = "retrato" | "paisagem";
@@ -261,45 +266,6 @@ export type RenderOsData = {
   qrCodeUrl: string | null;
   modo: "os" | "orcamento" | "nao_fiscal" | "venda_aparelho";
   duasVias: boolean;
-};
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  liga: "Liga",
-  desliga: "Desliga",
-  tela: "Tela",
-  touch: "Touch",
-  cameras: "Câmeras",
-  flash: "Flash",
-  alto_falante: "Alto-falante",
-  microfone: "Microfone",
-  vibracao: "Vibração",
-  wifi: "Wi-Fi",
-  bluetooth: "Bluetooth",
-  rede_movel: "Rede móvel",
-  carregamento: "Carregamento",
-  biometria: "Biometria",
-  face_id: "Face ID",
-  botoes: "Botões",
-  sensores: "Sensores",
-  nfc: "NFC",
-};
-const CHECKLIST_STATUS_LABELS: Record<string, string> = {
-  ok: "OK",
-  defeito: "Defeito",
-  nao_testado: "Não testado",
-  nao_se_aplica: "N/A",
-};
-const ESTADO_FISICO_LABELS: Record<string, string> = {
-  tela_trincada: "Tela trincada",
-  tela_riscada: "Tela riscada",
-  tampa_quebrada: "Tampa traseira quebrada",
-  carcaca_amassada: "Carcaça amassada",
-  camera_danificada: "Câmera danificada",
-  oxidacao: "Oxidação",
-  sinais_liquido: "Sinais de líquido",
-  parafusos_ausentes: "Parafusos ausentes",
-  lacre_violado: "Lacre violado",
-  outros: "Outros",
 };
 
 function tituloDocumento(modo: RenderOsData["modo"]) {

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { avisarOrcamentoRespondidoFn } from "@/lib/orcamento-link.functions";
+import { DetalhesOsCliente, type DetalhesOsPublica } from "@/components/consulta/DetalhesOsCliente";
 import { brl, dataBR, dataHoraBR, statusLabel } from "@/lib/format";
 import { LogoMark, LogoWord } from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,17 @@ function ConsultaPublica() {
       const { data, error } = await supabase.rpc("itens_os_publica", { p_identificador: osId });
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // Como o aparelho entrou, laudo, linha do tempo, pagamento, garantia,
+  // fotos e PDF — tudo sem dados internos (ver detalhes_os_publica).
+  const { data: detalhes } = useQuery({
+    queryKey: ["os-publica-detalhes", osId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("detalhes_os_publica", { p_identificador: osId });
+      if (error) throw error;
+      return (data ?? null) as DetalhesOsPublica | null;
     },
   });
 
@@ -222,6 +234,8 @@ function ConsultaPublica() {
 
             <DecisaoOrcamento osId={osId} status={os.status} />
 
+            {detalhes && <DetalhesOsCliente osId={osId} numero={os.numero} d={detalhes} />}
+
             <footer className="pt-6 text-center border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-4">
                 Em caso de dúvidas, entre em contato com a assistência:
@@ -259,6 +273,7 @@ function DecisaoOrcamento({ osId, status }: { osId: string; status: string }) {
     onSettled: () => {
       setConfirmar(null);
       qc.invalidateQueries({ queryKey: ["os-publica", osId] });
+      qc.invalidateQueries({ queryKey: ["os-publica-detalhes", osId] });
     },
   });
 

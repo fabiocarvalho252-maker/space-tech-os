@@ -24,6 +24,11 @@ import {
 import { Escritor } from "@/lib/pdf-writer.server";
 import { buscarTemplatePadrao } from "@/lib/os-template-busca";
 import { linhaHorarioLoja } from "@/lib/horario-loja";
+import {
+  CHECKLIST_LABELS,
+  CHECKLIST_STATUS_LABELS,
+  ESTADO_FISICO_LABELS,
+} from "@/lib/os-checklist-labels";
 
 // site-url.ts's origemPublica() falls back to window.location.origin, which
 // doesn't exist in this server context — read the same VITE_SITE_URL env var
@@ -36,47 +41,6 @@ import { linhaHorarioLoja } from "@/lib/horario-loja";
 function origemPublicaServer(): string {
   return import.meta.env["VITE_SITE_URL"] ?? "";
 }
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  liga: "Liga",
-  desliga: "Desliga",
-  tela: "Tela",
-  touch: "Touch",
-  cameras: "Câmeras",
-  flash: "Flash",
-  alto_falante: "Alto-falante",
-  microfone: "Microfone",
-  vibracao: "Vibração",
-  wifi: "Wi-Fi",
-  bluetooth: "Bluetooth",
-  rede_movel: "Rede móvel",
-  carregamento: "Carregamento",
-  biometria: "Biometria",
-  face_id: "Face ID",
-  botoes: "Botões",
-  sensores: "Sensores",
-  nfc: "NFC",
-};
-
-const CHECKLIST_STATUS_LABELS: Record<string, string> = {
-  ok: "OK",
-  defeito: "Defeito",
-  nao_testado: "Não testado",
-  nao_se_aplica: "N/A",
-};
-
-const ESTADO_FISICO_LABELS: Record<string, string> = {
-  tela_trincada: "Tela trincada",
-  tela_riscada: "Tela riscada",
-  tampa_quebrada: "Tampa traseira quebrada",
-  carcaca_amassada: "Carcaça amassada",
-  camera_danificada: "Câmera danificada",
-  oxidacao: "Oxidação",
-  sinais_liquido: "Sinais de líquido",
-  parafusos_ausentes: "Parafusos ausentes",
-  lacre_violado: "Lacre violado",
-  outros: "Outros",
-};
 
 const brl = (v: number | string | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));

@@ -4919,6 +4919,10 @@ export type Database = {
           desconto: number;
         }[];
       };
+      detalhes_os_publica: {
+        Args: { p_identificador: string };
+        Returns: Json;
+      };
       decidir_orcamento_por_link: {
         Args: { p_os_id: string; p_aprovar: boolean };
         Returns: string;
