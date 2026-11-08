@@ -1950,6 +1950,12 @@ function Configuracoes() {
                           uso: "auto",
                         },
                         {
+                          id: "pesquisa_link_avaliacao",
+                          label: "Pesquisa: incluir link para avaliar com estrelas",
+                          key: "pesquisa_link_avaliacao",
+                          uso: "auto",
+                        },
+                        {
                           id: "ia_pesquisa_personalizada",
                           label: "IA: escrever a pesquisa pós-OS para cada cliente",
                           key: "ia_pesquisa_personalizada",
@@ -2122,7 +2128,16 @@ function Configuracoes() {
                               );
                             })()}
                             <div className="space-y-2">
-                              {item.key === "ia_pesquisa_personalizada" ? (
+                              {item.key === "pesquisa_link_avaliacao" ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Com a pesquisa pós-OS automática ligada, a mensagem termina com o
+                                  link da Área do Cliente, onde o cliente dá de 1 a 5 estrelas e
+                                  deixa um comentário. A nota aparece no histórico da OS, no sininho
+                                  e em Relatórios → Avaliações. Quem já avaliou pela página não
+                                  recebe a pesquisa. Você também pode pôr o link onde quiser no
+                                  texto da pesquisa com a variável {"{{link}}"}.
+                                </p>
+                              ) : item.key === "ia_pesquisa_personalizada" ? (
                                 <p className="text-[11px] text-muted-foreground">
                                   Com a pesquisa pós-OS automática ligada, a IA (Gemini, com o
                                   ChatGPT de reserva se configurado) escreve cada mensagem com o

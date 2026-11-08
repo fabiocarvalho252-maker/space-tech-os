@@ -1147,7 +1147,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
 
     .from("whatsapp_config")
     .select(
-      "notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto, ia_pesquisa_personalizada",
+      "notif_pesquisa_auto, notif_pesquisa_auto_desde, pesquisa_pos_os_texto, ia_pesquisa_personalizada, pesquisa_link_avaliacao",
     )
     .eq("user_id", empresaId)
     .maybeSingle();
@@ -1156,6 +1156,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
     notif_pesquisa_auto_desde: string | null;
     pesquisa_pos_os_texto: string | null;
     ia_pesquisa_personalizada: boolean;
+    pesquisa_link_avaliacao: boolean;
   } | null;
   if (!cfg?.notif_pesquisa_auto || !cfg.notif_pesquisa_auto_desde || !cfg.pesquisa_pos_os_texto) {
     return 0;
@@ -1192,6 +1193,16 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
   const enviadas = new Set(
     ((jaEnviadas ?? []) as unknown as { os_id: string }[]).map((m) => m.os_id),
   );
+  // Quem já avaliou pela Área do Cliente não recebe a pesquisa.
+  const { data: avaliadas } = await supabaseAdmin
+    .from("os_avaliacoes")
+    .select("os_id")
+    .in(
+      "os_id",
+      ordens.map((o) => o.id),
+    );
+  for (const a of avaliadas ?? []) enviadas.add(a.os_id);
+  const site = import.meta.env["VITE_SITE_URL"] ?? "";
 
   const loja = await nomeDaLoja(empresaId);
   const servicosPorOs = cfg.ia_pesquisa_personalizada
@@ -1217,6 +1228,7 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
       .replace(/\{\{\s*status\s*\}\}/g, "Entregue")
       .replace(/\{\{\s*tecnico\s*\}\}/g, "")
       .replace(/\{\{\s*loja\s*\}\}/g, loja)
+      .replace(/\{\{\s*link\s*\}\}/g, site ? `${site}/consulta/${os.id}` : "")
       .replace(/Olá\s+([,!])/g, "Olá$1");
 
     let texto = mensagem;
@@ -1236,6 +1248,12 @@ export async function enfileirarPesquisasPosOs(empresaId: string): Promise<numbe
       });
       // Sem IA (chave ausente, limite, erro) vai o texto fixo da loja.
       if (daIA) texto = daIA;
+    }
+    // Link para avaliar com estrelas na Área do Cliente (se a loja ligou e o
+    // texto ainda não trouxe o link pela variável {{link}}).
+    const linkAvaliacao = `${site}/consulta/${os.id}`;
+    if (cfg.pesquisa_link_avaliacao && site && !texto.includes(linkAvaliacao)) {
+      texto += `\n\nSe preferir, avalie com estrelas em 1 toque: ${linkAvaliacao}`;
     }
 
     const { error } = await supabaseAdmin.from("whatsapp_messages").insert({

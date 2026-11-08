@@ -4136,6 +4136,7 @@ export type Database = {
           notif_pesquisa_venda_auto_desde: string | null;
           notif_relatorio_auto: boolean;
           pesquisa_pos_os: boolean | null;
+          pesquisa_link_avaliacao: boolean;
           pesquisa_pos_os_texto: string | null;
           pesquisa_pos_venda: boolean | null;
           pesquisa_pos_venda_texto: string | null;
@@ -4191,6 +4192,7 @@ export type Database = {
           notif_pesquisa_venda_auto_desde?: string | null;
           notif_relatorio_auto?: boolean;
           pesquisa_pos_os?: boolean | null;
+          pesquisa_link_avaliacao?: boolean;
           pesquisa_pos_os_texto?: string | null;
           pesquisa_pos_venda?: boolean | null;
           pesquisa_pos_venda_texto?: string | null;
@@ -4246,6 +4248,7 @@ export type Database = {
           notif_pesquisa_venda_auto_desde?: string | null;
           notif_relatorio_auto?: boolean;
           pesquisa_pos_os?: boolean | null;
+          pesquisa_link_avaliacao?: boolean;
           pesquisa_pos_os_texto?: string | null;
           pesquisa_pos_venda?: boolean | null;
           pesquisa_pos_venda_texto?: string | null;
