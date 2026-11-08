@@ -19,6 +19,7 @@ import {
   Receipt,
   Eye,
   EyeOff,
+  Star,
   Sparkles,
   Wand2,
   MoreVertical,
@@ -2388,6 +2389,42 @@ function useVistasCliente() {
   });
 }
 
+// Nota que o cliente deu pela Área do Cliente (os_avaliacoes, uma por OS).
+function useAvaliacoesOs() {
+  return useQuery({
+    queryKey: ["os-avaliacoes-lista"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("os_avaliacoes")
+        .select("os_id, nota, comentario")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      const mapa: Record<string, { nota: number; comentario: string | null }> = {};
+      for (const a of data ?? []) mapa[a.os_id] = { nota: a.nota, comentario: a.comentario };
+      return mapa;
+    },
+  });
+}
+
+function NotaDoCliente({ av }: { av: { nota: number; comentario: string | null } | undefined }) {
+  if (!av) return null;
+  const baixa = av.nota <= 2;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+        baixa
+          ? "bg-destructive/10 text-destructive"
+          : "bg-amber-400/15 text-amber-600 dark:text-amber-400"
+      }`}
+      title={`Avaliação do cliente: ${av.nota} de 5${av.comentario ? ` — "${av.comentario}"` : ""}`}
+    >
+      <Star className="h-3 w-3 fill-current" /> {av.nota}
+    </span>
+  );
+}
+
 function haQuanto(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   if (min < 60) return min <= 1 ? "agora" : `há ${min} min`;
@@ -2421,6 +2458,7 @@ const ListaOs = memo(function ListaOs({
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const { data: ladosPorOs = {} } = useLadosAparelhos();
   const { data: vistas = {} } = useVistasCliente();
+  const { data: avaliacoes = {} } = useAvaliacoesOs();
   const tituloAparelho = (os: OsListada) =>
     `OS #${os.numero} — ${[os.aparelho, os.marca, os.modelo].filter(Boolean).join(" ") || "Aparelho"}`;
   return (
@@ -2452,6 +2490,7 @@ const ListaOs = memo(function ListaOs({
                       <span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                         #{os.numero}
                         <VistoPeloCliente em={vistas[os.id]} />
+                        <NotaDoCliente av={avaliacoes[os.id]} />
                       </span>
                       <span className="font-bold text-base">
                         {os.clientes?.nome ?? "Sem cliente"}
@@ -2582,6 +2621,7 @@ const ListaOs = memo(function ListaOs({
                   <span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                     #{os.numero}
                     <VistoPeloCliente em={vistas[os.id]} />
+                    <NotaDoCliente av={avaliacoes[os.id]} />
                   </span>
                   <h3 className="font-bold">{os.clientes?.nome ?? "Sem cliente"}</h3>
                   <p className="text-xs text-muted-foreground">

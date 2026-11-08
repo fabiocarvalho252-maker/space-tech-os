@@ -24,6 +24,7 @@ import { TopProductsChart, type ItemRanking } from "@/components/dashboard/TopPr
 import { TopServicesChart } from "@/components/dashboard/TopServicesChart";
 import { OpenOrdersTable, type OsAberta } from "@/components/dashboard/OpenOrdersTable";
 import { SystemStatistics } from "@/components/dashboard/SystemStatistics";
+import { TechnicianRankingCard } from "@/components/dashboard/TechnicianRankingCard";
 import {
   calcularResultado,
   intervaloAnterior,
@@ -384,7 +385,7 @@ function Dashboard() {
         </div>
 
         {/* Celular: estatísticas antes do resultado do mês. */}
-        <div className="order-first lg:order-none lg:col-span-1">
+        <div className="order-first flex flex-col gap-3 sm:gap-6 lg:order-none lg:col-span-1">
           <SystemStatistics
             clientes={data?.clientesCount ?? 0}
             produtos={produtosCount}
@@ -393,6 +394,7 @@ function Dashboard() {
             garantias={data?.garantiasCount ?? 0}
             vendas={data?.vendasCount ?? 0}
           />
+          <TechnicianRankingCard />
         </div>
       </div>
     </div>
