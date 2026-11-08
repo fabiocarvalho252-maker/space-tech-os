@@ -9,6 +9,7 @@ import { brl, dataBR } from "@/lib/format";
 import { primeiroNome } from "@/lib/whatsapp/robo";
 import { avisarAvaliacaoBaixaFn } from "@/lib/aviso-avaliacao.functions";
 import { LogoMark, LogoWord } from "@/components/Logo";
+import { NotaDaLoja } from "@/components/consulta/NotaDaLoja";
 import { Badge } from "@/components/ui/badge";
 import { AvaliacaoEstrelas, type SituacaoAvaliacao } from "@/components/consulta/AvaliacaoEstrelas";
 
@@ -79,6 +80,7 @@ function AvaliarVenda() {
       </header>
 
       <main className="max-w-xl mx-auto px-4 space-y-6">
+        <NotaDaLoja tipo="venda" id={vendaId} />
         <div className="rounded-2xl bg-card p-5 shadow-soft space-y-4">
           <div className="flex items-center gap-3">
             {venda.logo ? (

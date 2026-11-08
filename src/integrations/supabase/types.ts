@@ -5001,6 +5001,10 @@ export type Database = {
           desconto: number;
         }[];
       };
+      nota_publica_loja: {
+        Args: { p_tipo: string; p_identificador: string };
+        Returns: Json;
+      };
       venda_publica_avaliacao: {
         Args: { p_identificador: string };
         Returns: Json;
