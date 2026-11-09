@@ -1,0 +1,10 @@
+{
+  "conteudo": "IG-01",
+  "slides": [
+    { "tipo": "capa", "icone": "📞", "titulo": "Meu celular já ficou *pronto*?", "sub": "A pergunta que para o seu conserto o dia inteiro." },
+    { "tipo": "baloes", "baloes": ["Oi, meu celular já ficou pronto?", "E aí, alguma novidade?", "Já dá pra buscar?", "Oi?? 📱"], "titulo": "Toda hora a *mesma ligação*…" },
+    { "tipo": "recorte", "imagem": "telas/etiqueta.png", "recorte": { "x": 0, "y": 0, "w": 1740, "h": 1140, "fonte": 1740 }, "titulo": "Cada OS tem um *QR Code*", "sub": "Na etiqueta e no PDF da OS.", "nota": "Etiqueta real do sistema · dados ilustrativos" },
+    { "tipo": "tela", "imagem": "telas/area-cliente.png", "y": 0, "titulo": "O cliente *acompanha* pelo link", "seta": "sem te ligar", "sub": "Sem baixar nada, direto no celular dele.", "nota": "Tela real do sistema · dados ilustrativos" },
+    { "tipo": "final", "titulo": "Teste *grátis* por 7 dias", "sub": "sem cartão de crédito", "cta": "Link na bio" }
+  ]
+}

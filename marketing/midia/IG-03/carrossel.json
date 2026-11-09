@@ -1,0 +1,12 @@
+{
+  "conteudo": "IG-03",
+  "slides": [
+    { "tipo": "capa", "icone": "📒", "titulo": "5 sinais de que sua assistência *já passou do caderno*", "sub": "Se você se identificou com 3, tá na hora." },
+    { "tipo": "sinal", "numero": "1", "icone": "📒", "titulo": "Você procura OS antiga *folheando caderno*" },
+    { "tipo": "sinal", "numero": "2", "icone": "📱", "titulo": "O cliente diz que o risco na tela *“não estava lá”*" },
+    { "tipo": "sinal", "numero": "3", "icone": "📦", "titulo": "A peça acabou e você só descobriu *com o cliente no balcão*" },
+    { "tipo": "sinal", "numero": "4", "icone": "💵", "titulo": "O caixa do dia *não bate* e ninguém sabe por quê" },
+    { "tipo": "sinal", "numero": "5", "icone": "📞", "titulo": "Metade do seu dia é responder *“já ficou pronto?”*" },
+    { "tipo": "lista", "titulo": "O *SPACE TECH OS* resolve:", "itens": ["Busca de OS por nº, cliente ou telefone", "Fotos de entrada na OS", "Alerta de estoque mínimo", "Caixa do dia com conferência", "Área do Cliente pelo link"], "cta": "7 dias grátis · link na bio" }
+  ]
+}

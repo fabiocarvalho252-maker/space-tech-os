@@ -46,6 +46,20 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;font-family:"Plus Jakarta S
 .tela img{width:100%;display:block}
 .recorte{border-radius:36px;overflow:hidden;background:#fff;box-shadow:0 0 0 4px rgba(167,139,250,.5),0 40px 110px rgba(124,58,237,.45);flex:none}
 .recorte img{display:block;max-width:none}
+.icone{width:220px;height:220px;border-radius:60px;background:rgba(124,58,237,.25);box-shadow:0 0 0 4px rgba(167,139,250,.35);display:flex;align-items:center;justify-content:center;font-size:120px}
+.chat{display:flex;flex-direction:column;gap:22px;width:100%;align-items:flex-start}
+.bolha{background:#202c33;color:#e9edef;font-size:40px;font-weight:600;padding:22px 32px;border-radius:30px 30px 30px 8px;text-align:left}
+.sinal-num{font-size:150px;font-weight:800;line-height:1;background:linear-gradient(90deg,#a78bfa,#e879f9);-webkit-background-clip:text;color:transparent}
+.lista{list-style:none;padding:0;display:flex;flex-direction:column;gap:24px;text-align:left;width:100%}
+.lista li{font-size:44px;font-weight:700;display:flex;gap:22px;align-items:center;background:rgba(255,255,255,.06);border-radius:26px;padding:22px 28px}
+.ok{flex:none;width:58px;height:58px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:34px}
+.oferta-txt{position:absolute;top:130px;left:60px;right:60px;text-align:center;display:flex;flex-direction:column;gap:22px}
+.mega{font-size:130px;line-height:1;font-weight:800;letter-spacing:-3px}
+.celular-baixo{position:absolute;left:50%;margin-left:-235px}
+.rodape-marca{position:absolute;left:0;right:0;bottom:0;height:150px;display:flex;align-items:center;justify-content:center;gap:18px;font-size:46px;font-weight:800;background:linear-gradient(to top,#09090b 55%,transparent)}
+.rodape-marca b{color:#a78bfa}.rodape-marca small{font-size:24px;color:#a1a1aa}
+.foguete.pequeno{width:72px;height:72px;border-radius:20px;font-size:38px}
+.nota-topo{font-size:24px;color:#a1a1aa}
 .nota{position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:22px;color:#a1a1aa}
 .marca{display:flex;align-items:center;gap:22px;font-size:66px;font-weight:800}
 .marca b{color:#a78bfa}.marca small{font-size:32px;color:#a1a1aa}
@@ -59,24 +73,51 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;font-family:"Plus Jakarta S
 `;
 
 function slideHtml(s, n) {
-  const topo = `<div class="topo"><span>SPACE TECH OS</span><span class="num">${n}/${total}</span></div>`;
+  const topo = `<div class="topo"><span>SPACE TECH OS</span>${total > 1 ? `<span class="num">${n}/${total}</span>` : ""}</div>`;
   let meio = "";
   if (s.tipo === "capa") {
     meio = `<div class="conteudo">
-      <div class="prateleira"><div class="caixa">TELA</div><div class="vazio">?</div><div class="caixa">BAT</div></div>
+      ${s.icone ? `<div class="icone">${esc(s.icone)}</div>` : `<div class="prateleira"><div class="caixa">TELA</div><div class="vazio">?</div><div class="caixa">BAT</div></div>`}
       <h1 class="titulo">${destaque(s.titulo)}</h1>
       ${s.sub ? `<p class="sub">${destaque(s.sub)}</p>` : ""}
     </div>`;
   } else if (s.tipo === "recorte") {
-    const { x = 0, y = 0, w = 1082, h = 600 } = s.recorte ?? {};
+    const { x = 0, y = 0, w = 1082, h = 600, fonte = 1082 } = s.recorte ?? {};
     const larg = 900;
     const esc2 = larg / w;
     meio = `<div class="conteudo">
       <p class="legenda">${destaque(s.titulo)}</p>
       ${s.seta ? `<p class="seta">${destaque(s.seta)}</p>` : ""}
-      <div class="recorte" style="width:${larg}px;height:${Math.round(h * esc2)}px"><img src="${img(s.imagem)}" style="width:${Math.round(1082 * esc2)}px;transform:translate(-${Math.round(x * esc2)}px,-${Math.round(y * esc2)}px)"></div>
+      <div class="recorte" style="width:${larg}px;height:${Math.round(h * esc2)}px"><img src="${img(s.imagem)}" style="width:${Math.round(fonte * esc2)}px;transform:translate(-${Math.round(x * esc2)}px,-${Math.round(y * esc2)}px)"></div>
       ${s.sub ? `<p class="sub">${destaque(s.sub)}</p>` : ""}
     </div>`;
+  } else if (s.tipo === "baloes") {
+    meio = `<div class="conteudo">
+      <div class="chat">${(s.baloes ?? []).map((t, k) => `<div class="bolha" style="opacity:${Math.max(0.35, 1 - k * 0.12)}">${esc(t)}</div>`).join("")}</div>
+      <p class="legenda">${destaque(s.titulo)}</p>
+      ${s.sub ? `<p class="sub">${destaque(s.sub)}</p>` : ""}
+    </div>`;
+  } else if (s.tipo === "sinal") {
+    meio = `<div class="conteudo">
+      <div class="sinal-num">${esc(s.numero)}</div>
+      <div class="icone">${esc(s.icone)}</div>
+      <p class="legenda">${destaque(s.titulo)}</p>
+    </div>`;
+  } else if (s.tipo === "lista") {
+    meio = `<div class="conteudo">
+      <p class="legenda">${destaque(s.titulo)}</p>
+      <ul class="lista">${(s.itens ?? []).map((t) => `<li><span class="ok">✓</span>${destaque(t)}</li>`).join("")}</ul>
+      ${s.cta ? `<div class="cta">${esc(s.cta)}</div>` : ""}
+    </div>`;
+  } else if (s.tipo === "oferta") {
+    const desloc = s.telefoneTopo ?? 700;
+    meio = `<div class="oferta-txt">
+      <h1 class="mega">${destaque(s.titulo)}</h1>
+      ${s.sub ? `<p class="sub">${destaque(s.sub)}</p>` : ""}
+      ${s.notaTopo ? `<p class="nota-topo">${esc(s.notaTopo)}</p>` : ""}
+    </div>
+    <div class="celular celular-baixo" style="top:${desloc}px;transform:scale(${s.escalaTelefone ?? 1});transform-origin:top center"><div class="tela"><img src="${img(s.imagem)}"></div></div>
+    <div class="rodape-marca"><span class="foguete pequeno">🚀</span><span>SPACE <b>TECH</b> <small>OS</small></span></div>`;
   } else if (s.tipo === "tela") {
     const y = s.y ?? 0;
     meio = `<div class="conteudo"><div class="lado">

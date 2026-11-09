@@ -1,0 +1,14 @@
+{
+  "conteudo": "IG-04",
+  "slides": [
+    {
+      "tipo": "oferta",
+      "imagem": "telas/painel.png",
+      "titulo": "7 DIAS *GRÁTIS*",
+      "sub": "sem cartão de crédito · depois R$ 40/mês",
+      "notaTopo": "Tela real do painel · dados ilustrativos",
+      "telefoneTopo": 500,
+      "escalaTelefone": 1.22
+    }
+  ]
+}
