@@ -4,7 +4,7 @@
 - **Plataforma:** WhatsApp (mensagem individual para assinantes atuais)
 - **Formato:** mensagem de texto
 - **Objetivo:** conseguir depoimentos reais, com autorização escrita, para usar no site e nas redes
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 30/11/2026
 - **Link:** não se aplica
 
@@ -38,10 +38,10 @@ Nenhum recurso citado; só o pedido de depoimento.
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: WhatsApp — mensagem individual para assinantes ativos escolhidos pelo Fabio
+- Observações: aprovação do TEXTO só deste conteúdo. NÃO autoriza nenhum envio: cada envio (para quais assinantes) precisa de autorização específica. Depoimento só é publicado com o "autorizo" por escrito guardado e depois de virar um conteúdo novo aprovado. Sem oferecer pagamento ou desconto em troca.
 
 ## Publicação
 
