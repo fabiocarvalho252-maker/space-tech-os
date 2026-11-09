@@ -159,7 +159,7 @@ export function ContasMeta() {
           </li>
           <li>Só aparecem as plataformas autorizadas na aprovação de cada conteúdo.</li>
           <li>
-            TikTok e Google ainda são publicados por você, manualmente (baixe a mídia no conteúdo).
+            Google ainda é publicado por você, manualmente (baixe a mídia no conteúdo).
           </li>
           <li>Os acessos ficam guardados só no servidor, fora do código.</li>
         </ul>

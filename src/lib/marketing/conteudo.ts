@@ -334,6 +334,8 @@ export function aplicarRecusa(
 // demais plataformas continuam manuais.
 
 export type PlataformaMeta = "instagram" | "facebook";
+// Plataformas com registro de publicação no arquivo do conteúdo.
+export type PlataformaRegistro = PlataformaMeta | "tiktok";
 
 // Plataformas autorizadas na aprovação que o sistema sabe publicar.
 export function plataformasPublicaveis(
@@ -347,12 +349,19 @@ export function plataformasPublicaveis(
   return r;
 }
 
-const ROTULO_PLAT: Record<PlataformaMeta, string> = {
+const ROTULO_PLAT: Record<PlataformaRegistro, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
+  tiktok: "TikTok",
 };
 
-export function jaPublicadoEm(texto: string, p: PlataformaMeta): boolean {
+// TikTok autorizado na aprovação (o envio pelo sistema exige vídeo).
+export function tiktokAutorizado(c: Pick<ConteudoMarketing, "status" | "aprovacao">): boolean {
+  if (c.status !== "APROVADO" && c.status !== "PUBLICADO") return false;
+  return /tiktok/i.test(c.aprovacao.plataformas);
+}
+
+export function jaPublicadoEm(texto: string, p: PlataformaRegistro): boolean {
   return new RegExp(`^- Publicado no ${ROTULO_PLAT[p]}:`, "m").test(texto);
 }
 
@@ -361,7 +370,7 @@ export function jaPublicadoEm(texto: string, p: PlataformaMeta): boolean {
 // próprio conteúdo, quando existir.
 export function textoParaPublicar(
   c: Pick<ConteudoMarketing, "secoes" | "links">,
-  p: PlataformaMeta,
+  p: PlataformaRegistro,
 ): string {
   const base = (c.secoes[SECAO_TEXTO] ?? "").trim();
   if (p === "facebook") {
@@ -375,7 +384,7 @@ export function textoParaPublicar(
 // post e uma linha por plataforma ("- Publicado no Instagram: <link> (data)").
 export function aplicarPublicacao(
   texto: string,
-  d: { plataforma: PlataformaMeta; link: string; quando: string },
+  d: { plataforma: PlataformaRegistro; link: string; quando: string },
 ): string {
   if (jaPublicadoEm(texto, d.plataforma)) throw new Error("Já publicado nesta plataforma.");
   let t = texto.replace(/^- \*\*Status:\*\* (APROVADO|PUBLICADO)$/m, "- **Status:** PUBLICADO");

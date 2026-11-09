@@ -11,6 +11,7 @@ import { handleBackupDriveCron, handleGoogleDriveCallback } from "./lib/backup/r
 import { handleWhatsappFilaCron } from "./lib/whatsapp/fila-cron.server";
 import { ehRotaMidiaMarketing, handleMidiaMarketing } from "./lib/marketing/midia.server";
 import { ehCallbackMeta, handleCallbackMeta } from "./lib/marketing/meta.server";
+import { ehCallbackTikTok, handleCallbackTikTok } from "./lib/marketing/tiktok.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -185,6 +186,10 @@ async function handleRequest(request: Request, env: unknown, ctx: unknown): Prom
     // facebook.com, sem sessão; autenticada pelo "state" assinado.
     if (ehCallbackMeta(request)) {
       return await handleCallbackMeta(request);
+    }
+    // Volta do login do TikTok (mesmo esquema, "state" assinado).
+    if (ehCallbackTikTok(request)) {
+      return await handleCallbackTikTok(request);
     }
     const handler = await getServerEntry();
     const response = await handler.fetch(request, env, ctx);

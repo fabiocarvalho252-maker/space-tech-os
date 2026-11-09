@@ -49,14 +49,20 @@ import { DecisaoConteudo } from "@/components/marketing/Decisao";
 import { CarrosselReal } from "@/components/marketing/CarrosselReal";
 import { ContasMeta } from "@/components/marketing/ContasMeta";
 import { PublicarConteudo } from "@/components/marketing/PublicarConteudo";
+import { ContaTikTok, EnviarTikTok } from "@/components/marketing/ContaTikTok";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin_/marketing")({
   head: () => ({ meta: [{ title: "Marketing — Administração do site" }] }),
-  validateSearch: (s: Record<string, unknown>): { id?: string; meta?: string } => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { id?: string; meta?: string; tiktok?: string } => ({
     ...(typeof s["id"] === "string" && /^[A-Za-z0-9-]{1,20}$/.test(s["id"]) ? { id: s["id"] } : {}),
     ...(typeof s["meta"] === "string" && /^[a-z-]{1,20}$/.test(s["meta"])
       ? { meta: s["meta"] }
+      : {}),
+    ...(typeof s["tiktok"] === "string" && /^[a-z-]{1,20}$/.test(s["tiktok"])
+      ? { tiktok: s["tiktok"] }
       : {}),
   }),
   component: PaginaMarketing,
@@ -167,7 +173,7 @@ function Conteudo({
   onAtualizar: () => void;
   atualizando: boolean;
 }) {
-  const { id, meta } = Route.useSearch();
+  const { id, meta, tiktok } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [aba, setAba] = useState("conteudos");
   const [filtro, setFiltro] = useState<StatusMarketing | "todos">("todos");
@@ -191,6 +197,22 @@ function Conteudo({
     setAba("contas");
     navigate({ search: {}, replace: true });
   }, [meta, navigate]);
+
+  // Volta do login do TikTok: /admin/marketing?tiktok=ok|cancelado|…
+  useEffect(() => {
+    if (!tiktok) return;
+    const msg: Record<string, [boolean, string]> = {
+      ok: [true, "TikTok conectado."],
+      cancelado: [false, "Conexão cancelada no TikTok."],
+      invalido: [false, "O link de conexão expirou. Tente de novo."],
+      erro: [false, "Não foi possível concluir a conexão com o TikTok."],
+    };
+    const [ok, texto] = msg[tiktok] ?? [false, "Conexão não concluída."];
+    if (ok) toast.success(texto);
+    else toast.error(texto);
+    setAba("contas");
+    navigate({ search: {}, replace: true });
+  }, [tiktok, navigate]);
 
   const ids = useMemo(() => new Set(data.conteudos.map((c) => c.id)), [data.conteudos]);
   const abrir = (novo: string | undefined) => {
@@ -364,6 +386,9 @@ function Conteudo({
 
             <TabsContent value="contas">
               <ContasMeta />
+              <div className="mt-5">
+                <ContaTikTok />
+              </div>
             </TabsContent>
 
             {data.documentos.map((d) => (
@@ -527,6 +552,14 @@ function Detalhe({
               key={c.atualizadoEm}
               c={c}
               onPublicado={onDecidido}
+              onIrParaContas={onIrParaContas}
+            />
+          )}
+          {(c.status === "APROVADO" || c.status === "PUBLICADO") && (
+            <EnviarTikTok
+              key={`tt-${c.atualizadoEm}`}
+              c={c}
+              onEnviado={onDecidido}
               onIrParaContas={onIrParaContas}
             />
           )}
