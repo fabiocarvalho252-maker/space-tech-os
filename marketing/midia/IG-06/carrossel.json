@@ -1,0 +1,58 @@
+{
+  "conteudo": "IG-06",
+  "slides": [
+    {
+      "tipo": "capa",
+      "titulo": "A peça acabou e *ninguém avisou*?",
+      "sub": "Cliente no balcão, aparelho aberto… e a peça que “tinha” não tem."
+    },
+    {
+      "tipo": "recorte",
+      "imagem": "telas/01-pdv.png",
+      "recorte": {
+        "x": 20,
+        "y": 985,
+        "w": 1040,
+        "h": 650
+      },
+      "titulo": "Vendeu no *PDV*",
+      "seta": "→ baixa do estoque",
+      "sub": "O PDV mostra quanto tem de cada item.",
+      "nota": "Telas reais do sistema · dados ilustrativos"
+    },
+    {
+      "tipo": "recorte",
+      "imagem": "telas/02-historico.png",
+      "recorte": {
+        "x": 40,
+        "y": 810,
+        "w": 1000,
+        "h": 780
+      },
+      "titulo": "Usou a peça na *OS*",
+      "seta": "→ baixa do estoque",
+      "sub": "Cada saída fica no histórico, com o nº da OS.",
+      "nota": "Telas reais do sistema · dados ilustrativos"
+    },
+    {
+      "tipo": "recorte",
+      "imagem": "telas/03-alerta.png",
+      "recorte": {
+        "x": 30,
+        "y": 640,
+        "w": 1020,
+        "h": 360
+      },
+      "titulo": "Chegou no *mínimo*",
+      "seta": "→ o sistema avisa",
+      "sub": "Você repõe antes de faltar.",
+      "nota": "Telas reais do sistema · dados ilustrativos"
+    },
+    {
+      "tipo": "final",
+      "titulo": "Teste *grátis* por 7 dias",
+      "sub": "sem cartão de crédito",
+      "cta": "Link na bio"
+    }
+  ]
+}

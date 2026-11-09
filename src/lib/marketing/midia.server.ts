@@ -1,4 +1,5 @@
-// Mídias geradas para o marketing (marketing/midia/<ID>/video.mp4 e capa.jpg)
+// Mídias geradas para o marketing (marketing/midia/<ID>/video.mp4, capa.jpg e
+// as imagens de carrossel slide-1.jpg … slide-10.jpg)
 // servidas por um endereço com assinatura temporária:
 //   /api/marketing/midia/IG-02/video.mp4?exp=<unix>&sig=<hmac>
 // O link é gerado só para o administrador (leitura.server.ts, que roda depois
@@ -10,9 +11,10 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-const ARQUIVOS = { "video.mp4": "video/mp4", "capa.jpg": "image/jpeg" } as const;
-type ArquivoMidia = keyof typeof ARQUIVOS;
-const ROTA = /^\/api\/marketing\/midia\/([A-Z]{2}-\d{2})\/(video\.mp4|capa\.jpg)$/;
+type ArquivoMidia = "video.mp4" | "capa.jpg" | `slide-${number}.jpg`;
+const ROTA =
+  /^\/api\/marketing\/midia\/([A-Z]{2}-\d{2})\/(video\.mp4|capa\.jpg|slide-(?:[1-9]|10)\.jpg)$/;
+const tipoDe = (arq: string) => (arq.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
 
 function chave(): Buffer {
   const base = process.env["SUPABASE_SERVICE_ROLE_KEY"];
@@ -38,7 +40,11 @@ export function ehRotaMidiaMarketing(request: Request): boolean {
 export async function assinarMidias(
   id: string,
   validadeSeg = 2 * 3600,
-): Promise<{ video?: { url: string; atualizadoEm: string; tamanho: number }; capa?: string }> {
+): Promise<{
+  video?: { url: string; atualizadoEm: string; tamanho: number };
+  capa?: string;
+  slides?: string[];
+}> {
   if (!/^[A-Z]{2}-\d{2}$/.test(id)) return {};
   const exp = Math.floor(Date.now() / 1000) + validadeSeg;
   const url = (arq: ArquivoMidia) => {
@@ -51,6 +57,13 @@ export async function assinarMidias(
     r.video = { url: url("video.mp4"), atualizadoEm: v.mtime.toISOString(), tamanho: v.size };
   const c = await stat(join(pastaMidia(id), "capa.jpg")).catch(() => null);
   if (c?.isFile()) r.capa = url("capa.jpg");
+  const slides: string[] = [];
+  for (let n = 1; n <= 10; n++) {
+    const sl = await stat(join(pastaMidia(id), `slide-${n}.jpg`)).catch(() => null);
+    if (!sl?.isFile()) break;
+    slides.push(`${url(`slide-${n}.jpg`)}&v=${sl.mtimeMs.toFixed(0)}`);
+  }
+  if (slides.length) r.slides = slides;
   return r;
 }
 
@@ -71,7 +84,7 @@ export async function handleMidiaMarketing(request: Request): Promise<Response> 
   if (!info?.isFile()) return new Response("Não encontrado.", { status: 404 });
 
   const base: Record<string, string> = {
-    "content-type": ARQUIVOS[arquivo],
+    "content-type": tipoDe(arquivo),
     "accept-ranges": "bytes",
     "cache-control": "private, max-age=600",
   };

@@ -11,6 +11,8 @@ import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   Clapperboard,
+  Download,
+  Images,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -44,6 +46,7 @@ import {
 import { Markdown } from "@/components/marketing/Markdown";
 import { MiniaturaConteudo, PreviaConteudo } from "@/components/marketing/Previa";
 import { DecisaoConteudo } from "@/components/marketing/Decisao";
+import { CarrosselReal } from "@/components/marketing/CarrosselReal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin_/marketing")({
@@ -305,6 +308,11 @@ function Conteudo({
                                   <Clapperboard className="h-3 w-3" /> vídeo pronto
                                 </span>
                               )}
+                              {c.midia?.slides && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                  <Images className="h-3 w-3" /> imagens prontas
+                                </span>
+                              )}
                             </div>
                             <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary">
                               {c.titulo}
@@ -439,6 +447,15 @@ function Detalhe({
                 Gerado em {new Date(c.midia.video.atualizadoEm).toLocaleString("pt-BR")} ·{" "}
                 {(c.midia.video.tamanho / 1024 / 1024).toFixed(1)} MB
               </p>
+              <div className="text-center">
+                <a
+                  href={c.midia.video.url}
+                  download={`${c.id}.mp4`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-accent"
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar vídeo
+                </a>
+              </div>
               <details className="rounded-xl border border-border p-2 text-sm">
                 <summary className="cursor-pointer text-muted-foreground">
                   Ver prévia ilustrativa
@@ -447,6 +464,20 @@ function Detalhe({
                   <PreviaConteudo key={c.id} c={c} />
                 </div>
               </details>
+            </div>
+          ) : c.midia?.slides ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+                <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Images className="h-4 w-4 text-emerald-600" /> Imagens geradas (
+                  {c.midia.slides.length})
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Telas reais da conta de demonstração. Revise antes de publicar — nada é postado
+                  sem a sua ordem.
+                </p>
+              </div>
+              <CarrosselReal id={c.id} slides={c.midia.slides} />
             </div>
           ) : (
             <PreviaConteudo key={c.id} c={c} />

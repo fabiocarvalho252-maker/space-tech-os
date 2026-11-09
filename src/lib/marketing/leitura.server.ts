@@ -81,7 +81,7 @@ export async function lerMarketing(): Promise<MarketingAdmin> {
       if (lido) {
         const c = lerConteudoMarketing(lido.texto, pasta, nome, lido.atualizadoEm);
         const midia = await assinarMidias(c.id);
-        if (midia.video || midia.capa) c.midia = midia;
+        if (midia.video || midia.capa || midia.slides) c.midia = midia;
         conteudos.push(c);
       }
     }

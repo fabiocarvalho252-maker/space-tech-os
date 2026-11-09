@@ -51,7 +51,11 @@ export type ConteudoMarketing = {
   atualizadoEm: string;
   // Vídeo/capa gerados em marketing/midia/<ID>/ (links assinados e
   // temporários; preenchido só no servidor, para o administrador).
-  midia?: { video?: { url: string; atualizadoEm: string; tamanho: number }; capa?: string };
+  midia?: {
+    video?: { url: string; atualizadoEm: string; tamanho: number };
+    capa?: string;
+    slides?: string[];
+  };
 };
 
 export const SECAO_TEXTO = "Texto pronto para publicar";
