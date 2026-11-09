@@ -47,3 +47,4 @@ marketing/midia/**/*.jpg
 marketing/midia/**/*.png
 marketing/midia/**/*.wav
 marketing/midia/**/.tmp/
+marketing/.agendamentos.log
