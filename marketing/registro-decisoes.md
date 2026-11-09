@@ -19,3 +19,4 @@ Cada aprovação ou recusa feita em /admin/marketing entra aqui automaticamente
 | 09/11/2026 | GO-01 | APROVADO | Google — Perfil da Empresa | aprovado pela conversa; depende de o perfil existir | Fabio |
 | 09/11/2026 | GO-03 | APROVADO | Google — Perfil da Empresa | aprovado pela conversa; depende de o perfil existir | Fabio |
 | 09/11/2026 | WA-01 | APROVADO | WhatsApp — resposta individual | aprovado pela conversa; sem envio em massa | Fabio |
+| 09/11/2026 | WA-02 | APROVADO | WhatsApp — mensagem individual a quem está no teste | aprovado o texto; cada envio exige autorização específica | Fabio |

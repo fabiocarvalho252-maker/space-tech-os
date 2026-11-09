@@ -4,7 +4,7 @@
 - **Plataforma:** WhatsApp (mensagem individual)
 - **Formato:** mensagem de texto
 - **Objetivo:** ajudar quem está no teste grátis a usar o sistema e assinar
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** no 5º dia do teste de cada conta
 - **Link:** https://srmpretech.online/login?utm_source=whatsapp&utm_medium=mensagem&utm_campaign=lancamento-nov26&utm_content=wa-02
 
@@ -40,10 +40,10 @@ Teste de 7 dias; configuração inicial (logo, garantia, modelo do PDF); R$ 40,0
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: WhatsApp — mensagem individual para quem criou conta no teste
+- Observações: aprovação do TEXTO só deste conteúdo. NÃO autoriza nenhum envio: cada envio (para quais contas) precisa de uma autorização específica do Fabio. Uma mensagem por conta, uma a uma, sem envio em massa; respeitar quem pedir para não receber.
 
 ## Publicação
 
