@@ -29,8 +29,12 @@ export const dataBR = (value: string | null | undefined) => {
 
 // Data e hora de um registro (ex.: "29/10/2026 às 15:28"), sempre no horário
 // de Brasília — também roda no servidor (PDF), que está em UTC.
+// Um valor só de data (coluna date, ex.: previsão de entrega "2026-11-11")
+// não tem hora: new Date() o leria como meia-noite UTC e, em Brasília, ele
+// viraria o dia anterior às 21:00. Nesse caso mostra só a data.
 export const dataHoraBR = (value: string | null | undefined) => {
   if (!value) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return dataBR(value);
   const d = new Date(value);
   const fuso = { timeZone: "America/Sao_Paulo" } as const;
   return `${d.toLocaleDateString("pt-BR", fuso)} às ${d.toLocaleTimeString("pt-BR", { ...fuso, hour: "2-digit", minute: "2-digit" })}`;

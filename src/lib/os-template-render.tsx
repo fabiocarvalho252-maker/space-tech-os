@@ -280,8 +280,13 @@ function tituloDocumento(modo: RenderOsData["modo"]) {
 
 const brl = (v: number | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));
-const dataBR = (v: string | null | undefined) =>
-  v ? new Date(v).toLocaleDateString("pt-BR") : "—";
+// "2026-12-01" (coluna date) não pode passar por new Date(): seria meia-noite
+// UTC e, no navegador em Brasília (pré-visualização), viraria o dia anterior.
+const dataBR = (v: string | null | undefined) => {
+  if (!v) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : new Date(v).toLocaleDateString("pt-BR");
+};
 const esc = (v: string | null | undefined) =>
   (v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
