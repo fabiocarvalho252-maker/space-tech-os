@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)
 - **Formato:** imagem única (1080×1350)
 - **Objetivo:** conversão direta para o teste grátis
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 23/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/cadastro?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-04
@@ -38,10 +38,10 @@ Teste de 7 dias sem cartão; R$ 40,00/mês; R$ 456,00/ano; módulos OS, PDV, est
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (feed) e Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. WhatsApp Status NÃO foi autorizado (a arte e o link de Status ficam sem uso até nova aprovação). Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
