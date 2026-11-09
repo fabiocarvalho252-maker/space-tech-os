@@ -1,0 +1,44 @@
+{
+  "conteudo": "TT-02",
+  "motor": "kokoro",
+  "voz": "pm_alex",
+  "velocidade": 1.0,
+  "capaEm": 4.0,
+  "cenas": [
+    {
+      "tipo": "dividida",
+      "texto": "Original ou *paralela*?",
+      "antes": [
+        { "texto": "Faz com a original ou com a paralela?" },
+        { "lado": "eu", "texto": "A original fica R$ 650 e a paralela R$ 350" },
+        { "texto": "Qual a diferença?" },
+        { "lado": "eu", "texto": "A original é a da fábrica, a paralela é compatível" },
+        { "texto": "E a garantia?" },
+        { "lado": "eu", "texto": "As duas têm garantia" },
+        { "texto": "Hmm… e o touch fica igual?" },
+        { "lado": "eu", "texto": "Fica bem parecido" },
+        { "texto": "Deixa eu ver com meu marido" },
+        { "texto": "Ele perguntou se dá desconto" },
+        { "lado": "eu", "texto": "No Pix dá pra ver" },
+        { "texto": "Vou pensar" },
+        { "texto": "Oi, decidi" },
+        { "texto": "Na verdade não decidi 😅" },
+        { "texto": "Faz a original" }
+      ],
+      "depois": ["telas/02-opcoes.png", "telas/03-escolheu.png", "telas/05-aprovado.png"],
+      "rotuloAntes": "15 mensagens",
+      "rotuloDepois": "1 link",
+      "narracao": "Antes: quinze mensagens pra decidir a tela. Depois: um link só, e o cliente escolhe e aprova sozinho, pelo celular.",
+      "minimo": 11,
+      "nota": "Tela real do sistema · conversa e valores ilustrativos"
+    },
+    {
+      "tipo": "final",
+      "texto": "Orçamento com opções *pelo link*",
+      "subtitulo": "7 dias grátis · sem cartão · depois R$ 40/mês",
+      "cta": "Link na bio",
+      "narracao": "Orçamento com opções, pelo link. Spêis Téc, ó ésse. Link na bio.",
+      "minimo": 5
+    }
+  ]
+}

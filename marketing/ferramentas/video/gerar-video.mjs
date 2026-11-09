@@ -135,6 +135,31 @@ function htmlCena(c) {
       ${c.nota ? `<p class="nota">${esc(c.nota)}</p>` : ""}
     </section>`;
   }
+  if (c.tipo === "dividida") {
+    const bolhas = (c.antes ?? [])
+      .map((b) => `<div class="bolha ${b.lado === "eu" ? "eu" : ""}">${esc(b.texto)}</div>`)
+      .join("");
+    const imgs = c.depois ?? [];
+    const fatia = c.dur / Math.max(1, imgs.length);
+    const telas = imgs
+      .map(
+        (im, k) =>
+          `<img src="${img(im)}" style="z-index:${k + 1};animation-delay:${d(k * fatia)}" />`,
+      )
+      .join("");
+    return `<section class="cena" ${base}>
+      <h2 class="legenda" style="animation-delay:${d(0.1)}">${destaque(c.texto)}</h2>
+      <div class="dividida">
+        <div class="coluna"><span class="selo selo-antes">ANTES</span>
+          <div class="chat-janela"><div class="chat-rola" style="animation-delay:${d(0.6)};animation-duration:${(c.dur - 1.2).toFixed(3)}s">${bolhas}</div></div>
+          <p class="rotulo">${esc(c.rotuloAntes ?? "")}</p></div>
+        <div class="coluna"><span class="selo selo-depois">DEPOIS</span>
+          <div class="celular celular-mini"><div class="tela tela-seq">${telas}</div></div>
+          <p class="rotulo">${esc(c.rotuloDepois ?? "")}</p></div>
+      </div>
+      ${c.nota ? `<p class="nota">${esc(c.nota)}</p>` : ""}
+    </section>`;
+  }
   if (c.tipo === "cartao") {
     return `<section class="cena" ${base}>
       <h2 class="legenda" style="animation-delay:${d(0.1)}">${destaque(c.texto)}</h2>
@@ -163,6 +188,20 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;background:#09090b;font-fam
 .cena{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:48px;padding:120px 80px;opacity:0;animation:aparece var(--dur) linear var(--ini) both}
 @keyframes aparece{0%{opacity:0}6%{opacity:1}94%{opacity:1}100%{opacity:0}}
 .titulo{font-size:96px;line-height:1.05;font-weight:800;text-align:center;letter-spacing:-2px;animation:sobe .6s cubic-bezier(.2,.8,.2,1) both}
+.dividida{display:flex;gap:28px;justify-content:center}
+.coluna{width:440px;flex:none;display:flex;flex-direction:column;align-items:center;gap:22px}
+.selo{font-size:34px;font-weight:800;letter-spacing:4px;padding:10px 28px;border-radius:999px}
+.selo-antes{background:rgba(244,63,94,.18);color:#fda4af;box-shadow:0 0 0 3px rgba(244,63,94,.4)}
+.selo-depois{background:rgba(16,185,129,.18);color:#6ee7b7;box-shadow:0 0 0 3px rgba(16,185,129,.4)}
+.chat-janela{width:440px;height:830px;border-radius:40px;background:#0b141a;overflow:hidden;padding:24px;box-shadow:0 0 0 4px #3f3f46}
+.chat-rola{display:flex;flex-direction:column;gap:16px;animation-name:rola;animation-timing-function:linear;animation-fill-mode:both}
+.chat-janela .bolha{font-size:27px;padding:14px 20px;max-width:88%;animation:none}
+@keyframes rola{from{transform:translateY(0)}to{transform:translateY(-62%)}}
+.celular.celular-mini{width:440px;height:830px;border-radius:56px;padding:14px;animation:none}
+.tela.tela-seq{position:relative}
+.tela.tela-seq img{position:absolute;top:0;left:0;width:100%;opacity:0;animation:mostra .5s ease both}
+@keyframes mostra{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
+.rotulo{font-size:30px;font-weight:700;color:#d4d4d8;text-align:center}
 .titulo.grande{font-size:170px;letter-spacing:-4px;line-height:1}
 .sub{font-size:52px;font-weight:700;color:#d4d4d8;text-align:center;animation:sobe .6s cubic-bezier(.2,.8,.2,1) both}
 .dest{background:linear-gradient(90deg,#a78bfa,#e879f9);-webkit-background-clip:text;color:transparent}
