@@ -1,0 +1,10 @@
+{
+  "conteudo": "IG-08",
+  "slides": [
+    { "tipo": "capa", "icone": "📱", "titulo": "Seminovo: quanto você *lucrou de verdade*?", "sub": "Comprou, trocou a bateria, vendeu… e quanto sobrou?" },
+    { "tipo": "recorte", "imagem": "telas/01-ficha.png", "recorte": { "x": 0, "y": 60, "w": 1082, "h": 1000 }, "titulo": "*Compra*", "seta": "→ aparelho, IMEI e estado", "nota": "Telas reais do sistema · dados ilustrativos" },
+    { "tipo": "recorte", "imagem": "telas/03-conserto.png", "recorte": { "x": 0, "y": 0, "w": 1082, "h": 1100 }, "titulo": "*Conserto*", "seta": "→ cada peça e a mão de obra", "nota": "Telas reais do sistema · dados ilustrativos" },
+    { "tipo": "recorte", "imagem": "telas/04-venda-garantia.png", "recorte": { "x": 0, "y": 0, "w": 1730, "h": 1011, "fonte": 1730 }, "titulo": "Venda e *garantia*", "seta": "→ custo, venda e lucro na hora", "nota": "Telas reais do sistema · dados ilustrativos" },
+    { "tipo": "final", "titulo": "Teste *grátis* por 7 dias", "sub": "sem cartão de crédito", "cta": "Link na bio" }
+  ]
+}
