@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Reels) + Facebook (Reels) + TikTok (mesmo vídeo)
 - **Formato:** vídeo vertical de 20–30 s (1080×1920)
 - **Objetivo:** mostrar a aprovação de orçamento online com opções
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 18/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-02
@@ -42,10 +42,10 @@ Orçamento com opções (ex.: tela original ou paralela); aprovação pelo link;
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (Reels), Facebook (Reels) e TikTok
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
