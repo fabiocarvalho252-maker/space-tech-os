@@ -4,7 +4,7 @@
 - **Plataforma:** Google — Perfil da Empresa (post "Novidade")
 - **Formato:** post com imagem (1200×900) e botão "Saiba mais"
 - **Objetivo:** presença na busca do Google pelo nome da marca
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 19/11/2026
 - **Link (botão "Saiba mais"):** https://srmpretech.online/?utm_source=google&utm_medium=post-perfil&utm_campaign=lancamento-nov26&utm_content=go-01
 
@@ -29,10 +29,10 @@ OS com fotos e QR Code; orçamento pelo link; PDV; estoque; financeiro; WhatsApp
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Google — Perfil da Empresa (post "Novidade")
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Depende de existir o Perfil da Empresa no Google (criar o perfil é decisão à parte). Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
