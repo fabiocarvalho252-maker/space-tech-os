@@ -23,3 +23,4 @@ Cada aprovação ou recusa feita em /admin/marketing entra aqui automaticamente
 | 09/11/2026 | WA-03 | APROVADO | WhatsApp — mensagem individual a assinantes escolhidos | aprovado o texto; cada envio exige autorização específica | Fabio |
 | 09/11/2026, 19:58 | IG-01 | PUBLICADO | Instagram | https://www.instagram.com/p/DfidQ6znF4Q/ | admin@spacetech.app |
 | 09/11/2026, 19:59 | IG-01 | PUBLICADO | Facebook | https://www.facebook.com/1424635839840133/posts/1424635796506804 | admin@spacetech.app |
+| 09/11/2026, 20:31 | IG-02 | ENVIADO AO TIKTOK (rascunho) | TikTok | publish_id v_inbox_file~v2.7706318321808885781 | admin@spacetech.app |
