@@ -34,7 +34,15 @@ mkdirSync(join(tmp, "quadros"), { recursive: true });
 
 const duracao = (arq) =>
   Number(
-    execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", arq])
+    execFileSync("ffprobe", [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "csv=p=0",
+      arq,
+    ])
       .toString()
       .trim(),
   );
@@ -64,7 +72,10 @@ console.log(`Cenas: ${cenas.length} · duração ${total.toFixed(1)} s`);
 // 2) Página HTML com todas as cenas numa linha do tempo (animações CSS com
 // atraso = início da cena). Cada quadro: pausa tudo e posiciona no tempo t.
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+  String(s ?? "").replace(
+    /[&<>"]/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch],
+  );
 const destaque = (s) => esc(s).replace(/\*(.+?)\*/g, '<span class="dest">$1</span>');
 const img = (p) => `file://${resolve(pasta, p)}`;
 
@@ -91,6 +102,14 @@ function htmlCena(c) {
       <div class="celular" style="animation-delay:${d(0)}">
         <div class="tela"><img src="${img(c.imagem)}" style="--y:${r.y}px;--y2:${r.y2 ?? r.y}px;animation-delay:${d(0)};animation-duration:${c.dur.toFixed(3)}s" /></div>
       </div>
+      ${c.nota ? `<p class="nota">${esc(c.nota)}</p>` : ""}
+    </section>`;
+  }
+  if (c.tipo === "cartao") {
+    return `<section class="cena" ${base}>
+      <h2 class="legenda" style="animation-delay:${d(0.1)}">${destaque(c.texto)}</h2>
+      <div class="cartao" style="animation-delay:${d(0.2)}"><img src="${img(c.imagem)}" style="animation-delay:${d(0.2)};animation-duration:${c.dur.toFixed(3)}s" /></div>
+      ${c.legendaImagem ? `<p class="sub" style="animation-delay:${d(0.6)}">${destaque(c.legendaImagem)}</p>` : ""}
       ${c.nota ? `<p class="nota">${esc(c.nota)}</p>` : ""}
     </section>`;
   }
@@ -127,6 +146,9 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;background:#09090b;font-fam
 .tela{width:100%;height:100%;border-radius:64px;overflow:hidden;background:#fff}
 .tela img{width:100%;display:block;animation-name:pan;animation-timing-function:ease-in-out;animation-fill-mode:both}
 @keyframes pan{from{transform:translateY(calc(var(--y) * -0.6063))}to{transform:translateY(calc(var(--y2) * -0.6063))}}
+.cartao{width:920px;border-radius:36px;background:#fff;padding:36px;box-shadow:0 0 0 4px rgba(167,139,250,.5),0 50px 140px rgba(124,58,237,.45);overflow:hidden;animation:entra .7s cubic-bezier(.2,.8,.2,1) both}
+.cartao img{width:100%;display:block;animation-name:zoom;animation-timing-function:ease-out;animation-fill-mode:both}
+@keyframes zoom{from{transform:scale(1)}to{transform:scale(1.06)}}
 .nota{position:absolute;bottom:60px;font-size:26px;color:#a1a1aa}
 .marca{display:flex;align-items:center;gap:24px;font-size:72px;font-weight:800;animation:sobe .6s both}
 .marca b{color:#a78bfa}.marca small{font-size:36px;color:#a1a1aa}
@@ -149,9 +171,14 @@ try {
   );
   for (let q = 0; q < nQuadros; q++) {
     const ms = (q / FPS) * 1000;
-    await nav.avaliar(`document.getAnimations().forEach(a => { a.pause(); a.currentTime = ${ms}; })`);
+    await nav.avaliar(
+      `document.getAnimations().forEach(a => { a.pause(); a.currentTime = ${ms}; })`,
+    );
     const r = await nav.cmd("Page.captureScreenshot", { format: "jpeg", quality: 92 });
-    writeFileSync(join(tmp, "quadros", `q${String(q).padStart(5, "0")}.jpg`), Buffer.from(r.data, "base64"));
+    writeFileSync(
+      join(tmp, "quadros", `q${String(q).padStart(5, "0")}.jpg`),
+      Buffer.from(r.data, "base64"),
+    );
     if (q % 150 === 0) console.log(`quadro ${q}/${nQuadros}`);
   }
 } finally {
@@ -171,22 +198,61 @@ cenas
 const nAud = filtros.length;
 const mix = `${filtros.join(";")};${Array.from({ length: nAud }, (_, k) => `[a${k}]`).join("")}amix=inputs=${nAud}:normalize=0,apad,atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-1.5:LRA=11[aout]`;
 const audio = join(tmp, "narracao.m4a");
-execFileSync("ffmpeg", ["-y", "-v", "error", ...entradas, "-filter_complex", mix, "-map", "[aout]", "-c:a", "aac", "-b:a", "160k", audio]);
+execFileSync("ffmpeg", [
+  "-y",
+  "-v",
+  "error",
+  ...entradas,
+  "-filter_complex",
+  mix,
+  "-map",
+  "[aout]",
+  "-c:a",
+  "aac",
+  "-b:a",
+  "160k",
+  audio,
+]);
 
 // 5) Vídeo final + capa.
 const saida = join(pasta, "video.mp4");
 execFileSync("ffmpeg", [
-  "-y", "-v", "error",
-  "-framerate", String(FPS), "-i", join(tmp, "quadros", "q%05d.jpg"),
-  "-i", audio,
-  "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-profile:v", "high",
-  "-c:a", "copy", "-shortest", "-movflags", "+faststart",
+  "-y",
+  "-v",
+  "error",
+  "-framerate",
+  String(FPS),
+  "-i",
+  join(tmp, "quadros", "q%05d.jpg"),
+  "-i",
+  audio,
+  "-c:v",
+  "libx264",
+  "-preset",
+  "medium",
+  "-crf",
+  "20",
+  "-pix_fmt",
+  "yuv420p",
+  "-profile:v",
+  "high",
+  "-c:a",
+  "copy",
+  "-shortest",
+  "-movflags",
+  "+faststart",
   saida,
 ]);
 const capaQuadro = Math.min(nQuadros - 1, Math.round((roteiro.capaEm ?? 1.5) * FPS));
 execFileSync("ffmpeg", [
-  "-y", "-v", "error", "-i", join(tmp, "quadros", `q${String(capaQuadro).padStart(5, "0")}.jpg`),
-  "-q:v", "3", join(pasta, "capa.jpg"),
+  "-y",
+  "-v",
+  "error",
+  "-i",
+  join(tmp, "quadros", `q${String(capaQuadro).padStart(5, "0")}.jpg`),
+  "-q:v",
+  "3",
+  join(pasta, "capa.jpg"),
 ]);
 rmSync(tmp, { recursive: true, force: true });
 console.log(`Pronto: ${saida} (${total.toFixed(1)} s)`);

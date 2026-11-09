@@ -17,7 +17,12 @@ export function caminhoChromium() {
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function abrirNavegador({ largura = 412, altura = 915, escala = 2.625, mobile = true } = {}) {
+export async function abrirNavegador({
+  largura = 412,
+  altura = 915,
+  escala = 2.625,
+  mobile = true,
+} = {}) {
   const porta = 9300 + Math.floor(Math.random() * 500);
   const proc = spawn(
     caminhoChromium(),
@@ -78,8 +83,13 @@ export async function abrirNavegador({ largura = 412, altura = 915, escala = 2.6
   await cmd("Emulation.setTimezoneOverride", { timezoneId: "America/Sao_Paulo" }).catch(() => {});
 
   const avaliar = async (expr) => {
-    const r = await cmd("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
-    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? "erro no script");
+    const r = await cmd("Runtime.evaluate", {
+      expression: expr,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (r.exceptionDetails)
+      throw new Error(r.exceptionDetails.exception?.description ?? "erro no script");
     return r.result.value;
   };
 
@@ -98,7 +108,12 @@ export async function abrirNavegador({ largura = 412, altura = 915, escala = 2.6
     async esperarTexto(texto, ms = 15000) {
       const fim = Date.now() + ms;
       while (Date.now() < fim) {
-        if (await avaliar(`document.body && document.body.innerText.includes(${JSON.stringify(texto)})`)) return;
+        if (
+          await avaliar(
+            `document.body && document.body.innerText.includes(${JSON.stringify(texto)})`,
+          )
+        )
+          return;
         await espera(300);
       }
       throw new Error(`Texto não apareceu: ${texto}`);
@@ -108,6 +123,17 @@ export async function abrirNavegador({ largura = 412, altura = 915, escala = 2.6
       await avaliar(`(() => {
         const el = document.querySelector(${JSON.stringify(seletor)});
         if (!el) throw new Error("campo não encontrado: " + ${JSON.stringify(seletor)});
+        const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${JSON.stringify(valor)});
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      })()`);
+    },
+    // Preenche o n-ésimo input/textarea visível dentro de `escopo`.
+    async digitarN(escopo, n, valor) {
+      await avaliar(`(() => {
+        const els = [...document.querySelectorAll(${JSON.stringify(escopo)} + " input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), " + ${JSON.stringify(escopo)} + " textarea")].filter((e) => e.offsetParent !== null);
+        const el = els[${n}];
+        if (!el) throw new Error("campo " + ${n} + " não encontrado");
         const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${JSON.stringify(valor)});
         el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -125,6 +151,14 @@ export async function abrirNavegador({ largura = 412, altura = 915, escala = 2.6
       })()`);
       if (!ok) throw new Error(`Botão não encontrado: ${texto}`);
       await espera(1200);
+    },
+    // Anexa arquivos a um <input type=file> (o primeiro que casar com o seletor).
+    async enviarArquivos(seletor, arquivos) {
+      const { root } = await cmd("DOM.getDocument", { depth: -1 });
+      const { nodeId } = await cmd("DOM.querySelector", { nodeId: root.nodeId, selector: seletor });
+      if (!nodeId) throw new Error("input de arquivo não encontrado: " + seletor);
+      await cmd("DOM.setFileInputFiles", { nodeId, files: arquivos });
+      await espera(1500);
     },
     async rolar(y) {
       await avaliar(`window.scrollTo({ top: ${y}, behavior: "instant" })`);

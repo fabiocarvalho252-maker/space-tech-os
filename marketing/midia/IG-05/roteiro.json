@@ -1,0 +1,67 @@
+{
+  "conteudo": "IG-05",
+  "voz": "faber",
+  "velocidade": 1.0,
+  "capaEm": 2.4,
+  "cenas": [
+    {
+      "tipo": "titulo",
+      "texto": "O risco *já estava aí*?",
+      "bolhas": [
+        { "texto": "Esse risco não estava aí quando eu deixei!" },
+        { "lado": "eu", "texto": "Estava sim… acho 😬" }
+      ],
+      "subtitulo": "Na entrega, quem tem foto tem razão.",
+      "narracao": "Esse risco não estava aí quando eu deixei! Na hora da entrega, quem tem foto tem razão.",
+      "extra": 0.4
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/01-aparelho.png",
+      "recorte": { "y": 0, "y2": 120 },
+      "texto": "Abra a OS em *etapas*",
+      "narracao": "No sistema, você abre a ordem de serviço em etapas: cliente, aparelho e defeito.",
+      "nota": "Telas reais do sistema · dados e fotos fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/02-estado.png",
+      "recorte": { "y": 0, "y2": 150 },
+      "texto": "Marque o *estado físico* e os acessórios",
+      "narracao": "Marca como o aparelho chegou e os acessórios que ficaram com você.",
+      "nota": "Telas reais do sistema · dados e fotos fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/03-fotos.png",
+      "recorte": { "y": 100, "y2": 331 },
+      "texto": "Tire as *fotos de entrada*",
+      "narracao": "Tira as fotos de entrada do aparelho, direto pelo celular.",
+      "nota": "Telas reais do sistema · dados e fotos fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/04-checklist.png",
+      "recorte": { "y": 0, "y2": 220 },
+      "texto": "Registre os *testes na entrada*",
+      "narracao": "E registra o checklist do que foi testado: o que funciona e o que já chegou com defeito.",
+      "nota": "Telas reais do sistema · dados fictícios"
+    },
+    {
+      "tipo": "cartao",
+      "imagem": "telas/05-etiqueta.png",
+      "texto": "Etiqueta com *QR Code*",
+      "legendaImagem": "Imprime, cola no aparelho e pronto: *tudo registrado*.",
+      "narracao": "Depois, imprime a etiqueta com QR Code, cola no aparelho, e pronto: tudo registrado.",
+      "nota": "Etiqueta real do sistema · dados fictícios"
+    },
+    {
+      "tipo": "final",
+      "texto": "Teste *grátis* por 7 dias",
+      "subtitulo": "sem cartão · depois R$ 40/mês",
+      "cta": "Link na bio",
+      "narracao": "Spêis Téc, ó ésse. Teste grátis por sete dias, sem cartão. Link na bio.",
+      "minimo": 4.5
+    }
+  ]
+}
