@@ -15,3 +15,4 @@ Cada aprovação ou recusa feita em /admin/marketing entra aqui automaticamente
 | 09/11/2026 | IG-08 | APROVADO | Instagram (feed), Facebook (página) | aprovado pela conversa | Fabio |
 | 09/11/2026 | TT-01 | APROVADO | TikTok | aprovado pela conversa | Fabio |
 | 09/11/2026 | TT-02 | APROVADO | TikTok | aprovado pela conversa | Fabio |
+| 09/11/2026 | TT-03 | APROVADO | TikTok | aprovado pela conversa | Fabio |
