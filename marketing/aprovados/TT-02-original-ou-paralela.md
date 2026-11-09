@@ -4,7 +4,7 @@
 - **Plataforma:** TikTok
 - **Formato:** vídeo vertical de 15–20 s, comparação "antes × depois"
 - **Objetivo:** mostrar o orçamento com opções em versão rápida
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 21/11/2026
 - **Link (bio do TikTok):** https://srmpretech.online/?utm_source=tiktok&utm_medium=bio&utm_campaign=lancamento-nov26
 
@@ -28,10 +28,10 @@ Orçamento com opções; aprovação pelo link; teste de 7 dias sem cartão.
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: TikTok
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
