@@ -40,3 +40,10 @@ dist-ssr
 *.sln
 *.sw?
 public/download/*.apk
+
+# Marketing: mídias geradas no servidor (vídeos, capas, telas capturadas)
+marketing/midia/**/*.mp4
+marketing/midia/**/*.jpg
+marketing/midia/**/*.png
+marketing/midia/**/*.wav
+marketing/midia/**/.tmp/

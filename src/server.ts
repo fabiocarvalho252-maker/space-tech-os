@@ -9,6 +9,7 @@ import { handleCrediarioCron } from "./lib/crediario/cron-handler.server";
 import { handleContasInativasCron } from "./lib/contas-inativas-cron.server";
 import { handleBackupDriveCron, handleGoogleDriveCallback } from "./lib/backup/rotas.server";
 import { handleWhatsappFilaCron } from "./lib/whatsapp/fila-cron.server";
+import { ehRotaMidiaMarketing, handleMidiaMarketing } from "./lib/marketing/midia.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -173,6 +174,11 @@ async function handleRequest(request: Request, env: unknown, ctx: unknown): Prom
     }
     if (isWhatsappFilaCronRequest(request)) {
       return await handleWhatsappFilaCron(request);
+    }
+    // Vídeos/capas do marketing: link com assinatura temporária gerado só
+    // para o administrador (ver src/lib/marketing/midia.server.ts).
+    if (ehRotaMidiaMarketing(request)) {
+      return await handleMidiaMarketing(request);
     }
     const handler = await getServerEntry();
     const response = await handler.fetch(request, env, ctx);

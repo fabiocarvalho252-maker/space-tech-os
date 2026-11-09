@@ -10,6 +10,7 @@ import {
   type ConteudoMarketing,
   type PastaMarketing,
 } from "./conteudo";
+import { assinarMidias } from "./midia.server";
 
 export const DOCUMENTOS_MARKETING = [
   { chave: "estrategia", arquivo: "estrategia.md", titulo: "Estratégia" },
@@ -77,7 +78,12 @@ export async function lerMarketing(): Promise<MarketingAdmin> {
     for (const nome of nomes.sort()) {
       if (!/^[A-Za-z0-9][\w.-]*\.md$/.test(nome) || nome === "README.md") continue;
       const lido = await lerArquivo(join(raiz, pasta, nome));
-      if (lido) conteudos.push(lerConteudoMarketing(lido.texto, pasta, nome, lido.atualizadoEm));
+      if (lido) {
+        const c = lerConteudoMarketing(lido.texto, pasta, nome, lido.atualizadoEm);
+        const midia = await assinarMidias(c.id);
+        if (midia.video || midia.capa) c.midia = midia;
+        conteudos.push(c);
+      }
     }
   }
   conteudos.sort((a, b) => a.id.localeCompare(b.id, "pt-BR", { numeric: true }));

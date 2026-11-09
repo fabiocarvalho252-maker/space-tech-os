@@ -1,0 +1,83 @@
+{
+  "conteudo": "IG-02",
+  "voz": "faber",
+  "velocidade": 1.0,
+  "capaEm": 2.2,
+  "cenas": [
+    {
+      "tipo": "titulo",
+      "texto": "Original ou *paralela*?",
+      "bolhas": [
+        {
+          "texto": "Faz com a original ou com a paralela?"
+        },
+        {
+          "lado": "eu",
+          "texto": "A original fica R$ 650 e a paralela R$ 350"
+        },
+        {
+          "texto": "Qual a diferença?"
+        },
+        {
+          "texto": "Vou pensar e te falo…"
+        }
+      ],
+      "subtitulo": "15 mensagens depois… 😅",
+      "narracao": "Faz com a original ou com a paralela? E lá se vão quinze mensagens no WhatsApp.",
+      "extra": 0.6
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/02-opcoes.png",
+      "recorte": {
+        "y": 0,
+        "y2": 200
+      },
+      "texto": "Monte o orçamento com *as duas opções*",
+      "narracao": "Com o sistema, você monta o orçamento com as duas opções e manda o link para o cliente.",
+      "nota": "Telas reais do sistema · dados fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/03-escolheu.png",
+      "recorte": {
+        "y": 0,
+        "y2": 120
+      },
+      "texto": "O cliente *escolhe* pelo celular",
+      "narracao": "O cliente abre no celular e escolhe a opção que preferir.",
+      "nota": "Telas reais do sistema · dados fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/05-aprovado.png",
+      "recorte": {
+        "y": 150,
+        "y2": 331
+      },
+      "texto": "E *aprova* ali mesmo",
+      "narracao": "E aprova o orçamento ali mesmo, sem precisar te ligar.",
+      "nota": "Telas reais do sistema · dados fictícios"
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/06-historico.png",
+      "recorte": {
+        "y": 0,
+        "y2": 250
+      },
+      "texto": "A escolha fica *registrada* na OS",
+      "narracao": "A loja é avisada, e a escolha fica registrada no histórico da ordem de serviço.",
+      "nota": "Telas reais do sistema · dados fictícios"
+    },
+    {
+      "tipo": "final",
+      "texto": "Teste *grátis* por 7 dias",
+      "subtitulo": "sem cartão · depois R$ 40/mês",
+      "cta": "Link na bio",
+      "narracao": "Spêis Téc, ó ésse. Teste grátis por sete dias, sem cartão. Link na bio.",
+      "nota": "Valores das telas são ilustrativos",
+      "minimo": 4.5
+    }
+  ]
+}

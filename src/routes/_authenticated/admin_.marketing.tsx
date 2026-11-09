@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
+  Clapperboard,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -299,6 +300,11 @@ function Conteudo({
                                 {c.id}
                               </span>
                               <SeloStatus status={c.status} />
+                              {c.midia?.video && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                  <Clapperboard className="h-3 w-3" /> vídeo pronto
+                                </span>
+                              )}
                             </div>
                             <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary">
                               {c.titulo}
@@ -409,7 +415,42 @@ function Detalhe({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <PreviaConteudo key={c.id} c={c} />
+          {c.midia?.video ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+                <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Clapperboard className="h-4 w-4 text-emerald-600" /> Vídeo gerado
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Telas reais da conta de demonstração, narração gerada no servidor. Revise antes de
+                  publicar — nada é postado sem a sua ordem.
+                </p>
+              </div>
+              <video
+                key={c.midia.video.atualizadoEm}
+                src={c.midia.video.url}
+                poster={c.midia.capa}
+                controls
+                playsInline
+                preload="metadata"
+                className="mx-auto block w-full max-w-[300px] rounded-[1.75rem] border-4 border-zinc-800 bg-black shadow-xl"
+              />
+              <p className="text-center text-[11px] text-muted-foreground">
+                Gerado em {new Date(c.midia.video.atualizadoEm).toLocaleString("pt-BR")} ·{" "}
+                {(c.midia.video.tamanho / 1024 / 1024).toFixed(1)} MB
+              </p>
+              <details className="rounded-xl border border-border p-2 text-sm">
+                <summary className="cursor-pointer text-muted-foreground">
+                  Ver prévia ilustrativa
+                </summary>
+                <div className="mt-3">
+                  <PreviaConteudo key={c.id} c={c} />
+                </div>
+              </details>
+            </div>
+          ) : (
+            <PreviaConteudo key={c.id} c={c} />
+          )}
         </div>
 
         <div className="min-w-0 space-y-5">
