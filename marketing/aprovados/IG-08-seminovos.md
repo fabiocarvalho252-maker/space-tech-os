@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página)
 - **Formato:** carrossel de 5 imagens (1080×1350)
 - **Objetivo:** atingir lojas que compram e vendem usados
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 04/12/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-08
@@ -39,10 +39,10 @@ Seminovos: compra, conserto, venda e garantia; teste de 7 dias sem cartão.
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (feed), Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 

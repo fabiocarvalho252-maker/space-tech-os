@@ -12,3 +12,4 @@ Cada aprovação ou recusa feita em /admin/marketing entra aqui automaticamente
 | 09/11/2026 | IG-05 | APROVADO | Instagram (Reels), Facebook (Reels) | aprovado pela conversa; TikTok não autorizado | Fabio |
 | 09/11/2026 | IG-06 | APROVADO | Instagram (feed), Facebook (página) | aprovado pela conversa; WhatsApp Status não autorizado | Fabio |
 | 09/11/2026 | IG-07 | APROVADO | Instagram (Reels), Facebook (Reels) | aprovado pela conversa; TikTok não autorizado | Fabio |
+| 09/11/2026 | IG-08 | APROVADO | Instagram (feed), Facebook (página) | aprovado pela conversa | Fabio |
