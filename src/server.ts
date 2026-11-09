@@ -10,6 +10,7 @@ import { handleContasInativasCron } from "./lib/contas-inativas-cron.server";
 import { handleBackupDriveCron, handleGoogleDriveCallback } from "./lib/backup/rotas.server";
 import { handleWhatsappFilaCron } from "./lib/whatsapp/fila-cron.server";
 import { ehRotaMidiaMarketing, handleMidiaMarketing } from "./lib/marketing/midia.server";
+import { ehCallbackMeta, handleCallbackMeta } from "./lib/marketing/meta.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -179,6 +180,11 @@ async function handleRequest(request: Request, env: unknown, ctx: unknown): Prom
     // para o administrador (ver src/lib/marketing/midia.server.ts).
     if (ehRotaMidiaMarketing(request)) {
       return await handleMidiaMarketing(request);
+    }
+    // Volta do login do Facebook (conexão das contas do marketing) — vem de
+    // facebook.com, sem sessão; autenticada pelo "state" assinado.
+    if (ehCallbackMeta(request)) {
+      return await handleCallbackMeta(request);
     }
     const handler = await getServerEntry();
     const response = await handler.fetch(request, env, ctx);

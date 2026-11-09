@@ -8,10 +8,13 @@ import {
   extrairCenas,
   extrairListaApos,
   aplicarAprovacao,
+  aplicarPublicacao,
   aplicarRecusa,
   extrairSlides,
   lerConteudoMarketing,
   opcoesPlataforma,
+  plataformasPublicaveis,
+  textoParaPublicar,
   textoUmaLinha,
   PASTAS_MARKETING,
   proximoPasso,
@@ -182,4 +185,45 @@ test("recusar: volta a rascunho, limpa a aprovação e guarda o motivo", () => {
 
 test("texto de uma linha remove quebras e barras da tabela", () => {
   assert.equal(textoUmaLinha("a | b\nc"), "a b c");
+});
+
+test("publicação: plataformas autorizadas, texto e registro no arquivo", () => {
+  const c = porId("IG-01");
+  assert.deepEqual(plataformasPublicaveis(c), ["instagram", "facebook"]);
+  assert.deepEqual(plataformasPublicaveis(porId("TT-02")), []);
+  assert.deepEqual(plataformasPublicaveis({ ...c, status: "AGUARDANDO APROVAÇÃO" }), []);
+  const fb = textoParaPublicar(c, "facebook");
+  assert.match(fb, /utm_source=facebook/);
+  assert.doesNotMatch(textoParaPublicar(c, "instagram"), /https:/);
+
+  const original = readFileSync(join(RAIZ, "aprovados", c.arquivo), "utf8");
+  const t1 = aplicarPublicacao(original, {
+    plataforma: "instagram",
+    link: "https://instagram.com/p/AAA",
+    quando: "16/11/2026 12:00",
+  });
+  assert.match(t1, /^- \*\*Status:\*\* PUBLICADO$/m);
+  assert.match(t1, /^- Data e hora: 16\/11\/2026 12:00$/m);
+  assert.match(t1, /^- Link do post: https:\/\/instagram\.com\/p\/AAA$/m);
+  assert.match(
+    t1,
+    /^- Publicado no Instagram: https:\/\/instagram\.com\/p\/AAA \(16\/11\/2026 12:00\)$/m,
+  );
+  assert.throws(
+    () => aplicarPublicacao(t1, { plataforma: "instagram", link: "x", quando: "y" }),
+    /Já publicado/,
+  );
+  const t2 = aplicarPublicacao(t1, {
+    plataforma: "facebook",
+    link: "https://facebook.com/1",
+    quando: "16/11/2026 12:05",
+  });
+  assert.match(t2, /^- Link do post: https:\/\/instagram\.com\/p\/AAA$/m);
+  assert.match(
+    t2,
+    /Publicado no Instagram[^\n]*\n- Publicado no Facebook: https:\/\/facebook\.com\/1/,
+  );
+  const c2 = lerConteudoMarketing(t2, "publicados", c.arquivo);
+  assert.equal(c2.status, "PUBLICADO");
+  assert.equal(c2.publicacao.link, "https://instagram.com/p/AAA");
 });

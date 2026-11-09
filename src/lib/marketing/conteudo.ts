@@ -328,3 +328,68 @@ export function aplicarRecusa(
   );
   return t;
 }
+
+// ---------------------------------------------------------------------------
+// Publicação (Meta). Só Instagram e Facebook têm publicação pelo sistema; as
+// demais plataformas continuam manuais.
+
+export type PlataformaMeta = "instagram" | "facebook";
+
+// Plataformas autorizadas na aprovação que o sistema sabe publicar.
+export function plataformasPublicaveis(
+  c: Pick<ConteudoMarketing, "status" | "aprovacao">,
+): PlataformaMeta[] {
+  if (c.status !== "APROVADO" && c.status !== "PUBLICADO") return [];
+  const a = c.aprovacao.plataformas.toLowerCase();
+  const r: PlataformaMeta[] = [];
+  if (/instagram/.test(a)) r.push("instagram");
+  if (/facebook/.test(a)) r.push("facebook");
+  return r;
+}
+
+const ROTULO_PLAT: Record<PlataformaMeta, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+};
+
+export function jaPublicadoEm(texto: string, p: PlataformaMeta): boolean {
+  return new RegExp(`^- Publicado no ${ROTULO_PLAT[p]}:`, "m").test(texto);
+}
+
+// Texto que vai no post: o "Texto pronto para publicar" aprovado. No Facebook
+// (que aceita link clicável na legenda) acrescenta o link do Facebook do
+// próprio conteúdo, quando existir.
+export function textoParaPublicar(
+  c: Pick<ConteudoMarketing, "secoes" | "links">,
+  p: PlataformaMeta,
+): string {
+  const base = (c.secoes[SECAO_TEXTO] ?? "").trim();
+  if (p === "facebook") {
+    const link = c.links.find((l) => /facebook/i.test(l.rotulo))?.url;
+    if (link) return `${base}\n\n👉 ${link}`;
+  }
+  return base;
+}
+
+// Registra a publicação no arquivo: status PUBLICADO, data/link do primeiro
+// post e uma linha por plataforma ("- Publicado no Instagram: <link> (data)").
+export function aplicarPublicacao(
+  texto: string,
+  d: { plataforma: PlataformaMeta; link: string; quando: string },
+): string {
+  if (jaPublicadoEm(texto, d.plataforma)) throw new Error("Já publicado nesta plataforma.");
+  let t = texto.replace(/^- \*\*Status:\*\* (APROVADO|PUBLICADO)$/m, "- **Status:** PUBLICADO");
+  if (!/^- \*\*Status:\*\* PUBLICADO$/m.test(t)) throw new Error("O conteúdo não está aprovado.");
+  t = t.replace(/^- Data e hora:[ \t]*$/m, `- Data e hora: ${d.quando}`);
+  t = t.replace(/^- Link do post:[ \t]*$/m, `- Link do post: ${d.link}`);
+  const linha = `- Publicado no ${ROTULO_PLAT[d.plataforma]}: ${d.link} (${d.quando})`;
+  const m = t.match(/^- Link do post:.*$/m);
+  if (!m) throw new Error('O arquivo não tem a linha "- Link do post:".');
+  const fim = (m.index ?? 0) + m[0].length;
+  let pos = fim;
+  // depois das linhas "Publicado no …" que já existirem
+  const resto = t.slice(fim);
+  const extra = resto.match(/^(\n- Publicado no [^\n]*)*/);
+  if (extra) pos += extra[0].length;
+  return `${t.slice(0, pos)}\n${linha}${t.slice(pos)}`;
+}

@@ -7,7 +7,7 @@
 // desta tela.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Clapperboard,
@@ -47,12 +47,18 @@ import { Markdown } from "@/components/marketing/Markdown";
 import { MiniaturaConteudo, PreviaConteudo } from "@/components/marketing/Previa";
 import { DecisaoConteudo } from "@/components/marketing/Decisao";
 import { CarrosselReal } from "@/components/marketing/CarrosselReal";
+import { ContasMeta } from "@/components/marketing/ContasMeta";
+import { PublicarConteudo } from "@/components/marketing/PublicarConteudo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin_/marketing")({
   head: () => ({ meta: [{ title: "Marketing — Administração do site" }] }),
-  validateSearch: (s: Record<string, unknown>): { id?: string } =>
-    typeof s["id"] === "string" && /^[A-Za-z0-9-]{1,20}$/.test(s["id"]) ? { id: s["id"] } : {},
+  validateSearch: (s: Record<string, unknown>): { id?: string; meta?: string } => ({
+    ...(typeof s["id"] === "string" && /^[A-Za-z0-9-]{1,20}$/.test(s["id"]) ? { id: s["id"] } : {}),
+    ...(typeof s["meta"] === "string" && /^[a-z-]{1,20}$/.test(s["meta"])
+      ? { meta: s["meta"] }
+      : {}),
+  }),
   component: PaginaMarketing,
 });
 
@@ -161,10 +167,30 @@ function Conteudo({
   onAtualizar: () => void;
   atualizando: boolean;
 }) {
-  const { id } = Route.useSearch();
+  const { id, meta } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [aba, setAba] = useState("conteudos");
   const [filtro, setFiltro] = useState<StatusMarketing | "todos">("todos");
+
+  // Volta do login do Facebook: /admin/marketing?meta=ok|cancelado|…
+  useEffect(() => {
+    if (!meta) return;
+    const msg: Record<string, [boolean, string]> = {
+      ok: [true, "Instagram e Facebook conectados."],
+      cancelado: [false, "Conexão cancelada no Facebook."],
+      invalido: [false, "O link de conexão expirou. Tente de novo."],
+      "sem-pagina": [
+        false,
+        "Nenhuma Página foi liberada. Reconecte e marque a Página da SPACE TECH.",
+      ],
+      erro: [false, "Não foi possível concluir a conexão com o Meta."],
+    };
+    const [ok, texto] = msg[meta] ?? [false, "Conexão não concluída."];
+    if (ok) toast.success(texto);
+    else toast.error(texto);
+    setAba("contas");
+    navigate({ search: {}, replace: true });
+  }, [meta, navigate]);
 
   const ids = useMemo(() => new Set(data.conteudos.map((c) => c.id)), [data.conteudos]);
   const abrir = (novo: string | undefined) => {
@@ -244,6 +270,7 @@ function Conteudo({
           <Tabs value={aba} onValueChange={setAba}>
             <TabsList className="mb-4 flex h-auto flex-wrap justify-start gap-1">
               <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
+              <TabsTrigger value="contas">Contas</TabsTrigger>
               {data.documentos.map((d) => (
                 <TabsTrigger key={d.chave} value={d.chave}>
                   {d.titulo}
@@ -259,6 +286,7 @@ function Conteudo({
                   onAbrirId={abrir}
                   onVoltar={() => abrir(undefined)}
                   onDecidido={onAtualizar}
+                  onIrParaContas={() => setAba("contas")}
                 />
               ) : (
                 <>
@@ -334,6 +362,10 @@ function Conteudo({
               )}
             </TabsContent>
 
+            <TabsContent value="contas">
+              <ContasMeta />
+            </TabsContent>
+
             {data.documentos.map((d) => (
               <TabsContent key={d.chave} value={d.chave}>
                 <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
@@ -393,12 +425,14 @@ function Detalhe({
   onAbrirId,
   onVoltar,
   onDecidido,
+  onIrParaContas,
 }: {
   c: ConteudoMarketing;
   ids: Set<string>;
   onAbrirId: (id: string) => void;
   onVoltar: () => void;
   onDecidido: () => void;
+  onIrParaContas: () => void;
 }) {
   const texto = c.secoes[SECAO_TEXTO] ?? "";
   const aprovado = c.status === "APROVADO" || c.status === "PUBLICADO";
@@ -487,6 +521,14 @@ function Detalhe({
         <div className="min-w-0 space-y-5">
           {c.status === "AGUARDANDO APROVAÇÃO" && (
             <DecisaoConteudo key={c.atualizadoEm} c={c} onDecidido={onDecidido} />
+          )}
+          {(c.status === "APROVADO" || c.status === "PUBLICADO") && (
+            <PublicarConteudo
+              key={c.atualizadoEm}
+              c={c}
+              onPublicado={onDecidido}
+              onIrParaContas={onIrParaContas}
+            />
           )}
           <Bloco titulo="Resumo explicado">
             <dl className="grid gap-4 sm:grid-cols-2">
