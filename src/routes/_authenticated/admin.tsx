@@ -17,6 +17,7 @@ import {
   Gift,
   KeyRound,
   LayoutTemplate,
+  Megaphone,
   Link2,
   Loader2,
   LogIn,
@@ -315,6 +316,11 @@ function AdminDoSite() {
             <Button asChild variant="outline">
               <Link to="/admin/landing">
                 <LayoutTemplate className="h-4 w-4" /> Editar página inicial
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/marketing">
+                <Megaphone className="h-4 w-4" /> Marketing
               </Link>
             </Button>
           </div>
