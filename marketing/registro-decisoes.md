@@ -17,3 +17,4 @@ Cada aprovação ou recusa feita em /admin/marketing entra aqui automaticamente
 | 09/11/2026 | TT-02 | APROVADO | TikTok | aprovado pela conversa | Fabio |
 | 09/11/2026 | TT-03 | APROVADO | TikTok | aprovado pela conversa | Fabio |
 | 09/11/2026 | GO-01 | APROVADO | Google — Perfil da Empresa | aprovado pela conversa; depende de o perfil existir | Fabio |
+| 09/11/2026 | GO-03 | APROVADO | Google — Perfil da Empresa | aprovado pela conversa; depende de o perfil existir | Fabio |

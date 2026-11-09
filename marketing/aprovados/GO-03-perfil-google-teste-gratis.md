@@ -4,7 +4,7 @@
 - **Plataforma:** Google — Perfil da Empresa (post "Oferta")
 - **Formato:** post com imagem e botão "Inscrever-se"
 - **Objetivo:** levar ao cadastro do teste grátis
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 03/12/2026
 - **Link (botão):** https://srmpretech.online/cadastro?utm_source=google&utm_medium=post-perfil&utm_campaign=lancamento-nov26&utm_content=go-03
 
@@ -28,10 +28,10 @@ Mesma linha visual do IG-04: "7 DIAS GRÁTIS · sem cartão" sobre fundo preto/r
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Google — Perfil da Empresa (post "Oferta")
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Depende de existir o Perfil da Empresa no Google. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
