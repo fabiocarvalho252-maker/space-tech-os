@@ -1,0 +1,52 @@
+{
+  "conteudo": "TT-03",
+  "versao": "animada, sem pessoa falando para a câmera, pedida pelo Fabio em 09/11/2026 no lugar do roteiro filmado; revisar antes de publicar",
+  "motor": "kokoro",
+  "voz": "pm_alex",
+  "velocidade": 1.0,
+  "capaEm": 1.6,
+  "cenas": [
+    {
+      "tipo": "titulo",
+      "icone": "💸",
+      "texto": "Quanto custa um *sistema* pra assistência?",
+      "narracao": "Quanto custa um sistema pra assistência técnica?",
+      "extra": 0.3
+    },
+    {
+      "tipo": "titulo",
+      "texto": "*R$ 40*\npor mês",
+      "subtitulo": "ou R$ 456 no plano anual",
+      "narracao": "No Spêis Téc, ó ésse, são quarenta reais por mês. Ou quatrocentos e cinquenta e seis reais no plano anual.",
+      "extra": 0.3,
+      "grande": true
+    },
+    {
+      "tipo": "titulo",
+      "icone": "🎁",
+      "texto": "*7 dias grátis*",
+      "subtitulo": "sem colocar cartão",
+      "narracao": "E dá pra testar sete dias grátis, sem colocar cartão.",
+      "grande": true
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/painel.png",
+      "recorte": {
+        "y": 0,
+        "y2": 0
+      },
+      "texto": "Tudo num *sistema só*",
+      "narracao": "Tem ordem de serviço, PDV, estoque, financeiro e WhatsApp, tudo num lugar só.",
+      "nota": "Tela real do sistema · dados ilustrativos"
+    },
+    {
+      "tipo": "final",
+      "texto": "Teste *grátis* por 7 dias",
+      "subtitulo": "sem cartão · depois R$ 40/mês",
+      "cta": "Link na bio",
+      "narracao": "Link na bio.",
+      "minimo": 3.5
+    }
+  ]
+}

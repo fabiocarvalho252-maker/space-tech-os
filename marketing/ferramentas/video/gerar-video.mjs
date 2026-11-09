@@ -121,7 +121,7 @@ function htmlCena(c) {
     return `<section class="cena" ${base}>
       ${c.icone ? `<div class="icone-grande" style="animation-delay:${d(0.1)}"><span style="animation-delay:${d(0.4)}">${esc(c.icone)}</span></div>` : ""}
       ${bolhas ? `<div class="chat">${bolhas}</div>` : ""}
-      <h1 class="titulo" style="animation-delay:${d(0.15)}">${destaque(c.texto)}</h1>
+      <h1 class="titulo${c.grande ? " grande" : ""}" style="animation-delay:${d(0.15)}">${destaque(c.texto)}</h1>
       ${c.subtitulo ? `<p class="sub" style="animation-delay:${d(0.35 + (c.bolhas?.length ?? 0) * 0.45)}">${destaque(c.subtitulo)}</p>` : ""}
     </section>`;
   }
@@ -163,6 +163,7 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;background:#09090b;font-fam
 .cena{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:48px;padding:120px 80px;opacity:0;animation:aparece var(--dur) linear var(--ini) both}
 @keyframes aparece{0%{opacity:0}6%{opacity:1}94%{opacity:1}100%{opacity:0}}
 .titulo{font-size:96px;line-height:1.05;font-weight:800;text-align:center;letter-spacing:-2px;animation:sobe .6s cubic-bezier(.2,.8,.2,1) both}
+.titulo.grande{font-size:170px;letter-spacing:-4px;line-height:1}
 .sub{font-size:52px;font-weight:700;color:#d4d4d8;text-align:center;animation:sobe .6s cubic-bezier(.2,.8,.2,1) both}
 .dest{background:linear-gradient(90deg,#a78bfa,#e879f9);-webkit-background-clip:text;color:transparent}
 @keyframes sobe{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:none}}

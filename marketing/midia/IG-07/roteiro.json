@@ -1,6 +1,6 @@
 {
   "conteudo": "IG-07",
-  "voz": "faber",
+  "voz": "pm_alex",
   "velocidade": 1.0,
   "capaEm": 2.0,
   "cenas": [
@@ -8,8 +8,12 @@
       "tipo": "titulo",
       "texto": "O caixa *não bate* de novo?",
       "bolhas": [
-        { "texto": "Contei a gaveta 3 vezes…" },
-        { "texto": "Faltam R$ 50 e ninguém sabe onde 🤔" }
+        {
+          "texto": "Contei a gaveta 3 vezes…"
+        },
+        {
+          "texto": "Faltam R$ 50 e ninguém sabe onde 🤔"
+        }
       ],
       "subtitulo": "Fim do dia, gaveta contada e…",
       "narracao": "Fim do dia, gaveta contada, e o caixa não bate. De novo.",
@@ -18,7 +22,10 @@
     {
       "tipo": "tela",
       "imagem": "telas/01-caixa.png",
-      "recorte": { "y": 0, "y2": 60 },
+      "recorte": {
+        "y": 0,
+        "y2": 60
+      },
       "texto": "Cada venda entra no *caixa*",
       "narracao": "No sistema, cada venda e cada ordem de serviço paga entram no caixa, separadas por forma de pagamento.",
       "nota": "Telas reais do sistema · valores ilustrativos"
@@ -26,7 +33,10 @@
     {
       "tipo": "tela",
       "imagem": "telas/01-caixa.png",
-      "recorte": { "y": 150, "y2": 331 },
+      "recorte": {
+        "y": 150,
+        "y2": 331
+      },
       "texto": "Você sabe *quanto deve ter* na gaveta",
       "narracao": "E mostra quanto dinheiro deveria ter na gaveta, para você conferir no fechamento.",
       "nota": "Telas reais do sistema · valores ilustrativos"
@@ -34,7 +44,10 @@
     {
       "tipo": "tela",
       "imagem": "telas/02-financeiro.png",
-      "recorte": { "y": 0, "y2": 331 },
+      "recorte": {
+        "y": 0,
+        "y2": 331
+      },
       "texto": "Contas a *pagar e receber* juntas",
       "narracao": "Contas a pagar e a receber ficam no mesmo lugar, com o vencimento de cada uma.",
       "nota": "Telas reais do sistema · valores ilustrativos"
@@ -42,7 +55,10 @@
     {
       "tipo": "tela",
       "imagem": "telas/03-dre.png",
-      "recorte": { "y": 220, "y2": 331 },
+      "recorte": {
+        "y": 220,
+        "y2": 331
+      },
       "texto": "No fim do mês, a *DRE*",
       "narracao": "E no fim do mês, você vê a DRE: o que entrou, o que saiu, e o que sobrou.",
       "nota": "Telas reais do sistema · valores ilustrativos"
@@ -55,5 +71,6 @@
       "narracao": "Spêis Téc, ó ésse. Teste grátis por sete dias, sem cartão. Link na bio.",
       "minimo": 4.5
     }
-  ]
+  ],
+  "motor": "kokoro"
 }
