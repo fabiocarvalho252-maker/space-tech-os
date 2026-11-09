@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)
 - **Formato:** carrossel de 5 imagens (1080×1350)
 - **Objetivo:** mostrar o estoque integrado à venda e à OS
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 27/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-06
@@ -45,10 +45,10 @@ Venda e peça usada na OS baixam o estoque automaticamente; alerta de estoque m�
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (feed), Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. NÃO autorizadas: WhatsApp Status (mesma arte). Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
