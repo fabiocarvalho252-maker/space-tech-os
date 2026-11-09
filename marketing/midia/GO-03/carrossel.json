@@ -1,0 +1,8 @@
+{
+  "conteudo": "GO-03",
+  "largura": 1200,
+  "altura": 900,
+  "slides": [
+    { "tipo": "oferta-h", "imagemCelular": "telas/painel-celular.png", "titulo": "7 DIAS *GRÁTIS*", "sub": "sem cartão de crédito · depois R$ 40/mês", "cta": "Criar minha conta", "nota": "Tela real do sistema · dados ilustrativos" }
+  ]
+}

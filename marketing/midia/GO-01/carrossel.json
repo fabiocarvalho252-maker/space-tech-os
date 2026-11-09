@@ -1,0 +1,8 @@
+{
+  "conteudo": "GO-01",
+  "largura": 1200,
+  "altura": 900,
+  "slides": [
+    { "tipo": "dispositivos", "imagemDesktop": "telas/painel-desktop.png", "imagemCelular": "telas/painel-celular.png", "titulo": "Sistema para *assistência técnica*", "sub": "OS, PDV, estoque, financeiro e WhatsApp no computador, tablet e celular.", "nota": "Telas reais do sistema · dados ilustrativos" }
+  ]
+}

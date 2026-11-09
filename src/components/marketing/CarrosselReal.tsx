@@ -14,7 +14,7 @@ export function CarrosselReal({ id, slides }: { id: string; slides: string[] }) 
         <img
           src={atual}
           alt={`${id} — imagem ${i + 1} de ${slides.length}`}
-          className="block aspect-[4/5] w-full object-cover"
+          className="block h-auto w-full"
         />
         {i > 0 && (
           <button

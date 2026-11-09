@@ -9,8 +9,6 @@ import { existsSync, readFileSync, rmSync, writeFileSync, readdirSync } from "no
 import { dirname, join, resolve } from "node:path";
 import { abrirNavegador } from "./navegador.mjs";
 
-const L = 1080;
-const A = 1350;
 const arq = resolve(process.argv[2] ?? "");
 if (!existsSync(arq)) {
   console.error("Uso: node gerar-carrossel.mjs <carrossel.json>");
@@ -19,6 +17,9 @@ if (!existsSync(arq)) {
 const pasta = dirname(arq);
 const cfg = JSON.parse(readFileSync(arq, "utf8"));
 const total = cfg.slides.length;
+// Tamanho da imagem: 1080×1350 (feed) por padrão; o JSON pode trocar (ex.: 1200×900 no Google).
+const L = cfg.largura ?? 1080;
+const A = cfg.altura ?? 1350;
 
 const esc = (s) =>
   String(s ?? "").replace(
@@ -59,6 +60,19 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;font-family:"Plus Jakarta S
 .rodape-marca{position:absolute;left:0;right:0;bottom:0;height:150px;display:flex;align-items:center;justify-content:center;gap:18px;font-size:46px;font-weight:800;background:linear-gradient(to top,#09090b 55%,transparent)}
 .rodape-marca b{color:#a78bfa}.rodape-marca small{font-size:24px;color:#a1a1aa}
 .foguete.pequeno{width:72px;height:72px;border-radius:20px;font-size:38px}
+.disp-txt{position:absolute;left:64px;top:0;bottom:0;width:480px;display:flex;flex-direction:column;justify-content:center;gap:26px}
+.marca-p{font-size:36px;gap:14px;white-space:nowrap}.marca-p small{font-size:20px}
+.titulo-h{font-size:66px;line-height:1.05;font-weight:800;letter-spacing:-1.5px}
+.sub-h{font-size:28px;font-weight:600;color:#d4d4d8;line-height:1.3}
+.cta-p{font-size:28px;padding:18px 34px;align-self:flex-start}
+.notebook{position:absolute;left:600px;top:200px;width:560px}
+.nb-tela{width:560px;height:350px;border-radius:22px 22px 0 0;background:#111;padding:14px;box-shadow:0 0 0 3px #3f3f46,0 40px 110px rgba(124,58,237,.45);overflow:hidden}
+.nb-tela img{width:100%;display:block;border-radius:8px}
+.nb-base{width:620px;margin-left:-30px;height:22px;border-radius:0 0 24px 24px;background:linear-gradient(#52525b,#27272a)}
+.celular-h{position:absolute;left:545px;top:395px;transform:scale(.44);transform-origin:top left}
+.oferta-h{width:620px}
+.mega-h{font-size:110px;line-height:.95;font-weight:800;letter-spacing:-3px}
+.celular-h2{right:auto;left:760px;top:120px;transform:scale(.85)}
 .nota-topo{font-size:24px;color:#a1a1aa}
 .nota{position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:22px;color:#a1a1aa}
 .marca{display:flex;align-items:center;gap:22px;font-size:66px;font-weight:800}
@@ -73,7 +87,10 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;font-family:"Plus Jakarta S
 `;
 
 function slideHtml(s, n) {
-  const topo = `<div class="topo"><span>SPACE TECH OS</span>${total > 1 ? `<span class="num">${n}/${total}</span>` : ""}</div>`;
+  const semTopo = s.tipo === "dispositivos" || s.tipo === "oferta-h";
+  const topo = semTopo
+    ? ""
+    : `<div class="topo"><span>SPACE TECH OS</span>${total > 1 ? `<span class="num">${n}/${total}</span>` : ""}</div>`;
   let meio = "";
   if (s.tipo === "capa") {
     meio = `<div class="conteudo">
@@ -118,6 +135,23 @@ function slideHtml(s, n) {
     </div>
     <div class="celular celular-baixo" style="top:${desloc}px;transform:scale(${s.escalaTelefone ?? 1});transform-origin:top center"><div class="tela"><img src="${img(s.imagem)}"></div></div>
     <div class="rodape-marca"><span class="foguete pequeno">🚀</span><span>SPACE <b>TECH</b> <small>OS</small></span></div>`;
+  } else if (s.tipo === "dispositivos") {
+    meio = `<div class="disp-txt">
+      <div class="marca marca-p"><span class="foguete pequeno">🚀</span><span>SPACE <b>TECH</b> <small>OS</small></span></div>
+      <h1 class="titulo-h">${destaque(s.titulo)}</h1>
+      ${s.sub ? `<p class="sub-h">${destaque(s.sub)}</p>` : ""}
+      ${s.cta ? `<div class="cta cta-p">${esc(s.cta)}</div>` : ""}
+    </div>
+    <div class="notebook"><div class="nb-tela"><img src="${img(s.imagemDesktop)}"></div><div class="nb-base"></div></div>
+    <div class="celular celular-h"><div class="tela"><img src="${img(s.imagemCelular)}"></div></div>`;
+  } else if (s.tipo === "oferta-h") {
+    meio = `<div class="disp-txt oferta-h">
+      <div class="marca marca-p"><span class="foguete pequeno">🚀</span><span>SPACE <b>TECH</b> <small>OS</small></span></div>
+      <h1 class="mega-h">${destaque(s.titulo)}</h1>
+      ${s.sub ? `<p class="sub-h">${destaque(s.sub)}</p>` : ""}
+      ${s.cta ? `<div class="cta cta-p">${esc(s.cta)}</div>` : ""}
+    </div>
+    ${s.imagemCelular ? `<div class="celular celular-h celular-h2"><div class="tela"><img src="${img(s.imagemCelular)}"></div></div>` : ""}`;
   } else if (s.tipo === "tela") {
     const y = s.y ?? 0;
     meio = `<div class="conteudo"><div class="lado">
