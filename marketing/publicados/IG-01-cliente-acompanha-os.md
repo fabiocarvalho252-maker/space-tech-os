@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)
 - **Formato:** carrossel de 5 imagens (1080×1350)
 - **Objetivo:** mostrar a Área do Cliente e levar visitas ao site
-- **Status:** APROVADO
+- **Status:** PUBLICADO
 - **Data sugerida:** 16/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-01
@@ -53,5 +53,7 @@ QR Code na etiqueta/PDF da OS; Área do Cliente pelo link; envio da OS pelo What
 
 ## Publicação
 
-- Data e hora:
-- Link do post:
+- Data e hora: 09/11/2026, 19:58
+- Link do post: https://www.instagram.com/p/DfidQ6znF4Q/
+- Publicado no Instagram: https://www.instagram.com/p/DfidQ6znF4Q/ (09/11/2026, 19:58)
+- Publicado no Facebook: https://www.facebook.com/1424635839840133/posts/1424635796506804 (09/11/2026, 19:59)
