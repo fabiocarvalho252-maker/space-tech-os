@@ -6,11 +6,11 @@ registrar a divulgação.
 
 ## Quem vê
 
-Hoje o marketing **não aparece em nenhuma tela do sistema**: são só estes
-arquivos no servidor. Se um dia virar uma tela, ela ficará **somente no painel
-de administração do site (`/admin`), visível apenas para a conta admin do
-Fabio** — nunca para lojas, funcionários ou outros usuários (mesma regra de
-acesso único já usada no `/admin`, conferida também no servidor).
+Estes arquivos aparecem em **`/admin/marketing`**, visível **apenas para a conta
+admin do Fabio** (a mesma regra de acesso único do `/admin`, conferida também no
+servidor) — nunca para lojas, funcionários ou outros usuários. Lá dá para ler
+tudo com prévias visuais e **aprovar ou recusar um conteúdo por vez** (bloco
+"Sua decisão"); cada decisão fica em `registro-decisoes.md`.
 
 ## Estrutura
 
@@ -34,7 +34,7 @@ conteudos/ (RASCUNHO) → aprovacao/ (AGUARDANDO APROVAÇÃO) → aprovados/ (AP
 
 1. Um conteúdo novo nasce em `conteudos/` como **RASCUNHO**.
 2. Quando está pronto, vai para `aprovacao/` como **AGUARDANDO APROVAÇÃO**.
-3. **Só o Fabio aprova.** A aprovação é **explícita e individual**: vale apenas
+3. **Só o Fabio aprova** — em `/admin/marketing` (marcando as plataformas) ou dizendo ao Claude. A aprovação é **explícita e individual**: vale apenas
    para o arquivo aprovado, nunca para outros conteúdos, variações ou
    plataformas não citadas nele. Ao aprovar, o arquivo vai para `aprovados/`
    com status **APROVADO** e o bloco "Aprovação" preenchido (quem, quando).

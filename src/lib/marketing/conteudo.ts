@@ -240,7 +240,7 @@ export function proximoPasso(
         ? "Rascunho de anúncio pago. Além de aprovar o texto, é preciso autorizar orçamento, conta de anúncios e público. Nada é gasto sem a sua ordem."
         : "Ainda em elaboração. Quando ficar pronto, vai para “Aguardando aprovação”.";
     case "AGUARDANDO APROVAÇÃO":
-      return `Para aprovar, diga ao Claude: “Aprovo o ${c.id} para …” e cite as plataformas (pode ser só algumas de: ${c.plataforma}). Para recusar ou pedir mudança, é só dizer.`;
+      return `Para aprovar, marque as plataformas em “Sua decisão” e clique em Aprovar (ou diga ao Claude: “Aprovo o ${c.id} para …”). Pode ser só algumas de: ${c.plataforma}. Para pedir mudança, use Recusar com o motivo.`;
     case "APROVADO":
       return `Aprovado para ${c.aprovacao.plataformas || "as plataformas registradas"}. Falta produzir a arte/vídeo e você dar a ordem de publicar — aprovar não publica.`;
     case "PUBLICADO":
@@ -248,4 +248,76 @@ export function proximoPasso(
     default:
       return "Status não reconhecido no arquivo — confira o campo Status.";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Decisão do administrador em /admin/marketing (aprovar / recusar). Funções
+// puras sobre o texto do arquivo; quem grava é decisao.server.ts.
+
+// "Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)" →
+// ["Instagram (feed)", "Facebook (página)", "WhatsApp Status (mesma arte)"].
+export function opcoesPlataforma(plataforma: string): string[] {
+  return plataforma
+    .split(/\s\+\s/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function trocarLinha(texto: string, rotulo: string, valor: string): string {
+  const re = new RegExp(`^- ${rotulo}:.*$`, "m");
+  if (!re.test(texto)) throw new Error(`O arquivo não tem a linha "- ${rotulo}:".`);
+  return texto.replace(re, () => `- ${rotulo}: ${valor}`);
+}
+
+function trocarStatus(texto: string, de: StatusMarketing, para: StatusMarketing): string {
+  const re = new RegExp(`^- \\*\\*Status:\\*\\* ${de}$`, "m");
+  if (!re.test(texto)) throw new Error(`O conteúdo não está com status ${de}.`);
+  return texto.replace(re, `- **Status:** ${para}`);
+}
+
+// Uma linha só, sem "|" (que quebraria a tabela do registro).
+export function textoUmaLinha(valor: string, max = 300): string {
+  return valor
+    .replace(/[\r\n|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+export function aplicarAprovacao(
+  texto: string,
+  d: { quem: string; quando: string; plataformas: string[]; todas: string[]; anuncioPago: boolean },
+): string {
+  if (!d.plataformas.length) throw new Error("Marque ao menos uma plataforma.");
+  const fora = d.todas.filter((p) => !d.plataformas.includes(p));
+  const obs = [
+    "aprovação só deste conteúdo, sem alteração no texto.",
+    fora.length ? `NÃO autorizadas: ${fora.join(", ")}.` : "",
+    d.anuncioPago ? "Anúncio pago: orçamento NÃO autorizado." : "",
+    "Aprovar não autoriza publicar: a publicação depende de uma ordem sua.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  let t = trocarStatus(texto, "AGUARDANDO APROVAÇÃO", "APROVADO");
+  t = trocarLinha(t, "Aprovado por", d.quem);
+  t = trocarLinha(t, "Data da aprovação", d.quando);
+  t = trocarLinha(t, "Plataformas autorizadas", d.plataformas.join(", "));
+  t = trocarLinha(t, "Observações", obs);
+  return t;
+}
+
+export function aplicarRecusa(
+  texto: string,
+  d: { quem: string; quando: string; motivo: string },
+): string {
+  let t = trocarStatus(texto, "AGUARDANDO APROVAÇÃO", "RASCUNHO");
+  t = trocarLinha(t, "Aprovado por", "");
+  t = trocarLinha(t, "Data da aprovação", "");
+  t = trocarLinha(t, "Plataformas autorizadas", "");
+  t = trocarLinha(
+    t,
+    "Observações",
+    `RECUSADO em ${d.quando} por ${d.quem}.${d.motivo ? ` Motivo: ${d.motivo}` : " Sem motivo informado."}`,
+  );
+  return t;
 }

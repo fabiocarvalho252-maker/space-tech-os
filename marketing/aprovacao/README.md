@@ -2,7 +2,10 @@
 
 Cada arquivo é **um** conteúdo com status **AGUARDANDO APROVAÇÃO**.
 
-Para aprovar um conteúdo (um de cada vez):
+Pelo painel: abra o conteúdo em `/admin/marketing`, marque as plataformas em
+"Sua decisão" e clique em **Aprovar** (ou **Recusar**, com o motivo).
+
+Pela conversa, para aprovar um conteúdo (um de cada vez):
 
 1. Leia o arquivo; se quiser mudar algo, peça a alteração (ele continua aqui).
 2. Diga explicitamente, por exemplo: *"Aprovo o IG-01 para Instagram e Facebook"*.

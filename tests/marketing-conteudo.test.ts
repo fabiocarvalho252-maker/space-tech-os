@@ -7,8 +7,12 @@ import { join } from "node:path";
 import {
   extrairCenas,
   extrairListaApos,
+  aplicarAprovacao,
+  aplicarRecusa,
   extrairSlides,
   lerConteudoMarketing,
+  opcoesPlataforma,
+  textoUmaLinha,
   PASTAS_MARKETING,
   proximoPasso,
   SECAO_ARTE,
@@ -93,11 +97,89 @@ test("tipos de prévia: WhatsApp, Perfil do Google e imagem única", () => {
 });
 
 test("aguardando aprovação explica como aprovar", () => {
-  assert.match(proximoPasso(porId("IG-04")), /Aprovo o IG-04/);
+  const c = porId("IG-05");
+  const passo = proximoPasso({ ...c, status: "AGUARDANDO APROVAÇÃO" });
+  assert.match(passo, /Aprovo o IG-05/);
+  assert.match(passo, /Sua decisão/);
 });
 
 test("'dados ilustrativos' não vira título da arte", () => {
   const c = porId("GO-01");
   assert.equal(tipoPrevia(c), "perfil-google");
   assert.doesNotMatch(textosEntreAspas(c.secoes[SECAO_ARTE] ?? "").join("|"), /ilustrativ/);
+});
+
+// Arquivo em aprovacao/ com o bloco de aprovação vazio.
+const aguardando = () =>
+  readFileSync(join(RAIZ, "conteudos", "_modelo.md"), "utf8")
+    .replace("- **ID:** XX-00", "- **ID:** XX-01")
+    .replace(
+      "- **Plataforma:** (ex.: Instagram feed + Facebook página)",
+      "- **Plataforma:** Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)",
+    )
+    .replace("- **Status:** RASCUNHO", "- **Status:** AGUARDANDO APROVAÇÃO");
+
+test("opções de plataforma vêm do campo Plataforma", () => {
+  assert.deepEqual(
+    opcoesPlataforma("Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)"),
+    ["Instagram (feed)", "Facebook (página)", "WhatsApp Status (mesma arte)"],
+  );
+  assert.deepEqual(opcoesPlataforma("TikTok"), ["TikTok"]);
+});
+
+test("aprovar: status, quem, data, só as plataformas marcadas e as de fora anotadas", () => {
+  const t = aplicarAprovacao(aguardando(), {
+    quem: "Fabio",
+    quando: "10/11/2026 14:00",
+    plataformas: ["Instagram (feed)", "Facebook (página)"],
+    todas: opcoesPlataforma("Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)"),
+    anuncioPago: false,
+  });
+  const c = lerConteudoMarketing(t, "aprovados", "XX-01-x.md");
+  assert.equal(c.status, "APROVADO");
+  assert.equal(c.aprovacao.aprovadoPor, "Fabio");
+  assert.equal(c.aprovacao.data, "10/11/2026 14:00");
+  assert.equal(c.aprovacao.plataformas, "Instagram (feed), Facebook (página)");
+  assert.match(c.aprovacao.observacoes, /NÃO autorizadas: WhatsApp Status/);
+  assert.match(c.aprovacao.observacoes, /não autoriza publicar/);
+});
+
+test("aprovar sem plataforma ou fora de 'aguardando' é recusado", () => {
+  const base = { quem: "F", quando: "x", todas: ["TikTok"], anuncioPago: false };
+  assert.throws(() => aplicarAprovacao(aguardando(), { ...base, plataformas: [] }), /ao menos uma/);
+  const aprovado = aguardando().replace("AGUARDANDO APROVAÇÃO", "APROVADO");
+  assert.throws(
+    () => aplicarAprovacao(aprovado, { ...base, plataformas: ["TikTok"] }),
+    /não está com status/,
+  );
+});
+
+test("anúncio pago aprovado anota que o orçamento não foi autorizado", () => {
+  const t = aplicarAprovacao(aguardando(), {
+    quem: "F",
+    quando: "x",
+    plataformas: ["TikTok"],
+    todas: ["TikTok"],
+    anuncioPago: true,
+  });
+  assert.match(t, /orçamento NÃO autorizado/);
+});
+
+test("recusar: volta a rascunho, limpa a aprovação e guarda o motivo", () => {
+  const t = aplicarRecusa(aguardando(), {
+    quem: "Fabio",
+    quando: "10/11/2026",
+    motivo: "trocar o gancho",
+  });
+  const c = lerConteudoMarketing(t, "conteudos", "XX-01-x.md");
+  assert.equal(c.status, "RASCUNHO");
+  assert.equal(c.aprovacao.aprovadoPor, "");
+  assert.match(
+    c.aprovacao.observacoes,
+    /RECUSADO em 10\/11\/2026 por Fabio\. Motivo: trocar o gancho/,
+  );
+});
+
+test("texto de uma linha remove quebras e barras da tabela", () => {
+  assert.equal(textoUmaLinha("a | b\nc"), "a b c");
 });

@@ -1,8 +1,10 @@
 // Área de marketing — só para o administrador do site (mesmo e-mail fixo do
-// /admin; o servidor confere de novo em obterMarketingAdmin). Somente
-// leitura: mostra os arquivos da pasta marketing/ (estratégia, calendário,
-// conteúdos e o status de cada um) com prévias visuais. Aprovar e publicar
-// continuam sendo feitos por ordem explícita do dono, fora desta tela.
+// /admin; o servidor confere de novo em obterMarketingAdmin e
+// decidirConteudoMarketing). Mostra os arquivos da pasta marketing/
+// (estratégia, calendário, conteúdos e o status de cada um) com prévias
+// visuais, e permite aprovar ou recusar UM conteúdo por vez (bloco "Sua
+// decisão"). Publicar continua sendo feito por ordem explícita do dono, fora
+// desta tela.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -40,6 +42,7 @@ import {
 } from "@/lib/marketing/conteudo";
 import { Markdown } from "@/components/marketing/Markdown";
 import { MiniaturaConteudo, PreviaConteudo } from "@/components/marketing/Previa";
+import { DecisaoConteudo } from "@/components/marketing/Decisao";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin_/marketing")({
@@ -202,8 +205,8 @@ function Conteudo({
             <p className="text-muted-foreground">
               <strong className="text-foreground">Nada aqui é publicado sozinho.</strong> Cada
               conteúdo precisa da sua aprovação explícita e individual, e a publicação, mensagens em
-              massa e anúncios pagos só acontecem por ordem sua. Esta tela é só para ler: para
-              aprovar, diga ao Claude, por exemplo, “Aprovo o IG-04 para Instagram e Facebook”.
+              massa e anúncios pagos só acontecem por ordem sua. Para aprovar ou recusar, abra um
+              conteúdo “Aguardando aprovação” e use o bloco “Sua decisão” (ou peça ao Claude).
             </p>
           </div>
 
@@ -251,6 +254,7 @@ function Conteudo({
                   ids={ids}
                   onAbrirId={abrir}
                   onVoltar={() => abrir(undefined)}
+                  onDecidido={onAtualizar}
                 />
               ) : (
                 <>
@@ -374,11 +378,13 @@ function Detalhe({
   ids,
   onAbrirId,
   onVoltar,
+  onDecidido,
 }: {
   c: ConteudoMarketing;
   ids: Set<string>;
   onAbrirId: (id: string) => void;
   onVoltar: () => void;
+  onDecidido: () => void;
 }) {
   const texto = c.secoes[SECAO_TEXTO] ?? "";
   const aprovado = c.status === "APROVADO" || c.status === "PUBLICADO";
@@ -407,6 +413,9 @@ function Detalhe({
         </div>
 
         <div className="min-w-0 space-y-5">
+          {c.status === "AGUARDANDO APROVAÇÃO" && (
+            <DecisaoConteudo key={c.atualizadoEm} c={c} onDecidido={onDecidido} />
+          )}
           <Bloco titulo="Resumo explicado">
             <dl className="grid gap-4 sm:grid-cols-2">
               <Explicacao rotulo="O que é">{c.formato || "—"}</Explicacao>

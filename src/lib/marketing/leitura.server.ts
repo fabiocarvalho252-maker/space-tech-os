@@ -16,6 +16,7 @@ export const DOCUMENTOS_MARKETING = [
   { chave: "calendario", arquivo: "calendario-30-dias.md", titulo: "Calendário" },
   { chave: "fatos", arquivo: "fatos-verificados.md", titulo: "Fatos verificados" },
   { chave: "resultados", arquivo: "resultados.md", titulo: "Resultados" },
+  { chave: "decisoes", arquivo: "registro-decisoes.md", titulo: "Decisões" },
   { chave: "como-funciona", arquivo: "README.md", titulo: "Como funciona" },
 ] as const;
 
