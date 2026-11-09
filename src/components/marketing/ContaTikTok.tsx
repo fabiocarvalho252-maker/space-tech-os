@@ -6,7 +6,7 @@
 //    sem padrão, interações, divulgação comercial e o aceite das regras).
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Inbox, Link2, Loader2, LogOut, Music2, Send } from "lucide-react";
+import { Copy, ExternalLink, Inbox, Link2, Loader2, LogOut, Music2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -148,6 +148,31 @@ export function ContaTikTok() {
   );
 }
 
+// Copia a legenda (o TikTok não recebe texto nos rascunhos enviados pelo
+// sistema). Usa a área de transferência e, se o navegador recusar, o método
+// antigo com um campo temporário — funciona também no celular.
+async function copiarLegenda(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = texto;
+    t.setAttribute("readonly", "");
+    t.style.position = "fixed";
+    t.style.opacity = "0";
+    document.body.appendChild(t);
+    t.select();
+    t.setSelectionRange(0, texto.length);
+    const ok = document.execCommand("copy");
+    t.remove();
+    if (!ok) {
+      toast.error("Não foi possível copiar. Selecione o texto e copie manualmente.");
+      return;
+    }
+  }
+  toast.success("Legenda copiada. Cole no TikTok.");
+}
+
 function linkTikTok(c: ConteudoMarketing): string | null {
   const m = (c.secoes["Publicação"] ?? "").match(/^- Publicado no TikTok: (\S+)/m);
   return m?.[1] ?? null;
@@ -201,7 +226,9 @@ export function EnviarTikTok({
     onSuccess: (r, m) => {
       setModo(null);
       if (m === "rascunho")
-        toast.success(`${c.id} enviado ao TikTok. Abra o app para terminar e publicar.`);
+        toast.success(
+          `${c.id} enviado ao TikTok. Toque em “Copiar legenda”, abra o app e cole ao publicar.`,
+        );
       else
         toast.success(`${c.id} publicado no TikTok.`, {
           action: r.link
@@ -226,6 +253,14 @@ export function EnviarTikTok({
     <section className="rounded-2xl border-2 border-zinc-500/40 bg-zinc-500/5 p-5 shadow-sm">
       <h2 className="flex items-center gap-2 text-base font-bold">
         <Music2 className="h-4 w-4" /> TikTok
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
+          onClick={() => void copiarLegenda(textoParaPublicar(c, "tiktok"))}
+        >
+          <Copy className="h-4 w-4" /> Copiar legenda
+        </Button>
       </h2>
       {feito ? (
         <a
@@ -399,9 +434,18 @@ export function EnviarTikTok({
             ) : null)}
 
           <div>
-            <p className="mb-1 text-sm font-semibold">
-              {modo === "rascunho" ? "Texto para colar no app" : "Legenda"}
-            </p>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">
+                {modo === "rascunho" ? "Texto para colar no app" : "Legenda"}
+              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void copiarLegenda(textoParaPublicar(c, "tiktok"))}
+              >
+                <Copy className="h-4 w-4" /> Copiar
+              </Button>
+            </div>
             <pre className="whitespace-pre-wrap rounded-xl bg-muted p-3 font-sans text-sm">
               {textoParaPublicar(c, "tiktok")}
             </pre>
