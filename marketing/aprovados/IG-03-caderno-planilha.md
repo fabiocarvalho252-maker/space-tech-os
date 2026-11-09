@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página)
 - **Formato:** carrossel de 7 imagens (1080×1350)
 - **Objetivo:** identificação com a dor; gerar salvamentos e visitas
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 20/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-03
@@ -39,10 +39,10 @@ Busca de OS e histórico; fotos de entrada; alerta de estoque mínimo; caixa; Á
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (feed) e Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
