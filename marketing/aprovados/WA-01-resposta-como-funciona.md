@@ -4,7 +4,7 @@
 - **Plataforma:** WhatsApp (conversa individual, só com quem perguntou)
 - **Formato:** mensagem de texto pronta para responder
 - **Objetivo:** responder interessados e levar ao cadastro do teste
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** uso contínuo, sempre que alguém perguntar
 - **Link:** https://srmpretech.online/cadastro?utm_source=whatsapp&utm_medium=mensagem&utm_campaign=lancamento-nov26&utm_content=wa-01
 
@@ -41,10 +41,10 @@ OS com fotos, checklist e etiqueta QR; Área do Cliente e orçamento pelo link; 
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: WhatsApp — conversa individual, só como resposta a quem perguntou
+- Observações: aprovação só deste conteúdo, sem alteração no texto. NÃO autoriza lista de transmissão, grupo, envio em massa nem mensagem para quem não perguntou. Cada resposta é enviada uma a uma.
 
 ## Publicação
 
