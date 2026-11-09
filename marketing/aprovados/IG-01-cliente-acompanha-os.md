@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página) + WhatsApp Status (mesma arte)
 - **Formato:** carrossel de 5 imagens (1080×1350)
 - **Objetivo:** mostrar a Área do Cliente e levar visitas ao site
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 16/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-01
@@ -46,10 +46,10 @@ QR Code na etiqueta/PDF da OS; Área do Cliente pelo link; envio da OS pelo What
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: Instagram (feed) e Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. WhatsApp Status NÃO foi autorizado (a arte e o link de Status ficam sem uso até nova aprovação). Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
