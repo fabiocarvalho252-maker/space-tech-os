@@ -4,7 +4,7 @@
 - **Plataforma:** TikTok
 - **Formato:** vídeo vertical de 15–25 s, humor de bancada
 - **Objetivo:** alcance e identificação; levar ao link da bio
-- **Status:** AGUARDANDO APROVAÇÃO
+- **Status:** APROVADO
 - **Data sugerida:** 17/11/2026
 - **Link (bio do TikTok):** https://srmpretech.online/?utm_source=tiktok&utm_medium=bio&utm_campaign=lancamento-nov26
 
@@ -34,10 +34,10 @@ POV: você tá no meio da troca de tela e o cliente liga pela 5ª vez 📞😩 M
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 09/11/2026
+- Plataformas autorizadas: TikTok
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua.
 
 ## Publicação
 
