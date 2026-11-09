@@ -1,6 +1,6 @@
 {
   "conteudo": "IG-02",
-  "voz": "faber",
+  "voz": "pm_alex",
   "velocidade": 1.0,
   "capaEm": 2.2,
   "cenas": [
@@ -79,5 +79,6 @@
       "nota": "Valores das telas são ilustrativos",
       "minimo": 4.5
     }
-  ]
+  ],
+  "motor": "kokoro"
 }

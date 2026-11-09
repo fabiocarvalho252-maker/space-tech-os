@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Gera um vídeo vertical (1080×1920, 30 fps, H.264 + AAC) a partir de um
 // roteiro JSON — tudo com ferramentas gratuitas no próprio servidor:
-//   - narração: Piper (voz pt-BR, licença CC0) em /opt/piper;
+//   - narração: Kokoro (vozes pt-BR mais naturais, Apache-2.0) em /opt/kokoro —
+//     padrão; ou Piper (CC0) em /opt/piper com "motor": "piper" no roteiro;
 //   - imagem: cenas HTML animadas, renderizadas quadro a quadro no Chromium
 //     headless (navegador.mjs), com telas reais do sistema;
 //   - montagem: ffmpeg.
@@ -19,6 +20,8 @@ const FPS = 30;
 const L = 1080;
 const A = 1920;
 const PIPER = "/opt/piper/bin/piper";
+const KOKORO_PY = "/opt/kokoro/bin/python";
+const KOKORO_APP = "/opt/kokoro/app/falar.py";
 const VOZES = "/opt/piper/vozes";
 
 const arquivoRoteiro = resolve(process.argv[2] ?? "");
@@ -48,21 +51,47 @@ const duracao = (arq) =>
   );
 
 // 1) Narração de cada cena.
-const voz = join(VOZES, `pt_BR-${roteiro.voz ?? "faber"}-medium.onnx`);
+const motor = roteiro.motor ?? "kokoro";
 const PAUSA = roteiro.pausa ?? 0.55;
+const comFala = roteiro.cenas.map((c, i) =>
+  c.narracao ? { texto: c.narracao, saida: join(tmp, `voz-${i}.wav`) } : null,
+);
+if (motor === "kokoro") {
+  const lote = comFala.filter(Boolean);
+  if (lote.length)
+    execFileSync(
+      "systemd-run",
+      [
+        "--scope",
+        "--quiet",
+        "-p",
+        "MemoryMax=3G",
+        KOKORO_PY,
+        KOKORO_APP,
+        "--lote",
+        roteiro.voz ?? "pm_alex",
+        String(roteiro.velocidade ?? 1),
+      ],
+      { input: JSON.stringify(lote), stdio: ["pipe", "ignore", "inherit"] },
+    );
+} else {
+  const voz = join(VOZES, `pt_BR-${roteiro.voz ?? "faber"}-medium.onnx`);
+  for (const f of comFala.filter(Boolean))
+    execFileSync(
+      PIPER,
+      ["-m", voz, "-f", f.saida, "--length-scale", String(roteiro.velocidade ?? 1)],
+      {
+        input: f.texto,
+        stdio: ["pipe", "ignore", "ignore"],
+      },
+    );
+}
 let t = 0;
 const cenas = roteiro.cenas.map((c, i) => {
-  const wav = join(tmp, `voz-${i}.wav`);
-  let fala = 0;
-  if (c.narracao) {
-    execFileSync(PIPER, ["-m", voz, "-f", wav, "--length-scale", String(roteiro.velocidade ?? 1)], {
-      input: c.narracao,
-      stdio: ["pipe", "ignore", "ignore"],
-    });
-    fala = duracao(wav);
-  }
+  const wav = comFala[i]?.saida ?? null;
+  const fala = wav ? duracao(wav) : 0;
   const dur = Math.max(c.minimo ?? 2.5, fala + PAUSA + (c.extra ?? 0));
-  const cena = { ...c, i, inicio: t, dur, wav: c.narracao ? wav : null, fala };
+  const cena = { ...c, i, inicio: t, dur, wav, fala };
   t += dur;
   return cena;
 });
@@ -200,7 +229,7 @@ cenas
     filtros.push(`[${k}:a]adelay=${atraso}|${atraso},aresample=44100[a${k}]`);
   });
 const nAud = filtros.length;
-const mix = `${filtros.join(";")};${Array.from({ length: nAud }, (_, k) => `[a${k}]`).join("")}amix=inputs=${nAud}:normalize=0,apad,atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-1.5:LRA=11[aout]`;
+const mix = `${filtros.join(";")};${Array.from({ length: nAud }, (_, k) => `[a${k}]`).join("")}amix=inputs=${nAud}:normalize=0,apad,atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[aout]`;
 const audio = join(tmp, "narracao.m4a");
 execFileSync("ffmpeg", [
   "-y",
