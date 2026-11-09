@@ -189,6 +189,31 @@ export async function handleCallbackMeta(request: Request): Promise<Response> {
       limit: "50",
       access_token: longo.access_token,
     });
+    // Com "Login do Facebook para Empresas", Páginas de um portfólio
+    // empresarial podem não vir em /me/accounts. Os IDs liberados no login
+    // ficam nos granular_scopes do token; busca cada Página direto.
+    if (!contas.data.length) {
+      const dbg = await graph<{
+        data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] };
+      }>("/debug_token", { input_token: longo.access_token, access_token: `${id}|${segredo}` });
+      const ids = new Set(
+        (dbg.data?.granular_scopes ?? [])
+          .filter((s) => s.scope.startsWith("pages_"))
+          .flatMap((s) => s.target_ids ?? []),
+      );
+      for (const pid of ids) {
+        try {
+          contas.data.push(
+            await graph<(typeof contas.data)[number]>(`/${pid}`, {
+              fields: "id,name,access_token,instagram_business_account{id,username}",
+              access_token: longo.access_token,
+            }),
+          );
+        } catch (e) {
+          console.error("[marketing/meta] página", pid, e);
+        }
+      }
+    }
     const paginas: PaginaMeta[] = contas.data.map((p) => ({
       id: p.id,
       nome: p.name,
