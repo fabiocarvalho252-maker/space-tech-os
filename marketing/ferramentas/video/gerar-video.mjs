@@ -90,7 +90,8 @@ function htmlCena(c) {
       )
       .join("");
     return `<section class="cena" ${base}>
-      <div class="chat">${bolhas}</div>
+      ${c.icone ? `<div class="icone-grande" style="animation-delay:${d(0.1)}"><span style="animation-delay:${d(0.4)}">${esc(c.icone)}</span></div>` : ""}
+      ${bolhas ? `<div class="chat">${bolhas}</div>` : ""}
       <h1 class="titulo" style="animation-delay:${d(0.15)}">${destaque(c.texto)}</h1>
       ${c.subtitulo ? `<p class="sub" style="animation-delay:${d(0.35 + (c.bolhas?.length ?? 0) * 0.45)}">${destaque(c.subtitulo)}</p>` : ""}
     </section>`;
@@ -140,6 +141,9 @@ html,body{width:${L}px;height:${A}px;overflow:hidden;background:#09090b;font-fam
 .bolha{align-self:flex-start;max-width:78%;background:#202c33;color:#e9edef;font-size:40px;font-weight:500;padding:22px 30px;border-radius:30px 30px 30px 8px;animation:pop .35s cubic-bezier(.2,.9,.3,1.3) both}
 .bolha.eu{align-self:flex-end;background:#005c4b;border-radius:30px 30px 8px 30px}
 @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+.icone-grande{width:300px;height:300px;border-radius:80px;background:rgba(124,58,237,.25);box-shadow:0 0 0 6px rgba(167,139,250,.35),0 0 120px rgba(124,58,237,.6);display:flex;align-items:center;justify-content:center;font-size:170px;animation:pop .5s cubic-bezier(.2,.9,.3,1.3) both}
+.icone-grande span{display:block;animation:toca .5s ease-in-out 6 both}
+@keyframes toca{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
 .legenda{font-size:64px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:-1px;animation:sobe .6s cubic-bezier(.2,.8,.2,1) both}
 .celular{width:700px;height:1300px;border-radius:84px;padding:22px;background:#111;box-shadow:0 0 0 4px #3f3f46,0 50px 140px rgba(124,58,237,.45);animation:entra .7s cubic-bezier(.2,.8,.2,1) both}
 @keyframes entra{from{opacity:0;transform:translateY(120px) scale(.94)}to{opacity:1;transform:none}}

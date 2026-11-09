@@ -1,0 +1,75 @@
+{
+  "conteudo": "TT-01",
+  "versao": "animada, sem pessoa atuando, pedida pelo Fabio em 09/11/2026 no lugar do roteiro filmado; revisar antes de publicar",
+  "voz": "faber",
+  "velocidade": 1.0,
+  "capaEm": 1.6,
+  "cenas": [
+    {
+      "tipo": "titulo",
+      "icone": "📞",
+      "texto": "POV: o cliente liga pela *5ª vez*",
+      "subtitulo": "e você no meio da troca de tela 😩",
+      "narracao": "Você no meio da troca de tela, e o cliente liga pela quinta vez.",
+      "extra": 0.3
+    },
+    {
+      "tipo": "titulo",
+      "bolhas": [
+        {
+          "texto": "Já ficou pronto?"
+        },
+        {
+          "texto": "Alguma novidade?"
+        },
+        {
+          "texto": "Já dá pra buscar?"
+        },
+        {
+          "texto": "Oi?? 📱"
+        }
+      ],
+      "texto": "Toda hora a *mesma pergunta*",
+      "narracao": "Já ficou pronto? Alguma novidade? Já dá pra buscar?",
+      "extra": 0.3
+    },
+    {
+      "tipo": "titulo",
+      "bolhas": [
+        {
+          "lado": "eu",
+          "texto": "Acompanhe sua OS por aqui 👇\nsrmpretech.online/consulta/…"
+        }
+      ],
+      "texto": "Manda o *link da OS*",
+      "subtitulo": "pelo WhatsApp, direto do sistema",
+      "narracao": "Manda o link da ordem de serviço pelo WhatsApp."
+    },
+    {
+      "tipo": "tela",
+      "imagem": "telas/area-cliente.png",
+      "recorte": {
+        "y": 0,
+        "y2": 200
+      },
+      "texto": "Ele acompanha *sozinho*",
+      "narracao": "E o cliente acompanha o andamento sozinho, pelo celular, sem precisar te ligar.",
+      "nota": "Tela real do sistema · dados fictícios"
+    },
+    {
+      "tipo": "titulo",
+      "icone": "🛠️",
+      "texto": "E você volta pra *bancada*",
+      "narracao": "E você volta pra bancada.",
+      "minimo": 2.6
+    },
+    {
+      "tipo": "final",
+      "texto": "Teste *grátis* por 7 dias",
+      "subtitulo": "sem cartão · depois R$ 40/mês",
+      "cta": "Link na bio",
+      "narracao": "Spêis Téc, ó ésse. Teste grátis por sete dias, sem cartão. Link na bio.",
+      "minimo": 4.5
+    }
+  ]
+}
