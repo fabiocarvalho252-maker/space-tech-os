@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Reels) + Facebook (Reels) + TikTok (mesmo vídeo)
 - **Formato:** vídeo vertical de 20–30 s (1080×1920)
 - **Objetivo:** mostrar a aprovação de orçamento online com opções
-- **Status:** APROVADO
+- **Status:** PUBLICADO
 - **Data sugerida:** 18/11/2026
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ig-02
@@ -49,5 +49,7 @@ Orçamento com opções (ex.: tela original ou paralela); aprovação pelo link;
 
 ## Publicação
 
-- Data e hora:
-- Link do post:
+- Data e hora: 10/11/2026, 12:01
+- Link do post: https://www.instagram.com/reel/DfkLac5k057/
+- Publicado no Instagram: https://www.instagram.com/reel/DfkLac5k057/ (10/11/2026, 12:01)
+- Publicado no Facebook: /reel/2045739239465925/ (10/11/2026, 12:01)
