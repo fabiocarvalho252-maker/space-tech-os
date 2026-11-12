@@ -52,6 +52,7 @@ import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedWhatsappConexaoRouteImport } from './routes/_authenticated/whatsapp-conexao'
 import { Route as AuthenticatedWhatsappFilaRouteImport } from './routes/_authenticated/whatsapp-fila'
 import { Route as AgendarSlugRouteImport } from './routes/agendar.$slug'
+import { Route as CatalogoSlugRouteImport } from './routes/catalogo.$slug'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
 import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
 import { Route as AuthenticatedAdminMarketingRouteImport } from './routes/_authenticated/admin_.marketing'
@@ -281,6 +282,11 @@ const AgendarSlugRoute = AgendarSlugRouteImport.update({
   path: '/agendar/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogoSlugRoute = CatalogoSlugRouteImport.update({
+  id: '/catalogo/$slug',
+  path: '/catalogo/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   id: '/consulta/$osId',
   path: '/consulta/$osId',
@@ -359,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/agendar/$slug': typeof AgendarSlugRoute
+  '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -409,6 +416,7 @@ export interface FileRoutesByTo {
   '/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/agendar/$slug': typeof AgendarSlugRoute
+  '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -461,6 +469,7 @@ export interface FileRoutesById {
   '/_authenticated/whatsapp-conexao': typeof AuthenticatedWhatsappConexaoRoute
   '/_authenticated/whatsapp-fila': typeof AuthenticatedWhatsappFilaRoute
   '/agendar/$slug': typeof AgendarSlugRoute
+  '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
   '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
   '/_authenticated/admin_/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -513,6 +522,7 @@ export interface FileRouteTypes {
     | '/whatsapp-conexao'
     | '/whatsapp-fila'
     | '/agendar/$slug'
+    | '/catalogo/$slug'
     | '/consulta/$osId'
     | '/admin/landing'
     | '/admin/marketing'
@@ -563,6 +573,7 @@ export interface FileRouteTypes {
     | '/whatsapp-conexao'
     | '/whatsapp-fila'
     | '/agendar/$slug'
+    | '/catalogo/$slug'
     | '/consulta/$osId'
     | '/admin/landing'
     | '/admin/marketing'
@@ -614,6 +625,7 @@ export interface FileRouteTypes {
     | '/_authenticated/whatsapp-conexao'
     | '/_authenticated/whatsapp-fila'
     | '/agendar/$slug'
+    | '/catalogo/$slug'
     | '/consulta/$osId'
     | '/_authenticated/admin_/landing'
     | '/_authenticated/admin_/marketing'
@@ -636,6 +648,7 @@ export interface RootRouteChildren {
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
   AgendarSlugRoute: typeof AgendarSlugRoute
+  CatalogoSlugRoute: typeof CatalogoSlugRoute
   ConsultaOsIdRoute: typeof ConsultaOsIdRoute
   AvaliarVendaVendaIdRoute: typeof AvaliarVendaVendaIdRoute
 }
@@ -943,6 +956,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgendarSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalogo/$slug': {
+      id: '/catalogo/$slug'
+      path: '/catalogo/$slug'
+      fullPath: '/catalogo/$slug'
+      preLoaderRoute: typeof CatalogoSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/consulta/$osId': {
       id: '/consulta/$osId'
       path: '/consulta/$osId'
@@ -1079,6 +1099,7 @@ const rootRouteChildren: RootRouteChildren = {
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
   AgendarSlugRoute: AgendarSlugRoute,
+  CatalogoSlugRoute: CatalogoSlugRoute,
   ConsultaOsIdRoute: ConsultaOsIdRoute,
   AvaliarVendaVendaIdRoute: AvaliarVendaVendaIdRoute,
 }
