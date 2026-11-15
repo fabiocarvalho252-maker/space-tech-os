@@ -82,6 +82,18 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useRef } from "react";
+import { origemPublica } from "@/lib/site-url";
+
+// Endereço da vitrine: minúsculas, letras/números/hífens, sem hífen nas pontas.
+const slugCatalogo = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -431,6 +443,11 @@ function Configuracoes() {
   // As listas de opções (mensagens do WhatsApp, catálogo) leem a coluna pelo nome.
   const camposWhatsapp = whatsappConfig as Record<string, unknown> | null | undefined;
   const camposCatalogo = catalogoConfig as Record<string, unknown> | null | undefined;
+
+  // Link público da vitrine: /catalogo/<subdominio> no domínio do sistema.
+  const linkCatalogo = catalogoConfig?.subdominio
+    ? `${origemPublica()}/catalogo/${catalogoConfig.subdominio}`
+    : null;
 
   const salvarCatalogo = useMutation({
     mutationFn: async (formData: Partial<TablesInsert<"catalogo_config">>) => {
@@ -2496,22 +2513,27 @@ function Configuracoes() {
                             variant="ghost"
                             size="sm"
                             className="h-7 text-[10px] gap-1"
+                            disabled={!linkCatalogo}
                             onClick={() => {
-                              navigator.clipboard.writeText(
-                                `https://${catalogoConfig?.subdominio || "spacetech"}.spacetech.app/catalogo`,
-                              );
+                              navigator.clipboard.writeText(linkCatalogo!);
                               toast.success("Link copiado!");
                             }}
                           >
                             <Copy className="h-3 w-3" /> Copiar
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[10px] gap-1"
+                            disabled={!linkCatalogo}
+                            onClick={() => window.open(linkCatalogo!, "_blank", "noopener")}
+                          >
                             <ExternalLink className="h-3 w-3" /> Abrir
                           </Button>
                         </div>
                       </div>
-                      <p className="text-sm font-medium text-primary underline">
-                        https://{catalogoConfig?.subdominio || "spacetech"}.spacetech.app/catalogo
+                      <p className="break-all text-sm font-medium text-primary underline">
+                        {linkCatalogo ?? "Defina o endereço abaixo para gerar o link."}
                       </p>
                     </div>
 
@@ -2539,19 +2561,24 @@ function Configuracoes() {
                         <div className="flex gap-2">
                           <Input
                             className="h-8 text-xs"
-                            defaultValue={catalogoConfig?.subdominio || "spacetech"}
-                            onBlur={(e) => salvarCatalogo.mutate({ subdominio: e.target.value })}
+                            defaultValue={catalogoConfig?.subdominio ?? ""}
+                            placeholder="ex.: minha-loja"
+                            onBlur={(e) => {
+                              const slug = slugCatalogo(e.target.value);
+                              e.target.value = slug;
+                              if (slug !== (catalogoConfig?.subdominio ?? "")) {
+                                if (slug.length < 3) {
+                                  toast.error("Use pelo menos 3 letras, números ou hífens.");
+                                  return;
+                                }
+                                salvarCatalogo.mutate({ subdominio: slug });
+                              }
+                            }}
                           />
                         </div>
                       </div>
                       <div className="space-y-1 text-[10px] text-muted-foreground">
-                        <p>
-                          ERP: https://{catalogoConfig?.subdominio || "spacetech"}.spacetech.app/
-                        </p>
-                        <p>
-                          Loja: https://{catalogoConfig?.subdominio || "spacetech"}
-                          .spacetech.app/catalogo
-                        </p>
+                        <p>Loja: {linkCatalogo ?? "defina o endereço acima"}</p>
                       </div>
                     </div>
 

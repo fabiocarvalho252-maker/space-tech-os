@@ -5154,6 +5154,10 @@ export type Database = {
         Args: { p_slug: string };
         Returns: Json;
       };
+      catalogo_publico: {
+        Args: { p_slug: string };
+        Returns: Json;
+      };
       agenda_horarios_livres: {
         Args: { p_slug: string; p_data: string };
         Returns: string[];
