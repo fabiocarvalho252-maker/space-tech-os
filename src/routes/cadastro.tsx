@@ -11,7 +11,12 @@ import {
   verificarWhatsappDisponivel,
 } from "@/lib/auth/ativacao-whatsapp.functions";
 import { registrarReferralFn } from "@/lib/referrals/referral.functions";
-import { extrairOrigemCampanha, type OrigemCampanha } from "@/lib/marketing/utm-campanha";
+import {
+  extrairOrigemCampanha,
+  OPCOES_COMO_CONHECEU,
+  type OrigemCampanha,
+} from "@/lib/marketing/utm-campanha";
+import { BotaoWhatsappFlutuante } from "@/components/BotaoWhatsappFlutuante";
 import { lerOrigemSalva, registrarVisitaCampanha } from "@/lib/marketing/origem-campanha-storage";
 import {
   lerCodigoIndicacaoSalvo,
@@ -63,7 +68,14 @@ function mensagemErroAmigavel(erro: unknown): string {
 function Cadastro() {
   const navigate = useNavigate();
   const { ref, ...parametrosCampanha } = Route.useSearch();
-  const [form, setForm] = useState({ nome: "", loja: "", email: "", whatsapp: "", senha: "" });
+  const [form, setForm] = useState({
+    nome: "",
+    loja: "",
+    email: "",
+    whatsapp: "",
+    senha: "",
+    comoConheceu: "",
+  });
   const [loading, setLoading] = useState(false);
 
   // O último link de indicação acessado antes do cadastro é o que vale
@@ -115,6 +127,7 @@ function Cadastro() {
           loja: parsed.data.loja,
           whatsapp: whatsappNormalizado,
           origem_campanha: lerOrigemSalva(),
+          como_conheceu: form.comoConheceu || null,
         },
       },
     });
@@ -141,6 +154,7 @@ function Cadastro() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-auth px-5 py-12">
+      <BotaoWhatsappFlutuante />
       <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-panel">
         <div className="flex flex-col items-center">
           <LogoMark className="h-14 w-14" />
@@ -180,6 +194,25 @@ function Cadastro() {
             value={form.senha}
             onChange={campo("senha")}
           />
+          <div className="space-y-1.5">
+            <label htmlFor="como-conheceu" className="text-sm font-semibold">
+              Como você conheceu o SPACE TECH OS?{" "}
+              <span className="font-normal text-muted-foreground">(opcional)</span>
+            </label>
+            <select
+              id="como-conheceu"
+              value={form.comoConheceu}
+              onChange={(e) => setForm((f) => ({ ...f, comoConheceu: e.target.value }))}
+              className="h-12 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/12"
+            >
+              <option value="">Selecione</option>
+              {OPCOES_COMO_CONHECEU.map((o) => (
+                <option key={o.valor} value={o.valor}>
+                  {o.rotulo}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type="submit"
             disabled={loading}
