@@ -53,7 +53,6 @@ conteúdos que citam o fato alterado.
 - **Crediário com bloqueio remoto**: existe, mas depende de app instalado no
   aparelho do cliente final e de regras de uso; validar com o Fabio como
   apresentar antes de citar.
-- **Contato comercial (WhatsApp)**: decidido pelo Fabio que é o **WhatsApp da
-  loja** (o mesmo do perfil @spacetech_st). O número exato ainda deve ser
-  conferido e registrado aqui antes de aparecer em posts. E-mail de contato:
-  ainda não definido.
+- **Contato comercial (WhatsApp da loja)**: **(74) 99929-4500** (wa.me/5574999294500),
+  o mesmo do perfil @spacetech_st e do link de contato das páginas legais.
+  E-mail de contato: ainda não definido.
