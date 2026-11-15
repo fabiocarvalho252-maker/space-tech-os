@@ -1,74 +1,71 @@
-# Calendário de 30 dias — campanha `lancamento-nov26`
+# Calendário — campanha `lancamento-nov26` (orgânica, um post por dia)
 
-Período sugerido: **segunda 16/11/2026 a terça 15/12/2026**. As datas são sugestões:
-**nada é publicado sem a aprovação individual do conteúdo e a sua ordem de
-publicar** (ver `README.md`). Se um conteúdo não for aprovado até a data, o dia
-fica vazio ou recebe outro conteúdo já aprovado.
+**Atualizado em 15/11/2026.** Começa hoje. Um post por dia, sem anúncio pago.
 
-Ritmo: Instagram/Facebook 3x por semana · TikTok 2–3x por semana · Google 1x
-a cada 2 semanas (se houver Perfil da Empresa) · WhatsApp Status 1–2x por semana
-· WhatsApp individual só como resposta ou para quem está no teste.
+A **agenda** em `/admin/marketing` (aba Agenda) é a fonte da verdade para data e
+hora dos posts automáticos. Hoje ela publica IG-05, IG-06, IG-07 e IG-08 (Instagram
+e Facebook, às 12h, Brasília). Os demais posts são postados à mão.
 
-Melhores horários para testar (ajustar pelos dados de cada rede): 11h–13h e 19h–21h.
+**Nada é publicado sem aprovação individual e uma ordem sua** (ver `README.md`).
+Aprovar um conteúdo não é ordem de publicar.
 
-## Semana 1 — dor do dia a dia (16 a 22/11)
+Horário padrão: **12h (Brasília)**. Stories e TikTok são postados à mão.
 
-| Data | Dia | Plataforma | Conteúdo |
-|---|---|---|---|
-| 16/11 | seg | Instagram + Facebook + WhatsApp Status | **IG-01** Carrossel "Meu celular já ficou pronto?" |
-| 17/11 | ter | TikTok | **TT-01** POV: o cliente liga pela 5ª vez |
-| 18/11 | qua | Instagram + Facebook + TikTok | **IG-02** Reels: tela original ou paralela |
-| 19/11 | qui | Google (Perfil da Empresa) | **GO-01** Apresentação *(se o perfil existir)* |
-| 20/11 | sex | Instagram + Facebook | **IG-03** Carrossel "5 sinais" |
-| 21/11 | sáb | TikTok | **TT-02** Antes × depois do orçamento |
-| 22/11 | dom | — | Responder comentários e mensagens |
+## Já publicados
 
-## Semana 2 — oferta e recursos (23 a 29/11)
+- ✅ **IG-01**: 09/11 no Instagram e no Facebook.
+- ✅ **IG-02**: 10/11 no Instagram e no Facebook.
+- TikTok: só um rascunho foi enviado à caixa de entrada da conta sandbox em 09/11. Nada foi publicado no TikTok.
 
-| Data | Dia | Plataforma | Conteúdo |
-|---|---|---|---|
-| 23/11 | seg | Instagram + Facebook + WhatsApp Status | **IG-04** 7 dias grátis · R$ 40/mês |
-| 24/11 | ter | TikTok | **TT-03** Quanto custa um sistema |
-| 25/11 | qua | Instagram + Facebook + TikTok | **IG-05** Reels: OS com fotos e checklist |
-| 26/11 | qui | WhatsApp Status | Repetir a arte do **IG-01** *(se aprovado para Status)* |
-| 27/11 | sex | Instagram + Facebook + WhatsApp Status | **IG-06** Carrossel do estoque |
-| 28/11 | sáb | — | Livre (repetir o TikTok que foi melhor, se você autorizar) |
-| 29/11 | dom | — | Responder comentários e mensagens |
+## Pendente: IG-03 e IG-04
 
-## Semana 3 — prova e aprofundamento (30/11 a 06/12)
+Ambos estão aprovados, mas a publicação falhou em 12/11 e em 14/11 com
+`SUPABASE_SERVICE_ROLE_KEY ausente`. Entram no calendário quando a chave for
+configurada. Datas: **a definir**.
 
-| Data | Dia | Plataforma | Conteúdo |
-|---|---|---|---|
-| 30/11 | seg | WhatsApp individual | **WA-03** Pedido de depoimento aos assinantes que você escolher |
-| 30/11 | seg | — | Revisão da semana 2 em `resultados.md` |
-| 02/12 | qua | Instagram + Facebook + TikTok | **IG-07** Reels: o caixa não bate |
-| 03/12 | qui | Google (Perfil da Empresa) | **GO-03** Teste grátis *(se o perfil existir)* |
-| 04/12 | sex | Instagram + Facebook | **IG-08** Carrossel de seminovos |
-| 05/12 | sáb | WhatsApp Status | Repetir a arte do **IG-04** *(se aprovado para Status)* |
-| 06/12 | dom | — | Responder comentários e mensagens |
+## Plano diário a partir de hoje
 
-## Semana 4 — o que funcionou (07 a 13/12)
+| Data | Dia | Plataforma | Conteúdo | Como sai |
+|---|---|---|---|---|
+| 15/11 | dom | Instagram + Facebook | **IG-05** Reels: OS com fotos e checklist | 🕛 agenda |
+| 16/11 | seg | Instagram + Facebook | **IG-06** Carrossel do estoque | 🕛 agenda |
+| 17/11 | ter | Instagram + Facebook | **IG-07** Reels: o caixa não bate | 🕛 agenda |
+| 18/11 | qua | Instagram + Facebook | **IG-08** Carrossel de seminovos | 🕛 agenda |
+| 19/11 | qui | Instagram + Facebook | **EDU-01** Carrossel: 3 informações antes da bancada | à mão |
+| 20/11 | sex | Instagram + TikTok | **SER-01** Reels: "Só vim olhar, rapidinho" | à mão |
+| 21/11 | sáb | Instagram Stories | **ENG-01** Quiz da bancada | à mão |
+| 22/11 | dom | Instagram + Facebook | **EDU-02** Carrossel: fila de aparelhos | à mão |
+| 23/11 | seg | Instagram + TikTok | **SER-03** Reels: tela diz × cliente entendeu | à mão |
+| 24/11 | ter | Instagram Reels | **ENG-03** Qual você escolheria? | à mão |
+| 25/11 | qua | Instagram + Facebook | **EDU-03** Carrossel: checklist de entrega | à mão |
+| 26/11 | qui | Instagram + Facebook Stories | **ORG-04** Story com enquete | à mão |
+| 27/11 | sex | Instagram + Facebook Stories | **SER-02** Stories: as 5 perguntas | à mão |
+| 28/11 | sáb | Instagram Stories | **ENG-02** Desafio da semana | à mão |
+| 29/11 | dom | TikTok | **TT-01** POV: o cliente liga pela 5ª vez | à mão |
+| 30/11 | seg | TikTok | **TT-02** Antes × depois do orçamento | à mão |
+| 01/12 | ter | TikTok | **TT-03** Quanto custa um sistema | à mão |
+| 02/12 | qua | — | Revisão da primeira quinzena em `resultados.md` | — |
+| 03/12 | qui | Instagram + Facebook | **Novo:** relatório MEI (comércio × serviços) | a criar |
+| 04/12 | sex | Instagram + Facebook | **Novo:** agendamento online ou buscador de películas | a criar |
+| 05/12 | sáb | Instagram + Facebook | **Novo:** depoimento real *(só com autorização escrita)* | a criar |
+| 06/12 | dom | — | Responder comentários e mensagens | — |
+| 07/12 em diante | — | — | Conteúdos novos a partir dos resultados; cada um passa por `conteudos/` → `aprovacao/` | a definir |
 
-Espaços para **conteúdos novos**, produzidos a partir dos resultados das semanas
-1–3. Cada um entra em `aprovacao/` antes de ser usado.
+IG-03 e IG-04 entram no ponto em que a chave for corrigida. Eles ficam fora do
+plano diário até lá.
 
-| Data | Dia | Plataforma | Conteúdo |
-|---|---|---|---|
-| 07/12 | seg | Instagram + Facebook | *Novo:* Relatório MEI (comércio × serviços) |
-| 08/12 | ter | TikTok | *Novo:* versão do vídeo que teve melhor resultado |
-| 09/12 | qua | Instagram + Facebook | *Novo:* depoimento real *(só com autorização escrita)* |
-| 10/12 | qui | WhatsApp Status | Repetir a arte do **IG-06** *(se aprovado para Status)* |
-| 11/12 | sex | Instagram + Facebook | *Novo:* agendamento online ou buscador de películas |
-| 12–13/12 | — | — | Responder comentários e mensagens |
+## Fora do calendário
 
-## Fechamento (14 e 15/12)
+- **Google Perfil da Empresa (GO-01, GO-03)**: adiado. Só entra se o perfil existir.
+- **Anúncios pagos (GO-02, MA-01)**: fora do escopo. Não há gasto.
+- **WhatsApp Status**: nenhum envio sem autorização específica.
+- **WhatsApp individual**: WA-01 sob demanda; WA-02 no 5º dia de cada conta nova; WA-03 (pedido de depoimento) só para quem você escolher. Cada envio precisa da sua autorização.
 
+## Fechamento
+
+- Toda segunda: atualizar `resultados.md` com a semana anterior.
 - 14/12 (seg): balanço do mês em `resultados.md`.
-- 15/12 (ter): decidir com você se vale testar anúncio pago (**GO-02** e
-  **MA-01**, hoje em rascunho) e com qual orçamento.
 
-## Uso contínuo (não tem data fixa)
+## Links
 
-- **WA-01**: resposta individual a quem perguntar "como funciona?".
-- **WA-02**: no 5º dia do teste de cada conta nova, um envio por conta e com a sua autorização.
-- **Link da bio** (Instagram e TikTok): usar os links com `utm_medium=bio` de `estrategia.md`.
+Instagram e TikTok usam o link da bio com `utm_medium=bio`, como em `estrategia.md` (seção 4).
