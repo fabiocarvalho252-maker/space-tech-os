@@ -11,6 +11,11 @@ import { FEATURES_EXIBICAO } from "@/lib/planos/features";
 import { iniciarAssinaturaFn } from "@/lib/mercadopago/subscription.functions";
 import { meuDescontoIndicacaoFn } from "@/lib/referrals/referral.functions";
 import { comTaxaRepassada } from "@/lib/mercadopago/fees";
+import {
+  montarLinkWhatsappPlano,
+  PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO,
+} from "@/lib/mercadopago/pagamento-assinatura";
+import { CONTATO_WHATSAPP_LINK } from "@/components/PaginaLegal";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,9 +136,24 @@ function Planos() {
               )}
             </div>
             {p.monthly_price !== null || p.annual_price !== null ? (
-              <Button className="mt-5" onClick={() => setPlanoContratando(p)}>
-                Contratar
-              </Button>
+              PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO ? (
+                <Button className="mt-5" onClick={() => setPlanoContratando(p)}>
+                  Contratar
+                </Button>
+              ) : (
+                <a
+                  href={montarLinkWhatsappPlano({
+                    base: CONTATO_WHATSAPP_LINK,
+                    nomePlano: p.name,
+                    precoMensal: p.monthly_price,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                >
+                  Contratar pelo WhatsApp
+                </a>
+              )
             ) : (
               <Link
                 to="/assinatura"

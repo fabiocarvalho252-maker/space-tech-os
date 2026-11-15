@@ -13,3 +13,17 @@ export function garantirPagamentoAssinaturaAtivo(
 ): void {
   if (!ativo) throw new Error(MENSAGEM_PAGAMENTO_INDISPONIVEL);
 }
+
+// Link do WhatsApp com o plano escolhido já escrito na mensagem.
+export function montarLinkWhatsappPlano(opcoes: {
+  base: string;
+  nomePlano: string;
+  precoMensal: number | null;
+}): string {
+  const preco =
+    opcoes.precoMensal !== null
+      ? ` (${opcoes.precoMensal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/mês)`
+      : "";
+  const mensagem = `Olá! Quero contratar o plano ${opcoes.nomePlano} do SPACE TECH OS${preco}.`;
+  return `${opcoes.base}?text=${encodeURIComponent(mensagem)}`;
+}
