@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Stories)
 - **Formato:** série de 3 Stories 9:16, com texto na tela e sticker de link no último
 - **Objetivo:** fazer o técnico contar uma situação da bancada e responder no direct; criar conversa com quem usa ou pensa em usar o sistema
-- **Status:** RASCUNHO
+- **Status:** APROVADO
 - **Data sugerida:** a definir pelo Fabio (fora do calendário atual)
 - **Link:** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=eng-02
 
@@ -42,10 +42,10 @@ Texto menor: "Teste grátis por 7 dias, sem cartão. Link na bio."
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 15/11/2026
+- Plataformas autorizadas: Instagram (Stories)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua. Data ainda não definida.
 
 ## Publicação
 

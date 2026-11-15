@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Stories) + Facebook (Stories)
 - **Formato:** sequência de 7 cards 9:16 (5 perguntas, 1 enquete, 1 resposta com link), texto grande sobre fundo preto e roxo
 - **Objetivo:** engajamento (toques na enquete e respostas) e levar ao link da bio
-- **Status:** RASCUNHO
+- **Status:** APROVADO
 - **Data sugerida:** a definir (ver calendario-30-dias.md)
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=ser-02
 - **Link (Facebook):** https://srmpretech.online/?utm_source=facebook&utm_medium=organico&utm_campaign=lancamento-nov26&utm_content=ser-02
@@ -49,10 +49,10 @@ Regras da arte: sem nome, foto ou telefone de cliente; sem valores de preço; a 
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 15/11/2026
+- Plataformas autorizadas: Instagram (Stories), Facebook (Stories)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua. Data ainda não definida.
 
 ## Publicação
 

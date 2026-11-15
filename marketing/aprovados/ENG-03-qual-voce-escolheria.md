@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Reels)
 - **Formato:** Reels 9:16, 18 s, texto na tela, sem narração obrigatória; legenda curta com pergunta
 - **Objetivo:** levar o técnico a comentar qual forma usa hoje para controlar a OS, sem tom de ataque ao caderno; visitas ao link da bio
-- **Status:** RASCUNHO
+- **Status:** APROVADO
 - **Data sugerida:** a definir pelo Fabio (fora do calendário atual)
 - **Link:** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=eng-03
 
@@ -45,10 +45,10 @@
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 15/11/2026
+- Plataformas autorizadas: Instagram (Reels)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua. Data ainda não definida.
 
 ## Publicação
 

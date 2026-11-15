@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (feed) + Facebook (página)
 - **Formato:** carrossel 4:5 (1080x1350), 7 slides. Série "Dica da bancada" (3 de 3)
 - **Objetivo:** conteúdo educativo de gestão para técnicos; salvamentos e visitas ao site
-- **Status:** RASCUNHO
+- **Status:** APROVADO
 - **Data sugerida:** A definir (ainda sem data no calendário)
 - **Link:** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=edu-03
 
@@ -74,10 +74,10 @@ Teste grátis por 7 dias, sem cartão de crédito. Link na bio.
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 15/11/2026
+- Plataformas autorizadas: Instagram (feed), Facebook (página)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua. Data ainda não definida.
 
 ## Publicação
 

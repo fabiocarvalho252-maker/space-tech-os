@@ -4,7 +4,7 @@
 - **Plataforma:** Instagram (Reels) + TikTok (mesmo vídeo, cada um com o link da bio)
 - **Formato:** vídeo vertical 9:16, 15–20 s, duas telas lado a lado (mensagem do técnico × resposta do cliente), sem rosto de pessoa
 - **Objetivo:** mostrar a distância entre o que a loja escreve e o que chega ao cliente, e levar ao link da bio
-- **Status:** RASCUNHO
+- **Status:** APROVADO
 - **Data sugerida:** a definir (ver calendario-30-dias.md)
 - **Link (bio do Instagram):** https://srmpretech.online/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=ser-03
 - **Link (bio do TikTok):** https://srmpretech.online/?utm_source=tiktok&utm_medium=bio&utm_campaign=lancamento-nov26&utm_content=ser-03
@@ -47,10 +47,10 @@ Regras da gravação: conversa e OS fictícias; sem nome, foto ou telefone de cl
 
 ## Aprovação
 
-- Aprovado por:
-- Data da aprovação:
-- Plataformas autorizadas:
-- Observações:
+- Aprovado por: Fabio (dono da SPACE TECH), pela conversa com o Claude Code
+- Data da aprovação: 15/11/2026
+- Plataformas autorizadas: Instagram (Reels), TikTok (mesmo vídeo)
+- Observações: aprovação só deste conteúdo, sem alteração no texto. Aprovar não autoriza publicar: a publicação depende de uma ordem sua. Data ainda não definida.
 
 ## Publicação
 
