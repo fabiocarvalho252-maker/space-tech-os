@@ -23,6 +23,8 @@ import {
   precosRenovacaoFn,
 } from "@/lib/mercadopago/subscription.functions";
 import { Comprovante, PixRenovacaoDialog } from "@/components/plano/PixRenovacaoDialog";
+import { PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO } from "@/lib/mercadopago/pagamento-assinatura";
+import { CONTATO_WHATSAPP_LINK } from "@/components/PaginaLegal";
 import {
   Dialog,
   DialogContent,
@@ -194,16 +196,19 @@ function Assinatura() {
                   : "Seu período de teste terminou"}
               </h1>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-                O acesso ao sistema foi pausado, mas seus dados continuam salvos. Pague com Pix
-                abaixo e o acesso volta na hora.
+                O acesso ao sistema foi pausado, mas seus dados continuam salvos.{" "}
+                {PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO
+                  ? "Pague com Pix abaixo e o acesso volta na hora."
+                  : "Assine pelo WhatsApp para reativar o acesso."}
               </p>
             </>
           ) : (
             <>
               <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Seu plano</h1>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-                Veja o status do seu acesso e renove com Pix quando quiser — a liberação é
-                automática.
+                {PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO
+                  ? "Veja o status do seu acesso e renove com Pix quando quiser — a liberação é automática."
+                  : "Veja o status do seu acesso. Para renovar, fale pelo WhatsApp."}
               </p>
             </>
           )}
@@ -250,7 +255,10 @@ function Assinatura() {
             const jaSolicitado = pedidoPendente === p.value;
             const ciclo = p.value === "anual" ? "yearly" : "monthly";
             const preco = p.value === "anual" ? precos?.anual : precos?.mensal;
-            const podePix = !!preco && planoAtual?.plano !== "vitalicio";
+            const podePix =
+              PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO &&
+              !!preco &&
+              planoAtual?.plano !== "vitalicio";
             return (
               <div
                 key={p.value}
@@ -276,25 +284,37 @@ function Assinatura() {
                     <QrCode className="h-4 w-4" /> Pagar com Pix
                   </button>
                 )}
-                <button
-                  onClick={() => solicitar.mutate(p.value)}
-                  disabled={solicitar.isPending || jaSolicitado}
-                  className={
-                    podePix
-                      ? "mt-2 flex h-9 items-center justify-center gap-2 rounded-xl text-xs font-semibold text-muted-foreground transition hover:bg-secondary disabled:cursor-default disabled:opacity-60"
-                      : "mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-default disabled:opacity-60"
-                  }
-                >
-                  {jaSolicitado ? (
-                    <>
-                      <Check className="h-4 w-4" /> Pedido enviado
-                    </>
-                  ) : podePix ? (
-                    "Prefiro falar com a equipe"
-                  ) : (
-                    "Quero esse plano"
-                  )}
-                </button>
+                {!PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO && (
+                  <a
+                    href={`${CONTATO_WHATSAPP_LINK}?text=${encodeURIComponent(`Olá! Quero assinar o plano ${p.label} do SPACE TECH OS.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                  >
+                    Assinar pelo WhatsApp
+                  </a>
+                )}
+                {PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO && (
+                  <button
+                    onClick={() => solicitar.mutate(p.value)}
+                    disabled={solicitar.isPending || jaSolicitado}
+                    className={
+                      podePix
+                        ? "mt-2 flex h-9 items-center justify-center gap-2 rounded-xl text-xs font-semibold text-muted-foreground transition hover:bg-secondary disabled:cursor-default disabled:opacity-60"
+                        : "mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+                    }
+                  >
+                    {jaSolicitado ? (
+                      <>
+                        <Check className="h-4 w-4" /> Pedido enviado
+                      </>
+                    ) : podePix ? (
+                      "Prefiro falar com a equipe"
+                    ) : (
+                      "Quero esse plano"
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -336,7 +356,9 @@ function Assinatura() {
           </div>
         )}
 
-        <PixRenovacaoDialog ciclo={pixCiclo} onClose={() => setPixCiclo(null)} />
+        {PAGAMENTO_ASSINATURA_MERCADOPAGO_ATIVO && (
+          <PixRenovacaoDialog ciclo={pixCiclo} onClose={() => setPixCiclo(null)} />
+        )}
         <Dialog open={!!comprovanteId} onOpenChange={(v) => !v && setComprovanteId(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>

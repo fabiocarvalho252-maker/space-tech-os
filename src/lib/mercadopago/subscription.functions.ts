@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { origemPublicaServer } from "@/lib/site-url.server";
+import { garantirPagamentoAssinaturaAtivo } from "@/lib/mercadopago/pagamento-assinatura";
 import {
   cancelarAssinatura,
   gerarPixRenovacao,
@@ -45,6 +46,7 @@ export const iniciarAssinaturaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => iniciarSchema.parse(data))
   .handler(async ({ data, context }): Promise<IniciarAssinaturaResultado> => {
+    garantirPagamentoAssinaturaAtivo();
     const empresaId = await resolverEmpresaId(context.userId, context.supabase);
 
     const { data: userData } = await context.supabase.auth.getUser();
@@ -175,6 +177,7 @@ export const gerarPixRenovacaoFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => z.object({ ciclo: z.enum(["monthly", "yearly"]) }).parse(data))
   .handler(async ({ data, context }): Promise<PixRenovacao> => {
+    garantirPagamentoAssinaturaAtivo();
     const empresaId = await resolverEmpresaId(context.userId, context.supabase);
     const { data: userData } = await context.supabase.auth.getUser();
     const payerEmail = userData.user?.email;
