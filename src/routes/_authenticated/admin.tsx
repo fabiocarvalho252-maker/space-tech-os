@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { addDays, addMonths, format, formatDistanceToNow } from "date-fns";
+import { descreverOrigemCampanha } from "@/lib/marketing/utm-campanha";
 import { ptBR } from "date-fns/locale";
 import {
   Ban,
@@ -588,6 +589,7 @@ function AdminDoSite() {
                       <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Dias restantes</th>
                       <th className="px-3 py-2">Cadastro</th>
+                      <th className="px-3 py-2">Origem</th>
                       <th className="px-3 py-2">Último acesso</th>
                       <th className="px-3 py-2 text-center">Equipe</th>
                       <th className="px-3 py-2 text-center">OS criadas</th>
@@ -629,6 +631,9 @@ function AdminDoSite() {
                           <div className="text-xs text-muted-foreground">
                             {haQuanto(e.criadoEm)}
                           </div>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-muted-foreground">
+                          {descreverOrigemCampanha(e.origemCampanha)}
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">
                           {haQuanto(e.ultimoLogin)}

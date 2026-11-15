@@ -11,6 +11,8 @@ import {
   verificarWhatsappDisponivel,
 } from "@/lib/auth/ativacao-whatsapp.functions";
 import { registrarReferralFn } from "@/lib/referrals/referral.functions";
+import { extrairOrigemCampanha, type OrigemCampanha } from "@/lib/marketing/utm-campanha";
+import { lerOrigemSalva, registrarVisitaCampanha } from "@/lib/marketing/origem-campanha-storage";
 import {
   lerCodigoIndicacaoSalvo,
   limparCodigoIndicacaoSalvo,
@@ -30,9 +32,13 @@ export const Route = createFileRoute("/cadastro")({
       { property: "og:description", content: "Teste o SpaceTech por 7 dias, sem cartão." },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { ref?: string } => {
+  validateSearch: (search: Record<string, unknown>): { ref?: string } & OrigemCampanha => {
     const ref = search["ref"];
-    return typeof ref === "string" && ref.trim() ? { ref: ref.trim() } : {};
+    const origem = extrairOrigemCampanha(search);
+    return {
+      ...(typeof ref === "string" && ref.trim() ? { ref: ref.trim() } : {}),
+      ...origem,
+    };
   },
   component: Cadastro,
 });
@@ -56,7 +62,7 @@ function mensagemErroAmigavel(erro: unknown): string {
 
 function Cadastro() {
   const navigate = useNavigate();
-  const { ref } = Route.useSearch();
+  const { ref, ...parametrosCampanha } = Route.useSearch();
   const [form, setForm] = useState({ nome: "", loja: "", email: "", whatsapp: "", senha: "" });
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +72,13 @@ function Cadastro() {
   useEffect(() => {
     if (ref) salvarCodigoIndicacao(ref);
   }, [ref]);
+
+  // Origem da campanha (UTM): guarda a visita mais recente com UTM para o
+  // cadastro. Uma visita sem UTM não apaga a origem já salva.
+  const origemDaVisita = JSON.stringify(parametrosCampanha);
+  useEffect(() => {
+    registrarVisitaCampanha(JSON.parse(origemDaVisita) as Record<string, unknown>);
+  }, [origemDaVisita]);
 
   const campo = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({
@@ -101,6 +114,7 @@ function Cadastro() {
           nome: parsed.data.nome,
           loja: parsed.data.loja,
           whatsapp: whatsappNormalizado,
+          origem_campanha: lerOrigemSalva(),
         },
       },
     });
