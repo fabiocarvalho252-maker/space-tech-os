@@ -111,6 +111,9 @@ function Planos() {
         <p className="mt-2 max-w-lg text-sm text-muted-foreground">
           Veja os recursos incluídos no plano.
         </p>
+        <p className="mt-4 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
+          Teste grátis por 7 dias · sem cartão de crédito
+        </p>
       </div>
 
       <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-4">
@@ -151,7 +154,7 @@ function Planos() {
                   rel="noopener noreferrer"
                   className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
-                  Contratar pelo WhatsApp
+                  Contratar {p.name} pelo WhatsApp
                 </a>
               )
             ) : (
