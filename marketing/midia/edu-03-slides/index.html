@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDU-03 — slides do carrossel</title>
+<style>
+  :root {
+    --preto: #0b0b0f;
+    --branco: #ffffff;
+    --roxo: #8b5cf6;
+    --cinza: #a1a1aa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #222; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; padding: 24px; color: var(--branco); }
+  .slide {
+    width: 1080px; height: 1350px; background: var(--preto);
+    padding: 110px 96px; margin: 0 auto 40px;
+    display: flex; flex-direction: column; justify-content: center; gap: 36px;
+    position: relative; overflow: hidden;
+  }
+  .rotulo { font-size: 34px; letter-spacing: 4px; text-transform: uppercase; color: var(--roxo); font-weight: 700; }
+  h1 { font-size: 110px; line-height: 1.05; font-weight: 800; }
+  h2 { font-size: 84px; line-height: 1.1; font-weight: 800; }
+  p { font-size: 46px; line-height: 1.4; color: var(--cinza); }
+  .destaque { color: var(--roxo); }
+  .passo { font-size: 58px; color: var(--roxo); font-weight: 800; }
+  .rodape { position: absolute; bottom: 70px; left: 96px; right: 96px; display: flex; justify-content: space-between; font-size: 30px; color: var(--cinza); }
+  .marca { font-weight: 800; color: var(--branco); letter-spacing: 2px; }
+  .ilustrativo { font-size: 26px; color: var(--cinza); margin-top: 20px; }
+  .tela {
+    border: 3px solid var(--roxo); border-radius: 28px; padding: 40px;
+    background: #14141c; font-size: 40px; line-height: 1.6;
+  }
+  .tela span { color: var(--roxo); font-weight: 700; }
+  .cta { font-size: 60px; font-weight: 800; }
+  @media print {
+    body { background: none; padding: 0; }
+    .slide { margin: 0; page-break-after: always; }
+    @page { size: 1080px 1350px; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: capa -->
+<section class="slide" id="slide-1">
+  <div class="rotulo">Dica da bancada</div>
+  <h1>Checklist de entrega que <span class="destaque">evita discussão</span></h1>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 2 -->
+<section class="slide" id="slide-2">
+  <div class="rotulo">Dica da bancada · 2/7</div>
+  <h2>A discussão começa na hora de pegar o aparelho</h2>
+  <p>O cliente olha, percebe algo e pergunta. Um checklist de entrega responde antes da pergunta.</p>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 3 -->
+<section class="slide" id="slide-3">
+  <div class="rotulo">Dica da bancada · 3/7</div>
+  <div class="passo">1. Compare com a entrada</div>
+  <p>Abra a OS e veja o checklist e as fotos de entrada. Tudo que já estava riscado, trincado ou sem função precisa estar anotado antes do conserto.</p>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 4 -->
+<section class="slide" id="slide-4">
+  <div class="rotulo">Dica da bancada · 4/7</div>
+  <div class="passo">2. Teste o que foi reparado, com o cliente olhando</div>
+  <p>Ligue o aparelho e mostre a função que foi consertada. Se ele vê funcionando, a dúvida diminui antes de virar reclamação.</p>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 5 -->
+<section class="slide" id="slide-5">
+  <div class="rotulo">Dica da bancada · 5/7</div>
+  <div class="passo">3. Registre a entrega na OS</div>
+  <p>O que foi feito, o que foi entregue e a data ficam no histórico da OS. Se precisar de papel, a OS sai em PDF para imprimir.</p>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 6 -->
+<section class="slide" id="slide-6">
+  <div class="rotulo">Dica da bancada · 6/7</div>
+  <div class="passo">4. Entregue o termo de garantia junto</div>
+  <p>Serviço feito, peça trocada e prazo escritos no mesmo papel. Cliente e loja ficam com a mesma informação.</p>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>arraste →</span></div>
+</section>
+
+<!-- Slide 7: fechamento -->
+<section class="slide" id="slide-7">
+  <div class="rotulo">Faça isso no SPACE TECH OS</div>
+  <h2>Fotos de entrada, checklist, etiqueta com QR Code, histórico da OS e termo de garantia.</h2>
+  <div class="tela">
+    <span>OS 1234</span> · Cliente Teste<br>
+    Aparelho genérico · Entrada: fotos e checklist<br>
+    <span>Status:</span> entregue · Termo de garantia emitido
+  </div>
+  <div class="ilustrativo">Dados ilustrativos.</div>
+  <div class="cta">Teste grátis por 7 dias, sem cartão.</div>
+  <div class="rodape"><span class="marca">SPACE TECH</span><span>Link na bio</span></div>
+</section>
+
+</body>
+</html>
