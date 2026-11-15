@@ -37,3 +37,14 @@ export function descreverOrigemCampanha(origem: OrigemCampanha | null): string {
   );
   return partes.length > 0 ? partes.join(" · ") : "Não informada";
 }
+
+// Opções da pergunta "Como você conheceu o SPACE TECH OS?" no cadastro.
+export const OPCOES_COMO_CONHECEU = [
+  { valor: "instagram", rotulo: "Instagram" },
+  { valor: "tiktok", rotulo: "TikTok" },
+  { valor: "facebook", rotulo: "Facebook" },
+  { valor: "google", rotulo: "Google" },
+  { valor: "whatsapp", rotulo: "WhatsApp" },
+  { valor: "indicacao", rotulo: "Indicação de outra assistência" },
+  { valor: "outro", rotulo: "Outro" },
+] as const;

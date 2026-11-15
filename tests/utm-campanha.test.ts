@@ -66,3 +66,15 @@ test("sem origem registrada descreve como 'Não informada'", () => {
   assert.equal(descreverOrigemCampanha(null), "Não informada");
   assert.equal(descreverOrigemCampanha({}), "Não informada");
 });
+
+import { OPCOES_COMO_CONHECEU } from "../src/lib/marketing/utm-campanha.ts";
+
+test("opções de 'como você conheceu' têm valor e rótulo, sem valor repetido", () => {
+  const valores = OPCOES_COMO_CONHECEU.map((o) => o.valor);
+  assert.equal(new Set(valores).size, valores.length);
+  for (const opcao of OPCOES_COMO_CONHECEU) {
+    assert.ok(opcao.valor.length > 0);
+    assert.ok(opcao.rotulo.length > 0);
+  }
+  assert.ok(valores.includes("outro"));
+});

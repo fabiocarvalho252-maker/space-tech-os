@@ -14,8 +14,11 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as BemVindoRouteImport } from './routes/bem-vindo'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as ComoFuncionaRouteImport } from './routes/como-funciona'
 import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
+import { Route as ExemploVitrineRouteImport } from './routes/exemplo-vitrine'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MeiRouteImport } from './routes/mei'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
@@ -84,14 +87,29 @@ const CadastroRoute = CadastroRouteImport.update({
   path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComoFuncionaRoute = ComoFuncionaRouteImport.update({
+  id: '/como-funciona',
+  path: '/como-funciona',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExcluirContaRoute = ExcluirContaRouteImport.update({
   id: '/excluir-conta',
   path: '/excluir-conta',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExemploVitrineRoute = ExemploVitrineRouteImport.update({
+  id: '/exemplo-vitrine',
+  path: '/exemplo-vitrine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeiRoute = MeiRouteImport.update({
+  id: '/mei',
+  path: '/mei',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MinhaContaRoute = MinhaContaRouteImport.update({
@@ -327,8 +345,11 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/como-funciona': typeof ComoFuncionaRoute
   '/excluir-conta': typeof ExcluirContaRoute
+  '/exemplo-vitrine': typeof ExemploVitrineRoute
   '/login': typeof LoginRoute
+  '/mei': typeof MeiRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -378,8 +399,11 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/como-funciona': typeof ComoFuncionaRoute
   '/excluir-conta': typeof ExcluirContaRoute
+  '/exemplo-vitrine': typeof ExemploVitrineRoute
   '/login': typeof LoginRoute
+  '/mei': typeof MeiRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -431,8 +455,11 @@ export interface FileRoutesById {
   '/assinatura': typeof AssinaturaRoute
   '/bem-vindo': typeof BemVindoRoute
   '/cadastro': typeof CadastroRoute
+  '/como-funciona': typeof ComoFuncionaRoute
   '/excluir-conta': typeof ExcluirContaRoute
+  '/exemplo-vitrine': typeof ExemploVitrineRoute
   '/login': typeof LoginRoute
+  '/mei': typeof MeiRoute
   '/minha-conta': typeof MinhaContaRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -484,8 +511,11 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/como-funciona'
     | '/excluir-conta'
+    | '/exemplo-vitrine'
     | '/login'
+    | '/mei'
     | '/minha-conta'
     | '/planos'
     | '/privacidade'
@@ -535,8 +565,11 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/como-funciona'
     | '/excluir-conta'
+    | '/exemplo-vitrine'
     | '/login'
+    | '/mei'
     | '/minha-conta'
     | '/planos'
     | '/privacidade'
@@ -587,8 +620,11 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/bem-vindo'
     | '/cadastro'
+    | '/como-funciona'
     | '/excluir-conta'
+    | '/exemplo-vitrine'
     | '/login'
+    | '/mei'
     | '/minha-conta'
     | '/planos'
     | '/privacidade'
@@ -640,8 +676,11 @@ export interface RootRouteChildren {
   AssinaturaRoute: typeof AssinaturaRoute
   BemVindoRoute: typeof BemVindoRoute
   CadastroRoute: typeof CadastroRoute
+  ComoFuncionaRoute: typeof ComoFuncionaRoute
   ExcluirContaRoute: typeof ExcluirContaRoute
+  ExemploVitrineRoute: typeof ExemploVitrineRoute
   LoginRoute: typeof LoginRoute
+  MeiRoute: typeof MeiRoute
   MinhaContaRoute: typeof MinhaContaRoute
   PlanosRoute: typeof PlanosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
@@ -690,6 +729,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/como-funciona': {
+      id: '/como-funciona'
+      path: '/como-funciona'
+      fullPath: '/como-funciona'
+      preLoaderRoute: typeof ComoFuncionaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/excluir-conta': {
       id: '/excluir-conta'
       path: '/excluir-conta'
@@ -697,11 +743,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExcluirContaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/exemplo-vitrine': {
+      id: '/exemplo-vitrine'
+      path: '/exemplo-vitrine'
+      fullPath: '/exemplo-vitrine'
+      preLoaderRoute: typeof ExemploVitrineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mei': {
+      id: '/mei'
+      path: '/mei'
+      fullPath: '/mei'
+      preLoaderRoute: typeof MeiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/minha-conta': {
@@ -1091,8 +1151,11 @@ const rootRouteChildren: RootRouteChildren = {
   AssinaturaRoute: AssinaturaRoute,
   BemVindoRoute: BemVindoRoute,
   CadastroRoute: CadastroRoute,
+  ComoFuncionaRoute: ComoFuncionaRoute,
   ExcluirContaRoute: ExcluirContaRoute,
+  ExemploVitrineRoute: ExemploVitrineRoute,
   LoginRoute: LoginRoute,
+  MeiRoute: MeiRoute,
   MinhaContaRoute: MinhaContaRoute,
   PlanosRoute: PlanosRoute,
   PrivacidadeRoute: PrivacidadeRoute,

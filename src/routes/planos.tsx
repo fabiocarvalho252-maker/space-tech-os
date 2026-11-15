@@ -18,6 +18,7 @@ import {
 import { CONTATO_WHATSAPP_LINK } from "@/components/PaginaLegal";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { BotaoWhatsappFlutuante } from "@/components/BotaoWhatsappFlutuante";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +105,13 @@ function Planos() {
 
   return (
     <div className="min-h-screen bg-gradient-auth px-5 py-12">
+      <BotaoWhatsappFlutuante />
+      <Link
+        to="/cadastro"
+        className="fixed bottom-4 left-4 right-36 z-40 flex h-12 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-panel md:hidden"
+      >
+        Testar grátis por 7 dias
+      </Link>
       <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
         <LogoMark className="h-14 w-14" />
         <LogoWord className="mt-3 text-lg" />
