@@ -28,3 +28,12 @@ export function extrairOrigemCampanha(parametros: Record<string, unknown>): Orig
 export function mesclarOrigemCampanha(salva: OrigemCampanha, nova: OrigemCampanha): OrigemCampanha {
   return Object.keys(nova).length > 0 ? nova : salva;
 }
+
+// Texto curto para mostrar a origem na tela do admin.
+export function descreverOrigemCampanha(origem: OrigemCampanha | null): string {
+  if (!origem) return "Não informada";
+  const partes = [origem.utm_source, origem.utm_medium, origem.utm_campaign].filter(
+    (parte): parte is string => Boolean(parte),
+  );
+  return partes.length > 0 ? partes.join(" · ") : "Não informada";
+}

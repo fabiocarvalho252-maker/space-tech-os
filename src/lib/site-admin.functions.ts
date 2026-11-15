@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
+import { extrairOrigemCampanha, type OrigemCampanha } from "@/lib/marketing/utm-campanha";
 import {
   atualizarStatusSistema,
   conectarSistema,
@@ -36,6 +37,17 @@ export function checarSiteAdmin(claims: Record<string, unknown>) {
   }
 }
 
+// A origem vem dos metadados do cadastro (user_metadata.origem_campanha).
+// Contas antigas, criadas antes da captura de UTM, retornam null.
+function origemCampanhaDoUsuario(
+  metadados: Record<string, unknown> | undefined,
+): OrigemCampanha | null {
+  const origem = extrairOrigemCampanha(
+    (metadados?.["origem_campanha"] ?? {}) as Record<string, unknown>,
+  );
+  return Object.keys(origem).length > 0 ? origem : null;
+}
+
 export type EmpresaDoSite = {
   id: string;
   nome: string | null;
@@ -53,6 +65,7 @@ export type EmpresaDoSite = {
   acessoAte: string | null;
   planoSolicitado: string | null;
   planoSolicitadoEm: string | null;
+  origemCampanha: OrigemCampanha | null;
 };
 
 export const listarEmpresasDoSite = createServerFn({ method: "GET" })
@@ -111,6 +124,7 @@ export const listarEmpresasDoSite = createServerFn({ method: "GET" })
           acessoAte: e.acesso_ate,
           planoSolicitado: e.plano_solicitado,
           planoSolicitadoEm: e.plano_solicitado_em,
+          origemCampanha: origemCampanhaDoUsuario(u?.user_metadata),
         };
       }),
     };

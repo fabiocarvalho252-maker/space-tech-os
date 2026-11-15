@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  descreverOrigemCampanha,
   extrairOrigemCampanha,
   mesclarOrigemCampanha,
   type OrigemCampanha,
@@ -48,4 +49,20 @@ test("mesclar substitui pela origem mais recente quando ela traz UTM", () => {
   const salva: OrigemCampanha = { utm_source: "instagram", utm_medium: "bio" };
   const nova: OrigemCampanha = { utm_source: "tiktok", utm_medium: "bio", utm_content: "ser-01" };
   assert.deepEqual(mesclarOrigemCampanha(salva, nova), nova);
+});
+
+test("descreve a origem em texto curto para a tabela do admin", () => {
+  assert.equal(
+    descreverOrigemCampanha({
+      utm_source: "instagram",
+      utm_medium: "bio",
+      utm_campaign: "lancamento-nov26",
+    }),
+    "instagram · bio · lancamento-nov26",
+  );
+});
+
+test("sem origem registrada descreve como 'Não informada'", () => {
+  assert.equal(descreverOrigemCampanha(null), "Não informada");
+  assert.equal(descreverOrigemCampanha({}), "Não informada");
 });
