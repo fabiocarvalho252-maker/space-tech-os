@@ -39,3 +39,18 @@ test("caminho fora do projeto é negado, inclusive com ..", () => {
 test("ferramenta não listada é negada por padrão", () => {
   assert.equal(decidir("WebhookMagico", {}).comportamento, "negar");
 });
+
+test("link simbólico dentro do projeto que aponta para fora é negado", async () => {
+  const { mkdtemp, mkdir, symlink, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const base = await mkdtemp(join(tmpdir(), "politica-"));
+  const projeto = join(base, "projeto");
+  const fora = join(base, "fora");
+  await mkdir(projeto);
+  await mkdir(fora);
+  await writeFile(join(fora, "segredo.txt"), "x");
+  await symlink(fora, join(projeto, "atalho"));
+  assert.equal(caminhoDentroDoProjeto(projeto, "atalho/segredo.txt"), false);
+  assert.equal(caminhoDentroDoProjeto(projeto, "novo/arquivo.ts"), true);
+});

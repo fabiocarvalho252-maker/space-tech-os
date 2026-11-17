@@ -1,6 +1,7 @@
 // Política de ferramentas: o que é liberado, o que pede aprovação e o que é
 // negado sempre. Função pura, sem I/O, para ser testada isoladamente.
-import { isAbsolute, relative, resolve } from "node:path";
+import { realpathSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import type { ModoPermissao } from "../tipos.ts";
 
 export type Decisao =
@@ -36,9 +37,24 @@ const ARQUIVOS_PROIBIDOS = [
   /(^|\/)\.credentials\.json$/,
 ];
 
+// Resolve links simbólicos do caminho inteiro. Se o arquivo ainda não existe (escrita
+// nova), resolve o ancestral que existe e acrescenta o resto. Assim um link dentro do
+// projeto que aponta para fora não consegue escapar.
+export function caminhoReal(caminho: string): string {
+  const absoluto = resolve(caminho);
+  try {
+    return realpathSync(absoluto);
+  } catch {
+    const pai = dirname(absoluto);
+    if (pai === absoluto) return absoluto;
+    return join(caminhoReal(pai), absoluto.slice(pai.length));
+  }
+}
+
 export function caminhoDentroDoProjeto(projetoRaiz: string, caminho: string): boolean {
-  const alvo = isAbsolute(caminho) ? resolve(caminho) : resolve(projetoRaiz, caminho);
-  const relativo = relative(resolve(projetoRaiz), alvo);
+  const raiz = caminhoReal(projetoRaiz);
+  const alvo = caminhoReal(isAbsolute(caminho) ? caminho : resolve(projetoRaiz, caminho));
+  const relativo = relative(raiz, alvo);
   return relativo === "" || (!relativo.startsWith("..") && !isAbsolute(relativo));
 }
 
