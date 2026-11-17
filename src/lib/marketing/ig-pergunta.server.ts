@@ -1,22 +1,50 @@
-// "Pergunte ao Claude" sobre as métricas do Instagram (API de mensagens da Anthropic).
-// Sem ANTHROPIC_API_KEY no .env, não chama nada e avisa. Envia só números agregados
+// "Pergunte ao Claude" sobre as métricas do Instagram, pelo plano Claude Pro (CLI).
+// Sem o binário do Claude no servidor, não chama nada e avisa. Envia só números agregados
 // e os títulos curtos dos posts: nunca token, IDs internos ou dados de contato.
-import type { PainelInstagram } from "./ig-metricas.server";
-import { TAMANHO_PERGUNTA_MAX } from "./ig-metricas.calc";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import type { PainelInstagram } from "./ig-metricas.server.ts";
+import { TAMANHO_PERGUNTA_MAX } from "./ig-metricas.calc.ts";
 
-const URL_API = "https://api.anthropic.com/v1/messages";
-const VERSAO_API = "2023-06-01";
-const MODELO_PADRAO = "claude-sonnet-5-5";
-const MAX_TOKENS_RESPOSTA = 600;
-const TIMEOUT_MODELO_MS = 30_000;
+const CAMINHO_PADRAO = "/root/.local/bin/claude";
+const LIMITE_PERGUNTAS_DIA = 5;
+const TIMEOUT_MODELO_MS = 90_000;
 const MAX_TITULOS = 15;
 const TAMANHO_TITULO = 60;
 
 export type RespostaPergunta =
   { disponivel: false; motivo: string } | { disponivel: true; resposta: string };
 
-export function chaveAnthropicConfigurada(): boolean {
-  return Boolean(process.env["ANTHROPIC_API_KEY"]);
+// Usa o login do plano Claude Pro (claude.ai) pela CLI. Nunca usa chave de API:
+// se houver uma no ambiente, ela é removida do processo filho.
+export function claudeDisponivel(): boolean {
+  return existsSync(caminhoClaude());
+}
+
+function caminhoClaude(): string {
+  return process.env["CLAUDE_BIN"] || CAMINHO_PADRAO;
+}
+
+export function ambienteSemChaveApi(ambiente: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const copia: NodeJS.ProcessEnv = { ...ambiente };
+  for (const chave of CHAVES_DE_API) delete copia[chave];
+  return copia;
+}
+
+const CHAVES_DE_API = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "AI_API_KEY"];
+
+// Teto diário de perguntas, para não gastar a cota do plano Pro.
+let diaDoContador = "";
+let perguntasNoDia = 0;
+export function dentroDoLimiteDiario(agora: Date): boolean {
+  const dia = agora.toISOString().slice(0, 10);
+  if (dia !== diaDoContador) {
+    diaDoContador = dia;
+    perguntasNoDia = 0;
+  }
+  if (perguntasNoDia >= LIMITE_PERGUNTAS_DIA) return false;
+  perguntasNoDia += 1;
+  return true;
 }
 
 /** Resumo sem identificadores: o modelo só recebe números e títulos truncados. */
@@ -53,50 +81,43 @@ const INSTRUCAO_SISTEMA =
   "Responda em português, de forma curta e objetiva, apenas com base nos dados fornecidos. " +
   "Se faltar dado para responder, diga que falta, sem estimar.";
 
-type RespostaApi = { content?: { type: string; text?: string }[]; error?: { message?: string } };
+function executarClaude(prompt: string): Promise<string> {
+  return new Promise((resolver, rejeitar) => {
+    const args = ["--print", "--output-format", "text", "--tools", "", "--system-prompt", INSTRUCAO_SISTEMA];
+    const filho = spawn(caminhoClaude(), args, { env: ambienteSemChaveApi(process.env), stdio: ["pipe", "pipe", "pipe"] });
+    let saida = "";
+    let erro = "";
+    const relogio = setTimeout(() => filho.kill("SIGKILL"), TIMEOUT_MODELO_MS);
+    filho.stdout.on("data", (b: Buffer) => (saida += b.toString("utf8")));
+    filho.stderr.on("data", (b: Buffer) => (erro += b.toString("utf8")));
+    filho.on("error", (e) => {
+      clearTimeout(relogio);
+      rejeitar(e);
+    });
+    filho.on("close", (codigo) => {
+      clearTimeout(relogio);
+      if (codigo === 0) return resolver(saida.trim());
+      const texto = `${erro} ${saida}`.toLowerCase();
+      if (/limit|quota|usage/.test(texto)) return rejeitar(new Error("cota do plano Pro atingida por hoje"));
+      rejeitar(new Error("Claude indisponível no momento."));
+    });
+    filho.stdin.end(prompt);
+  });
+}
 
 export async function perguntarSobreMetricas(
   pergunta: string,
   painel: PainelInstagram,
 ): Promise<RespostaPergunta> {
-  const chave = process.env["ANTHROPIC_API_KEY"];
-  if (!chave) {
-    return {
-      disponivel: false,
-      motivo: "Configure ANTHROPIC_API_KEY no .env para usar o Pergunte ao Claude.",
-    };
+  if (!claudeDisponivel()) {
+    return { disponivel: false, motivo: "Claude Code não encontrado no servidor (CLAUDE_BIN)." };
   }
-  const modelo = process.env["ANTHROPIC_MODEL"] || MODELO_PADRAO;
+  if (!dentroDoLimiteDiario(new Date())) {
+    return { disponivel: false, motivo: "Limite diário de perguntas atingido. Tente amanhã." };
+  }
   const perguntaLimpa = pergunta.trim().slice(0, TAMANHO_PERGUNTA_MAX);
-
-  const r = await fetch(URL_API, {
-    method: "POST",
-    headers: {
-      "x-api-key": chave,
-      "anthropic-version": VERSAO_API,
-      "content-type": "application/json",
-    },
-    signal: AbortSignal.timeout(TIMEOUT_MODELO_MS),
-    body: JSON.stringify({
-      model: modelo,
-      max_tokens: MAX_TOKENS_RESPOSTA,
-      system: INSTRUCAO_SISTEMA,
-      messages: [
-        {
-          role: "user",
-          content: `Dados (JSON):\n${resumirParaModelo(painel)}\n\nPergunta: ${perguntaLimpa}`,
-        },
-      ],
-    }),
-  });
-  const corpo = (await r.json().catch(() => ({}))) as RespostaApi;
-  if (!r.ok) {
-    throw new Error(`Anthropic: ${corpo.error?.message ?? `HTTP ${r.status}`}`);
-  }
-  const texto = (corpo.content ?? [])
-    .filter((c) => c.type === "text")
-    .map((c) => c.text ?? "")
-    .join("\n")
-    .trim();
+  const texto = await executarClaude(
+    `Dados (JSON):\n${resumirParaModelo(painel)}\n\nPergunta: ${perguntaLimpa}`,
+  );
   return { disponivel: true, resposta: texto || "Sem resposta do modelo." };
 }

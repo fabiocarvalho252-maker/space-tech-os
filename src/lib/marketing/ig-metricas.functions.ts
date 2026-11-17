@@ -17,12 +17,12 @@ export const obterMetricasInstagram = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PainelComAnthropic> => {
     checarSiteAdmin(context.claims);
-    const [{ lerPainelInstagram }, { chaveAnthropicConfigurada }] = await Promise.all([
+    const [{ lerPainelInstagram }, { claudeDisponivel }] = await Promise.all([
       import("./ig-metricas.server"),
       import("./ig-pergunta.server"),
     ]);
     const painel = await lerPainelInstagram();
-    return { ...painel, anthropicDisponivel: chaveAnthropicConfigurada() };
+    return { ...painel, anthropicDisponivel: claudeDisponivel() };
   });
 
 export const atualizarMetricasInstagram = createServerFn({ method: "POST" })
