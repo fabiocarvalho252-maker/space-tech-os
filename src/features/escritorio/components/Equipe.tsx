@@ -127,7 +127,7 @@ export function Equipe() {
           <p className="text-sm text-muted-foreground">Ajuste a busca ou os filtros.</p>
         </div>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid gap-2">
           {visiveis.map((perfil) => (
             <li key={perfil.agentId}>
               <CartaoAgente perfil={perfil} onAbrir={setAgenteAberto} />

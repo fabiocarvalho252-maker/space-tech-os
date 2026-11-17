@@ -62,7 +62,7 @@ const EQUIPE: AgentProfile[] = [
   }),
 ];
 
-const SEM_FILTRO = { ...FILTROS_PADRAO };
+const SEM_FILTRO = { ...FILTROS_PADRAO, tipo: "todos" as const };
 
 test("normalizarTexto ignora acentos, maiúsculas e espaços nas pontas", () => {
   assert.equal(normalizarTexto("  Planejamento  "), "planejamento");

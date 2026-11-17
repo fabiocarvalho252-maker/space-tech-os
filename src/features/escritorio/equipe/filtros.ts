@@ -9,7 +9,8 @@ export type FiltrosEquipe = {
   tipo: TipoEquipe | typeof FILTRO_TODOS;
 };
 
-export const FILTROS_PADRAO: FiltrosEquipe = { busca: "", setor: FILTRO_TODOS, tipo: FILTRO_TODOS };
+// Abre só nos agentes: os skills (295) são muitos e não são personagens do escritório.
+export const FILTROS_PADRAO: FiltrosEquipe = { busca: "", setor: FILTRO_TODOS, tipo: "agent" };
 
 /** Minúsculas, sem acentos e sem espaços nas pontas, para comparar textos. */
 export function normalizarTexto(texto: string): string {
