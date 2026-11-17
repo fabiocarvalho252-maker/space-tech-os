@@ -37,7 +37,7 @@ export type EventoEscritorio = {
   estado?: EstadoAgente | undefined;
   texto?: string | undefined;
   ferramenta?: { nome: string; ok?: boolean | undefined } | undefined;
-  aprovacao?: { id: string; ferramenta: string; resumo: string } | undefined;
+  aprovacao?: { id: string; ferramenta: string; resumo: string; decisao?: string | undefined } | undefined;
   resultado?: string | undefined;
   uso?: { entradaTokens: number; saidaTokens: number; custoUsd: number } | undefined;
 };

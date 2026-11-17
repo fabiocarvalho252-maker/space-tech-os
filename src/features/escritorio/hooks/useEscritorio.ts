@@ -95,9 +95,10 @@ export function useEscritorio() {
   );
 
   // Abre no painel uma missão antiga, reproduzida a partir dos eventos guardados.
-  const mostrarEventos = useCallback((eventos: EventoEscritorio[]) => {
+  // O resultado vem da missão no banco: o evento final guardado não o contém.
+  const mostrarEventos = useCallback((eventos: EventoEscritorio[], resultado: string | null) => {
     simuladorRef.current?.cancelar();
-    setEstado(aplicarEventos(ESTADO_INICIAL, eventos));
+    setEstado({ ...aplicarEventos(ESTADO_INICIAL, eventos), resultado: resultado ?? null });
   }, []);
 
   return { estado, online, erro, iniciarSimulacao, iniciarReal, cancelar, decidir, mostrarEventos };

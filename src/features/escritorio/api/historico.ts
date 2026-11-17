@@ -9,6 +9,7 @@ export type MissaoHistorico = {
   status: string;
   created_at: string;
   cost_usd: number;
+  result_markdown: string | null;
 };
 
 type Resposta<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
@@ -21,7 +22,12 @@ type ConsultaBanco = {
     eq(
       coluna: string,
       valor: string,
-    ): { order(coluna: string, opcoes: { ascending: boolean }): Resposta<unknown> };
+    ): {
+      order(
+        coluna: string,
+        opcoes: { ascending: boolean },
+      ): { limit(n: number): Resposta<unknown> };
+    };
   };
 };
 
@@ -30,7 +36,7 @@ const cliente = supabase as unknown as { from(tabela: string): ConsultaBanco };
 export async function listarMissoes(limite = 20): Promise<MissaoHistorico[]> {
   const { data, error } = await cliente
     .from("office_missions")
-    .select("id,prompt,status,created_at,cost_usd")
+    .select("id,prompt,status,created_at,cost_usd,result_markdown")
     .order("created_at", { ascending: false })
     .limit(limite);
   if (error) throw new Error(error.message);
@@ -65,9 +71,14 @@ export function linhaParaEvento(l: LinhaEvento): EventoEscritorio {
   };
 }
 
+export const LIMITE_EVENTOS_REPLAY = 5000;
+
 export async function carregarEventos(missaoId: string): Promise<EventoEscritorio[]> {
   const consulta = cliente.from("office_events").select("*").eq("mission_id", missaoId);
-  const { data, error } = await consulta.order("ts", { ascending: true });
+  // Limite explícito: o PostgREST corta em 1000 linhas por padrão e a reprodução ficaria truncada.
+  const { data, error } = await consulta
+    .order("ts", { ascending: true })
+    .limit(LIMITE_EVENTOS_REPLAY);
   if (error) throw new Error(error.message);
   return ((data ?? []) as LinhaEvento[]).map(linhaParaEvento);
 }

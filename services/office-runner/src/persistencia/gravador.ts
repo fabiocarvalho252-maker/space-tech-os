@@ -154,7 +154,7 @@ export function criarGravador(cliente: ClienteBanco, onErro: (mensagem: string) 
 
     async aprovacaoDecidida(
       aprovacaoId: string,
-      status: "permitida" | "negada",
+      status: "permitida" | "negada" | "expirada",
       decididoPor: string | null,
     ): Promise<void> {
       const r = await cliente

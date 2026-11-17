@@ -44,6 +44,10 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   if (gravador) {
     repo.assinar((evento) => {
       gravador.evento(evento);
+      // Sem resposta do administrador (prazo ou missão parada): fecha a aprovação no banco.
+      if (evento.tipo === "aprovacao.respondida" && evento.aprovacao?.decisao === "expirada") {
+        void gravador.aprovacaoDecidida(evento.aprovacao.id, "expirada", null);
+      }
       if (evento.tipo === "aprovacao.pedida" && evento.aprovacao) {
         void gravador.aprovacaoPedida(evento.missaoId, {
           id: evento.aprovacao.id,

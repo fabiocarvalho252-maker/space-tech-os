@@ -12,7 +12,7 @@ const ROTULO: Record<string, string> = {
   cancelada: "Cancelada",
 };
 
-type Props = { onMostrar: (eventos: EventoEscritorio[]) => void };
+type Props = { onMostrar: (eventos: EventoEscritorio[], resultado: string | null) => void };
 
 export function MissionHistory({ onMostrar }: Props) {
   const { data, isLoading, error } = useQuery({
@@ -33,7 +33,8 @@ export function MissionHistory({ onMostrar }: Props) {
 
   const abrir = async (id: string) => {
     const eventos = await carregarEventos(id);
-    onMostrar(eventos);
+    const missao = data?.find((m) => m.id === id);
+    onMostrar(eventos, missao?.result_markdown ?? null);
   };
 
   return (

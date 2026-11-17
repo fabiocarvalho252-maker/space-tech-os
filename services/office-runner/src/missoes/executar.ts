@@ -4,7 +4,7 @@
 import type { Options, PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import { decidirFerramenta } from "../seguranca/politica.ts";
 import { normalizarMensagem, type ContextoMissao } from "../eventos/normalizar.ts";
-import type { Repositorio, Missao } from "./repositorio.ts";
+import type { Repositorio, Missao, Decisao } from "./repositorio.ts";
 import type { EventoEscritorio } from "../tipos.ts";
 
 export type Consulta = (params: { prompt: string; options?: Options }) => AsyncIterable<unknown>;
@@ -145,6 +145,7 @@ async function pedirAprovacao(
     aprovacao: { id: aprovacaoId, ferramenta, resumo: resumirEntrada(entrada) },
   });
   const decisao = await repo.aguardarAprovacao(aprovacaoId, missao.id, timeoutMs);
+  const { texto, status } = rotuloDaDecisao(decisao);
   emitir({
     id: repo.proximoId(),
     missaoId: missao.id,
@@ -152,11 +153,20 @@ async function pedirAprovacao(
     agenteId: "orchestrator",
     tipo: "aprovacao.respondida",
     estado: decisao === "permitir" ? "trabalhando" : "concluido",
-    texto: decisao === "permitir" ? "Aprovado." : "Negado.",
+    texto,
+    aprovacao: { id: aprovacaoId, ferramenta, resumo: resumirEntrada(entrada), decisao: status },
   });
   return decisao === "permitir"
     ? { behavior: "allow", updatedInput: entrada }
     : { behavior: "deny", message: "Negado pelo administrador." };
+}
+
+// Texto para o painel e status gravado no banco para cada desfecho da aprovação.
+export function rotuloDaDecisao(decisao: Decisao): { texto: string; status: "permitida" | "negada" | "expirada" } {
+  if (decisao === "permitir") return { texto: "Aprovado.", status: "permitida" };
+  if (decisao === "negar") return { texto: "Negado.", status: "negada" };
+  if (decisao === "expirar") return { texto: "Expirou sem resposta.", status: "expirada" };
+  return { texto: "Missão parada antes da resposta.", status: "expirada" };
 }
 
 export function resumirEntrada(entrada: Record<string, unknown>): string {

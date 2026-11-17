@@ -16,12 +16,13 @@ export type Missao = {
 };
 
 type Aprovacao = {
-  resolver: (decisao: "permitir" | "negar") => void;
+  resolver: (decisao: Decisao) => void;
   missaoId: string;
   timer: ReturnType<typeof setTimeout>;
 };
 
-export type Decisao = "permitir" | "negar";
+// "expirar" = sem resposta no prazo; "cancelar" = missão parada antes da resposta.
+export type Decisao = "permitir" | "negar" | "expirar" | "cancelar";
 
 export function criarRepositorio(agora: () => string = () => new Date().toISOString()) {
   const missoes = new Map<string, Missao>();
@@ -89,7 +90,7 @@ export function criarRepositorio(agora: () => string = () => new Date().toISOStr
       return new Promise<Decisao>((resolver) => {
         const timer = setTimeout(() => {
           aprovacoes.delete(aprovacaoId);
-          resolver("negar");
+          resolver("expirar");
         }, timeoutMs);
         aprovacoes.set(aprovacaoId, {
           missaoId,
@@ -110,7 +111,7 @@ export function criarRepositorio(agora: () => string = () => new Date().toISOStr
     },
     cancelarAprovacoesDaMissao(missaoId: string): void {
       for (const [id, pendente] of aprovacoes) {
-        if (pendente.missaoId === missaoId) pendente.resolver("negar");
+        if (pendente.missaoId === missaoId) pendente.resolver("cancelar");
         aprovacoes.delete(id);
       }
     },

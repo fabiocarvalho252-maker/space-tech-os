@@ -111,3 +111,26 @@ test("ambiente do SDK só leva variáveis da lista permitida", async () => {
   assert.equal("ADMIN_EMAIL" in limpo, false);
   assert.equal(limpo["HOME"], "/root");
 });
+
+test("desfechos da aprovação: negada, expirada e cancelada têm status próprio", async () => {
+  const { rotuloDaDecisao } = await import("./executar.ts");
+  assert.equal(rotuloDaDecisao("negar").status, "negada");
+  assert.equal(rotuloDaDecisao("expirar").status, "expirada");
+  assert.equal(rotuloDaDecisao("cancelar").status, "expirada");
+  assert.equal(rotuloDaDecisao("permitir").status, "permitida");
+});
+
+test("aprovação sem resposta expira e o evento leva o status 'expirada'", async () => {
+  const repo = criarRepositorio();
+  const missao = repo.criar("edite", "loja", "seguro");
+  const consulta: Consulta = (params) =>
+    (async function* () {
+      yield { type: "system", subtype: "init" };
+      const opcoes = params.options as { canUseTool: (t: string, i: Record<string, unknown>, o: unknown) => Promise<unknown> };
+      await opcoes.canUseTool("Write", { file_path: "src/c.ts" }, {});
+      yield { type: "result", subtype: "success", is_error: false, result: "", total_cost_usd: 0, usage: {} };
+    })();
+  await executarMissao(missao, repo, consulta, { ...LIMITES, timeoutAprovacaoMs: 30 });
+  const respondida = repo.replay(undefined, missao.id).find((e) => e.tipo === "aprovacao.respondida");
+  assert.equal(respondida?.aprovacao?.decisao, "expirada");
+});
