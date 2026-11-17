@@ -1,0 +1,45 @@
+// Contrato de eventos enviado ao painel. Espelha src/features/escritorio/tipos.ts
+// do app: se um mudar, o outro muda junto.
+
+export type EstadoAgente =
+  | "ocioso"
+  | "andando"
+  | "pensando"
+  | "trabalhando"
+  | "usando_ferramenta"
+  | "aguardando_aprovacao"
+  | "concluido"
+  | "erro";
+
+export type TipoEvento =
+  | "missao.criada"
+  | "missao.iniciada"
+  | "missao.concluida"
+  | "missao.falhou"
+  | "missao.cancelada"
+  | "agente.surgiu"
+  | "agente.estado"
+  | "agente.mensagem"
+  | "agente.finalizou"
+  | "ferramenta.iniciada"
+  | "ferramenta.finalizada"
+  | "aprovacao.pedida"
+  | "aprovacao.respondida"
+  | "uso.atualizado";
+
+export type EventoEscritorio = {
+  id: string;
+  missaoId: string;
+  ts: string;
+  agenteId: string;
+  agentePaiId?: string | undefined;
+  tipo: TipoEvento;
+  estado?: EstadoAgente | undefined;
+  texto?: string | undefined;
+  ferramenta?: { nome: string; ok?: boolean | undefined } | undefined;
+  aprovacao?: { id: string; ferramenta: string; resumo: string } | undefined;
+  resultado?: string | undefined;
+  uso?: { entradaTokens: number; saidaTokens: number; custoUsd: number } | undefined;
+};
+
+export type ModoPermissao = "seguro" | "automatico";

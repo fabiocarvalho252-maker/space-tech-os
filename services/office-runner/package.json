@@ -1,0 +1,19 @@
+{
+  "name": "office-runner",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.316",
+    "@fastify/websocket": "11.3.6",
+    "@supabase/supabase-js": "2.112.2",
+    "fastify": "5.12.8",
+    "zod": "4.6.7"
+  }
+}
