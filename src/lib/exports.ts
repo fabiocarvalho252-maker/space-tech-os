@@ -48,6 +48,22 @@ export function exportarTabela(
   return formato === "excel" ? exportToExcel(data, filename) : exportToCSV(data, filename);
 }
 
+const ENTIDADES_HTML: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(valor: string): string {
+  return valor.replace(/[&<>"']/g, (caractere) => ENTIDADES_HTML[caractere] ?? caractere);
+}
+
+function classeDoTipo(tipo: string): "entrada" | "saida" {
+  return tipo === "entrada" ? "entrada" : "saida";
+}
+
 export async function generateFinancePDF(
   lancamentos: {
     data: string;
@@ -65,11 +81,13 @@ export async function generateFinancePDF(
   const brl = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+  const nomeLoja = escapeHtml(profile?.loja || "SpaceTech");
+
   janela.document.write(`
     <!doctype html>
     <html>
     <head>
-      <title>Relatório Financeiro — ${profile?.loja || "SpaceTech"}</title>
+      <title>Relatório Financeiro — ${nomeLoja}</title>
       <style>
         body { font-family: sans-serif; padding: 40px; color: #333; }
         header { border-bottom: 2px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
@@ -89,7 +107,7 @@ export async function generateFinancePDF(
     <body>
       <header>
         <div>
-          <h1>${profile?.loja || "SpaceTech"}</h1>
+          <h1>${nomeLoja}</h1>
           <p>Relatório Financeiro - Gerado em ${new Date().toLocaleString("pt-BR")}</p>
         </div>
         <button class="no-print" onclick="window.print()">Imprimir PDF</button>
@@ -126,10 +144,10 @@ export async function generateFinancePDF(
               (l) => `
             <tr>
               <td>${dataBR(l.data)}</td>
-              <td>${l.descricao}</td>
-              <td>${l.categoria || "—"}</td>
-              <td class="${l.tipo}">${l.tipo === "entrada" ? "Entrada" : "Saída"}</td>
-              <td class="${l.tipo}">${l.tipo === "entrada" ? "+" : "-"} ${brl(l.valor)}</td>
+              <td>${escapeHtml(l.descricao)}</td>
+              <td>${escapeHtml(l.categoria || "—")}</td>
+              <td class="${classeDoTipo(l.tipo)}">${l.tipo === "entrada" ? "Entrada" : "Saída"}</td>
+              <td class="${classeDoTipo(l.tipo)}">${l.tipo === "entrada" ? "+" : "-"} ${brl(l.valor)}</td>
             </tr>
           `,
             )
