@@ -50,13 +50,18 @@ import { CarrosselReal } from "@/components/marketing/CarrosselReal";
 import { ContasMeta } from "@/components/marketing/ContasMeta";
 import { PublicarConteudo } from "@/components/marketing/PublicarConteudo";
 import { ContaTikTok, EnviarTikTok } from "@/components/marketing/ContaTikTok";
+import { AgendaMarketing } from "@/components/marketing/Agenda";
+import { MetricasInstagram } from "@/components/marketing/MetricasInstagram";
 import { cn } from "@/lib/utils";
+import { ESTILO_STATUS, SeloStatus } from "@/components/marketing/SeloStatus";
+import { EstadoCarregando, EstadoErro } from "@/components/marketing/EstadosMarketing";
 
 export const Route = createFileRoute("/_authenticated/admin_/marketing")({
   head: () => ({ meta: [{ title: "Marketing — Administração do site" }] }),
   validateSearch: (
     s: Record<string, unknown>,
-  ): { id?: string; meta?: string; tiktok?: string } => ({
+  ): { id?: string; meta?: string; tiktok?: string; aba?: string } => ({
+    ...(typeof s["aba"] === "string" && /^[a-z-]{1,30}$/.test(s["aba"]) ? { aba: s["aba"] } : {}),
     ...(typeof s["id"] === "string" && /^[A-Za-z0-9-]{1,20}$/.test(s["id"]) ? { id: s["id"] } : {}),
     ...(typeof s["meta"] === "string" && /^[a-z-]{1,20}$/.test(s["meta"])
       ? { meta: s["meta"] }
@@ -67,48 +72,6 @@ export const Route = createFileRoute("/_authenticated/admin_/marketing")({
   }),
   component: PaginaMarketing,
 });
-
-const ESTILO_STATUS: Record<
-  StatusMarketing,
-  { rotulo: string; classe: string; icone: typeof Clock }
-> = {
-  "AGUARDANDO APROVAÇÃO": {
-    rotulo: "Aguardando aprovação",
-    classe: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-    icone: Clock,
-  },
-  APROVADO: {
-    rotulo: "Aprovado",
-    classe: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-    icone: CheckCircle2,
-  },
-  PUBLICADO: {
-    rotulo: "Publicado",
-    classe: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
-    icone: Send,
-  },
-  RASCUNHO: {
-    rotulo: "Rascunho",
-    classe: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30",
-    icone: PenLine,
-  },
-};
-
-function SeloStatus({ status }: { status: StatusMarketing | null }) {
-  if (!status) return <span className="text-xs text-destructive">Status inválido</span>;
-  const e = ESTILO_STATUS[status];
-  const Icone = e.icone;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold",
-        e.classe,
-      )}
-    >
-      <Icone className="h-3 w-3" /> {e.rotulo}
-    </span>
-  );
-}
 
 function copiar(texto: string, oque: string) {
   navigator.clipboard
@@ -139,19 +102,17 @@ function PaginaMarketing() {
     );
   }
 
-  if (isLoading || !data) {
+  if (isError) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground">
-        {isError ? (
-          <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Erro ao carregar."}
-          </p>
-        ) : (
-          <Loader2 className="h-6 w-6 animate-spin" />
-        )}
-      </div>
+      <EstadoErro
+        mensagem={error instanceof Error ? error.message : "Erro ao carregar."}
+        onTentar={() => refetch()}
+        tentando={isFetching}
+      />
     );
   }
+
+  if (isLoading || !data) return <EstadoCarregando />;
 
   return <Conteudo data={data} onAtualizar={() => refetch()} atualizando={isFetching} />;
 }
@@ -173,9 +134,12 @@ function Conteudo({
   onAtualizar: () => void;
   atualizando: boolean;
 }) {
-  const { id, meta, tiktok } = Route.useSearch();
+  const { id, meta, tiktok, aba: abaUrl } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [aba, setAba] = useState("conteudos");
+  // A aba fica na URL (?aba=), então F5 e links diretos abrem a mesma aba.
+  const aba = abaUrl ?? "conteudos";
+  const setAba = (novaAba: string) =>
+    navigate({ search: (anterior) => ({ ...anterior, aba: novaAba }) });
   const [filtro, setFiltro] = useState<StatusMarketing | "todos">("todos");
 
   // Volta do login do Facebook: /admin/marketing?meta=ok|cancelado|…
@@ -194,8 +158,7 @@ function Conteudo({
     const [ok, texto] = msg[meta] ?? [false, "Conexão não concluída."];
     if (ok) toast.success(texto);
     else toast.error(texto);
-    setAba("contas");
-    navigate({ search: {}, replace: true });
+    navigate({ search: { aba: "contas" }, replace: true });
   }, [meta, navigate]);
 
   // Volta do login do TikTok: /admin/marketing?tiktok=ok|cancelado|…
@@ -210,14 +173,12 @@ function Conteudo({
     const [ok, texto] = msg[tiktok] ?? [false, "Conexão não concluída."];
     if (ok) toast.success(texto);
     else toast.error(texto);
-    setAba("contas");
-    navigate({ search: {}, replace: true });
+    navigate({ search: { aba: "contas" }, replace: true });
   }, [tiktok, navigate]);
 
   const ids = useMemo(() => new Set(data.conteudos.map((c) => c.id)), [data.conteudos]);
   const abrir = (novo: string | undefined) => {
-    navigate({ search: novo ? { id: novo } : {} });
-    if (novo) setAba("conteudos");
+    navigate({ search: novo ? { id: novo, aba: "conteudos" } : { aba: "conteudos" } });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const selecionado = id ? data.conteudos.find((c) => c.id === id) : undefined;
@@ -277,7 +238,7 @@ function Conteudo({
                     setAba("conteudos");
                     abrir(undefined);
                   }}
-                  className="rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/40"
+                  className="group rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
                 >
                   <span className={cn("inline-flex rounded-lg border p-1.5", e.classe)}>
                     <Icone className="h-4 w-4" />
@@ -290,8 +251,10 @@ function Conteudo({
           </div>
 
           <Tabs value={aba} onValueChange={setAba}>
-            <TabsList className="mb-4 flex h-auto flex-wrap justify-start gap-1">
+            <TabsList className="mb-5 flex h-auto flex-wrap justify-start gap-1 rounded-2xl border bg-card/60 p-1.5">
               <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
+              <TabsTrigger value="agenda">Agenda</TabsTrigger>
+              <TabsTrigger value="metricas">Métricas</TabsTrigger>
               <TabsTrigger value="contas">Contas</TabsTrigger>
               {data.documentos.map((d) => (
                 <TabsTrigger key={d.chave} value={d.chave}>
@@ -342,7 +305,7 @@ function Conteudo({
                           key={`${c.pasta}/${c.arquivo}`}
                           type="button"
                           onClick={() => abrir(c.id)}
-                          className="group flex overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition hover:border-primary/50 hover:shadow-md"
+                          className="group flex overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
                         >
                           <div className="w-28 shrink-0 sm:w-32">
                             <MiniaturaConteudo c={c} />
@@ -382,6 +345,14 @@ function Conteudo({
                   )}
                 </>
               )}
+            </TabsContent>
+
+            <TabsContent value="agenda">
+              <AgendaMarketing conteudos={data.conteudos} />
+            </TabsContent>
+
+            <TabsContent value="metricas">
+              <MetricasInstagram />
             </TabsContent>
 
             <TabsContent value="contas">
