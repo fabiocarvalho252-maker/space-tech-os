@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Play, Square } from "lucide-react";
+import { Play, Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ATALHOS = [
@@ -10,22 +10,29 @@ const ATALHOS = [
 
 type Props = {
   rodando: boolean;
-  onIniciar: (pedido: string) => void;
+  online: boolean | null;
+  projetos: string[];
+  onSimular: () => void;
+  onEnviar: (pedido: string, projeto: string) => void;
   onCancelar: () => void;
 };
 
-export function CommandChat({ rodando, onIniciar, onCancelar }: Props) {
+export function CommandChat({ rodando, online, projetos, onSimular, onEnviar, onCancelar }: Props) {
   const [pedido, setPedido] = useState("");
+  const [projeto, setProjeto] = useState("");
+  const projetoAtual = projeto || projetos[0] || "";
+  const podeEnviarReal = online === true && projetoAtual !== "";
 
-  const enviar = () => {
-    if (rodando || !pedido.trim()) return;
-    onIniciar(pedido.trim());
+  const enviarReal = () => {
+    if (rodando || !pedido.trim() || !podeEnviarReal) return;
+    onEnviar(pedido.trim(), projetoAtual);
   };
 
   const aoTeclar = (evento: KeyboardEvent<HTMLTextAreaElement>) => {
     if (evento.key === "Enter" && (evento.ctrlKey || evento.metaKey)) {
       evento.preventDefault();
-      enviar();
+      if (podeEnviarReal) enviarReal();
+      else if (!rodando && pedido.trim()) onSimular();
     }
   };
 
@@ -45,9 +52,28 @@ export function CommandChat({ rodando, onIniciar, onCancelar }: Props) {
           className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          Nesta fase é uma simulação: o texto ainda não é enviado a agente nenhum.
+          {online === true
+            ? "Runner online: o pedido vai para os agentes do ECC na VPS, com o seu plano Pro."
+            : "Runner offline: só a simulação está disponível."}
         </p>
       </div>
+
+      {online === true && projetos.length > 0 && (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Projeto</span>
+          <select
+            value={projetoAtual}
+            onChange={(e) => setProjeto(e.target.value)}
+            className="rounded-xl border border-border bg-background p-2 text-sm"
+          >
+            {projetos.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {ATALHOS.map((atalho) => (
@@ -62,8 +88,22 @@ export function CommandChat({ rodando, onIniciar, onCancelar }: Props) {
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <Button className="flex-1 gap-2" onClick={enviar} disabled={rodando || !pedido.trim()}>
+      <div className="flex flex-wrap gap-2">
+        {podeEnviarReal && (
+          <Button
+            className="flex-1 gap-2"
+            onClick={enviarReal}
+            disabled={rodando || !pedido.trim()}
+          >
+            <Send className="h-4 w-4" /> Enviar ao Diretor
+          </Button>
+        )}
+        <Button
+          variant={podeEnviarReal ? "outline" : "default"}
+          className="flex-1 gap-2"
+          onClick={onSimular}
+          disabled={rodando || !pedido.trim()}
+        >
           <Play className="h-4 w-4" /> Simular missão
         </Button>
         <Button variant="destructive" className="gap-2" onClick={onCancelar} disabled={!rodando}>

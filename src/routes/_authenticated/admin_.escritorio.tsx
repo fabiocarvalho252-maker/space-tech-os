@@ -15,7 +15,10 @@ import { EventFeed } from "@/features/escritorio/components/EventFeed";
 import { MissionResult } from "@/features/escritorio/components/MissionResult";
 import { OfficeCanvas } from "@/features/escritorio/components/OfficeCanvas";
 import { OfficeToolbar } from "@/features/escritorio/components/OfficeToolbar";
-import { useSimulacaoMissao } from "@/features/escritorio/hooks/useSimulacaoMissao";
+import { MissionHistory } from "@/features/escritorio/components/MissionHistory";
+import { useEscritorio } from "@/features/escritorio/hooks/useEscritorio";
+import { listarProjetos } from "@/features/escritorio/api/runner";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/admin_/escritorio")({
   head: () => ({ meta: [{ title: "Escritório IA — Administração do site" }] }),
@@ -44,8 +47,15 @@ function PaginaEscritorio() {
 }
 
 function Escritorio() {
-  const { estado, iniciar, cancelar, decidir } = useSimulacaoMissao();
+  const { estado, online, erro, iniciarSimulacao, iniciarReal, cancelar, decidir, mostrarEventos } =
+    useEscritorio();
   const rodando = estado.status === "rodando";
+  const { data: projetos } = useQuery({
+    queryKey: ["office-projects"],
+    queryFn: () => listarProjetos(),
+    enabled: online === true,
+    select: (r) => r.projetos,
+  });
 
   return (
     <div>
@@ -59,22 +69,38 @@ function Escritorio() {
         <OfficeCanvas estado={estado} />
 
         <aside className="flex flex-col gap-4">
+          {erro && (
+            <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {erro}
+            </p>
+          )}
           {estado.aprovacao && <ApprovalCard pedido={estado.aprovacao} onDecidir={decidir} />}
 
           <Card className="p-4">
-            <CommandChat rodando={rodando} onIniciar={() => iniciar()} onCancelar={cancelar} />
+            <CommandChat
+              rodando={rodando}
+              online={online}
+              projetos={projetos ?? []}
+              onSimular={iniciarSimulacao}
+              onEnviar={(pedido, projeto) => void iniciarReal(pedido, projeto, "seguro")}
+              onCancelar={cancelar}
+            />
           </Card>
 
           <Tabs defaultValue="eventos">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="eventos">Eventos</TabsTrigger>
               <TabsTrigger value="resultado">Resultado</TabsTrigger>
+              <TabsTrigger value="historico">Histórico</TabsTrigger>
             </TabsList>
             <TabsContent value="eventos">
               <EventFeed eventos={estado.eventos} />
             </TabsContent>
             <TabsContent value="resultado">
               <MissionResult texto={estado.resultado} />
+            </TabsContent>
+            <TabsContent value="historico">
+              <MissionHistory onMostrar={mostrarEventos} />
             </TabsContent>
           </Tabs>
         </aside>

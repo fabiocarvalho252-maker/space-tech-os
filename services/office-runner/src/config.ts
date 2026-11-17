@@ -5,6 +5,8 @@ const esquema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4317),
   SUPABASE_URL: z.url(),
   SUPABASE_ANON_KEY: z.string().min(20),
+  // Opcional: sem ela o runner roda só em memória (sem histórico).
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
   // Missões por dia (UTC). Cada missão consome o limite do plano Pro.
   OFFICE_MAX_MISSOES_DIA: z.coerce.number().int().min(1).max(20).default(3),
   ADMIN_EMAIL: z.email().default("admin@spacetech.app"),

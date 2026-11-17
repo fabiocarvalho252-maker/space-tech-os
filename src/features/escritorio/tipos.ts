@@ -38,6 +38,7 @@ export type EventoEscritorio = {
   ferramenta?: { nome: string; ok?: boolean } | undefined;
   aprovacao?: { id: string; ferramenta: string; resumo: string } | undefined;
   resultado?: string | undefined;
+  uso?: { entradaTokens: number; saidaTokens: number; custoUsd: number } | undefined;
 };
 
 export type StatusMissao = "ocioso" | "rodando" | "concluida" | "falhou" | "cancelada";

@@ -13,6 +13,7 @@ import { criarFila } from "./missoes/fila.ts";
 import { criarRepositorio, type Repositorio } from "./missoes/repositorio.ts";
 import { readdir } from "node:fs/promises";
 import type { EventoEscritorio } from "./tipos.ts";
+import type { Gravador } from "./persistencia/gravador.ts";
 
 export type DependenciasApp = {
   config: Config;
@@ -20,6 +21,8 @@ export type DependenciasApp = {
   consulta: Consulta;
   claudeHome: string;
   catalogo?: () => Promise<ItemCatalogo[]>;
+  // Opcional: sem gravador a missão fica só em memória.
+  gravador?: Gravador;
 };
 
 const ESQUEMA_MISSAO = z.object({
@@ -37,6 +40,20 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   await app.register(websocket);
 
   const repo: Repositorio = criarRepositorio();
+  const gravador = deps.gravador;
+  if (gravador) {
+    repo.assinar((evento) => {
+      gravador.evento(evento);
+      if (evento.tipo === "aprovacao.pedida" && evento.aprovacao) {
+        void gravador.aprovacaoPedida(evento.missaoId, {
+          id: evento.aprovacao.id,
+          agenteId: evento.agenteId,
+          ferramenta: evento.aprovacao.ferramenta,
+          resumo: evento.aprovacao.resumo,
+        });
+      }
+    });
+  }
   const fila = criarFila(config.OFFICE_MAX_CONCURRENCY);
   const tickets = criarGerenciadorTickets();
   const criadasNoDia: number[] = [];
@@ -72,7 +89,7 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   });
 
   app.post("/office-api/missions", async (request, reply) => {
-    await exigir(request);
+    const usuario = await exigir(request);
     const corpo = ESQUEMA_MISSAO.parse(request.body);
     const agora = Date.now();
     while (criadasNoDia.length && (criadasNoDia[0] ?? 0) < agora - DIA_MS) criadasNoDia.shift();
@@ -81,6 +98,16 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
     }
     criadasNoDia.push(agora);
     const missao = repo.criar(corpo.prompt, corpo.projectId, corpo.mode);
+    if (gravador) {
+      await gravador.missaoCriada({
+        id: missao.id,
+        criadoPor: usuario.id,
+        prompt: missao.prompt,
+        projeto: missao.projeto,
+        modo: missao.modo,
+        criadaEm: missao.criadaEm,
+      });
+    }
     const posicao = fila.enfileirar(() => executarMissao(missao, repo, deps.consulta, limites));
     return reply.code(202).send({ id: missao.id, status: missao.status, posicaoNaFila: posicao });
   });
@@ -106,9 +133,12 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   });
 
   app.post<{ Params: { id: string } }>("/office-api/approvals/:id", async (request, reply) => {
-    await exigir(request);
+    const usuario = await exigir(request);
     const { decision } = ESQUEMA_DECISAO.parse(request.body);
     const ok = repo.decidirAprovacao(request.params.id, decision);
+    if (ok && gravador) {
+      void gravador.aprovacaoDecidida(request.params.id, decision === "permitir" ? "permitida" : "negada", usuario.id);
+    }
     return ok ? { ok: true } : reply.code(404).send({ erro: "Aprovação não encontrada ou já respondida." });
   });
 

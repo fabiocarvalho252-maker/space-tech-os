@@ -7,6 +7,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { carregarConfig } from "./config.ts";
 import { criarApp } from "./app.ts";
 import type { VerificarToken } from "./autenticacao/admin.ts";
+import { criarGravador, type ClienteBanco } from "./persistencia/gravador.ts";
 
 const HOST = "127.0.0.1";
 
@@ -26,7 +27,16 @@ async function main(): Promise<void> {
   };
 
   const claudeHome = config.OFFICE_CLAUDE_HOME || join(homedir(), ".claude");
-  const app = await criarApp({ config, verificar, consulta: query, claudeHome });
+  // Histórico no banco só com a service role (o runner é o único que grava).
+  const gravador = config.SUPABASE_SERVICE_ROLE_KEY
+    ? criarGravador(
+        createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        }) as unknown as ClienteBanco,
+        (mensagem) => console.error(`[persistência] ${mensagem}`),
+      )
+    : undefined;
+  const app = await criarApp({ config, verificar, consulta: query, claudeHome, ...(gravador ? { gravador } : {}) });
   await app.listen({ port: config.PORT, host: HOST });
   app.log.info({ porta: config.PORT, host: HOST }, "office-runner no ar");
 }
