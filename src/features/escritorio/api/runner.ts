@@ -49,10 +49,48 @@ export const decidirAprovacaoReal = (aprovacaoId: string, decision: "permitir" |
     body: JSON.stringify({ decision }),
   });
 
-export const eventosDaMissaoReal = (missaoId: string) =>
-  chamar<{ eventos: import("../tipos.ts").EventoEscritorio[] }>(
-    `/missions/${encodeURIComponent(missaoId)}/events`,
+export const eventosDaMissaoReal = (missaoId: string, depoisDe?: string) =>
+  chamar<{ eventos: EventoEscritorio[] }>(
+    `/missions/${encodeURIComponent(missaoId)}/events${
+      depoisDe ? `?after=${encodeURIComponent(depoisDe)}` : ""
+    }`,
   );
+
+const INTERVALO_ACOMPANHAMENTO_MS = 1500;
+const TIPOS_FINAIS = new Set(["missao.concluida", "missao.falhou", "missao.cancelada"]);
+
+// Acompanha uma missão por consulta periódica (HTTP comum): não depende do WebSocket.
+// Para sozinho quando a missão termina.
+export function acompanharMissao(
+  missaoId: string,
+  onEvento: (evento: EventoEscritorio) => void,
+): () => void {
+  let ultimoId: string | undefined;
+  let parado = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const ciclo = async (): Promise<void> => {
+    timer = null;
+    if (parado) return;
+    try {
+      const { eventos } = await eventosDaMissaoReal(missaoId, ultimoId);
+      for (const evento of eventos) {
+        ultimoId = evento.id;
+        onEvento(evento);
+        if (TIPOS_FINAIS.has(evento.tipo)) parado = true;
+      }
+    } catch {
+      // Falha pontual de rede: tenta de novo no próximo ciclo.
+    }
+    if (!parado) timer = setTimeout(() => void ciclo(), INTERVALO_ACOMPANHAMENTO_MS);
+  };
+
+  void ciclo();
+  return () => {
+    parado = true;
+    if (timer) clearTimeout(timer);
+  };
+}
 
 export const cancelarMissaoReal = (missaoId: string) =>
   chamar<{ ok: boolean }>(`/missions/${encodeURIComponent(missaoId)}/cancel`, { method: "POST" });
