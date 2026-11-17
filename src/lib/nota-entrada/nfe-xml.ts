@@ -24,6 +24,8 @@ export type NotaEntrada = {
   valorTotal: number;
 };
 
+import { eanValido } from "./ean.ts";
+
 const CHAVE_NFE_TAMANHO = 44;
 const EAN_SEM_GTIN = "SEM GTIN";
 
@@ -34,11 +36,6 @@ function texto(pai: Element, tag: string): string {
 function numero(pai: Element, tag: string): number {
   const valor = Number(texto(pai, tag));
   return Number.isFinite(valor) ? valor : 0;
-}
-
-/** EAN/GTIN válido precisa ter só dígitos e 8, 12, 13 ou 14 posições. */
-export function eanValido(codigo: string): boolean {
-  return /^\d+$/.test(codigo) && [8, 12, 13, 14].includes(codigo.length);
 }
 
 function lerEan(prod: Element): string | null {
@@ -78,7 +75,8 @@ export function extrairNotaEntrada(doc: Document): NotaEntrada {
   const ide = infNFe.getElementsByTagName("ide")[0];
   const emit = infNFe.getElementsByTagName("emit")[0];
   const total = infNFe.getElementsByTagName("ICMSTot")[0];
-  if (!ide || !emit) throw new Error("NF-e incompleta: faltam os dados de identificação ou do emitente.");
+  if (!ide || !emit)
+    throw new Error("NF-e incompleta: faltam os dados de identificação ou do emitente.");
 
   const dets = Array.from(infNFe.getElementsByTagName("det"));
   if (!dets.length) throw new Error("NF-e sem itens.");

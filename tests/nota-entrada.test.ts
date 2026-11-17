@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DOMParser as XmldomParser } from "@xmldom/xmldom";
-import { extrairNotaEntrada, eanValido } from "../src/lib/nota-entrada/nfe-xml.ts";
+import { extrairNotaEntrada } from "../src/lib/nota-entrada/nfe-xml.ts";
+import { eanValido } from "../src/lib/nota-entrada/ean.ts";
 import { sugerirProduto, type ProdutoCadastrado } from "../src/lib/nota-entrada/casar-itens.ts";
 
 const CHAVE = "35241112345678000195550010000001231000001234";
@@ -130,14 +131,21 @@ test("casa pelo código do fornecedor quando não há EAN", () => {
 });
 
 test("casa pelo nome ignorando acento e caixa", () => {
-  const item = { ...extrairNotaEntrada(docDe(XML_NOTA)).itens[1], codigo: "X", descricao: "PELICULA HIDROGEL" };
+  const item = {
+    ...extrairNotaEntrada(docDe(XML_NOTA)).itens[1],
+    codigo: "X",
+    descricao: "PELICULA HIDROGEL",
+  };
   assert.equal(sugerirProduto(item, PRODUTOS)?.id, "p2");
 });
 
 test("retorna null quando o produto não está cadastrado", () => {
   const doc = docDe(XML_NOTA);
   const [tela] = extrairNotaEntrada(doc).itens;
-  assert.equal(sugerirProduto({ ...tela, ean: null, codigo: "NOVO", descricao: "Item novo" }, PRODUTOS), null);
+  assert.equal(
+    sugerirProduto({ ...tela, ean: null, codigo: "NOVO", descricao: "Item novo" }, PRODUTOS),
+    null,
+  );
 });
 
 test("monta payload com produto vinculado ou cadastrado como novo", async () => {

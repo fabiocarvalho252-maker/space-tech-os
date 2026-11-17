@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, FileUp, Loader2 } from "lucide-react";
+import { AlertTriangle, Camera, FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialVisibility } from "@/hooks/useFinancialVisibility";
@@ -9,6 +9,8 @@ import { dataHoraBR } from "@/lib/format";
 import { lerXmlNota, type NotaEntrada } from "@/lib/nota-entrada/nfe-xml";
 import { sugerirProduto, type ProdutoCadastrado } from "@/lib/nota-entrada/casar-itens";
 import { montarItensImportacao, type LinhaImportacao } from "@/lib/nota-entrada/montar-itens";
+import { imagemParaJpegBase64 } from "@/lib/nota-entrada/imagem";
+import { lerNotaFotoIA } from "@/lib/nota-entrada/nota-foto.functions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,7 +35,9 @@ type NotaSalva = {
   created_at: string;
 };
 
-type Rascunho = { nota: NotaEntrada; linhas: LinhaImportacao[] };
+type Rascunho = { nota: NotaEntrada; linhas: LinhaImportacao[]; origem: "xml" | "foto" };
+
+const MAX_FOTOS = 4;
 
 export function NotasEntradaDialog({
   open,
@@ -47,6 +51,7 @@ export function NotasEntradaDialog({
   const qc = useQueryClient();
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
+  const [lendoFoto, setLendoFoto] = useState(false);
 
   const fornecedorId = fornecedor?.id ?? "";
 
@@ -80,20 +85,40 @@ export function NotasEntradaDialog({
     },
   });
 
+  function prepararRascunho(nota: NotaEntrada, origem: Rascunho["origem"]) {
+    if (nota.chave && notas.some((n) => n.chave_acesso === nota.chave)) {
+      toast.error("Esta nota fiscal já foi importada para este fornecedor.");
+      return;
+    }
+    const linhas = nota.itens.map((item) => ({
+      item,
+      produtoId: sugerirProduto(item, produtos)?.id ?? null,
+    }));
+    setRascunho({ nota, linhas, origem });
+  }
+
   async function lerArquivo(arquivo: File) {
     try {
-      const nota = lerXmlNota(await arquivo.text());
-      if (nota.chave && notas.some((n) => n.chave_acesso === nota.chave)) {
-        toast.error("Esta nota fiscal já foi importada para este fornecedor.");
-        return;
-      }
-      const linhas = nota.itens.map((item) => ({
-        item,
-        produtoId: sugerirProduto(item, produtos)?.id ?? null,
-      }));
-      setRascunho({ nota, linhas });
+      prepararRascunho(lerXmlNota(await arquivo.text()), "xml");
     } catch (e) {
       toast.error((e as Error).message);
+    }
+  }
+
+  async function lerFotos(arquivos: File[]) {
+    if (arquivos.length > MAX_FOTOS) {
+      toast.error(`Envie no máximo ${MAX_FOTOS} fotos da mesma nota.`);
+      return;
+    }
+    setLendoFoto(true);
+    try {
+      const imagens = await Promise.all(arquivos.map(imagemParaJpegBase64));
+      const nota = await lerNotaFotoIA({ data: { imagens } });
+      prepararRascunho(nota, "foto");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLendoFoto(false);
     }
   }
 
@@ -149,7 +174,8 @@ export function NotasEntradaDialog({
         <DialogHeader>
           <DialogTitle>Notas de entrada — {fornecedor?.razao_social}</DialogTitle>
           <DialogDescription>
-            Importe o XML da NF-e de compra. Os itens entram no estoque ao confirmar.
+            Importe o XML da NF-e ou leia a nota por foto. Os itens entram no estoque só ao
+            confirmar.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,11 +199,44 @@ export function NotasEntradaDialog({
               }}
             />
 
+            <Label
+              htmlFor="foto-nota"
+              aria-disabled={lendoFoto}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+            >
+              {lendoFoto ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Lendo a nota...
+                </>
+              ) : (
+                <>
+                  <Camera className="h-4 w-4" /> Fotografar ou escanear a nota (até {MAX_FOTOS}{" "}
+                  fotos)
+                </>
+              )}
+            </Label>
+            <input
+              id="foto-nota"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              className="sr-only"
+              disabled={lendoFoto}
+              onChange={(e) => {
+                const arquivos = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (arquivos.length) lerFotos(arquivos);
+              }}
+            />
+
             <h3 className="pt-2 text-sm font-semibold">Notas já lançadas</h3>
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : !notas.length ? (
-              <p className="text-sm text-muted-foreground">Nenhuma nota importada deste fornecedor.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhuma nota importada deste fornecedor.
+              </p>
             ) : (
               <ul className="divide-y divide-border rounded-xl border border-border text-sm">
                 {notas.map((n) => (
@@ -197,16 +256,23 @@ export function NotasEntradaDialog({
         {rascunho && (
           <>
             <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm">
-              NF <strong>{rascunho.nota.numero || "—"}</strong> · série {rascunho.nota.serie || "—"} ·
-              emitente {rascunho.nota.emitente.nome} · {rascunho.linhas.length} item(ns) ·{" "}
+              NF <strong>{rascunho.nota.numero || "—"}</strong> · série {rascunho.nota.serie || "—"}{" "}
+              · emitente {rascunho.nota.emitente.nome} · {rascunho.linhas.length} item(ns) ·{" "}
               <strong>{brl(rascunho.nota.valorTotal)}</strong>
             </div>
 
-            {cnpjDiferente && (
+            {rascunho.origem === "foto" && (
               <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                O CNPJ da nota ({rascunho.nota.emitente.cnpj}) é diferente do cadastro deste fornecedor.
-                Confira antes de confirmar.
+                Lido por foto: confira cada quantidade e custo com a nota antes de confirmar.
+              </div>
+            )}
+
+            {cnpjDiferente && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />O CNPJ da nota (
+                {rascunho.nota.emitente.cnpj}) é diferente do cadastro deste fornecedor. Confira
+                antes de confirmar.
               </div>
             )}
 
