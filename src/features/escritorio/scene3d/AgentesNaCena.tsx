@@ -1,6 +1,6 @@
-// Agentes da missão dentro da cena 3D. Usa o mesmo estado do modo 2D: a posição
-// vem do setor (mesa) ou da sala de espera, e o estado vira a animação do corpo.
-import { useMemo, useRef } from "react";
+// Agentes da missão dentro da cena 3D. A posição vem do setor (mesa) ou da sala de
+// espera; o caminho contorna as mesas (navegação em grade) e o estado vira a animação.
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type * as THREE from "three";
@@ -8,6 +8,8 @@ import type { EstadoMissao } from "../estado.ts";
 import type { EstadoAgente } from "../tipos.ts";
 import { getAgentLabel } from "../rotulos.ts";
 import { animacaoDoEstado, destinosDosAgentes } from "./destinosAgentes.ts";
+import { pontoParaTresD } from "./layout3d.ts";
+import { caminhoEntre, pontoDe3d } from "./navegacao.ts";
 import { aparenciaDoAgente } from "./characters/appearance.ts";
 import { ProceduralBody } from "./characters/ProceduralBody.tsx";
 import type { Animacao } from "./characters/poses.ts";
@@ -16,26 +18,46 @@ const VELOCIDADE_ANDAR = 2.2;
 const DISTANCIA_CHEGOU = 0.05;
 const ESCALA_PERSONAGEM = 0.55;
 
+type Ponto3d = { x: number; z: number };
+
 type PropsAgente = {
   id: string;
   nome: string;
   estado: EstadoAgente;
-  destino: { x: number; z: number };
+  destino: Ponto3d;
 };
 
 function AgenteNaCena({ id, nome, estado, destino }: PropsAgente) {
   const grupo = useRef<THREE.Group>(null);
+  const fila = useRef<Ponto3d[]>([]);
   const andando = useRef(false);
   const aparencia = useMemo(() => aparenciaDoAgente(id), [id]);
 
-  useFrame((_, delta) => {
+  // Ao mudar de destino, calcula o caminho a partir de onde o agente está agora.
+  useEffect(() => {
     const g = grupo.current;
     if (!g) return;
-    const dx = destino.x - g.position.x;
-    const dz = destino.z - g.position.z;
+    const atual = pontoDe3d(g.position.x, g.position.z);
+    const alvo = pontoDe3d(destino.x, destino.z);
+    fila.current = caminhoEntre(atual, alvo).map((p) => pontoParaTresD(p));
+  }, [destino.x, destino.z]);
+
+  useFrame((_, delta) => {
+    const g = grupo.current;
+    const alvo = fila.current[0];
+    if (!g || !alvo) {
+      andando.current = false;
+      return;
+    }
+    const dx = alvo.x - g.position.x;
+    const dz = alvo.z - g.position.z;
     const distancia = Math.hypot(dx, dz);
-    andando.current = distancia > DISTANCIA_CHEGOU;
-    if (!andando.current) return;
+    if (distancia <= DISTANCIA_CHEGOU) {
+      fila.current.shift();
+      andando.current = fila.current.length > 0;
+      return;
+    }
+    andando.current = true;
     const passo = Math.min(distancia, VELOCIDADE_ANDAR * delta);
     g.position.x += (dx / distancia) * passo;
     g.position.z += (dz / distancia) * passo;
