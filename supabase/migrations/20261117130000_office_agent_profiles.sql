@@ -1,4 +1,4 @@
--- não aplicada; aguarda aprovação
+-- Aplicada no banco (verificada em 2026-11-17: tabela, RLS, políticas e grants conferem).
 --
 -- Equipe (perfis em português dos agentes e skills do ECC, editáveis pelo admin).
 --
