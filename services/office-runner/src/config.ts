@@ -8,7 +8,7 @@ const esquema = z.object({
   // Opcional: sem ela o runner roda só em memória (sem histórico).
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
   // Missões por dia (UTC). Cada missão consome o limite do plano Pro.
-  OFFICE_MAX_MISSOES_DIA: z.coerce.number().int().min(1).max(20).default(3),
+  OFFICE_MAX_MISSOES_DIA: z.coerce.number().int().min(1).max(200).default(3),
   // Lotes de sincronização da Equipe por dia (UTC). Cada lote consome o plano Pro.
   OFFICE_MAX_LOTES_SYNC_DIA: z.coerce.number().int().min(1).max(10).default(1),
   ADMIN_EMAIL: z.email().default("admin@spacetech.app"),

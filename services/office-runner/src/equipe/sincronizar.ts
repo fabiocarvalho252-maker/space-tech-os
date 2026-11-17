@@ -50,13 +50,15 @@ export type OpcoesSincronizador = {
   cota: LimiteDiario;
 };
 
-export type Sincronizador = { executar(tamanho: number): Promise<RespostaSincronia> };
+export type TipoSincronia = "agent" | "skill" | "todos";
+
+export type Sincronizador = { executar(tamanho: number, tipo?: TipoSincronia): Promise<RespostaSincronia> };
 
 export function criarSincronizador(opcoes: OpcoesSincronizador): Sincronizador {
   let emExecucao = false;
   const rejeitadosAntes = new Set<string>();
 
-  async function executar(tamanho: number): Promise<RespostaSincronia> {
+  async function executar(tamanho: number, tipo: TipoSincronia = "agent"): Promise<RespostaSincronia> {
     const repositorio = opcoes.repositorio;
     if (!repositorio) {
       return { ok: false, status: 503, erro: "A Equipe precisa do banco para sincronizar. Configure SUPABASE_SERVICE_ROLE_KEY no runner." };
@@ -65,7 +67,8 @@ export function criarSincronizador(opcoes: OpcoesSincronizador): Sincronizador {
     emExecucao = true;
     try {
       const salvos = await repositorio.listar();
-      const itens = await montarItens(await opcoes.catalogo(), opcoes.claudeHome);
+      const todos = await montarItens(await opcoes.catalogo(), opcoes.claudeHome);
+      const itens = tipo === "todos" ? todos : todos.filter((item) => item.kind === (tipo === "skill" ? "skill" : "agent"));
       const aSincronizar = selecionarPendentes(itens, salvos);
       if (aSincronizar.length === 0) {
         return { ok: true, resultado: { processados: 0, gravados: 0, rejeitados: [], restantes: 0 } };

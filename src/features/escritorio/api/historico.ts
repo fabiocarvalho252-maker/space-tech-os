@@ -8,7 +8,8 @@ export type MissaoHistorico = {
   prompt: string;
   status: string;
   created_at: string;
-  cost_usd: number;
+  input_tokens: number;
+  output_tokens: number;
   result_markdown: string | null;
 };
 
@@ -46,7 +47,7 @@ const cliente = supabase as unknown as ClienteTabelas;
 export async function listarMissoes(limite = 20): Promise<MissaoHistorico[]> {
   const { data, error } = await cliente
     .from("office_missions")
-    .select("id,prompt,status,created_at,cost_usd,result_markdown")
+    .select("id,prompt,status,created_at,input_tokens,output_tokens,result_markdown")
     .order("created_at", { ascending: false })
     .limit(limite);
   if (error) throw new Error(error.message);

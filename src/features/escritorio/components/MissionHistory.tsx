@@ -1,3 +1,4 @@
+import { formatarTokens } from "../formatarTokens.ts";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, History, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -70,7 +71,7 @@ export function MissionHistory({ onMostrar }: Props) {
           <p className="mt-1 line-clamp-2">{m.prompt}</p>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              US$ {Number(m.cost_usd).toFixed(2)}
+              {formatarTokens(m.input_tokens + m.output_tokens)} tokens
             </span>
             <Button size="sm" variant="outline" className="gap-2" onClick={() => void abrir(m.id)}>
               <History className="h-4 w-4" /> Reproduzir

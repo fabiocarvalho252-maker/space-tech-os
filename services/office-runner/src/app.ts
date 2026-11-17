@@ -19,7 +19,7 @@ import type { RepositorioEquipe } from "./equipe/repositorio.ts";
 import { criarSincronizador } from "./equipe/sincronizar.ts";
 import { registrarRotaSincronizar } from "./equipe/rotaSincronizar.ts";
 import { criarLimiteDiario } from "./equipe/cotaDiaria.ts";
-import { gerarComClaude } from "./equipe/claudeCli.ts";
+import { gerarComSdk } from "./equipe/gerarSdk.ts";
 
 export type DependenciasApp = {
   config: Config;
@@ -84,7 +84,7 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
     claudeHome: deps.claudeHome,
     catalogo: lerCatalogo,
     repositorio: deps.equipe,
-    gerar: (prompt) => gerarComClaude(prompt),
+    gerar: (prompt) => gerarComSdk(prompt),
     cota: criarLimiteDiario(config.OFFICE_MAX_LOTES_SYNC_DIA),
   });
   registrarRotaSincronizar(app, exigir, sincronizador);
