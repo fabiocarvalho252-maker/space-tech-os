@@ -16,10 +16,10 @@ async function tokenDaSessao(): Promise<string> {
 
 async function chamar<T>(caminho: string, init: RequestInit = {}): Promise<T> {
   const token = await tokenDaSessao();
-  const r = await fetch(`${BASE}${caminho}`, {
-    ...init,
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-  });
+  // content-type só quando há corpo: o runner recusa JSON declarado sem corpo.
+  const cabecalhos: Record<string, string> = { authorization: `Bearer ${token}` };
+  if (init.body !== undefined) cabecalhos["content-type"] = "application/json";
+  const r = await fetch(`${BASE}${caminho}`, { ...init, headers: cabecalhos });
   const corpo = (await r.json().catch(() => ({}))) as { erro?: string };
   if (!r.ok) throw new Error(corpo.erro ?? `Erro ${r.status} no runner.`);
   return corpo as T;
