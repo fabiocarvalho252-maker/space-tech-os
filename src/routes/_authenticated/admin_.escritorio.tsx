@@ -104,7 +104,7 @@ function Escritorio() {
           {visao3d ? (
             <ClientOnly fallback={<CarregandoEscritorio />}>
               <Suspense fallback={<CarregandoEscritorio />}>
-                <OfficeScene3D qualidade="alta" />
+                <OfficeScene3D qualidade="alta" estado={estado} />
               </Suspense>
             </ClientOnly>
           ) : (

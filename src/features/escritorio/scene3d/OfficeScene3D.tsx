@@ -37,8 +37,12 @@ const CAMERA_INICIAL = posicaoInicialCamera();
 
 type ControlesOrbitais = ComponentRef<typeof OrbitControls>;
 
+import type { EstadoMissao } from "../estado.ts";
+import { AgentesNaCena } from "./AgentesNaCena.tsx";
+
 export type OfficeScene3DProps = {
   qualidade?: Qualidade;
+  estado?: EstadoMissao;
 };
 
 export function CarregandoEscritorio() {
@@ -52,7 +56,7 @@ export function CarregandoEscritorio() {
 }
 
 // Cena 3D do escritório. Deve ser montada só no client (ver ClientOnly).
-export default function OfficeScene3D({ qualidade = "alta" }: OfficeScene3DProps) {
+export default function OfficeScene3D({ qualidade = "alta", estado }: OfficeScene3DProps) {
   const controles = useRef<ControlesOrbitais | null>(null);
   const ajustes = useMemo(() => quality(qualidade, larguraDaTela()), [qualidade]);
 
@@ -82,6 +86,7 @@ export default function OfficeScene3D({ qualidade = "alta" }: OfficeScene3DProps
           <Floor />
           <Setores />
           <NeonStrips />
+          {estado ? <AgentesNaCena estado={estado} /> : null}
           <OrbitControls
             ref={controles}
             makeDefault
