@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { perguntarMetricasInstagram } from "@/lib/marketing/ig-metricas.functions";
 import { TAMANHO_PERGUNTA_MAX } from "@/lib/marketing/ig-metricas.calc";
+import { Markdown } from "@/components/marketing/Markdown";
 
 const SUGESTOES = [
   "Qual post teve mais alcance?",
@@ -90,11 +91,8 @@ export function PergunteClaude({ disponivel }: { disponivel: boolean }) {
       </form>
 
       {resposta && (
-        <div
-          className="whitespace-pre-line rounded-xl border bg-primary/5 p-4 text-sm leading-relaxed"
-          aria-live="polite"
-        >
-          {resposta}
+        <div className="rounded-xl border bg-primary/5 p-4" aria-live="polite">
+          <Markdown texto={resposta} manterQuebras={false} />
         </div>
       )}
     </section>
