@@ -10,6 +10,7 @@ import {
   Pencil,
   PackageSearch,
   History,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ConsultarPecasDialog } from "@/components/fornecedores/ConsultarPecasDialog";
 import { HistoricoConsultasDialog } from "@/components/fornecedores/HistoricoConsultasDialog";
+import { NotasEntradaDialog } from "@/components/fornecedores/NotasEntradaDialog";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +76,7 @@ function Fornecedores() {
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [consultarOpen, setConsultarOpen] = useState(false);
   const [historicoOpen, setHistoricoOpen] = useState(false);
+  const [notasDe, setNotasDe] = useState<(typeof fornecedores)[number] | null>(null);
 
   const { data: fornecedores = [] } = useQuery({
     queryKey: ["fornecedores"],
@@ -364,6 +367,13 @@ function Fornecedores() {
         }}
       />
       <HistoricoConsultasDialog open={historicoOpen} onOpenChange={setHistoricoOpen} />
+      <NotasEntradaDialog
+        open={!!notasDe}
+        onOpenChange={(v) => {
+          if (!v) setNotasDe(null);
+        }}
+        fornecedor={notasDe}
+      />
 
       <div className="relative mb-4 max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -400,6 +410,14 @@ function Fornecedores() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => setNotasDe(f)}
+                        className="text-muted-foreground transition hover:text-primary"
+                        aria-label="Notas de entrada"
+                        title="Notas de entrada"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => abrirEdicao(f)}
                         className="text-muted-foreground transition hover:text-primary"

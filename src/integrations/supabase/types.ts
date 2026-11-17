@@ -991,6 +991,10 @@ export type Database = {
       };
       compras: {
         Row: {
+          chave_acesso: string | null;
+          data_emissao: string | null;
+          numero_nota: string | null;
+          serie_nota: string | null;
           created_at: string;
           faturado_em: string | null;
           forma_pagamento: string | null;
@@ -1004,6 +1008,10 @@ export type Database = {
           valor_total: number;
         };
         Insert: {
+          chave_acesso?: string | null;
+          data_emissao?: string | null;
+          numero_nota?: string | null;
+          serie_nota?: string | null;
           created_at?: string;
           faturado_em?: string | null;
           forma_pagamento?: string | null;
@@ -1017,6 +1025,10 @@ export type Database = {
           valor_total?: number;
         };
         Update: {
+          chave_acesso?: string | null;
+          data_emissao?: string | null;
+          numero_nota?: string | null;
+          serie_nota?: string | null;
           created_at?: string;
           faturado_em?: string | null;
           forma_pagamento?: string | null;
@@ -5500,6 +5512,17 @@ export type Database = {
       receber_compra: {
         Args: { p_compra_id: string; p_status?: string };
         Returns: undefined;
+      };
+      importar_nota_compra: {
+        Args: {
+          p_chave_acesso: string | null;
+          p_data_emissao: string | null;
+          p_fornecedor_id: string;
+          p_itens: Json;
+          p_numero_nota: string | null;
+          p_serie_nota: string | null;
+        };
+        Returns: string;
       };
       receber_parcela_faturamento: {
         Args: {
