@@ -91,7 +91,7 @@ function Escritorio() {
       />
 
       <div className="grid gap-5 lg:grid-cols-[1.9fr_1fr]">
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="flex justify-end">
             <Button
               variant="outline"

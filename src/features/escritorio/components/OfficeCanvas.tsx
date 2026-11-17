@@ -67,7 +67,7 @@ export function OfficeCanvas({ estado, onSelecionarAgente }: Props) {
       ref={areaRef}
       role="img"
       aria-label="Escritório com os agentes trabalhando na missão"
-      className="aspect-video w-full overflow-hidden lg:aspect-[3/2] rounded-3xl border border-primary/20 bg-black shadow-lg shadow-primary/10 [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:[image-rendering:pixelated]"
+      className="relative aspect-video w-full min-w-0 overflow-hidden lg:aspect-[3/2] rounded-3xl border border-primary/20 bg-black shadow-lg shadow-primary/10 [&_canvas]:!absolute [&_canvas]:!inset-0 [&_canvas]:!h-full [&_canvas]:!w-full [&_canvas]:[image-rendering:pixelated]"
     />
   );
 }
