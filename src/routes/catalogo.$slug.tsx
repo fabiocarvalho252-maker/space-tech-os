@@ -51,6 +51,8 @@ function CatalogoPublico() {
   const [categoria, setCategoria] = useState<string>("todas");
   const [carrinho, setCarrinho] = useState<Record<string, number>>({});
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
+  const [aba, setAba] = useState<"produtos" | "encomenda">("produtos");
+  const [encomenda, setEncomenda] = useState({ produto: "", marca: "", qtd: "1", obs: "", nome: "" });
 
   const { data: vitrine, isLoading, error } = useQuery({
     queryKey: ["catalogo-publico", slug],
@@ -166,6 +168,101 @@ function CatalogoPublico() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-32 pt-6">
+        <div className="mb-5 flex gap-2">
+          {(["produtos", "encomenda"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setAba(t)}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                aba === t
+                  ? "border-violet-600 bg-violet-600 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-violet-300"
+              }`}
+            >
+              {t === "produtos" ? "Produtos" : "Sob encomenda"}
+            </button>
+          ))}
+        </div>
+
+        {aba === "encomenda" && (
+          <section className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold">Peça o que não está no estoque</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Preencha o que você procura. O pedido é enviado para a loja pelo WhatsApp.
+            </p>
+            <div className="mt-5 space-y-3">
+              <div>
+                <label className="text-sm font-medium">Produto *</label>
+                <Input
+                  className="mt-1 bg-white"
+                  placeholder="Ex.: cabo USB-C 2 m, película para moto"
+                  value={encomenda.produto}
+                  onChange={(e) => setEncomenda({ ...encomenda, produto: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Marca / modelo</label>
+                  <Input
+                    className="mt-1 bg-white"
+                    placeholder="Opcional"
+                    value={encomenda.marca}
+                    onChange={(e) => setEncomenda({ ...encomenda, marca: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Qtd.</label>
+                  <Input
+                    className="mt-1 bg-white"
+                    type="number"
+                    min={1}
+                    value={encomenda.qtd}
+                    onChange={(e) => setEncomenda({ ...encomenda, qtd: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Observações</label>
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                  placeholder="Cor, versão, urgência..."
+                  value={encomenda.obs}
+                  onChange={(e) => setEncomenda({ ...encomenda, obs: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Seu nome</label>
+                <Input
+                  className="mt-1 bg-white"
+                  placeholder="Opcional"
+                  value={encomenda.nome}
+                  onChange={(e) => setEncomenda({ ...encomenda, nome: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button
+              className="mt-5 w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              disabled={!encomenda.produto.trim() || !whats}
+              onClick={() => {
+                const linhas = [
+                  vitrine.mensagem_inicial || "Olá, gostaria de fazer um pedido sob encomenda:",
+                  "",
+                  `• ${Math.max(1, Number(encomenda.qtd) || 1)}x ${encomenda.produto.trim()}${encomenda.marca.trim() ? ` (${encomenda.marca.trim()})` : ""}`,
+                ];
+                if (encomenda.obs.trim()) linhas.push(`Observações: ${encomenda.obs.trim()}`);
+                if (encomenda.nome.trim()) linhas.push(`Nome: ${encomenda.nome.trim()}`);
+                window.open(linkWhats(linhas.join("\n")), "_blank");
+              }}
+            >
+              <MessageCircle className="h-4 w-4" /> Enviar pelo WhatsApp
+            </Button>
+            {!whats && (
+              <p className="mt-2 text-center text-xs text-slate-500">Esta loja ainda não informou um WhatsApp.</p>
+            )}
+          </section>
+        )}
+
+        {aba === "produtos" && (<>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -262,6 +359,7 @@ function CatalogoPublico() {
             })}
           </ul>
         )}
+        </>)}
       </main>
 
       {totalQtd > 0 && !carrinhoAberto && (
