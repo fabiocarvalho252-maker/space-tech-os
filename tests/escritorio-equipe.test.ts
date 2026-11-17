@@ -66,7 +66,7 @@ test("nome com mais de 24 caracteres é recusado", () => {
   }
 });
 
-test("nome vazio é vazio em validarNomeUnico", () => {
+test("nome vazio é recusado em validarNomeUnico", () => {
   assert.equal(validarNomeUnico("   ", []), "Dê um nome para o agente.");
 });
 

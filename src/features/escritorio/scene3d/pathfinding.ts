@@ -12,7 +12,6 @@ export type Grade = {
 type ItemFila = { indice: number; prioridade: number };
 
 type FilaDePrioridade = {
-  vazia: () => boolean;
   inserir: (indice: number, prioridade: number) => void;
   remover: () => ItemFila | undefined;
 };
@@ -28,16 +27,9 @@ const CUSTO_DIAGONAL = Math.SQRT2;
 const FATOR_LIMITE_ITERACOES = 4;
 const SEM_ANTERIOR = -1;
 
-const DIRECOES: ReadonlyArray<Celula> = [
-  { x: 1, z: 0 },
-  { x: -1, z: 0 },
-  { x: 0, z: 1 },
-  { x: 0, z: -1 },
-  { x: 1, z: 1 },
-  { x: 1, z: -1 },
-  { x: -1, z: 1 },
-  { x: -1, z: -1 },
-];
+const DIRECOES: ReadonlyArray<Celula> = [-1, 0, 1]
+  .flatMap((x) => [-1, 0, 1].map((z) => ({ x, z })))
+  .filter((direcao) => direcao.x !== 0 || direcao.z !== 0);
 
 /** Encontra o caminho entre duas células, incluindo origem e destino, ou null se não há rota. */
 export function encontrarCaminho(grade: Grade, origem: Celula, destino: Celula): Celula[] | null {
@@ -82,15 +74,12 @@ function buscarAEstrela(grade: Grade, origem: Celula, destino: Celula): Celula[]
     const item = estado.fila.remover();
     if (!item) return null;
     if (item.indice === fim) return reconstruirCaminho(grade, estado.anteriores, fim);
-    if (item.prioridade > custoEstimado(grade, estado, item.indice, destino)) continue;
+    const custoAtual = estado.custos[item.indice] ?? Infinity;
+    const estimativa = custoAtual + heuristicaOctile(celulaDoIndice(grade, item.indice), destino);
+    if (item.prioridade > estimativa) continue; // entrada obsoleta do heap
     expandirVizinhos(grade, item.indice, destino, estado);
   }
   return null;
-}
-
-function custoEstimado(grade: Grade, estado: EstadoBusca, indice: number, destino: Celula): number {
-  const custo = estado.custos[indice] ?? Infinity;
-  return custo + heuristicaOctile(celulaDoIndice(grade, indice), destino);
 }
 
 function expandirVizinhos(grade: Grade, atual: number, destino: Celula, estado: EstadoBusca): void {
@@ -170,23 +159,12 @@ function celulaLivre(grade: Grade, x: number, z: number): boolean {
 }
 
 function dentroDaGrade(grade: Grade, x: number, z: number): boolean {
-  return (
-    Number.isInteger(x) &&
-    Number.isInteger(z) &&
-    x >= 0 &&
-    z >= 0 &&
-    x < grade.largura &&
-    z < grade.altura
-  );
+  const naFaixa = x >= 0 && z >= 0 && x < grade.largura && z < grade.altura;
+  return naFaixa && Number.isInteger(x) && Number.isInteger(z);
 }
 
 function gradeValida(grade: Grade): boolean {
-  return (
-    Number.isInteger(grade.largura) &&
-    Number.isInteger(grade.altura) &&
-    grade.largura > 0 &&
-    grade.altura > 0
-  );
+  return [grade.largura, grade.altura].every((lado) => Number.isInteger(lado) && lado > 0);
 }
 
 /** Heurística octile: admissível e consistente para movimento de 8 direções. */
@@ -237,7 +215,6 @@ function criarFilaDePrioridade(): FilaDePrioridade {
   }
 
   return {
-    vazia: () => itens.length === 0,
     inserir(indice, prioridade) {
       itens.push({ indice, prioridade });
       subir(itens.length - 1);
