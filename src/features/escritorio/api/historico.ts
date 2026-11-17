@@ -13,12 +13,13 @@ export type MissaoHistorico = {
 };
 
 type Resposta<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
-type ConsultaBanco = {
+type ConsultaMissoes = {
   select(colunas: string): {
-    order(
-      coluna: string,
-      opcoes: { ascending: boolean },
-    ): { limit(n: number): Resposta<unknown>; eq?: never } & Resposta<unknown>;
+    order(coluna: string, opcoes: { ascending: boolean }): { limit(n: number): Resposta<unknown> };
+  };
+};
+type ConsultaEventos = {
+  select(colunas: string): {
     eq(
       coluna: string,
       valor: string,
@@ -26,12 +27,21 @@ type ConsultaBanco = {
       order(
         coluna: string,
         opcoes: { ascending: boolean },
-      ): { limit(n: number): Resposta<unknown> };
+      ): {
+        order(
+          coluna: string,
+          opcoes: { ascending: boolean },
+        ): { range(de: number, ate: number): Resposta<unknown> };
+      };
     };
   };
 };
 
-const cliente = supabase as unknown as { from(tabela: string): ConsultaBanco };
+type ClienteTabelas = {
+  from(tabela: "office_missions"): ConsultaMissoes;
+  from(tabela: "office_events"): ConsultaEventos;
+};
+const cliente = supabase as unknown as ClienteTabelas;
 
 export async function listarMissoes(limite = 20): Promise<MissaoHistorico[]> {
   const { data, error } = await cliente
@@ -71,14 +81,23 @@ export function linhaParaEvento(l: LinhaEvento): EventoEscritorio {
   };
 }
 
-export const LIMITE_EVENTOS_REPLAY = 5000;
+// O PostgREST corta em 1000 linhas por padrão: a leitura pagina até acabar.
+export const TAMANHO_PAGINA_EVENTOS = 1000;
 
 export async function carregarEventos(missaoId: string): Promise<EventoEscritorio[]> {
-  const consulta = cliente.from("office_events").select("*").eq("mission_id", missaoId);
-  // Limite explícito: o PostgREST corta em 1000 linhas por padrão e a reprodução ficaria truncada.
-  const { data, error } = await consulta
-    .order("ts", { ascending: true })
-    .limit(LIMITE_EVENTOS_REPLAY);
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as LinhaEvento[]).map(linhaParaEvento);
+  const todas: LinhaEvento[] = [];
+  for (let de = 0; ; de += TAMANHO_PAGINA_EVENTOS) {
+    const { data, error } = await cliente
+      .from("office_events")
+      .select("*")
+      .eq("mission_id", missaoId)
+      .order("ts", { ascending: true })
+      .order("id", { ascending: true })
+      .range(de, de + TAMANHO_PAGINA_EVENTOS - 1);
+    if (error) throw new Error(error.message);
+    const pagina = (data ?? []) as LinhaEvento[];
+    todas.push(...pagina);
+    if (pagina.length < TAMANHO_PAGINA_EVENTOS) break;
+  }
+  return todas.map(linhaParaEvento);
 }

@@ -145,6 +145,8 @@ async function pedirAprovacao(
     aprovacao: { id: aprovacaoId, ferramenta, resumo: resumirEntrada(entrada) },
   });
   const decisao = await repo.aguardarAprovacao(aprovacaoId, missao.id, timeoutMs);
+  // Missão parada: o evento de cancelamento já foi emitido; não emite resposta depois dele.
+  if (missao.controlador.signal.aborted) return { behavior: "deny", message: "Missão parada." };
   const { texto, status } = rotuloDaDecisao(decisao);
   emitir({
     id: repo.proximoId(),
