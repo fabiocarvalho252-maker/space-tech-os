@@ -21,6 +21,41 @@ const entradaSchema = z.object({
     .max(MAX_IMAGENS),
 });
 
+// A IA gratuita fica sobrecarregada (503/timeout) com frequência: tenta de novo
+// antes de desistir. Erros de plano, créditos e limite não são repetidos.
+const TENTATIVAS = 3;
+const ESPERA_ENTRE_TENTATIVAS_MS = [2000, 5000];
+const ERROS_NAO_REPETIVEIS = /plano|limite|cr[eé]dito|muitas consultas|sessão expirada/i;
+
+const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function consultarComNovasTentativas(
+  context: Parameters<typeof consultarIA>[0],
+  imagens: z.infer<typeof entradaSchema>["imagens"],
+): Promise<string> {
+  let ultimoErro: unknown;
+  for (let tentativa = 0; tentativa < TENTATIVAS; tentativa++) {
+    try {
+      const { texto } = await consultarIA(context, {
+        systemPrompt: PROMPT_NOTA_FOTO,
+        texto: "Leia a nota de compra nas imagens e responda apenas com o JSON.",
+        imagens,
+        pesquisar: false,
+        // Preço e quantidade errados entram no estoque: prefere o modelo mais preciso.
+        preferirPago: true,
+      });
+      return texto;
+    } catch (e) {
+      ultimoErro = e;
+      const mensagem = e instanceof Error ? e.message : String(e);
+      if (ERROS_NAO_REPETIVEIS.test(mensagem)) throw e;
+      console.error(`[nota-foto] tentativa ${tentativa + 1} falhou:`, mensagem);
+      if (tentativa < TENTATIVAS - 1) await esperar(ESPERA_ENTRE_TENTATIVAS_MS[tentativa]!);
+    }
+  }
+  throw ultimoErro;
+}
+
 const MENSAGEM_LEITURA =
   "Não consegui ler os produtos desta imagem. Tente uma foto mais nítida, com a nota inteira.";
 
@@ -30,14 +65,7 @@ export const lerNotaFotoIA = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => entradaSchema.parse(data))
   .handler(async ({ data, context }): Promise<NotaEntrada> => {
-    const { texto } = await consultarIA(context, {
-      systemPrompt: PROMPT_NOTA_FOTO,
-      texto: "Leia a nota de compra nas imagens e responda apenas com o JSON.",
-      imagens: data.imagens,
-      pesquisar: false,
-      // Preço e quantidade errados entram no estoque: prefere o modelo mais preciso.
-      preferirPago: true,
-    });
+    const texto = await consultarComNovasTentativas(context, data.imagens);
 
     try {
       return normalizarNotaFoto(extrairJson(texto));

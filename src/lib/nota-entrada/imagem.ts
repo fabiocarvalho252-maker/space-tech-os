@@ -17,11 +17,22 @@ function lerBlobComoBase64(blob: Blob): Promise<string> {
   });
 }
 
+// Fotos de iPhone podem vir em HEIC, que muitos navegadores não decodificam.
+async function abrirImagem(arquivo: File): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(arquivo);
+  } catch {
+    throw new Error(
+      "Não consegui abrir esta foto. Tire a foto de novo, ou no iPhone ajuste a câmera para 'Mais compatível' (JPEG).",
+    );
+  }
+}
+
 export async function imagemParaJpegBase64(arquivo: File): Promise<ImagemBase64> {
   if (!arquivo.type.startsWith("image/")) {
     throw new Error("Envie uma foto ou imagem da nota (PDF não é aceito nesta leitura).");
   }
-  const bitmap = await createImageBitmap(arquivo);
+  const bitmap = await abrirImagem(arquivo);
   try {
     const escala = Math.min(1, LADO_MAXIMO_PX / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
