@@ -118,6 +118,14 @@ function PaginaMarketing() {
   return <Conteudo data={data} onAtualizar={() => refetch()} atualizando={isFetching} />;
 }
 
+// Faixa lateral de cada carta, na mesma cor do selo de status.
+const ACENTO_STATUS: Record<StatusMarketing, string> = {
+  "AGUARDANDO APROVAÇÃO": "bg-amber-500",
+  APROVADO: "bg-emerald-500",
+  PUBLICADO: "bg-sky-500",
+  RASCUNHO: "bg-zinc-500",
+};
+
 const FILTROS: { valor: StatusMarketing | "todos"; rotulo: string }[] = [
   { valor: "todos", rotulo: "Todos" },
   { valor: "AGUARDANDO APROVAÇÃO", rotulo: "Aguardando aprovação" },
@@ -271,22 +279,36 @@ function Conteudo({
                 />
               ) : (
                 <>
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {FILTROS.map((f) => (
-                      <button
-                        key={f.valor}
-                        type="button"
-                        onClick={() => setFiltro(f.valor)}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-sm",
-                          filtro === f.valor
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {f.rotulo}
-                      </button>
-                    ))}
+                  <div className="mb-5 flex flex-wrap items-center gap-2">
+                    {FILTROS.map((f) => {
+                      const quantidade =
+                        f.valor === "todos" ? data.conteudos.length : contagem(f.valor);
+                      const ativo = filtro === f.valor;
+                      return (
+                        <button
+                          key={f.valor}
+                          type="button"
+                          onClick={() => setFiltro(f.valor)}
+                          aria-pressed={ativo}
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200",
+                            ativo
+                              ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                              : "border-border bg-card text-muted-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground",
+                          )}
+                        >
+                          {f.rotulo}
+                          <span
+                            className={cn(
+                              "rounded-full px-1.5 text-xs font-bold tabular-nums",
+                              ativo ? "bg-white/20" : "bg-muted",
+                            )}
+                          >
+                            {quantidade}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                   {lista.length === 0 ? (
                     <EmptyState
@@ -301,14 +323,21 @@ function Conteudo({
                           key={`${c.pasta}/${c.arquivo}`}
                           type="button"
                           onClick={() => abrir(c.id)}
-                          className="group flex overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+                          className="group relative flex overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          <div className="w-28 shrink-0 sm:w-32">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "absolute inset-y-0 left-0 w-1 transition-all duration-300 group-hover:w-1.5",
+                              ACENTO_STATUS[c.status ?? "RASCUNHO"],
+                            )}
+                          />
+                          <div className="w-28 shrink-0 sm:w-36">
                             <MiniaturaConteudo c={c} />
                           </div>
-                          <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
+                          <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-primary">
+                              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-extrabold tracking-wide text-primary">
                                 {c.id}
                               </span>
                               <SeloStatus status={c.status} />
@@ -323,15 +352,15 @@ function Conteudo({
                                 </span>
                               )}
                             </div>
-                            <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary">
+                            <p className="line-clamp-2 text-base font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
                               {c.titulo}
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {c.plataforma}
                             </p>
                             {c.dataSugerida && (
-                              <p className="mt-auto flex items-center gap-1 text-xs text-muted-foreground">
-                                <CalendarDays className="h-3 w-3" /> {c.dataSugerida}
+                              <p className="mt-auto flex items-center gap-1.5 border-t border-border/60 pt-2 text-xs font-medium text-muted-foreground">
+                                <CalendarDays className="h-3.5 w-3.5" /> {c.dataSugerida}
                               </p>
                             )}
                           </div>
