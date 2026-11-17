@@ -67,7 +67,7 @@ export function linhaParaEvento(l: LinhaEvento): EventoEscritorio {
 
 export async function carregarEventos(missaoId: string): Promise<EventoEscritorio[]> {
   const consulta = cliente.from("office_events").select("*").eq("mission_id", missaoId);
-  const { data, error } = await consulta.order("id", { ascending: true });
+  const { data, error } = await consulta.order("ts", { ascending: true });
   if (error) throw new Error(error.message);
   return ((data ?? []) as LinhaEvento[]).map(linhaParaEvento);
 }

@@ -1,0 +1,33 @@
+[Unit]
+Description=SPACE TECH office-runner (backend do Escritório IA)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=office
+Group=office
+WorkingDirectory=/srv/office/runner
+EnvironmentFile=/etc/office-runner.env
+Environment=HOME=/srv/office/home
+# Ajuste o caminho se "which node" for outro (ex.: /usr/local/bin/node ou nvm).
+# Node 22.18+ executa .ts nativamente (type stripping).
+ExecStart=/usr/bin/node src/index.ts
+Restart=on-failure
+RestartSec=5
+
+# Endurecimento do processo
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/office
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+# Limites de recursos
+MemoryMax=1500M
+TasksMax=200
+
+[Install]
+WantedBy=multi-user.target

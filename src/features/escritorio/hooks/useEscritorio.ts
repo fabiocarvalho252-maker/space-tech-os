@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ESTADO_INICIAL, aplicarEvento, aplicarEventos, type EstadoMissao } from "../estado.ts";
 import {
   abrirFluxo,
+  eventosDaMissaoReal,
   cancelarMissaoReal,
   criarMissaoReal,
   decidirAprovacaoReal,
@@ -50,6 +51,12 @@ export function useEscritorio() {
       try {
         const missao = await criarMissaoReal(prompt, projeto, modo);
         missaoRealRef.current = missao.id;
+        // Eventos emitidos antes da resposta 202 foram descartados pelo filtro:
+        // o replay da missão os traz de volta (o reducer não duplica por id).
+        const { eventos } = await eventosDaMissaoReal(missao.id);
+        setEstado((atual) =>
+          aplicarEventos(atual.missaoId === missao.id ? atual : ESTADO_INICIAL, eventos),
+        );
         fluxoRef.current ??= abrirFluxo((evento) => {
           // Só a missão atual: o fluxo entrega o histórico de todas.
           if (evento.missaoId === missaoRealRef.current) receber(evento);
