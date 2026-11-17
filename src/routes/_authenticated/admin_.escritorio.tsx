@@ -6,6 +6,7 @@ import { ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { SITE_ADMIN_EMAIL } from "@/lib/site-admin";
@@ -16,6 +17,12 @@ import { MissionResult } from "@/features/escritorio/components/MissionResult";
 import { OfficeCanvas } from "@/features/escritorio/components/OfficeCanvas";
 import { AgentInspector } from "@/features/escritorio/components/AgentInspector";
 import { ReplayControles } from "@/features/escritorio/components/ReplayControles";
+import { ClientOnly } from "@/features/escritorio/scene3d/ClientOnly";
+import { CarregandoEscritorio } from "@/features/escritorio/scene3d/OfficeScene3D";
+import { lazy, Suspense } from "react";
+
+// Cena 3D carregada só no navegador (o TanStack Start renderiza no servidor antes).
+const OfficeScene3D = lazy(() => import("@/features/escritorio/scene3d/OfficeScene3D"));
 import { OfficeToolbar } from "@/features/escritorio/components/OfficeToolbar";
 import { MissionHistory } from "@/features/escritorio/components/MissionHistory";
 import { useEscritorio } from "@/features/escritorio/hooks/useEscritorio";
@@ -65,6 +72,8 @@ function Escritorio() {
   } = useEscritorio();
   const rodando = estado.status === "rodando";
   const [agenteSelecionado, setAgenteSelecionado] = useState<string | null>(null);
+  // Visão 3D é uma prévia opcional; a 2D continua padrão até aprovação.
+  const [visao3d, setVisao3d] = useState(false);
   const { data: projetos } = useQuery({
     queryKey: ["office-projects"],
     queryFn: () => listarProjetos(),
@@ -82,7 +91,25 @@ function Escritorio() {
 
       <div className="grid gap-5 lg:grid-cols-[1.9fr_1fr]">
         <div className="flex flex-col gap-3">
-          <OfficeCanvas estado={estado} onSelecionarAgente={setAgenteSelecionado} />
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisao3d((v) => !v)}
+              aria-pressed={visao3d}
+            >
+              {visao3d ? "Voltar para 2D" : "Prévia 3D"}
+            </Button>
+          </div>
+          {visao3d ? (
+            <ClientOnly fallback={<CarregandoEscritorio />}>
+              <Suspense fallback={<CarregandoEscritorio />}>
+                <OfficeScene3D qualidade="alta" />
+              </Suspense>
+            </ClientOnly>
+          ) : (
+            <OfficeCanvas estado={estado} onSelecionarAgente={setAgenteSelecionado} />
+          )}
           {temReplay && (
             <ReplayControles
               tocando={replay.tocando}
