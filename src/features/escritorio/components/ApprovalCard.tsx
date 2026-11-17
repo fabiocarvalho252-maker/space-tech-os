@@ -1,3 +1,4 @@
+import { getAgentLabel } from "../rotulos.ts";
 import { ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DecisaoAprovacao } from "../simulador.ts";
@@ -24,7 +25,9 @@ export function ApprovalCard({ pedido, onDecidir }: Props) {
           <p className="mt-1 break-words font-mono text-xs text-muted-foreground">
             {pedido.resumo}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Pedido por {pedido.agenteId}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pedido por {getAgentLabel(pedido.agenteId)}
+          </p>
         </div>
       </div>
       <div className="mt-4 flex gap-2">

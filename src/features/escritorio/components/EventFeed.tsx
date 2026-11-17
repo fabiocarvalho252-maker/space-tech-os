@@ -1,3 +1,4 @@
+import { getAgentLabel } from "../rotulos.ts";
 import { Radio } from "lucide-react";
 import type { EventoEscritorio } from "../tipos.ts";
 
@@ -45,7 +46,9 @@ export function EventFeed({ eventos }: { eventos: EventoEscritorio[] }) {
       {eventos.map((e) => (
         <li key={e.id} className="rounded-xl border border-border bg-card/60 p-3 text-sm">
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span className="font-mono font-semibold text-primary">{e.agenteId}</span>
+            <span className="font-mono font-semibold text-primary">
+              {getAgentLabel(e.agenteId)}
+            </span>
             <time dateTime={e.ts}>{horario(e.ts)}</time>
           </div>
           <p className="mt-1 font-medium">{ROTULO_TIPO[e.tipo]}</p>

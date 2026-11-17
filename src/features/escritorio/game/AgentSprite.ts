@@ -1,3 +1,4 @@
+import { getAgentLabel } from "../rotulos.ts";
 // Personagem pixel de um agente: corpo, cabeça, crachá, balão de texto e ícone
 // de estado. Desenhado com retângulos (sem assets). A aparência vem do nome,
 // então cada agente tem sempre a mesma cor.
@@ -51,7 +52,7 @@ export class AgentSprite {
     this.corpo = cena.add.rectangle(0, 8, 8 * ESCALA_PIXEL, 9 * ESCALA_PIXEL, cor);
     this.cabeca = cena.add.rectangle(0, -10, 6 * ESCALA_PIXEL, 6 * ESCALA_PIXEL, 0xfde68a);
     this.crachá = cena.add
-      .text(0, -40, rotuloCurto(nome), {
+      .text(0, -40, rotuloCurto(getAgentLabel(nome)), {
         fontFamily: "monospace",
         fontSize: "12px",
         color: "#f4f4f5",

@@ -1,3 +1,4 @@
+import { getAgentLabel } from "../rotulos.ts";
 // Painel do inspetor: mostra o estado atual de um agente e as últimas mensagens
 // e eventos dele. Os dados vêm do estado da missão; o painel não guarda nada.
 
@@ -105,7 +106,7 @@ export function AgentInspector({ agenteId, estado, onFechar }: Props) {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-        <CardTitle className="text-lg">{agente?.nome ?? agenteId}</CardTitle>
+        <CardTitle className="text-lg">{getAgentLabel(agenteId)}</CardTitle>
         <Button variant="ghost" size="icon" onClick={onFechar} aria-label="Fechar inspetor">
           <X className="size-4" />
         </Button>
