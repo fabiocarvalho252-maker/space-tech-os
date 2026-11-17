@@ -96,10 +96,18 @@ test("cancelar a missão em andamento marca como cancelada", async () => {
   assert.equal(coletar(repo, missao.id).at(-1)?.tipo, "missao.cancelada");
 });
 
-test("ambiente do SDK não leva chave de API, mas mantém o resto", async () => {
+test("ambiente do SDK só leva variáveis da lista permitida", async () => {
   const { ambienteSemChaveApi } = await import("./executar.ts");
-  const limpo = ambienteSemChaveApi({ ANTHROPIC_API_KEY: "x", ANTHROPIC_AUTH_TOKEN: "y", HOME: "/root", PATH: "/bin" });
+  const limpo = ambienteSemChaveApi({
+    ANTHROPIC_API_KEY: "x",
+    ANTHROPIC_AUTH_TOKEN: "y",
+    SUPABASE_SERVICE_ROLE_KEY: "z",
+    ADMIN_EMAIL: "a@b.c",
+    HOME: "/root",
+    PATH: "/bin",
+  });
   assert.equal("ANTHROPIC_API_KEY" in limpo, false);
-  assert.equal("ANTHROPIC_AUTH_TOKEN" in limpo, false);
+  assert.equal("SUPABASE_SERVICE_ROLE_KEY" in limpo, false);
+  assert.equal("ADMIN_EMAIL" in limpo, false);
   assert.equal(limpo["HOME"], "/root");
 });

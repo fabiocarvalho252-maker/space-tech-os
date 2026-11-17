@@ -19,12 +19,14 @@ export type LimitesExecucao = {
 
 // O runner usa só o login do plano Claude (claude.ai). Se houver chave de API
 // no ambiente, o SDK cobraria da API; por isso ela é removida do ambiente filho.
+// Lista permitida: o agente não herda segredos do runner (service role, chaves, e-mails).
+const VARIAVEIS_PERMITIDAS = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "USER", "TMPDIR", "CLAUDE_CONFIG_DIR"];
+
 export function ambienteSemChaveApi(ambiente: NodeJS.ProcessEnv): Record<string, string> {
   const copia: Record<string, string> = {};
-  for (const [chave, valor] of Object.entries(ambiente)) {
-    if (valor === undefined) continue;
-    if (chave === "ANTHROPIC_API_KEY" || chave === "ANTHROPIC_AUTH_TOKEN") continue;
-    copia[chave] = valor;
+  for (const chave of VARIAVEIS_PERMITIDAS) {
+    const valor = ambiente[chave];
+    if (valor !== undefined) copia[chave] = valor;
   }
   return copia;
 }

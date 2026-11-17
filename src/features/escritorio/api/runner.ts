@@ -48,6 +48,11 @@ export const decidirAprovacaoReal = (aprovacaoId: string, decision: "permitir" |
     body: JSON.stringify({ decision }),
   });
 
+export const eventosDaMissaoReal = (missaoId: string) =>
+  chamar<{ eventos: import("../tipos.ts").EventoEscritorio[] }>(
+    `/missions/${encodeURIComponent(missaoId)}/events`,
+  );
+
 export const cancelarMissaoReal = (missaoId: string) =>
   chamar<{ ok: boolean }>(`/missions/${encodeURIComponent(missaoId)}/cancel`, { method: "POST" });
 

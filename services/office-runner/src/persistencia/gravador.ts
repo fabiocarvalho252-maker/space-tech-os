@@ -15,6 +15,7 @@ export type ClienteBanco = {
 
 export const TAMANHO_LOTE = 50;
 export const INTERVALO_LOTE_MS = 500;
+export const TENTATIVAS_LOTE = 3;
 
 export type MissaoNova = {
   id: string;
@@ -57,17 +58,32 @@ export function criarGravador(cliente: ClienteBanco, onErro: (mensagem: string) 
     if (erro) onErro(`${contexto}: ${erro.message}`);
   };
 
-  async function esvaziar(): Promise<void> {
-    if (timer) clearTimeout(timer);
-    timer = null;
+  // Flushes em série: fechar a missão espera o lote em andamento terminar.
+  let emCurso: Promise<void> = Promise.resolve();
+
+  async function drenar(): Promise<void> {
     while (fila.length) {
       const lote = fila.slice(0, TAMANHO_LOTE);
       fila = fila.slice(TAMANHO_LOTE);
+      await gravarLote(lote);
+    }
+  }
+
+  async function gravarLote(lote: EventoEscritorio[]): Promise<void> {
+    for (let tentativa = 1; tentativa <= TENTATIVAS_LOTE; tentativa++) {
       const r = await cliente
         .from("office_events")
         .upsert(lote.map(linhaDeEvento), { onConflict: "id", ignoreDuplicates: true });
-      falhou("gravar eventos", r.error);
+      if (!r.error) return;
+      if (tentativa === TENTATIVAS_LOTE) falhou("gravar eventos", r.error);
     }
+  }
+
+  function esvaziar(): Promise<void> {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    emCurso = emCurso.then(drenar);
+    return emCurso;
   }
 
   function agendar(): void {

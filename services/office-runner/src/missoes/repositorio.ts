@@ -29,11 +29,13 @@ export function criarRepositorio(agora: () => string = () => new Date().toISOStr
   const todos: EventoEscritorio[] = [];
   const assinantes = new Set<(evento: EventoEscritorio) => void>();
   let sequencia = 0;
+  // Prefixo por subida: ids não se repetem depois de reinício do runner.
+  const prefixoBoot = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   let sequenciaMissao = 0;
 
   function proximoId(): string {
     sequencia += 1;
-    return `evt-${String(sequencia).padStart(10, "0")}`;
+    return `evt-${prefixoBoot}-${String(sequencia).padStart(10, "0")}`;
   }
 
   function publicar(evento: EventoEscritorio): void {
