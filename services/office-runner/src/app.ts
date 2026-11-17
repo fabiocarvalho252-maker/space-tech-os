@@ -16,6 +16,10 @@ import type { EventoEscritorio } from "./tipos.ts";
 import type { Gravador } from "./persistencia/gravador.ts";
 import { registrarRotasEquipe } from "./equipe/rotas.ts";
 import type { RepositorioEquipe } from "./equipe/repositorio.ts";
+import { criarSincronizador } from "./equipe/sincronizar.ts";
+import { registrarRotaSincronizar } from "./equipe/rotaSincronizar.ts";
+import { criarLimiteDiario } from "./equipe/cotaDiaria.ts";
+import { gerarComClaude } from "./equipe/claudeCli.ts";
 
 export type DependenciasApp = {
   config: Config;
@@ -76,6 +80,14 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   const exigir = (request: FastifyRequest) => exigirAdmin(request.headers.authorization, config.ADMIN_EMAIL, deps.verificar);
   const lerCatalogo = () => (deps.catalogo ? deps.catalogo() : carregarCatalogo(deps.claudeHome));
   registrarRotasEquipe(app, { exigir, catalogo: lerCatalogo, repositorio: deps.equipe });
+  const sincronizador = criarSincronizador({
+    claudeHome: deps.claudeHome,
+    catalogo: lerCatalogo,
+    repositorio: deps.equipe,
+    gerar: (prompt) => gerarComClaude(prompt),
+    cota: criarLimiteDiario(config.OFFICE_MAX_LOTES_SYNC_DIA),
+  });
+  registrarRotaSincronizar(app, exigir, sincronizador);
 
   app.setErrorHandler((erro, _request, reply: FastifyReply) => {
     if (erro instanceof AcessoNegado) return reply.code(erro.status).send({ erro: erro.message });

@@ -2,6 +2,7 @@
 // próprio admin; o WebSocket usa um ticket de uso único (o JWT nunca vai na URL).
 import { supabase } from "@/integrations/supabase/client";
 import type { EventoEscritorio } from "../tipos.ts";
+import type { AgentProfile } from "../equipe/tipos.ts";
 
 const BASE = "/office-api";
 const ATRASO_MIN_RECONEXAO_MS = 1000;
@@ -55,6 +56,26 @@ export const eventosDaMissaoReal = (missaoId: string) =>
 
 export const cancelarMissaoReal = (missaoId: string) =>
   chamar<{ ok: boolean }>(`/missions/${encodeURIComponent(missaoId)}/cancel`, { method: "POST" });
+
+export const CHAVE_CONSULTA_EQUIPE = ["office-equipe"] as const;
+
+/** Campos editáveis de um perfil da equipe (o que o admin pode alterar). */
+export type DadosPerfilEquipe = {
+  displayName: string;
+  roleTitle: string;
+  summaryPtBr: string;
+  descriptionPtBr: string;
+  whenToUse: string[];
+  sector: string;
+};
+
+export const listarEquipe = () => chamar<{ perfis: AgentProfile[] }>("/equipe");
+
+export const salvarPerfil = (agentId: string, dados: DadosPerfilEquipe) =>
+  chamar<{ ok: true; perfil: AgentProfile }>(`/equipe/${encodeURIComponent(agentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
 
 // Abre o fluxo de eventos. Reconecta sozinho com atraso crescente e pede o
 // replay a partir do último evento recebido, para não perder nada.

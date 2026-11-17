@@ -9,6 +9,8 @@ const esquema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
   // Missões por dia (UTC). Cada missão consome o limite do plano Pro.
   OFFICE_MAX_MISSOES_DIA: z.coerce.number().int().min(1).max(20).default(3),
+  // Lotes de sincronização da Equipe por dia (UTC). Cada lote consome o plano Pro.
+  OFFICE_MAX_LOTES_SYNC_DIA: z.coerce.number().int().min(1).max(10).default(1),
   ADMIN_EMAIL: z.email().default("admin@spacetech.app"),
   ALLOWED_ORIGIN: z.url().default("https://srmpretech.online"),
   OFFICE_PROJECTS_ROOT: z.string().min(1).default("/srv/office/projects"),

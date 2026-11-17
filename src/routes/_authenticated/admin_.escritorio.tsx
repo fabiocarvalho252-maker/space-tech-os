@@ -25,6 +25,7 @@ import { lazy, Suspense } from "react";
 const OfficeScene3D = lazy(() => import("@/features/escritorio/scene3d/OfficeScene3D"));
 import { OfficeToolbar } from "@/features/escritorio/components/OfficeToolbar";
 import { MissionHistory } from "@/features/escritorio/components/MissionHistory";
+import { Equipe } from "@/features/escritorio/components/Equipe";
 import { useEscritorio } from "@/features/escritorio/hooks/useEscritorio";
 import { listarProjetos } from "@/features/escritorio/api/runner";
 import { useQuery } from "@tanstack/react-query";
@@ -141,10 +142,11 @@ function Escritorio() {
           </Card>
 
           <Tabs defaultValue="eventos">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="eventos">Eventos</TabsTrigger>
               <TabsTrigger value="resultado">Resultado</TabsTrigger>
               <TabsTrigger value="historico">Histórico</TabsTrigger>
+              <TabsTrigger value="equipe">Equipe</TabsTrigger>
             </TabsList>
             <TabsContent value="eventos">
               <EventFeed eventos={estado.eventos} />
@@ -154,6 +156,9 @@ function Escritorio() {
             </TabsContent>
             <TabsContent value="historico">
               <MissionHistory onMostrar={mostrarEventos} />
+            </TabsContent>
+            <TabsContent value="equipe">
+              <Equipe />
             </TabsContent>
           </Tabs>
           {agenteSelecionado && (
