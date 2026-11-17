@@ -43,3 +43,27 @@ export type EventoEscritorio = {
 };
 
 export type ModoPermissao = "seguro" | "automatico";
+
+// Perfil da Equipe em português (espelha src/features/escritorio/equipe/tipos.ts).
+export type TipoEquipe = "agent" | "skill";
+
+export type AparenciaAgente = {
+  seed: string;
+  palette?: string | undefined;
+  accessory?: string | undefined;
+};
+
+export type AgentProfile = {
+  agentId: string;
+  kind: TipoEquipe;
+  displayName: string;
+  roleTitle: string;
+  summaryPtBr: string;
+  descriptionPtBr: string;
+  whenToUse: string[];
+  sector: string;
+  appearance: AparenciaAgente;
+  originalDescription: string;
+  sourceHash: string;
+  edited: boolean;
+};

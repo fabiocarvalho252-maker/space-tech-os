@@ -8,6 +8,7 @@ import { carregarConfig } from "./config.ts";
 import { criarApp } from "./app.ts";
 import type { VerificarToken } from "./autenticacao/admin.ts";
 import { criarGravador, type ClienteBanco } from "./persistencia/gravador.ts";
+import { criarRepositorioEquipe, type ClienteEquipe } from "./equipe/repositorio.ts";
 
 const HOST = "127.0.0.1";
 
@@ -28,15 +29,23 @@ async function main(): Promise<void> {
 
   const claudeHome = config.OFFICE_CLAUDE_HOME || join(homedir(), ".claude");
   // Histórico no banco só com a service role (o runner é o único que grava).
-  const gravador = config.SUPABASE_SERVICE_ROLE_KEY
-    ? criarGravador(
-        createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
-          auth: { persistSession: false, autoRefreshToken: false },
-        }) as unknown as ClienteBanco,
-        (mensagem) => console.error(`[persistência] ${mensagem}`),
-      )
+  const clienteServico = config.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
     : undefined;
-  const app = await criarApp({ config, verificar, consulta: query, claudeHome, ...(gravador ? { gravador } : {}) });
+  const gravador = clienteServico
+    ? criarGravador(clienteServico as unknown as ClienteBanco, (mensagem) => console.error(`[persistência] ${mensagem}`))
+    : undefined;
+  const equipe = clienteServico ? criarRepositorioEquipe(clienteServico as unknown as ClienteEquipe) : undefined;
+  const app = await criarApp({
+    config,
+    verificar,
+    consulta: query,
+    claudeHome,
+    ...(gravador ? { gravador } : {}),
+    equipe,
+  });
   await app.listen({ port: config.PORT, host: HOST });
   app.log.info({ porta: config.PORT, host: HOST }, "office-runner no ar");
 }

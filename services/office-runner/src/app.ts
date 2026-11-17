@@ -14,6 +14,8 @@ import { criarRepositorio, type Repositorio } from "./missoes/repositorio.ts";
 import { readdir } from "node:fs/promises";
 import type { EventoEscritorio } from "./tipos.ts";
 import type { Gravador } from "./persistencia/gravador.ts";
+import { registrarRotasEquipe } from "./equipe/rotas.ts";
+import type { RepositorioEquipe } from "./equipe/repositorio.ts";
 
 export type DependenciasApp = {
   config: Config;
@@ -23,6 +25,8 @@ export type DependenciasApp = {
   catalogo?: () => Promise<ItemCatalogo[]>;
   // Opcional: sem gravador a missão fica só em memória.
   gravador?: Gravador;
+  // Opcional: sem repositório a Equipe lista o catálogo e não salva edições.
+  equipe?: RepositorioEquipe | undefined;
 };
 
 const ESQUEMA_MISSAO = z.object({
@@ -70,6 +74,8 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
   };
 
   const exigir = (request: FastifyRequest) => exigirAdmin(request.headers.authorization, config.ADMIN_EMAIL, deps.verificar);
+  const lerCatalogo = () => (deps.catalogo ? deps.catalogo() : carregarCatalogo(deps.claudeHome));
+  registrarRotasEquipe(app, { exigir, catalogo: lerCatalogo, repositorio: deps.equipe });
 
   app.setErrorHandler((erro, _request, reply: FastifyReply) => {
     if (erro instanceof AcessoNegado) return reply.code(erro.status).send({ erro: erro.message });
@@ -82,7 +88,7 @@ export async function criarApp(deps: DependenciasApp): Promise<FastifyInstance> 
 
   app.get("/office-api/agents", async (request) => {
     await exigir(request);
-    const itens = deps.catalogo ? await deps.catalogo() : await carregarCatalogo(deps.claudeHome);
+    const itens = await lerCatalogo();
     return { itens };
   });
 
