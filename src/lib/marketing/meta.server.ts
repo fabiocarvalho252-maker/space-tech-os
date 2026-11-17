@@ -19,6 +19,7 @@ const ESCOPOS = [
   "pages_manage_posts",
   "instagram_basic",
   "instagram_content_publish",
+  "instagram_manage_insights",
   "business_management",
 ];
 
@@ -86,7 +87,7 @@ function stateValido(state: string): boolean {
   return esperado.length === recebido.length && timingSafeEqual(esperado, recebido);
 }
 
-async function graph<T>(
+export async function graph<T>(
   caminho: string,
   params: Record<string, string>,
   metodo: "GET" | "POST" = "GET",
