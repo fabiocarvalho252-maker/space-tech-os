@@ -52,6 +52,7 @@ import { PublicarConteudo } from "@/components/marketing/PublicarConteudo";
 import { ContaTikTok, EnviarTikTok } from "@/components/marketing/ContaTikTok";
 import { AgendaMarketing } from "@/components/marketing/Agenda";
 import { MetricasInstagram } from "@/components/marketing/MetricasInstagram";
+import { PipelineStatus } from "@/components/marketing/PipelineStatus";
 import { cn } from "@/lib/utils";
 import { ESTILO_STATUS, SeloStatus } from "@/components/marketing/SeloStatus";
 import { EstadoCarregando, EstadoErro } from "@/components/marketing/EstadosMarketing";
@@ -188,10 +189,22 @@ function Conteudo({
 
   return (
     <div>
-      <PageHeader
-        title="Marketing"
-        subtitle="Estratégia, calendário e conteúdos da divulgação do SPACE TECH OS. Só você vê esta área."
-        action={
+      <section className="relative mb-6 overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card p-6 shadow-lg sm:p-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/25 blur-3xl"
+        />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              Administração · SPACE TECH
+            </p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">Marketing</h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Estratégia, calendário e conteúdos da divulgação do SPACE TECH OS. Só você vê esta
+              área.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={onAtualizar} disabled={atualizando}>
               <RefreshCw className={cn("h-4 w-4", atualizando && "animate-spin")} /> Atualizar
@@ -202,8 +215,8 @@ function Conteudo({
               </Link>
             </Button>
           </div>
-        }
-      />
+        </div>
+      </section>
 
       {!data.disponivel ? (
         <EmptyState
@@ -213,7 +226,7 @@ function Conteudo({
         />
       ) : (
         <>
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-border bg-card/60 p-4 text-sm">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <p className="text-muted-foreground">
               <strong className="text-foreground">Nada aqui é publicado sozinho.</strong> Cada
@@ -223,35 +236,18 @@ function Conteudo({
             </p>
           </div>
 
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {(
-              ["AGUARDANDO APROVAÇÃO", "APROVADO", "PUBLICADO", "RASCUNHO"] as StatusMarketing[]
-            ).map((s) => {
-              const e = ESTILO_STATUS[s];
-              const Icone = e.icone;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    setFiltro(s);
-                    setAba("conteudos");
-                    abrir(undefined);
-                  }}
-                  className="group rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
-                >
-                  <span className={cn("inline-flex rounded-lg border p-1.5", e.classe)}>
-                    <Icone className="h-4 w-4" />
-                  </span>
-                  <p className="mt-2 text-2xl font-extrabold">{contagem(s)}</p>
-                  <p className="text-xs text-muted-foreground">{e.rotulo}</p>
-                </button>
-              );
-            })}
-          </div>
+          <PipelineStatus
+            total={data.conteudos.length}
+            contagem={contagem}
+            onEscolher={(s) => {
+              setFiltro(s);
+              setAba("conteudos");
+              abrir(undefined);
+            }}
+          />
 
           <Tabs value={aba} onValueChange={setAba}>
-            <TabsList className="mb-5 flex h-auto flex-wrap justify-start gap-1 rounded-2xl border bg-card/60 p-1.5">
+            <TabsList className="sticky top-2 z-10 mb-6 flex h-auto flex-wrap justify-start gap-1 rounded-full border border-border/70 bg-card/80 p-1.5 shadow-sm backdrop-blur">
               <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
               <TabsTrigger value="agenda">Agenda</TabsTrigger>
               <TabsTrigger value="metricas">Métricas</TabsTrigger>
