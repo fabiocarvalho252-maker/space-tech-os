@@ -27,6 +27,11 @@ import {
 } from "../src/lib/marketing/conteudo.ts";
 
 const RAIZ = join(import.meta.dirname, "..", "marketing");
+// Conteúdo aprovado de exemplo: os arquivos reais mudam de pasta quando são publicados.
+const RAIZ_FIXTURES = join(import.meta.dirname, "fixtures", "marketing");
+const NOME_EXEMPLO = "IG-99-exemplo.md";
+const conteudoExemplo = () =>
+  lerConteudoMarketing(readFileSync(join(RAIZ_FIXTURES, "aprovados", NOME_EXEMPLO), "utf8"), "aprovados", NOME_EXEMPLO);
 
 function todos(): ConteudoMarketing[] {
   const lista: ConteudoMarketing[] = [];
@@ -58,7 +63,7 @@ test("todo arquivo de conteúdo vira um conteúdo completo, com status da pasta"
 });
 
 test("aprovados trazem quem aprovou e as plataformas", () => {
-  const c = porId("IG-01");
+  const c = conteudoExemplo();
   assert.equal(c.status, "APROVADO");
   assert.match(c.aprovacao.aprovadoPor, /Fabio/);
   assert.match(c.aprovacao.plataformas, /Instagram/);
@@ -188,7 +193,7 @@ test("texto de uma linha remove quebras e barras da tabela", () => {
 });
 
 test("publicação: plataformas autorizadas, texto e registro no arquivo", () => {
-  const c = porId("IG-01");
+  const c = conteudoExemplo();
   assert.deepEqual(plataformasPublicaveis(c), ["instagram", "facebook"]);
   assert.deepEqual(plataformasPublicaveis(porId("TT-02")), []);
   assert.deepEqual(plataformasPublicaveis({ ...c, status: "AGUARDANDO APROVAÇÃO" }), []);
@@ -196,7 +201,7 @@ test("publicação: plataformas autorizadas, texto e registro no arquivo", () =>
   assert.match(fb, /utm_source=facebook/);
   assert.doesNotMatch(textoParaPublicar(c, "instagram"), /https:/);
 
-  const original = readFileSync(join(RAIZ, "aprovados", c.arquivo), "utf8");
+  const original = readFileSync(join(RAIZ_FIXTURES, "aprovados", c.arquivo), "utf8");
   const t1 = aplicarPublicacao(original, {
     plataforma: "instagram",
     link: "https://instagram.com/p/AAA",
