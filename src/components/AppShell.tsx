@@ -396,6 +396,15 @@ export function AppShell() {
                 <ShieldCheck className="h-5 w-5" /> Administração do site
               </Link>
             )}
+            {user?.email === SITE_ADMIN_EMAIL && (
+              <Link
+                to="/admin/escritorio"
+                onClick={() => setOpen(false)}
+                className="mb-1 flex w-full items-center gap-3 rounded-xl bg-violet-500/20 px-3 py-3 text-sm font-semibold active:bg-violet-500/30"
+              >
+                <Bot className="h-5 w-5" /> Escritório IA
+              </Link>
+            )}
             <Link
               to="/assinatura"
               onClick={() => setOpen(false)}
@@ -1018,6 +1027,13 @@ function PerfilMenu({ nome, email, onSair }: { nome: string; email?: string; onS
           <DropdownMenuItem asChild>
             <Link to="/admin" className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" /> Administração do site
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {email === "admin@spacetech.app" && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin/escritorio" className="flex items-center gap-2">
+              <Bot className="h-4 w-4" /> Escritório IA
             </Link>
           </DropdownMenuItem>
         )}

@@ -57,6 +57,7 @@ import { Route as AuthenticatedWhatsappFilaRouteImport } from './routes/_authent
 import { Route as AgendarSlugRouteImport } from './routes/agendar.$slug'
 import { Route as CatalogoSlugRouteImport } from './routes/catalogo.$slug'
 import { Route as ConsultaOsIdRouteImport } from './routes/consulta.$osId'
+import { Route as AuthenticatedAdminEscritorioRouteImport } from './routes/_authenticated/admin_.escritorio'
 import { Route as AuthenticatedAdminLandingRouteImport } from './routes/_authenticated/admin_.landing'
 import { Route as AuthenticatedAdminMarketingRouteImport } from './routes/_authenticated/admin_.marketing'
 import { Route as AuthenticatedServicosAdicionarRouteImport } from './routes/_authenticated/servicos_.adicionar'
@@ -310,6 +311,12 @@ const ConsultaOsIdRoute = ConsultaOsIdRouteImport.update({
   path: '/consulta/$osId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminEscritorioRoute =
+  AuthenticatedAdminEscritorioRouteImport.update({
+    id: '/admin_/escritorio',
+    path: '/admin/escritorio',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminLandingRoute =
   AuthenticatedAdminLandingRouteImport.update({
     id: '/admin_/landing',
@@ -388,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/agendar/$slug': typeof AgendarSlugRoute
   '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/admin/escritorio': typeof AuthenticatedAdminEscritorioRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -442,6 +450,7 @@ export interface FileRoutesByTo {
   '/agendar/$slug': typeof AgendarSlugRoute
   '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/admin/escritorio': typeof AuthenticatedAdminEscritorioRoute
   '/admin/landing': typeof AuthenticatedAdminLandingRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
   '/servicos/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -498,6 +507,7 @@ export interface FileRoutesById {
   '/agendar/$slug': typeof AgendarSlugRoute
   '/catalogo/$slug': typeof CatalogoSlugRoute
   '/consulta/$osId': typeof ConsultaOsIdRoute
+  '/_authenticated/admin_/escritorio': typeof AuthenticatedAdminEscritorioRoute
   '/_authenticated/admin_/landing': typeof AuthenticatedAdminLandingRoute
   '/_authenticated/admin_/marketing': typeof AuthenticatedAdminMarketingRoute
   '/_authenticated/servicos_/adicionar': typeof AuthenticatedServicosAdicionarRoute
@@ -554,6 +564,7 @@ export interface FileRouteTypes {
     | '/agendar/$slug'
     | '/catalogo/$slug'
     | '/consulta/$osId'
+    | '/admin/escritorio'
     | '/admin/landing'
     | '/admin/marketing'
     | '/servicos/adicionar'
@@ -608,6 +619,7 @@ export interface FileRouteTypes {
     | '/agendar/$slug'
     | '/catalogo/$slug'
     | '/consulta/$osId'
+    | '/admin/escritorio'
     | '/admin/landing'
     | '/admin/marketing'
     | '/servicos/adicionar'
@@ -663,6 +675,7 @@ export interface FileRouteTypes {
     | '/agendar/$slug'
     | '/catalogo/$slug'
     | '/consulta/$osId'
+    | '/_authenticated/admin_/escritorio'
     | '/_authenticated/admin_/landing'
     | '/_authenticated/admin_/marketing'
     | '/_authenticated/servicos_/adicionar'
@@ -1030,6 +1043,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsultaOsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin_/escritorio': {
+      id: '/_authenticated/admin_/escritorio'
+      path: '/admin/escritorio'
+      fullPath: '/admin/escritorio'
+      preLoaderRoute: typeof AuthenticatedAdminEscritorioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin_/landing': {
       id: '/_authenticated/admin_/landing'
       path: '/admin/landing'
@@ -1099,6 +1119,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedWhatsappConexaoRoute: typeof AuthenticatedWhatsappConexaoRoute
   AuthenticatedWhatsappFilaRoute: typeof AuthenticatedWhatsappFilaRoute
+  AuthenticatedAdminEscritorioRoute: typeof AuthenticatedAdminEscritorioRoute
   AuthenticatedAdminLandingRoute: typeof AuthenticatedAdminLandingRoute
   AuthenticatedAdminMarketingRoute: typeof AuthenticatedAdminMarketingRoute
   AuthenticatedServicosAdicionarRoute: typeof AuthenticatedServicosAdicionarRoute
@@ -1136,6 +1157,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedWhatsappConexaoRoute: AuthenticatedWhatsappConexaoRoute,
   AuthenticatedWhatsappFilaRoute: AuthenticatedWhatsappFilaRoute,
+  AuthenticatedAdminEscritorioRoute: AuthenticatedAdminEscritorioRoute,
   AuthenticatedAdminLandingRoute: AuthenticatedAdminLandingRoute,
   AuthenticatedAdminMarketingRoute: AuthenticatedAdminMarketingRoute,
   AuthenticatedServicosAdicionarRoute: AuthenticatedServicosAdicionarRoute,
