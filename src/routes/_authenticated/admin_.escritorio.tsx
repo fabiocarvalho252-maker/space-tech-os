@@ -14,11 +14,14 @@ import { CommandChat } from "@/features/escritorio/components/CommandChat";
 import { EventFeed } from "@/features/escritorio/components/EventFeed";
 import { MissionResult } from "@/features/escritorio/components/MissionResult";
 import { OfficeCanvas } from "@/features/escritorio/components/OfficeCanvas";
+import { AgentInspector } from "@/features/escritorio/components/AgentInspector";
+import { ReplayControles } from "@/features/escritorio/components/ReplayControles";
 import { OfficeToolbar } from "@/features/escritorio/components/OfficeToolbar";
 import { MissionHistory } from "@/features/escritorio/components/MissionHistory";
 import { useEscritorio } from "@/features/escritorio/hooks/useEscritorio";
 import { listarProjetos } from "@/features/escritorio/api/runner";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/admin_/escritorio")({
   head: () => ({ meta: [{ title: "Escritório IA — Administração do site" }] }),
@@ -47,9 +50,21 @@ function PaginaEscritorio() {
 }
 
 function Escritorio() {
-  const { estado, online, erro, iniciarSimulacao, iniciarReal, cancelar, decidir, mostrarEventos } =
-    useEscritorio();
+  const {
+    estado,
+    online,
+    erro,
+    iniciarSimulacao,
+    iniciarReal,
+    cancelar,
+    decidir,
+    mostrarEventos,
+    replay,
+    reiniciarReplay,
+    temReplay,
+  } = useEscritorio();
   const rodando = estado.status === "rodando";
+  const [agenteSelecionado, setAgenteSelecionado] = useState<string | null>(null);
   const { data: projetos } = useQuery({
     queryKey: ["office-projects"],
     queryFn: () => listarProjetos(),
@@ -66,7 +81,18 @@ function Escritorio() {
       />
 
       <div className="grid gap-5 lg:grid-cols-[1.9fr_1fr]">
-        <OfficeCanvas estado={estado} />
+        <div className="flex flex-col gap-3">
+          <OfficeCanvas estado={estado} onSelecionarAgente={setAgenteSelecionado} />
+          {temReplay && (
+            <ReplayControles
+              tocando={replay.tocando}
+              velocidade={replay.velocidade}
+              onReiniciar={reiniciarReplay}
+              onPausarContinuar={() => (replay.tocando ? replay.pausar() : replay.continuar())}
+              onVelocidade={replay.setVelocidade}
+            />
+          )}
+        </div>
 
         <aside className="flex flex-col gap-4">
           {erro && (
@@ -103,6 +129,13 @@ function Escritorio() {
               <MissionHistory onMostrar={mostrarEventos} />
             </TabsContent>
           </Tabs>
+          {agenteSelecionado && (
+            <AgentInspector
+              agenteId={agenteSelecionado}
+              estado={estado}
+              onFechar={() => setAgenteSelecionado(null)}
+            />
+          )}
         </aside>
       </div>
     </div>

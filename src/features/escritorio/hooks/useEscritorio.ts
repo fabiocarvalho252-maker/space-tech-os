@@ -10,6 +10,7 @@ import {
 } from "../api/runner.ts";
 import { criarSimulador, type DecisaoAprovacao, type Simulador } from "../simulador.ts";
 import type { EventoEscritorio } from "../tipos.ts";
+import { useReplay } from "./useReplay.ts";
 
 export type ModoEscritorio = "simulacao" | "real";
 
@@ -35,17 +36,39 @@ export function useEscritorio() {
     setEstado((atual) => aplicarEvento(atual, evento));
   }, []);
 
+  const [eventosReplay, setEventosReplay] = useState<EventoEscritorio[]>([]);
+  const resultadoReplayRef = useRef<string | null>(null);
+
+  // O replay aplica os eventos no tempo sobre o mesmo estado. O resultado vem do
+  // banco, porque o evento final guardado não o traz.
+  const aplicarNoReplay = useCallback((evento: EventoEscritorio) => {
+    setEstado((atual) => {
+      const proximo = aplicarEvento(atual, evento);
+      return evento.tipo === "missao.concluida"
+        ? { ...proximo, resultado: resultadoReplayRef.current }
+        : proximo;
+    });
+  }, []);
+  const replay = useReplay(eventosReplay, aplicarNoReplay);
+  const { iniciar: iniciarReplay, pausar: pausarReplay } = replay;
+
+  useEffect(() => {
+    if (eventosReplay.length > 0) iniciarReplay();
+  }, [eventosReplay, iniciarReplay]);
+
   const iniciarSimulacao = useCallback(() => {
+    pausarReplay();
     simuladorRef.current?.cancelar();
     setEstado(ESTADO_INICIAL);
     const simulador = criarSimulador({ onEvento: receber });
     simuladorRef.current = simulador;
     simulador.iniciar();
-  }, [receber]);
+  }, [receber, pausarReplay]);
 
   const iniciarReal = useCallback(
     async (prompt: string, projeto: string, modo: "seguro" | "automatico") => {
       setErro(null);
+      pausarReplay();
       simuladorRef.current?.cancelar();
       setEstado(ESTADO_INICIAL);
       try {
@@ -65,7 +88,7 @@ export function useEscritorio() {
         setErro(e instanceof Error ? e.message : "Não foi possível enviar a missão.");
       }
     },
-    [receber],
+    [receber, pausarReplay],
   );
 
   const cancelar = useCallback(() => {
@@ -98,8 +121,27 @@ export function useEscritorio() {
   // O resultado vem da missão no banco: o evento final guardado não o contém.
   const mostrarEventos = useCallback((eventos: EventoEscritorio[], resultado: string | null) => {
     simuladorRef.current?.cancelar();
-    setEstado({ ...aplicarEventos(ESTADO_INICIAL, eventos), resultado: resultado ?? null });
+    resultadoReplayRef.current = resultado;
+    setEstado(ESTADO_INICIAL);
+    setEventosReplay(eventos);
   }, []);
 
-  return { estado, online, erro, iniciarSimulacao, iniciarReal, cancelar, decidir, mostrarEventos };
+  const reiniciarReplay = useCallback(() => {
+    setEstado(ESTADO_INICIAL);
+    iniciarReplay();
+  }, [iniciarReplay]);
+
+  return {
+    estado,
+    online,
+    erro,
+    iniciarSimulacao,
+    iniciarReal,
+    cancelar,
+    decidir,
+    mostrarEventos,
+    replay,
+    reiniciarReplay,
+    temReplay: eventosReplay.length > 0,
+  };
 }

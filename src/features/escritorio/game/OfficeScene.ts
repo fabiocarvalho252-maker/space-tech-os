@@ -29,9 +29,15 @@ export class OfficeScene extends Phaser.Scene {
   private pendente: EstadoMissao | null = null;
   private pronta = false;
   private delegacoesDesenhadas = new Set<string>();
+  private aoSelecionar: ((agenteId: string) => void) | null = null;
 
   constructor() {
     super({ key: "OfficeScene" });
+  }
+
+  // Registra quem recebe o clique num personagem. Passe null para remover.
+  setOnSelecionar(fn: ((agenteId: string) => void) | null): void {
+    this.aoSelecionar = fn;
   }
 
   create(): void {
@@ -48,6 +54,10 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.pendente = null;
     this.posicionarAgentes(estado);
+  }
+
+  private selecionar(agenteId: string): void {
+    this.aoSelecionar?.(agenteId);
   }
 
   private desenharPlanta(): void {
@@ -99,6 +109,7 @@ export class OfficeScene extends Phaser.Scene {
         const espera = posicaoEspera(indiceGlobal);
         sprite = new AgentSprite(this, agente.nome);
         sprite.contorno.setPosition(espera.x, espera.y);
+        sprite.aoClicar(() => this.selecionar(id));
         this.sprites.set(id, sprite);
         this.destinos.set(id, espera);
       }

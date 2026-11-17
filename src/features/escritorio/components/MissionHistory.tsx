@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { History } from "lucide-react";
+import { AlertTriangle, History, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { carregarEventos, listarMissoes } from "../api/historico.ts";
 import type { EventoEscritorio } from "../tipos.ts";
@@ -15,20 +15,42 @@ const ROTULO: Record<string, string> = {
 type Props = { onMostrar: (eventos: EventoEscritorio[], resultado: string | null) => void };
 
 export function MissionHistory({ onMostrar }: Props) {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["office-missions"],
     queryFn: () => listarMissoes(),
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando histórico…</p>;
-  if (error)
+  if (error) {
     return (
-      <p className="text-sm text-destructive">
-        {error instanceof Error ? error.message : "Erro ao carregar."}
-      </p>
+      <div
+        role="alert"
+        className="flex flex-col items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center"
+      >
+        <AlertTriangle className="h-6 w-6 text-destructive" aria-hidden="true" />
+        <p className="font-medium">Não foi possível carregar o histórico</p>
+        <p className="text-sm text-muted-foreground">
+          {error instanceof Error ? error.message : "Erro desconhecido."}
+        </p>
+        <Button size="sm" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+          {isFetching ? "Tentando…" : "Tentar novamente"}
+        </Button>
+      </div>
     );
+  }
   if (!data || data.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhuma missão ainda.</p>;
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
+        <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <p className="font-medium">Nenhuma missão ainda</p>
+        <p className="text-sm text-muted-foreground">
+          Cada missão executada fica registrada aqui, com status, custo e o resultado final.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Ação sugerida: envie um pedido no chat para criar a primeira missão.
+        </p>
+      </div>
+    );
   }
 
   const abrir = async (id: string) => {

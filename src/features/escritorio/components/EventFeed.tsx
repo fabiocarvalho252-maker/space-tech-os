@@ -1,3 +1,4 @@
+import { Radio } from "lucide-react";
 import type { EventoEscritorio } from "../tipos.ts";
 
 const ROTULO_TIPO: Record<EventoEscritorio["tipo"], string> = {
@@ -27,9 +28,16 @@ function horario(ts: string): string {
 export function EventFeed({ eventos }: { eventos: EventoEscritorio[] }) {
   if (eventos.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Nenhum evento ainda. Simule uma missão para começar.
-      </p>
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
+        <Radio className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <p className="font-medium">Nenhum evento ainda</p>
+        <p className="text-sm text-muted-foreground">
+          Os passos dos agentes aparecem aqui conforme a missão roda.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Ação sugerida: envie um pedido no chat ou reproduza uma missão do histórico.
+        </p>
+      </div>
     );
   }
   return (

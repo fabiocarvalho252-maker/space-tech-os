@@ -7,12 +7,20 @@ import type { EstadoMissao } from "../estado.ts";
 import { ALTURA, LARGURA } from "../game/layout.ts";
 import type { OfficeScene } from "../game/OfficeScene.ts";
 
-type Props = { estado: EstadoMissao };
+type Props = {
+  estado: EstadoMissao;
+  onSelecionarAgente?: (agenteId: string) => void;
+};
 
-export function OfficeCanvas({ estado }: Props) {
+export function OfficeCanvas({ estado, onSelecionarAgente }: Props) {
   const areaRef = useRef<HTMLDivElement>(null);
   const cenaRef = useRef<OfficeScene | null>(null);
   const estadoRef = useRef(estado);
+  const selecionarRef = useRef(onSelecionarAgente);
+
+  useEffect(() => {
+    selecionarRef.current = onSelecionarAgente;
+  }, [onSelecionarAgente]);
 
   useEffect(() => {
     let cancelado = false;
@@ -25,6 +33,7 @@ export function OfficeCanvas({ estado }: Props) {
 
       const cena = new Cena();
       cenaRef.current = cena;
+      cena.setOnSelecionar((agenteId) => selecionarRef.current?.(agenteId));
       jogo = new Phaser.Game({
         type: Phaser.AUTO,
         parent: areaRef.current,
@@ -42,6 +51,7 @@ export function OfficeCanvas({ estado }: Props) {
 
     return () => {
       cancelado = true;
+      cenaRef.current?.setOnSelecionar(null);
       cenaRef.current = null;
       jogo?.destroy(true);
     };
@@ -57,7 +67,7 @@ export function OfficeCanvas({ estado }: Props) {
       ref={areaRef}
       role="img"
       aria-label="Escritório com os agentes trabalhando na missão"
-      className="aspect-[3/2] w-full overflow-hidden rounded-3xl border border-primary/20 bg-black shadow-lg shadow-primary/10 [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:[image-rendering:pixelated]"
+      className="aspect-video w-full overflow-hidden lg:aspect-[3/2] rounded-3xl border border-primary/20 bg-black shadow-lg shadow-primary/10 [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:[image-rendering:pixelated]"
     />
   );
 }

@@ -9,6 +9,8 @@ const PALETA = ["#a78bfa", "#8b5cf6", "#c4b5fd", "#e879f9", "#38bdf8", "#f0abfc"
 const LARGURA_BALAO = 190;
 const ESCALA_PIXEL = 3;
 const PULO_CONCLUSAO_PX = 14;
+// Retângulo de clique relativo ao contorno: cobre cabeça e corpo, sem o balão.
+const AREA_CLIQUE = { x: -18, y: -22, largura: 36, altura: 46 } as const;
 
 export function corDoNome(nome: string): number {
   let hash = 0;
@@ -79,6 +81,21 @@ export class AgentSprite {
       this.icone,
       this.balao,
     ]);
+  }
+
+  // Área clicável cobre cabeça e corpo (sem o balão), em coordenadas do contorno.
+  aoClicar(aoSelecionar: () => void): void {
+    this.contorno.setInteractive({
+      hitArea: new Phaser.Geom.Rectangle(
+        AREA_CLIQUE.x,
+        AREA_CLIQUE.y,
+        AREA_CLIQUE.largura,
+        AREA_CLIQUE.altura,
+      ),
+      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+      useHandCursor: true,
+    });
+    this.contorno.on("pointerdown", aoSelecionar);
   }
 
   irPara(x: number, y: number, duracaoMs: number, aoChegar?: () => void): void {
