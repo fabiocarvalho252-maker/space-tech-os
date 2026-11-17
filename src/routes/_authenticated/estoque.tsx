@@ -50,6 +50,7 @@ import { HistoricoEstoqueDialog } from "@/components/HistoricoEstoqueDialog";
 import { AjustarEstoqueDialog } from "@/components/AjustarEstoqueDialog";
 import { enviarImagemProduto, removerImagemProduto } from "@/lib/produto-imagem";
 import { BuscarImagemWebDialog } from "@/components/BuscarImagemWebDialog";
+import { EntradasNotaPendentes } from "@/components/estoque/EntradasNotaPendentes";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({
@@ -469,6 +470,8 @@ function Estoque() {
           </div>
         }
       />
+
+      <EntradasNotaPendentes />
 
       {baixoEstoque.length > 0 && (
         <div className="mb-6 flex items-start gap-4 rounded-2xl border border-destructive/20 bg-destructive/5 p-4 text-destructive">

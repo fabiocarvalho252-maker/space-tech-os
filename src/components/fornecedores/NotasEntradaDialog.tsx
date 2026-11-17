@@ -8,7 +8,11 @@ import { somenteDigitos } from "@/lib/documento";
 import { dataHoraBR } from "@/lib/format";
 import { lerXmlNota, type NotaEntrada } from "@/lib/nota-entrada/nfe-xml";
 import { sugerirProduto, type ProdutoCadastrado } from "@/lib/nota-entrada/casar-itens";
-import { montarItensImportacao, type LinhaImportacao } from "@/lib/nota-entrada/montar-itens";
+import {
+  montarItensImportacao,
+  precoComMargem,
+  type LinhaImportacao,
+} from "@/lib/nota-entrada/montar-itens";
 import { imagemParaJpegBase64 } from "@/lib/nota-entrada/imagem";
 import { lerNotaFotoIA } from "@/lib/nota-entrada/nota-foto.functions";
 import { Button } from "@/components/ui/button";
@@ -52,6 +56,7 @@ export function NotasEntradaDialog({
   const { formatFinancialValue: brl } = useFinancialVisibility();
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [lendoFoto, setLendoFoto] = useState(false);
+  const [margemTexto, setMargemTexto] = useState("");
 
   const fornecedorId = fornecedor?.id ?? "";
 
@@ -76,7 +81,7 @@ export function NotasEntradaDialog({
     queryFn: async (): Promise<ProdutoCadastrado[]> => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, codigo_barras, sku")
+        .select("id, nome, codigo_barras, sku, preco_venda")
         .neq("categoria", "Serviço")
         .eq("ativo", true)
         .order("nome");
@@ -85,15 +90,21 @@ export function NotasEntradaDialog({
     },
   });
 
+  // Preço de venda atual do produto: aparece no campo de revenda para ser revisto.
+  function precoAtual(produtoId: string | null): number | null {
+    if (!produtoId) return null;
+    return produtos.find((p) => p.id === produtoId)?.preco_venda ?? null;
+  }
+
   function prepararRascunho(nota: NotaEntrada, origem: Rascunho["origem"]) {
     if (nota.chave && notas.some((n) => n.chave_acesso === nota.chave)) {
       toast.error("Esta nota fiscal já foi importada para este fornecedor.");
       return;
     }
-    const linhas = nota.itens.map((item) => ({
-      item,
-      produtoId: sugerirProduto(item, produtos)?.id ?? null,
-    }));
+    const linhas: LinhaImportacao[] = nota.itens.map((item) => {
+      const produtoId = sugerirProduto(item, produtos)?.id ?? null;
+      return { item, produtoId, precoVenda: precoAtual(produtoId) };
+    });
     setRascunho({ nota, linhas, origem });
   }
 
@@ -122,12 +133,40 @@ export function NotasEntradaDialog({
     }
   }
 
-  function definirProduto(indice: number, valor: string) {
+  function atualizarLinha(indice: number, mudanca: Partial<LinhaImportacao>) {
     setRascunho((r) => {
       if (!r) return r;
-      const linhas = r.linhas.map((l, i) =>
-        i === indice ? { ...l, produtoId: valor === CADASTRAR_NOVO ? null : valor } : l,
-      );
+      const linhas = r.linhas.map((l, i) => (i === indice ? { ...l, ...mudanca } : l));
+      return { ...r, linhas };
+    });
+  }
+
+  function definirProduto(indice: number, valor: string) {
+    const produtoId = valor === CADASTRAR_NOVO ? null : valor;
+    atualizarLinha(indice, { produtoId, precoVenda: precoAtual(produtoId) });
+  }
+
+  // Campo vazio vira null: produto novo fica com 0; produto existente mantém o preço atual.
+  function definirPrecoVenda(indice: number, valor: string) {
+    const texto = valor.replace(",", ".").trim();
+    const numero = texto === "" ? null : Number(texto);
+    atualizarLinha(indice, {
+      precoVenda: numero !== null && Number.isFinite(numero) && numero >= 0 ? numero : null,
+    });
+  }
+
+  function aplicarMargem() {
+    const margem = Number(margemTexto.replace(",", "."));
+    if (!Number.isFinite(margem) || margem < 0) {
+      toast.error("Informe uma margem em % (0 ou mais).");
+      return;
+    }
+    setRascunho((r) => {
+      if (!r) return r;
+      const linhas = r.linhas.map((l) => ({
+        ...l,
+        precoVenda: precoComMargem(l.item.custoUnitario, margem),
+      }));
       return { ...r, linhas };
     });
   }
@@ -147,7 +186,7 @@ export function NotasEntradaDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Nota lançada no estoque.");
+      toast.success("Produtos lançados. Aprove a entrada na aba Produtos para entrar no estoque.");
       setRascunho(null);
       qc.invalidateQueries({ queryKey: ["notas-fornecedor", fornecedorId] });
       qc.invalidateQueries({ queryKey: ["compras"] });
@@ -174,8 +213,8 @@ export function NotasEntradaDialog({
         <DialogHeader>
           <DialogTitle>Notas de entrada — {fornecedor?.razao_social}</DialogTitle>
           <DialogDescription>
-            Importe o XML da NF-e ou leia a nota por foto. Os itens entram no estoque só ao
-            confirmar.
+            Importe o XML da NF-e ou leia a nota por foto. Os produtos ficam na aba Produtos
+            aguardando aprovação; o estoque só muda quando você aprovar.
           </DialogDescription>
         </DialogHeader>
 
@@ -276,14 +315,34 @@ export function NotasEntradaDialog({
               </div>
             )}
 
+            <div className="flex flex-wrap items-end gap-2 text-sm">
+              <div className="space-y-1">
+                <Label htmlFor="margem-revenda" className="text-xs">
+                  Margem sobre o custo (%)
+                </Label>
+                <input
+                  id="margem-revenda"
+                  inputMode="decimal"
+                  value={margemTexto}
+                  onChange={(e) => setMargemTexto(e.target.value)}
+                  placeholder="ex.: 80"
+                  className="h-8 w-28 rounded-lg border border-input bg-background px-2 text-xs"
+                />
+              </div>
+              <Button size="sm" variant="outline" onClick={aplicarMargem}>
+                Preencher revenda de todos os itens
+              </Button>
+            </div>
+
             <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2">Item da nota</th>
                     <th className="px-3 py-2 text-right">Qtd</th>
                     <th className="px-3 py-2 text-right">Custo</th>
                     <th className="px-3 py-2">Lançar em</th>
+                    <th className="px-3 py-2 text-right">Valor de revenda</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -314,6 +373,19 @@ export function NotasEntradaDialog({
                           ))}
                         </select>
                       </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          aria-label={`Valor de revenda de ${l.item.descricao}`}
+                          value={l.precoVenda ?? ""}
+                          placeholder="0,00"
+                          onChange={(e) => definirPrecoVenda(i, e.target.value)}
+                          className="h-8 w-28 rounded-lg border border-input bg-background px-2 text-right text-xs"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -326,7 +398,7 @@ export function NotasEntradaDialog({
               </Button>
               <Button onClick={() => confirmar.mutate()} disabled={confirmar.isPending}>
                 {confirmar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirmar e lançar no estoque
+                Lançar produtos (aguarda aprovação)
               </Button>
             </div>
           </>

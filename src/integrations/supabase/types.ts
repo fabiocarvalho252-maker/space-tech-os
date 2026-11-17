@@ -991,6 +991,8 @@ export type Database = {
       };
       compras: {
         Row: {
+          entrada_aprovada_em: string | null;
+          nota_importada: boolean;
           chave_acesso: string | null;
           data_emissao: string | null;
           numero_nota: string | null;
@@ -1008,6 +1010,8 @@ export type Database = {
           valor_total: number;
         };
         Insert: {
+          entrada_aprovada_em?: string | null;
+          nota_importada?: boolean;
           chave_acesso?: string | null;
           data_emissao?: string | null;
           numero_nota?: string | null;
@@ -1025,6 +1029,8 @@ export type Database = {
           valor_total?: number;
         };
         Update: {
+          entrada_aprovada_em?: string | null;
+          nota_importada?: boolean;
           chave_acesso?: string | null;
           data_emissao?: string | null;
           numero_nota?: string | null;
@@ -5511,6 +5517,10 @@ export type Database = {
       };
       receber_compra: {
         Args: { p_compra_id: string; p_status?: string };
+        Returns: undefined;
+      };
+      aprovar_entrada_nota: {
+        Args: { p_compra_id: string; p_precos: Json };
         Returns: undefined;
       };
       importar_nota_compra: {

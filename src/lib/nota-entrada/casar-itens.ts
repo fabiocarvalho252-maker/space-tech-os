@@ -7,6 +7,7 @@ export type ProdutoCadastrado = {
   nome: string;
   codigo_barras: string | null;
   sku: string | null;
+  preco_venda?: number | null;
 };
 
 export function normalizarNome(nome: string): string {

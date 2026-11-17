@@ -155,8 +155,8 @@ test("monta payload com produto vinculado ou cadastrado como novo", async () => 
 
   // Act
   const itens = montarItensImportacao([
-    { item: tela, produtoId: "p1" },
-    { item: pelicula, produtoId: null },
+    { item: tela, produtoId: "p1", precoVenda: 300 },
+    { item: pelicula, produtoId: null, precoVenda: null },
   ]);
 
   // Assert
@@ -168,7 +168,16 @@ test("monta payload com produto vinculado ou cadastrado como novo", async () => 
     descricao: "Tela iPhone 11 Original",
     quantidade: 2,
     custo_unitario: 150.5,
+    preco_venda: 300,
   });
   assert.equal((itens[1] as { produto_id: unknown }).produto_id, null);
+  assert.equal((itens[1] as { preco_venda: unknown }).preco_venda, null);
   assert.equal((itens[1] as { codigo_barras: unknown }).codigo_barras, null);
+});
+
+test("calcula valor de revenda pela margem sobre o custo", async () => {
+  const { precoComMargem } = await import("../src/lib/nota-entrada/montar-itens.ts");
+  assert.equal(precoComMargem(150.5, 100), 301);
+  assert.equal(precoComMargem(3.2, 50), 4.8);
+  assert.equal(precoComMargem(10, 0), 10);
 });
